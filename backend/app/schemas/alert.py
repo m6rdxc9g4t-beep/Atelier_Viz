@@ -46,6 +46,7 @@ class AlertInput(BaseModel):
 class AlertEvent(BaseModel):
     """Une évaluation (historique) : valeur mesurée, condition remplie, déclenchement, actions."""
 
+    id: str | None = Field(default=None, description="Identifiant (complété par le résultat du webhook).")
     at: datetime
     trigger: AlertTrigger
     value: float | None = None

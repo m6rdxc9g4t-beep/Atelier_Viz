@@ -189,3 +189,70 @@ def test_alerts_evaluated_after_refresh_and_removed_with_dataset(client: TestCli
 
     assert client.delete(f"/api/datasets/{ds}").status_code == 204
     assert client.get("/api/alerts").json() == []
+
+
+# --- Concurrence ------------------------------------------------------------------------------
+
+
+def test_slow_webhook_runs_outside_the_lock(client: TestClient, tmp_path: Path) -> None:
+    ds = upload(client)
+    gate: dict[str, asyncio.Event] = {}
+    calls: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(json.loads(request.content)["alerte"])
+        await gate["open"].wait()  # webhook lent
+        return httpx.Response(200, text="ok")
+
+    svc = service(client, tmp_path, handler)
+    hooked = svc.create(
+        AlertInput.model_validate(alert_body(ds, name="Lent", webhook={"url": "http://localhost:5678/hook"}))
+    )
+    other = svc.create(AlertInput.model_validate(alert_body(ds, name="Autre")))
+
+    async def go() -> tuple:
+        gate["open"] = asyncio.Event()
+        slow = asyncio.create_task(svc.evaluate(hooked.id, "manual"))
+        while not calls:
+            await asyncio.sleep(0.01)
+        # Pendant le webhook : l'état est déjà enregistré, les autres évaluations ne sont pas bloquées.
+        recorded = await asyncio.to_thread(svc.get, hooked.id)
+        other_res = await asyncio.wait_for(svc.evaluate(other.id, "manual"), 2)
+        same_res = await asyncio.wait_for(svc.evaluate(hooked.id, "manual"), 2)
+        gate["open"].set()
+        return recorded, other_res, same_res, await slow
+
+    recorded, other_res, same_res, done = asyncio.run(go())
+    assert recorded.met is True and recorded.history[0].fired and recorded.history[0].webhook_status is None
+    assert other_res.met is True and other_res.history[0].fired
+    assert same_res.history[0].met and not same_res.history[0].fired  # anti-rebond : état déjà à jour
+    assert calls == ["Lent"]  # un seul appel de webhook
+    fired = next(e for e in done.history if e.fired)
+    assert fired.webhook_status == 200 and fired.id is not None  # résultat rattaché au bon événement
+
+
+def test_rule_changed_during_evaluation_is_ignored(client: TestClient, tmp_path: Path) -> None:
+    ds = upload(client)
+    svc = service(client, tmp_path)
+    alert = svc.create(AlertInput.model_validate(alert_body(ds)))  # 180 > 150
+    asyncio.run(svc.evaluate(alert.id, "manual"))
+    assert svc.get(alert.id).met is True
+
+    real = svc.measure
+    state = {"edit": True}
+
+    def measure_then_edit(rule: AlertInput) -> float | None:
+        value = real(rule)
+        if state["edit"]:  # l'utilisateur change la règle pendant la mesure
+            state["edit"] = False
+            svc.update(alert.id, AlertInput.model_validate(alert_body(ds, threshold=100, comparison="lt")))
+        return value
+
+    svc.measure = measure_then_edit  # type: ignore[method-assign]
+    res = asyncio.run(svc.evaluate(alert.id, "manual"))
+    # La remise à zéro d'`update` n'est pas écrasée par un `met` calculé sur l'ancienne règle.
+    assert res.met is None and res.last_value == 180
+    assert res.history[0].error and "Règle modifiée" in res.history[0].error and not res.history[0].fired
+    assert len(svc.notifications()) == 1
+    # Évaluation suivante sur la nouvelle règle : 180 < 100 est faux.
+    assert asyncio.run(svc.evaluate(alert.id, "manual")).met is False

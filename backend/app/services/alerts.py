@@ -8,9 +8,14 @@
 - Évaluée après chaque actualisation réussie du jeu (`RefreshScheduler.on_refreshed`) et à la demande.
 - Actions : notification dans l'application et / ou webhook via `app/services/actions.py`
   (hors ligne : adresses locales seulement ; l'URL n'est jamais journalisée).
+- Concurrence : un verrou **par alerte** sérialise ses évaluations (l'anti-rebond lit un état à jour) ;
+  l'état est enregistré avant l'appel du webhook, qui se fait **hors verrou** puis complète l'événement.
+  `_record` compare l'empreinte de la règle (`rule_fingerprint`) lue avant la mesure à celle de l'alerte
+  enregistrée : si la règle a changé entre-temps (`update`), le résultat est ignoré (ni état, ni action).
 """
 
 import asyncio
+import hashlib
 import json
 import math
 import os
@@ -72,6 +77,16 @@ def format_number(value: float) -> str:
     return text.replace(",", " ").replace(".", ",")
 
 
+RULE_FIELDS = ("dataset_id", "measure", "filters", "comparison", "threshold", "enabled")
+STALE = "Règle modifiée pendant l'évaluation : résultat ignoré."
+
+
+def rule_fingerprint(alert: AlertInput) -> str:
+    """Empreinte de ce qui détermine `met` (règle et activation) : un changement invalide une évaluation en cours."""
+    data = alert.model_dump(mode="json", include=set(RULE_FIELDS))
+    return hashlib.sha256(json.dumps(data, sort_keys=True).encode("utf-8")).hexdigest()
+
+
 class AlertService:
     """Registre, évaluation et historique des alertes."""
 
@@ -90,8 +105,8 @@ class AlertService:
         self.is_online = is_online
         self.clock = clock
         self.http_factory = http_factory
-        self._lock = threading.Lock()
-        self._eval_lock = asyncio.Lock()
+        self._lock = threading.Lock()  # fichier alerts.json
+        self._eval_locks: dict[str, asyncio.Lock] = {}  # une évaluation à la fois par alerte
 
     # --- Persistance ----------------------------------------------------------------------------
 
@@ -175,6 +190,7 @@ class AlertService:
             if not any(a.id == alert_id for a in alerts):
                 raise AlertError(f"Alerte « {alert_id} » introuvable.", 404)
             self._write([a for a in alerts if a.id != alert_id], notes)
+        self._eval_locks.pop(alert_id, None)
 
     def forget_dataset(self, dataset_id: str) -> None:
         """Supprime les alertes d'un jeu supprimé."""
@@ -223,11 +239,17 @@ class AlertService:
         )
 
     async def evaluate(self, alert_id: str, trigger: AlertTrigger) -> Alert:
-        """Évalue une alerte, déclenche ses actions au franchissement du seuil, et l'inscrit à l'historique."""
-        async with self._eval_lock:  # évaluations successives : l'anti-rebond lit un état à jour
+        """Évalue une alerte, déclenche ses actions au franchissement du seuil, et l'inscrit à l'historique.
+
+        Verrou propre à l'alerte (les autres alertes s'évaluent en parallèle) ; le webhook est appelé
+        après l'enregistrement de l'état, hors verrou, et son résultat complète l'événement.
+        """
+        lock = self._eval_locks.setdefault(alert_id, asyncio.Lock())
+        async with lock:  # évaluations successives de cette alerte : l'anti-rebond lit un état à jour
             alert = await asyncio.to_thread(self.get, alert_id)
+            fingerprint = rule_fingerprint(alert)
             now = self.clock()
-            event = AlertEvent(at=now, trigger=trigger)
+            event = AlertEvent(id=uuid.uuid4().hex[:12], at=now, trigger=trigger)
             try:
                 value = await asyncio.to_thread(self.measure, alert)
             except AlertError as exc:
@@ -238,24 +260,13 @@ class AlertService:
             if value is None and event.error is None:
                 event.error = "Aucune valeur (jeu vide après filtres) : état inchangé."
             fire = met is True and alert.met is not True and alert.enabled
-            notification: AlertNotification | None = None
-            if fire and value is not None:
-                event.fired = True
-                if alert.notify:
-                    notification = AlertNotification(
-                        id=uuid.uuid4().hex[:12],
-                        alert_id=alert.id,
-                        alert_name=alert.name,
-                        dataset_id=alert.dataset_id,
-                        message=self.message(alert, value),
-                        value=value,
-                        threshold=alert.threshold,
-                        comparison=alert.comparison,
-                        at=now,
-                    )
-                if alert.webhook is not None:
-                    await self._call_webhook(alert, value, now, event)
-            return await asyncio.to_thread(self._record, alert.id, event, met, notification)
+            event.fired = fire and value is not None
+            current, notified = await asyncio.to_thread(self._record, alert.id, fingerprint, event, met)
+        if not (notified and value is not None and current.webhook is not None):
+            return current
+        # Hors verrou : un webhook lent (15 s) ne bloque ni cette alerte ni les autres.
+        await self._call_webhook(current, value, now, event)
+        return await asyncio.to_thread(self._complete, current.id, event)
 
     async def _call_webhook(self, alert: Alert, value: float, now: datetime, event: AlertEvent) -> None:
         assert alert.webhook is not None
@@ -284,21 +295,55 @@ class AlertService:
             if client is not None:
                 await client.aclose()
 
-    def _record(self, alert_id: str, event: AlertEvent, met: bool | None, note: AlertNotification | None) -> Alert:
+    def _record(self, alert_id: str, fingerprint: str, event: AlertEvent, met: bool | None) -> tuple[Alert, bool]:
+        """Enregistre l'évaluation ; (alerte, déclenchée). Ignorée si la règle a changé depuis la lecture."""
         with self._lock:
             alerts, notes = self._read()
             current = next((a for a in alerts if a.id == alert_id), None)
             if current is None:  # supprimée pendant l'évaluation
                 raise AlertError(f"Alerte « {alert_id} » introuvable.", 404)
+            if rule_fingerprint(current) != fingerprint:
+                # `update` a remis l'anti-rebond à zéro pour une autre règle : ne pas l'écraser.
+                event.met, event.fired, event.error = False, False, STALE
+                current.history = [event, *current.history][:MAX_HISTORY]
+                self._write(alerts, notes)
+                return current, False
             if met is not None:
                 current.met = met
                 current.last_value = event.value
             current.last_evaluated_at = event.at
             if event.fired:
                 current.last_fired_at = event.at
+                if current.notify and event.value is not None:
+                    note = AlertNotification(
+                        id=uuid.uuid4().hex[:12],
+                        alert_id=current.id,
+                        alert_name=current.name,
+                        dataset_id=current.dataset_id,
+                        message=self.message(current, event.value),
+                        value=event.value,
+                        threshold=current.threshold,
+                        comparison=current.comparison,
+                        at=event.at,
+                    )
+                    notes = [note, *notes][:MAX_NOTIFICATIONS]
             current.history = [event, *current.history][:MAX_HISTORY]
-            if note is not None:
-                notes = [note, *notes][:MAX_NOTIFICATIONS]
+            self._write(alerts, notes)
+            return current, event.fired
+
+    def _complete(self, alert_id: str, event: AlertEvent) -> Alert:
+        """Ajoute le résultat du webhook à l'événement déjà enregistré."""
+        with self._lock:
+            alerts, notes = self._read()
+            current = next((a for a in alerts if a.id == alert_id), None)
+            if current is None:
+                raise AlertError(f"Alerte « {alert_id} » introuvable.", 404)
+            for i, past in enumerate(current.history):
+                if past.id == event.id:
+                    current.history[i] = past.model_copy(
+                        update={"webhook_status": event.webhook_status, "webhook_error": event.webhook_error}
+                    )
+                    break
             self._write(alerts, notes)
             return current
 

@@ -285,6 +285,7 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | Calcul | `run_query` du moteur : champs validés contre le profil, mesures calculées compilées par `expressions.py`, valeurs en paramètres liés — **jamais de SQL brut**. Mesure vérifiée à l'enregistrement (422 sinon) ; valeur actuelle affichée pendant la saisie |
 | Évaluation | Après chaque actualisation réussie du jeu, à la création, et à la demande (« Évaluer maintenant ») |
 | Anti-rebond | Déclenche au **franchissement** (condition qui devient vraie), pas à chaque évaluation où elle reste vraie ; règle modifiée = état remis à zéro ; valeur vide ou erreur : état inchangé |
+| Concurrence | Verrou **par alerte** (les autres alertes s'évaluent en parallèle) ; état et notification enregistrés avant le webhook, appelé **hors verrou** (résultat rattaché ensuite à l'événement) ; règle modifiée pendant l'évaluation (empreinte `rule_fingerprint` différente) → résultat ignoré (« Règle modifiée pendant l'évaluation »), sans action ni changement d'état |
 | Actions | Notification dans l'application (cloche de l'en-tête, non lues, « Tout marquer comme lu ») et / ou webhook GET / POST via `services/actions.py` (corps : alerte, jeu, valeur, comparaison, seuil, message, date) ; hors ligne : adresses locales seulement |
 | Historique | 50 évaluations par alerte (valeur, condition, déclenchement, statut HTTP ou erreur du webhook) ; 100 notifications ; `data/alerts.json` ; alertes supprimées avec leur jeu |
 

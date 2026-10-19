@@ -25,6 +25,8 @@ export interface AlertInput {
 }
 
 export interface AlertEvent {
+  /** Identifiant (absent des historiques antérieurs). */
+  id?: string | null;
   at: string;
   trigger: AlertTrigger;
   value: number | null;
