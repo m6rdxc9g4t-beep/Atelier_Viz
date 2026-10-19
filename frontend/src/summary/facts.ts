@@ -11,6 +11,7 @@ import type { QueryColumn } from "../types/query";
 import type { Page, Visual } from "../types/report";
 import type { VisualFacts } from "../types/summary";
 import { first, numberFormat, role } from "../visuals/common";
+import { drillView } from "../visuals/drill";
 import { kpiGap } from "../visuals/data/KpiVisual";
 import { buildMatrix } from "../visuals/data/pivot";
 import { bindingKey, bindingLabel } from "../visuals/fields";
@@ -240,6 +241,7 @@ function scatterFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): s
 
 /** Constats chiffrés d'un visuel (liste vide si le visuel n'apporte pas de chiffre). */
 export function visualFacts(visual: Visual, data: FactsData): string[] {
+  visual = drillView(visual); // faits du niveau d'exploration affiché
   if (SKIPPED.has(visual.type) || data.error || !data.result) return [];
   const fmt = numberFormat(visual);
   let facts: string[];

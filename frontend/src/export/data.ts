@@ -5,6 +5,7 @@ import type { DatasetProfile } from "../types/dataset";
 import type { Filter, QueryRequest } from "../types/query";
 import type { Page, Visual } from "../types/report";
 import { first, isReady } from "../visuals/common";
+import { drillView } from "../visuals/drill";
 import { kpiTrendRequest } from "../visuals/data/KpiVisual";
 import { VISUALS } from "../visuals/registry";
 import type { Selection } from "../visuals/types";
@@ -26,6 +27,7 @@ export function visualRequests(
   selection: Selection | null,
   profiles: Map<string, DatasetProfile>,
 ): { filters: Filter[]; main: QueryRequest | null; colors: QueryRequest | null; trend: QueryRequest | null } {
+  visual = drillView(visual); // niveau d'exploration affiché
   const def = VISUALS[visual.type];
   const filters = visualFilters(page, visual, selection, (id) => (id ? new Set(profiles.get(id)?.columns.map((c) => c.name)) : undefined));
   if (!def.query || !isReady(visual, def)) return { filters, main: null, colors: null, trend: null };
@@ -46,6 +48,7 @@ export async function loadVisual(
   selection: Selection | null,
   profiles: Map<string, DatasetProfile>,
 ): Promise<LoadedVisual> {
+  visual = drillView(visual);
   const reqs = visualRequests(page, visual, selection, profiles);
   const [main, colors, trend] = await Promise.allSettled([settle(reqs.main), settle(reqs.colors), settle(reqs.trend)]);
   const colorField = CARTESIAN.has(visual.type) ? first(visual, "series") : first(visual, "category");

@@ -3,7 +3,7 @@
 import type { ChatRequest, ChatResponse, ProvidersResponse } from "../types/ai";
 import type { BuildRequest, BuildResponse } from "../types/builder";
 import type { SummaryRequest, SummaryResponse } from "../types/summary";
-import type { DatasetProfile, DatasetRows, DatasetSummary } from "../types/dataset";
+import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult } from "../types/dataset";
 import type { QueryRequest, QueryResponse } from "../types/query";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
 
@@ -22,6 +22,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** `detail` brut (objet structuré, ex. liste d'erreurs du modèle). */
+    readonly detail?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -39,8 +41,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { detail?: unknown };
-    const detail = typeof body.detail === "string" ? body.detail : `Erreur HTTP ${response.status}`;
-    throw new ApiError(response.status, detail);
+    const raw = body.detail;
+    const message =
+      typeof raw === "string"
+        ? raw
+        : raw && typeof raw === "object" && "message" in raw && typeof raw.message === "string"
+          ? raw.message
+          : `Erreur HTTP ${response.status}`;
+    throw new ApiError(response.status, message, raw);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
@@ -66,6 +74,10 @@ export const api = {
       return request<DatasetProfile>("/datasets", { method: "POST", body: form });
     },
     remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
+    saveModel: (id: string, model: DatasetModel) =>
+      request<DatasetProfile>(`/datasets/${id}/model`, { method: "PUT", body: JSON.stringify(model) }),
+    checkExpression: (id: string, body: ExpressionCheck, signal?: AbortSignal) =>
+      request<ExpressionResult>(`/datasets/${id}/model/check`, { method: "POST", body: JSON.stringify(body), signal }),
   },
 
   query: (body: QueryRequest, signal?: AbortSignal) =>

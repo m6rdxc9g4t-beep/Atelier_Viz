@@ -1,23 +1,26 @@
 import clsx from "clsx";
-import { Search } from "lucide-react";
+import { Calculator, Pencil, Plus, Search, SquareFunction } from "lucide-react";
 import { useState } from "react";
 
 import { TYPE_META } from "../../features/data/FieldsPanel";
 import type { ColumnProfile } from "../../types/dataset";
+import { measureField } from "../../visuals/fields";
 import { VISUALS } from "../../visuals/registry";
-import { FIELD_MIME, useStudioData } from "../context";
+import { FIELD_MIME, type DraggedField, useStudioData } from "../context";
+import { type ModelItemKind, ModelEditor } from "../ModelEditor";
 import { useStudio } from "../store";
 import { Pane } from "./Pane";
 
-/** Volet Données : choix du jeu, champs glissables ; un clic ajoute le champ au visuel sélectionné. */
+/** Volet Données : choix du jeu, champs et mesures glissables ; un clic ajoute le champ au visuel sélectionné. */
 export function DataPane() {
   const { datasets, profiles, activeDatasetId, setActiveDatasetId } = useStudioData();
   const selectedId = useStudio((s) => s.selectedId);
   const report = useStudio((s) => s.report);
   const [search, setSearch] = useState("");
+  const [editor, setEditor] = useState<{ kind: ModelItemKind; initial?: { name: string; expression: string } } | null>(null);
   const profile = activeDatasetId ? profiles.get(activeDatasetId) : undefined;
   const selected = report?.pages.flatMap((p) => p.visuals).find((v) => v.id === selectedId);
-  const used = new Set(selected ? Object.values(selected.roles).flat().map((b) => b.field) : []);
+  const used = new Set(selected ? Object.values(selected.roles).flat().map((b) => `${b.agg === "calc" ? "m" : "c"}:${b.field}`) : []);
 
   const addField = (column: ColumnProfile) => {
     if (!activeDatasetId) return;
@@ -27,12 +30,54 @@ export function DataPane() {
       return;
     }
     // Rien de sélectionné : visuel adapté au type du champ (comme Power BI).
-    const type = column.type === "number" ? "column" : column.type === "date" ? "line" : "table";
+    const type = column.measure ? "kpi" : column.type === "number" ? "column" : column.type === "date" ? "line" : "table";
     const id = s.addVisual(type, activeDatasetId);
     s.dropField(id, column, activeDatasetId);
   };
 
-  const columns = (profile?.columns ?? []).filter((c) => c.name.toLowerCase().includes(search.toLowerCase()));
+  const match = (name: string) => name.toLowerCase().includes(search.toLowerCase());
+  const columns = (profile?.columns ?? []).filter((c) => match(c.name));
+  const measures = (profile?.model?.measures ?? []).filter((m) => match(m.name));
+
+  const item = (field: ColumnProfile, edit?: () => void) => {
+    const { icon: TypeIcon, label } = TYPE_META[field.type];
+    const Icon = field.measure ? Calculator : field.calculated ? SquareFunction : TypeIcon;
+    const isUsed = used.has(`${field.measure ? "m" : "c"}:${field.name}`);
+    const drag: DraggedField = { datasetId: activeDatasetId ?? "", field: field.name, measure: field.measure };
+    const hint = field.measure ? `Mesure calculée = ${field.expression}` : field.calculated ? `Colonne calculée = ${field.expression}` : label;
+    return (
+      <li key={`${field.measure ? "m" : "c"}-${field.name}`} className="group/field flex items-center">
+        <button
+          type="button"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(FIELD_MIME, JSON.stringify(drag));
+            e.dataTransfer.effectAllowed = "copy";
+          }}
+          onClick={() => addField(field)}
+          title={`${hint} — cliquez ou glissez vers un visuel`}
+          className={clsx(
+            "flex min-w-0 flex-1 cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface-2 active:cursor-grabbing",
+            isUsed && "font-semibold",
+          )}
+        >
+          <Icon className="size-3.5 shrink-0 text-accent" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">{field.name}</span>
+          {isUsed && <span className="size-1.5 rounded-full bg-accent" aria-label="utilisé" />}
+        </button>
+        {edit && (
+          <button
+            type="button"
+            onClick={edit}
+            aria-label={`Modifier ${field.name}`}
+            className="rounded p-1 text-muted opacity-0 hover:text-fg focus:opacity-100 group-hover/field:opacity-100"
+          >
+            <Pencil className="size-3" aria-hidden />
+          </button>
+        )}
+      </li>
+    );
+  };
 
   return (
     <Pane title="Données" width="w-56">
@@ -57,34 +102,38 @@ export function DataPane() {
           <Search className="size-3 text-muted" aria-hidden />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un champ" className="min-w-0 flex-1 bg-transparent outline-none" />
         </label>
+        {profile && (
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              onClick={() => setEditor({ kind: "measure" })}
+              className="flex items-center justify-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted hover:border-accent hover:text-accent"
+            >
+              <Plus className="size-3" aria-hidden /> Mesure
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditor({ kind: "column" })}
+              className="flex items-center justify-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted hover:border-accent hover:text-accent"
+            >
+              <Plus className="size-3" aria-hidden /> Colonne
+            </button>
+          </div>
+        )}
       </div>
-      <ul className="p-1.5">
-        {columns.map((c) => {
-          const { icon: Icon, label } = TYPE_META[c.type];
-          return (
-            <li key={c.name}>
-              <button
-                type="button"
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData(FIELD_MIME, JSON.stringify({ datasetId: activeDatasetId, field: c.name }));
-                  e.dataTransfer.effectAllowed = "copy";
-                }}
-                onClick={() => addField(c)}
-                title={`${label} — cliquez ou glissez vers un visuel`}
-                className={clsx(
-                  "flex w-full cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface-2 active:cursor-grabbing",
-                  used.has(c.name) && "font-semibold",
-                )}
-              >
-                <Icon className="size-3.5 shrink-0 text-accent" aria-hidden />
-                <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                {used.has(c.name) && <span className="size-1.5 rounded-full bg-accent" aria-label="utilisé" />}
-              </button>
-            </li>
-          );
-        })}
+      {measures.length > 0 && (
+        <>
+          <p className="px-3 pt-2 text-[10px] font-semibold uppercase tracking-wide text-muted">Mesures</p>
+          <ul className="p-1.5" aria-label="Mesures calculées">
+            {measures.map((m) => item(measureField(m), () => setEditor({ kind: "measure", initial: m })))}
+          </ul>
+        </>
+      )}
+      {measures.length > 0 && <p className="px-3 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted">Colonnes</p>}
+      <ul className="p-1.5" aria-label="Colonnes">
+        {columns.map((c) => item(c, c.calculated ? () => setEditor({ kind: "column", initial: { name: c.name, expression: c.expression ?? "" } }) : undefined))}
       </ul>
+      {editor && profile && <ModelEditor profile={profile} kind={editor.kind} initial={editor.initial} onClose={() => setEditor(null)} />}
     </Pane>
   );
 }

@@ -2,6 +2,7 @@
 
 import math
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 import numpy as np
@@ -60,6 +61,8 @@ def to_json(value: Any) -> Scalar:
         return stamp.date().isoformat() if stamp == stamp.normalize() else stamp.isoformat()
     if isinstance(value, np.generic):
         value = value.item()
+    if isinstance(value, Decimal):
+        value = float(value)  # DuckDB renvoie des DECIMAL (ex. ca * 1.2) : nombre JSON, pas texte
     if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
         return None
     if value is pd.NA:

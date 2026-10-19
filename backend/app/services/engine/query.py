@@ -2,10 +2,13 @@
 
 from typing import Any
 
+import duckdb
+
 from app.schemas.dataset import ColumnType, DatasetProfile, Scalar
 from app.schemas.query import Agg, DateBin, Dimension, Filter, Measure, QueryColumn, QueryRequest, QueryResponse
 from app.services.data.profiling import to_json
 from app.services.engine.database import LocalDatabase, quote_ident
+from app.services.engine.expressions import ExpressionError
 
 NUMERIC_AGGS: set[Agg] = {"sum", "avg", "median"}
 AGG_SQL: dict[Agg, str] = {
@@ -25,6 +28,7 @@ class QueryError(ValueError):
 
 class _Builder:
     def __init__(self, profile: DatasetProfile, table: str) -> None:
+        self.profile = profile
         self.types: dict[str, ColumnType] = {c.name: c.type for c in profile.columns}
         self.table = quote_ident(table)
         self.params: list[Any] = []
@@ -46,6 +50,15 @@ class _Builder:
         return self.binned(dim.field, dim.bin)
 
     def measure(self, m: Measure) -> str:
+        if m.agg == "calc":
+            if not m.field:
+                raise QueryError("Une mesure calculée doit être nommée.")
+            from app.services.data.model import measure_sql  # import local : évite un cycle entre paquets
+
+            try:
+                return measure_sql(self.profile, m.field)
+            except ExpressionError as exc:
+                raise QueryError(exc.message) from exc
         if m.field is None:
             if m.agg not in {"count"}:
                 raise QueryError("Seul « count » peut s'appliquer sans champ.")
@@ -97,7 +110,7 @@ class _Builder:
 
 
 def _measure_type(m: Measure, types: dict[str, ColumnType]) -> ColumnType:
-    if m.agg in {"min", "max"} and m.field:
+    if m.agg in {"min", "max"} and m.field in types:
         return types[m.field]
     return "number"
 
@@ -119,11 +132,10 @@ def run_query(db: LocalDatabase, table: str, profile: DatasetProfile, req: Query
     ] + [QueryColumn(key=m.key, field=m.field, role="measure", type=_measure_type(m, b.types)) for m in req.measures]
 
     where = [b.condition(f) for f in req.filters]
-    sql = f"SELECT {{distinct}}{', '.join(select)} FROM {b.table}"
-    if where:
-        sql += " WHERE " + " AND ".join(where)
-
-    distinct = ""
+    # Préfixe du SELECT calculé AVANT d'assembler le texte : aucun remplacement dans le SQL
+    # (un texte saisi dans une mesure calculée pourrait contenir le motif remplacé).
+    prefix = ""
+    group_by = ""
     if dim_exprs and meas_exprs:
         if req.grouping_sets is not None:
             by_key = dict(zip(dim_keys, dim_exprs, strict=True))
@@ -133,14 +145,17 @@ def run_query(db: LocalDatabase, table: str, profile: DatasetProfile, req: Query
                 if unknown:
                     raise QueryError(f"grouping_sets : dimension(s) inconnue(s) {unknown}.")
                 sets.append("(" + ", ".join(by_key[k] for k in group) + ")")
-            sql += f" GROUP BY GROUPING SETS ({', '.join(sets)})"
-            sql = sql.replace("{distinct}", f'GROUPING({", ".join(dim_exprs)}) AS "__grouping", ')
+            group_by = f" GROUP BY GROUPING SETS ({', '.join(sets)})"
+            prefix = f'GROUPING({", ".join(dim_exprs)}) AS "__grouping", '
             columns.insert(0, QueryColumn(key="__grouping", field=None, role="grouping", type="number"))
         else:
-            sql += " GROUP BY " + ", ".join(dim_exprs)
+            group_by = " GROUP BY " + ", ".join(dim_exprs)
     elif dim_exprs:
-        distinct = "DISTINCT "
-    sql = sql.replace("{distinct}", distinct)
+        prefix = "DISTINCT "
+    sql = f"SELECT {prefix}{', '.join(select)} FROM {b.table}"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += group_by
 
     valid_keys = {c.key for c in columns}
     order = []
@@ -154,7 +169,10 @@ def run_query(db: LocalDatabase, table: str, profile: DatasetProfile, req: Query
         sql += " ORDER BY " + ", ".join(order)
     sql += f" LIMIT {req.limit + 1}"
 
-    _, rows = db.execute(sql, b.params)
+    try:
+        _, rows = db.execute(sql, b.params)
+    except duckdb.Error as exc:
+        raise QueryError(f"Le moteur n'a pas pu exécuter la requête : {exc}") from exc
     truncated = len(rows) > req.limit
     return QueryResponse(
         columns=columns,

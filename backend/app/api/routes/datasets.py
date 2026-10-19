@@ -6,8 +6,16 @@ from typing import Annotated
 from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 
 from app.api.deps import SettingsDep, StoreDep
-from app.schemas.dataset import DatasetProfile, DatasetRows, DatasetSummary
+from app.schemas.dataset import (
+    DatasetModel,
+    DatasetProfile,
+    DatasetRows,
+    DatasetSummary,
+    ExpressionCheck,
+    ExpressionResult,
+)
 from app.services.data import DatasetError, DatasetStore, StoredDataset, read_table
+from app.services.data.model import ModelError
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
@@ -63,6 +71,27 @@ async def get_rows(
     """Lignes paginées, pour l'aperçu tabulaire."""
     dataset = await get_or_404(store, dataset_id)
     return await asyncio.to_thread(store.rows, dataset, offset, limit)
+
+
+@router.put("/{dataset_id}/model", response_model=DatasetProfile)
+async def save_model(dataset_id: str, model: DatasetModel, store: StoreDep) -> DatasetProfile:
+    """Enregistre les colonnes et mesures calculées (tout est validé ; rien n'est modifié en cas d'erreur)."""
+    dataset = await get_or_404(store, dataset_id)
+    try:
+        updated = await asyncio.to_thread(store.set_model, dataset, model)
+    except ModelError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            {"message": "Le modèle contient des erreurs.", "issues": [i.model_dump() for i in exc.issues]},
+        ) from exc
+    return updated.profile()
+
+
+@router.post("/{dataset_id}/model/check", response_model=ExpressionResult)
+async def check_expression(dataset_id: str, check: ExpressionCheck, store: StoreDep) -> ExpressionResult:
+    """Vérifie une expression pendant la saisie : erreur localisée, type et aperçu des valeurs."""
+    dataset = await get_or_404(store, dataset_id)
+    return await asyncio.to_thread(store.check, dataset, check)
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)

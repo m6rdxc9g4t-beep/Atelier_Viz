@@ -154,7 +154,10 @@ describe("édition", () => {
     expect(bestRole(v, region)?.id).toBe("category");
     expect(bindInto(v, VISUALS.column.roles[0]!, region, dataset.id)).toBeNull();
     expect(bindInto(v, VISUALS.column.roles[0]!, dataset.columns[2] as ColumnProfile, dataset.id)).toBeNull();
-    expect(v.roles.category).toEqual([{ field: "produit" }]);
+    // Deux champs dans l'Axe : hiérarchie explorable (région → produit), 4 niveaux au plus.
+    expect(v.roles.category).toEqual([{ field: "region" }, { field: "produit" }]);
+    for (const c of dataset.columns) bindInto(v, VISUALS.column.roles[0]!, c, dataset.id);
+    expect(v.roles.category).toHaveLength(4);
     expect(bindInto(v, VISUALS.column.roles[0]!, region, "autre-jeu")).toMatch(/un seul jeu/);
   });
 

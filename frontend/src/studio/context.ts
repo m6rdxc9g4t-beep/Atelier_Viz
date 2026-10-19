@@ -24,4 +24,6 @@ export const FIELD_MIME = "application/x-atelier-field";
 export interface DraggedField {
   datasetId: string;
   field: string;
+  /** Mesure calculée (et non colonne). */
+  measure?: boolean;
 }

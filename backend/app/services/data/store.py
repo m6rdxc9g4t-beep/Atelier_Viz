@@ -10,9 +10,20 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+import duckdb
 import pandas as pd
 
-from app.schemas.dataset import DatasetProfile, DatasetRows, DatasetSummary, SourceFormat
+from app.schemas.dataset import (
+    DatasetModel,
+    DatasetProfile,
+    DatasetRows,
+    DatasetSummary,
+    ExpressionCheck,
+    ExpressionResult,
+    ModelIssue,
+    SourceFormat,
+)
+from app.services.data.model import ModelError, check_expression, compile_model, profile_calculated, view_ddl
 from app.services.data.profiling import build_profile, records, to_json
 from app.services.engine.database import LocalDatabase, quote_ident
 
@@ -40,6 +51,11 @@ class StoredDataset:
     @property
     def table(self) -> str:
         return f"ds_{self.id}"
+
+    @property
+    def source(self) -> str:
+        """Relation interrogée : la vue (avec colonnes calculées) si le modèle en définit, sinon la table."""
+        return f"v_{self.id}" if self.profile_data.model.columns else self.table
 
     @property
     def name(self) -> str:
@@ -93,7 +109,7 @@ class DatasetStore:
         return [StoredDataset(r[0], DatasetProfile.model_validate(json.loads(r[1]))) for r in rows]
 
     def rows(self, dataset: StoredDataset, offset: int, limit: int) -> DatasetRows:
-        names, rows = self.db.execute(f"SELECT * FROM {quote_ident(dataset.table)} LIMIT ? OFFSET ?", [limit, offset])
+        names, rows = self.db.execute(f"SELECT * FROM {quote_ident(dataset.source)} LIMIT ? OFFSET ?", [limit, offset])
         return DatasetRows(
             columns=names,
             rows=[{n: to_json(v) for n, v in zip(names, row, strict=True)} for row in rows],
@@ -105,9 +121,37 @@ class DatasetStore:
     def remove(self, dataset_id: str) -> bool:
         if self.get(dataset_id) is None:
             return False
+        self.db.execute(f"DROP VIEW IF EXISTS {quote_ident(f'v_{dataset_id}')}")
         self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'ds_{dataset_id}')}")
         self.db.execute("DELETE FROM __datasets WHERE id = ?", [dataset_id])
         return True
+
+    def set_model(self, dataset: StoredDataset, model: DatasetModel) -> StoredDataset:
+        """Valide et enregistre le modèle : vue recréée, colonnes calculées profilées.
+
+        Lève `ModelError` (rien n'est modifié) si une colonne ou une mesure est invalide.
+        """
+        profile = dataset.profile_data
+        base = [c for c in profile.columns if not c.calculated]
+        compiled = compile_model({c.name: c.type for c in base}, model)
+        if compiled.issues:
+            raise ModelError(compiled.issues)
+        previous = view_ddl(dataset.id, compile_model({c.name: c.type for c in base}, profile.model).columns)
+        source = f"v_{dataset.id}" if compiled.columns else dataset.table
+        expressions = {c.name: c.expression for c in model.columns}
+        try:
+            self.db.execute(view_ddl(dataset.id, compiled.columns))
+            calculated = [profile_calculated(self.db, source, c, expressions[c.name]) for c in compiled.columns]
+        except duckdb.Error as exc:
+            self.db.execute(previous)  # la vue précédente est rétablie : rien n'est modifié
+            raise ModelError([ModelIssue(kind="column", name="(modèle)", error=f"Calcul impossible : {exc}")]) from exc
+        updated = profile.model_copy(update={"columns": base + calculated, "model": model})
+        self.db.execute("UPDATE __datasets SET profile = ? WHERE id = ?", [updated.model_dump_json(), dataset.id])
+        return StoredDataset(dataset.id, updated)
+
+    def check(self, dataset: StoredDataset, check: ExpressionCheck) -> ExpressionResult:
+        """Vérifie une expression de l'éditeur (sans rien enregistrer)."""
+        return check_expression(self.db, dataset.profile_data, dataset.source, check)
 
     def _unique_name(self, name: str) -> str:
         _, rows = self.db.execute("SELECT name FROM __datasets")

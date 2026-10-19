@@ -11,7 +11,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.dataset import ColumnType, Scalar
 
-Agg = Literal["sum", "avg", "min", "max", "count", "count_distinct", "median"]
+Agg = Literal["sum", "avg", "min", "max", "count", "count_distinct", "median", "calc"]
+"""`calc` : mesure calculée du modèle du jeu de données (`field` = nom de la mesure)."""
 DateBin = Literal["year", "quarter", "month", "week", "day"]
 FilterOp = Literal["in", "not_in", "eq", "neq", "gt", "gte", "lt", "lte", "between", "contains", "is_null", "not_null"]
 

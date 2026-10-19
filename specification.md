@@ -153,6 +153,27 @@ Bouton **PowerPoint** du Studio (édition et lecture) → fichier `.pptx` 16:9 t
 
 Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus contrôlés en clair et en sombre ; galerie de 24 visuels exportée en 4 s (modifiable) et 8 s (images).
 
+## 5 quinquies. Modélisation : mesures, colonnes calculées, exploration
+
+**Mesures et colonnes calculées** (volet Données → « + Mesure » / « + Colonne ») :
+
+| | Colonne calculée | Mesure calculée |
+|---|---|---|
+| Évaluée | Ligne par ligne | Sur chaque groupe (barre, ligne, sous-total), jamais additionnée |
+| Exemple | `prix_unitaire * 1.2` · `IF(chiffre_affaires >= 5000, "Grosse vente", "Standard")` | `SUM(chiffre_affaires * taux_marge / 100)` · `DIVIDE([Marge], SUM(chiffre_affaires))` |
+| Utilisation | Comme une colonne : axe, légende, filtre, segment, table | Puits de valeurs (`agg: "calc"`, clé `calc(nom)`) |
+| Stockage | Vue DuckDB `v_<id>` = table + colonnes calculées ; profil (types, statistiques) recalculé | Modèle du jeu (`profile.model`), compilée à chaque requête |
+
+- **Langage** : `+ - * /`, comparaisons, `AND/OR/NOT` (ou `ET/OU/NON`), textes entre guillemets, noms entre crochets s'ils contiennent des espaces. Fonctions en anglais ou en français : `SUM/SOMME`, `AVG/MOYENNE`, `COUNT/NB` (`COUNT(*)`, `COUNT(DISTINCT x)`), `COUNT_DISTINCT`, `MIN`, `MAX`, `MEDIAN`, `DIVIDE/DIVISER`, `IF/SI`, `ROUND/ARRONDI`, `ABS`, `COALESCE`, `YEAR/ANNEE`, `MONTH/MOIS`, `CONCAT`.
+- **Sécurité** : aucune expression n'est passée à DuckDB ; elle est analysée (lexer + parseur), typée et recompilée (`quote_ident` pour les noms, littéraux réécrits). Division par zéro = vide. Bornes : 2 000 caractères, 300 éléments, 40 niveaux d'imbrication ; noms sans caractère de contrôle ni invisible ; toute erreur du moteur devient un 422 lisible (jamais un 500). Revue de sécurité indépendante faite : aucune injection possible, 4 défauts de robustesse corrigés et couverts par des tests.
+- **Contrôles** : type (« SUM attend un nombre, pas un texte »), agrégation obligatoire dans une mesure, références circulaires, noms en double, suggestions (« Vouliez-vous dire chiffre_affaires ? »), position de l'erreur soulignée. Un modèle invalide n'est jamais enregistré (HTTP 422 avec la liste des erreurs).
+- **Éditeur** : vérification à la frappe, aperçu (5 premières valeurs ou valeur sur tout le jeu), fonctions et champs insérables, renommage répercuté dans les visuels du rapport, suppression avec avertissement si l'élément est utilisé.
+
+**Exploration (drill-down)** : plusieurs champs dans l'Axe d'un histogramme, de barres, courbes, aires, combiné, secteurs, anneau, treemap, entonnoir ou cascade forment une hiérarchie (4 niveaux au plus).
+- Barre d'exploration du visuel : ↑ monter, ↓ mode exploration (un clic sur une barre ou une part descend dans cet élément au lieu de filtrer), ⇊ niveau suivant pour tous les éléments ; fil d'Ariane (« Occitanie › produit », « region (tout) › produit »).
+- « Hiérarchie de dates » : un champ date devient année › trimestre › mois.
+- État enregistré dans `options.drill` ; requêtes, export PowerPoint et résumé IA utilisent le niveau affiché (`drillView`).
+
 ## 6. Interactions
 
 - **Filtres** (dans l'ordre d'application) : page → segments de la page → sélection par clic dans un autre visuel (filtrage croisé) → filtres du visuel. Ils ne s'appliquent qu'aux visuels du même jeu de données (ou possédant le champ, pour les filtres de page).
@@ -183,7 +204,9 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 | POST | `/api/ai/summary` | Faits d'une page → synthèse vérifiée (`SummaryResponse` : titre, points reliés aux visuels, moteur, éléments écartés) |
 | POST | `/api/datasets` | Import multipart (CSV/XLSX/JSON, 50 Mo) → profil ; persisté dans DuckDB |
 | GET | `/api/datasets` · `/api/datasets/{id}` · `/api/datasets/{id}/rows` | Liste, profil, lignes paginées |
-| DELETE | `/api/datasets/{id}` | Suppression |
+| DELETE | `/api/datasets/{id}` | Suppression (table et vue) |
+| PUT | `/api/datasets/{id}/model` | Colonnes et mesures calculées : validation complète, vue recréée, profil mis à jour (422 + liste d'erreurs sinon) |
+| POST | `/api/datasets/{id}/model/check` | Vérification d'une expression pendant la saisie : erreur localisée, type, aperçu |
 | POST | `/api/query` | Dimensions, mesures (sum, avg, median, min, max, count, count_distinct), filtres (in, not_in, eq, neq, gt, gte, lt, lte, between, contains, is_null, not_null, avec période), tri, limite, `grouping_sets` |
 | GET / POST | `/api/reports` | Liste, création |
 | GET / PUT / DELETE | `/api/reports/{id}` | Lecture, sauvegarde, suppression |
@@ -194,7 +217,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (92) côté back, Vitest (73) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (129) côté back, Vitest (84) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -204,5 +227,5 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 2 bis — Thèmes** ✅ : thème de l'application (clair / sombre / système), thèmes de rapport, styles par visuel, couleurs hexadécimales, import de thèmes Power BI.
 - **Jalon 3 — IA qui construit** ✅ : « Crée un graphique du CA par région » → visuels validés ajoutés au Studio (Claude via `claude -p --json-schema`, Ollama en format JSON). Résumé de page vérifié chiffre par chiffre, insérable dans le rapport et dans les notes PowerPoint.
 - **Jalon 4 — Export PowerPoint** ✅ : diapositives 16:9, graphiques et tableaux natifs modifiables, images pour les visuels sans équivalent, thème du rapport, notes avec les filtres. Reste : export PDF et image d'une page.
-- **Jalon 5 — Modélisation** : colonnes calculées et mesures (expressions SQL DuckDB validées), relations entre tables, hiérarchies et exploration (drill-down).
+- **Jalon 5 — Modélisation** ✅ : mesures et colonnes calculées (langage analysé et compilé, jamais de SQL brut), hiérarchies et exploration (drill-down), hiérarchie de dates. Reste : relations entre tables (jointures entre jeux de données).
 - **Jalon 6 — Partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil (webhook), synchronisation des rapports avec un dépôt GitHub.
