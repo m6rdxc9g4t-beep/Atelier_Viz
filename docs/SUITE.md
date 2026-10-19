@@ -100,7 +100,8 @@ Chaque en-tête d'application porte un **sélecteur « Suite Atelier »** (icôn
 - un indicateur « en marche / arrêtée » est affiché pour les apps qui ont une API (`GET /api/health`, délai 1,5 s, sans bloquer le menu).
 
 Les adresses sont des constantes dans un module dédié (`suite.ts`), surchargeables par variables d'environnement Vite
-(`VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`).
+(`VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`, et, dans Tab, `VITE_ATELIER_PROJETS_API_URL` pour l'adresse de santé de Projets).
+Dans une app, l'état de l'app courante se vérifie sur sa propre origine (`/api/health`), pas à l'adresse fixe.
 
 Nom affiché : **Atelier Viz**, **Atelier Tab**, **Atelier Projets** (avec une espace) dans les titres et en-têtes.
 Les noms techniques (dépôts, dossier `~/Atelier_Tab`, paquets) ne changent pas.
@@ -139,8 +140,13 @@ Correspondance des colonnes (`atelier_mapping`) :
 Identité : chaque élément importé garde `externalRef = "atelier-tab:<source_table.id ?? project.id>:<record_id>"` ; un réimport **met à jour** l'élément au lieu d'en créer un autre.
 Réponse (`200`) : `{ projectId, storyId, created, updated, skipped, warnings: string[], items: [{ recordId, workItemId, action }] }`.
 
-CORS : ces deux routes acceptent les origines `http://127.0.0.1:*`, `http://localhost:*` et `null` (app Electron), méthodes `POST, OPTIONS`,
+CORS : ces deux routes acceptent les origines `http://127.0.0.1:*`, `http://localhost:*` et `null`, méthodes `POST, OPTIONS`,
 en-têtes `Content-Type, Authorization, Idempotency-Key, X-Atelier-Schema-Version`.
+L'app de bureau Tab (origine `app://atelier`) n'envoie pas depuis la page : le processus principal relaie la requête **sans en-tête `Origin`**,
+uniquement vers `http(s)://127.0.0.1|localhost/api/imports/atelier-tab[/preview]` et avec les seuls en-têtes ci-dessus.
+Projets traite une requête sans `Origin` comme un appel local ordinaire (garde `local-only`).
+La réponse peut contenir davantage que le minimum ci-dessus (compteur `unchanged`, détail par ligne, en-tête `Idempotency-Replayed`) ;
+`schema_version` du corps est contrôlé comme l'en-tête (≠ 2.1.0 → 422).
 
 **Tab** propose par défaut l'adresse `http://127.0.0.1:3000/api/imports/atelier-tab` dans le transport webhook (préréglage « Atelier Projets (local) »).
 **Projets** propose aussi l'import d'un fichier JSON DataFlow depuis son interface (aperçu, puis import).
