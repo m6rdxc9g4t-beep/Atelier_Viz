@@ -1,6 +1,6 @@
 /** Liaisons de champs : clés de requête, libellés, valeurs par défaut. */
 
-import type { ColumnProfile, ColumnType } from "../types/dataset";
+import type { CalculatedMeasure, ColumnProfile, ColumnType, DatasetProfile } from "../types/dataset";
 import type { Agg, DateBin, Dimension, Measure } from "../types/query";
 import type { FieldBinding } from "../types/report";
 
@@ -12,6 +12,7 @@ export const AGG_LABELS: Record<Agg, string> = {
   max: "Maximum",
   count: "Nombre",
   count_distinct: "Nombre distinct",
+  calc: "Mesure calculée",
 };
 
 export const BIN_LABELS: Record<DateBin, string> = {
@@ -48,6 +49,7 @@ export function bindingKey(b: FieldBinding): string {
 
 export function bindingLabel(b: FieldBinding): string {
   if (b.label) return b.label;
+  if (b.agg === "calc") return b.field;
   if (b.agg) return `${AGG_LABELS[b.agg]} de ${b.field}`;
   if (b.bin) return `${b.field} (${BIN_LABELS[b.bin]})`;
   return b.field;
@@ -55,9 +57,25 @@ export function bindingLabel(b: FieldBinding): string {
 
 /** Liaison par défaut quand on dépose un champ dans un rôle. */
 export function defaultBinding(column: ColumnProfile, asMeasure: boolean): FieldBinding {
+  if (column.measure) return { field: column.name, agg: "calc" };
   if (asMeasure) {
     const agg: Agg = column.type === "number" ? "sum" : column.type === "boolean" ? "sum" : "count";
     return { field: column.name, agg };
   }
   return column.type === "date" ? { field: column.name, bin: "month" } : { field: column.name };
+}
+
+/** Mesure calculée présentée comme un champ (glisser-déposer, clic). */
+export function measureField(m: CalculatedMeasure): ColumnProfile {
+  return { name: m.name, type: "number", nulls: 0, distinct: 0, min: null, max: null, mean: null, top_values: [], measure: true, expression: m.expression };
+}
+
+/** Champ d'un jeu de données par son nom : colonne (de base ou calculée) ou mesure calculée. */
+export function findField(profile: DatasetProfile | undefined, name: string, measure = false): ColumnProfile | undefined {
+  if (!profile) return undefined;
+  if (measure) {
+    const m = profile.model?.measures.find((x) => x.name === name);
+    return m ? measureField(m) : undefined;
+  }
+  return profile.columns.find((c) => c.name === name);
 }

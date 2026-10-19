@@ -42,9 +42,12 @@ import { ButtonVisual, TextVisual } from "./interactive/ButtonVisual";
 import { SlicerVisual } from "./interactive/SlicerVisual";
 import { GEO_LAYERS } from "./maps/geo";
 import { ChoroplethVisual, PointMapVisual } from "./maps/MapVisuals";
+import { MAX_LEVELS } from "./drill";
 import type { OptionDef, RoleDef, VisualDef } from "./types";
 
 const CATEGORY: RoleDef = { id: "category", label: "Axe", kind: "dimension", max: 1, required: true };
+/** Axe explorable : plusieurs champs = hiérarchie (région → ville), voir `drill.ts`. */
+const HIERARCHY: RoleDef = { ...CATEGORY, max: MAX_LEVELS };
 const LEGEND: RoleDef = { id: "series", label: "Légende", kind: "dimension", max: 1 };
 const VALUES: RoleDef = { id: "values", label: "Valeurs", kind: "measure", required: true };
 const ONE_VALUE: RoleDef = { ...VALUES, max: 1 };
@@ -68,7 +71,7 @@ const chart = (
   label,
   icon,
   group: "Graphiques",
-  roles: [CATEGORY, LEGEND, VALUES],
+  roles: [HIERARCHY, LEGEND, VALUES],
   size: { w: 8, h: 14 },
   defaults: { legend: true, labels: false, sort: "category" },
   options: [LEGEND_OPTION, LABELS_OPTION, ...SORT_OPTIONS, ...NUMBER_OPTIONS],
@@ -94,32 +97,32 @@ export const VISUALS: Record<VisualType, VisualDef> = {
     options: [LEGEND_OPTION, LABELS_OPTION, ...STACK_OPTIONS, ...LINE_OPTIONS, ...NUMBER_OPTIONS],
   }),
   combo: chart("combo", "Combiné barres + courbes", Blend, {
-    roles: [CATEGORY, { id: "values", label: "Colonnes", kind: "measure" }, { id: "lines", label: "Courbes", kind: "measure" }],
+    roles: [HIERARCHY, { id: "values", label: "Colonnes", kind: "measure" }, { id: "lines", label: "Courbes", kind: "measure" }],
     defaults: { legend: true, labels: false, sort: "category", markers: true },
     options: [LEGEND_OPTION, LABELS_OPTION, { key: "stacked", label: "Colonnes empilées", type: "boolean", section: "Affichage" }, ...LINE_OPTIONS, ...NUMBER_OPTIONS],
   }),
   pie: chart("pie", "Secteurs", PieChart, {
-    roles: [{ ...CATEGORY, label: "Légende" }, ONE_VALUE],
+    roles: [{ ...HIERARCHY, label: "Légende" }, ONE_VALUE],
     size: { w: 6, h: 14 },
     defaults: { legend: true, labels: true, sort: "value_desc" },
     options: [LEGEND_OPTION, LABELS_OPTION, ...NUMBER_OPTIONS],
     component: PieVisual,
   }),
   donut: chart("donut", "Anneau", Donut, {
-    roles: [{ ...CATEGORY, label: "Légende" }, ONE_VALUE],
+    roles: [{ ...HIERARCHY, label: "Légende" }, ONE_VALUE],
     size: { w: 6, h: 14 },
     defaults: { legend: true, labels: false, sort: "value_desc" },
     options: [LEGEND_OPTION, LABELS_OPTION, ...NUMBER_OPTIONS],
     component: PieVisual,
   }),
   treemap: chart("treemap", "Treemap", LayoutGrid, {
-    roles: [{ ...CATEGORY, label: "Catégorie" }, ONE_VALUE],
+    roles: [{ ...HIERARCHY, label: "Catégorie" }, ONE_VALUE],
     defaults: { sort: "value_desc", topN: 30 },
     options: [...SORT_OPTIONS, ...NUMBER_OPTIONS],
     component: TreemapVisual,
   }),
   funnel: chart("funnel", "Entonnoir", Triangle, {
-    roles: [{ ...CATEGORY, label: "Étapes" }, ONE_VALUE],
+    roles: [{ ...HIERARCHY, label: "Étapes" }, ONE_VALUE],
     defaults: { sort: "value_desc" },
     options: [...SORT_OPTIONS, ...NUMBER_OPTIONS],
     component: FunnelVisual,
@@ -131,7 +134,7 @@ export const VISUALS: Record<VisualType, VisualDef> = {
     component: RadarVisual,
   }),
   waterfall: chart("waterfall", "Cascade", TrendingDown, {
-    roles: [CATEGORY, ONE_VALUE],
+    roles: [HIERARCHY, ONE_VALUE],
     defaults: { sort: "category" },
     options: [...SORT_OPTIONS, ...NUMBER_OPTIONS],
     component: WaterfallVisual,

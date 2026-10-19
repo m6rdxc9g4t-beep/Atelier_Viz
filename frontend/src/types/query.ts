@@ -2,7 +2,8 @@
 
 import type { ColumnType, Scalar } from "./dataset";
 
-export type Agg = "sum" | "avg" | "min" | "max" | "count" | "count_distinct" | "median";
+/** `calc` : mesure calculée du modèle (`field` = nom de la mesure). */
+export type Agg = "sum" | "avg" | "min" | "max" | "count" | "count_distinct" | "median" | "calc";
 export type DateBin = "year" | "quarter" | "month" | "week" | "day";
 export type FilterOp =
   | "in"

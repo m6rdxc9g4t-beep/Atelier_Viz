@@ -1,10 +1,12 @@
 import clsx from "clsx";
-import { Copy, GripHorizontal, Loader2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsDown, Copy, GripHorizontal, Loader2, Trash2 } from "lucide-react";
 import { type DragEvent, memo, useMemo, useState } from "react";
 
 import type { Page, Report, Visual } from "../types/report";
 import { VisualMessage, isReady } from "../visuals/common";
 import { type VisualStyle, readTheme, titleCss, visualCss } from "../theme/reportTheme";
+import { canDrill, drillCrumbs, drillDown, drillLevels, drillState, drillUp, drillView, nextLevel } from "../visuals/drill";
+import { findField } from "../visuals/fields";
 import { VISUALS } from "../visuals/registry";
 import { defaultTitle } from "../visuals/title";
 import type { VisualActions } from "../visuals/types";
@@ -28,15 +30,25 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
   const selection = useStudio((s) => s.selection);
   const studio = useStudio.getState;
   const [dropping, setDropping] = useState(false);
+  // Mode exploration (Power BI) : un clic sur un élément descend d'un niveau au lieu de filtrer les autres visuels.
+  const [drillMode, setDrillMode] = useState(false);
   const editing = mode === "edit";
   const selected = editing && selectedId === visual.id;
   const dataset = visual.dataset_id ? profiles.get(visual.dataset_id) : undefined;
 
+  // Visuel tel qu'affiché au niveau d'exploration courant (un seul champ d'Axe, chemin en filtres).
+  const view = useMemo(() => drillView(visual), [visual]);
+  const drillable = canDrill(visual);
   const filters = useMemo(
-    () => visualFilters(page, visual, selection, (id) => (id ? new Set(profiles.get(id)?.columns.map((c) => c.name)) : undefined)),
-    [page, visual, selection, profiles],
+    () => visualFilters(page, view, selection, (id) => (id ? new Set(profiles.get(id)?.columns.map((c) => c.name)) : undefined)),
+    [page, view, selection, profiles],
   );
-  const request = def.query ? def.query(visual, filters) : null;
+  const request = def.query ? def.query(view, filters) : null;
+  const setDrill = (state: ReturnType<typeof drillUp>) => {
+    if (!state) return;
+    studio().setOptions(visual.id, { drill: state }, false);
+    if (studio().selection?.visualId === visual.id) studio().setSelection(null);
+  };
   const { result, loading, error } = useQueryResult(request);
 
   const actions: VisualActions = {
@@ -54,14 +66,14 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
     if (!raw || !editing) return;
     e.preventDefault();
     const dragged = JSON.parse(raw) as DraggedField;
-    const column = profiles.get(dragged.datasetId)?.columns.find((c) => c.name === dragged.field);
+    const column = findField(profiles.get(dragged.datasetId), dragged.field, dragged.measure);
     if (column) studio().dropField(visual.id, column, dragged.datasetId);
     studio().select(visual.id);
   };
 
   const Component = def.component;
   let body: React.ReactNode;
-  if (def.query && !isReady(visual, def)) {
+  if (def.query && !isReady(view, def)) {
     const missing = def.roles.filter((r) => r.required && !(visual.roles[r.id]?.length)).map((r) => r.label);
     body = (
       <VisualMessage>
@@ -82,13 +94,21 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
   } else {
     body = (
       <Component
-        visual={visual}
+        visual={view}
         def={def}
         dataset={dataset}
         result={result}
         filters={filters}
         selection={selection}
-        onSelect={(s) => studio().setSelection(s)}
+        onSelect={(s) => {
+          // En mode exploration, le clic sur un élément descend d'un niveau.
+          const value = s?.filters[0]?.values[0];
+          if (drillMode && s && s.visualId === visual.id && value !== undefined) {
+            const next = drillDown(visual, value);
+            if (next) return setDrill(next);
+          }
+          studio().setSelection(s);
+        }}
         setOptions={(patch) => studio().setOptions(visual.id, patch, false)}
         actions={actions}
         editing={editing}
@@ -171,7 +191,57 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
           {result?.truncated && <span className="text-[10px] text-muted" title="Résultat limité : utilisez un Top N ou des filtres">tronqué</span>}
         </header>
       )}
+      {drillable && <DrillBar visual={visual} dataset={dataset} drillMode={drillMode} onToggle={() => setDrillMode((m) => !m)} onChange={setDrill} />}
       <div className="min-h-0 flex-1">{body}</div>
     </section>
   );
 });
+
+/** Barre d'exploration : remonter, mode exploration, niveau suivant, fil d'Ariane. */
+function DrillBar({
+  visual,
+  dataset,
+  drillMode,
+  onToggle,
+  onChange,
+}: {
+  visual: Visual;
+  dataset: Parameters<typeof drillCrumbs>[1];
+  drillMode: boolean;
+  onToggle: () => void;
+  onChange: (state: ReturnType<typeof drillUp>) => void;
+}) {
+  const { level } = drillState(visual);
+  const last = drillLevels(visual).length - 1;
+  const crumbs = drillCrumbs(visual, dataset);
+  const btn = "rounded p-0.5 text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30 disabled:hover:bg-transparent";
+  return (
+    <div className="mb-1 flex min-h-5 items-center gap-0.5 text-[11px]" role="toolbar" aria-label="Exploration">
+      <button type="button" className={btn} disabled={level === 0} onClick={() => onChange(drillUp(visual))} aria-label="Monter d'un niveau" title="Monter d'un niveau">
+        <ArrowUp className="size-3.5" aria-hidden />
+      </button>
+      <button
+        type="button"
+        className={clsx(btn, drillMode && "bg-accent/15 text-accent hover:text-accent")}
+        disabled={level === last}
+        aria-pressed={drillMode}
+        onClick={onToggle}
+        aria-label="Mode exploration : cliquer un élément pour descendre"
+        title="Mode exploration : cliquez un élément pour descendre d'un niveau"
+      >
+        <ArrowDown className="size-3.5" aria-hidden />
+      </button>
+      <button type="button" className={btn} disabled={level === last} onClick={() => onChange(nextLevel(visual))} aria-label="Niveau suivant (tous les éléments)" title="Niveau suivant (tous les éléments)">
+        <ChevronsDown className="size-3.5" aria-hidden />
+      </button>
+      <span className="ml-1 min-w-0 truncate text-muted" title={crumbs.join(" › ")}>
+        {crumbs.map((c, i) => (
+          <span key={`${c}-${i}`}>
+            {i > 0 && <span aria-hidden> › </span>}
+            <span className={i === crumbs.length - 1 ? "font-medium text-fg" : undefined}>{c}</span>
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}

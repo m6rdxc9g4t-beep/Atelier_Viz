@@ -28,6 +28,9 @@ export function bindInto(visual: Visual, role: RoleDef, column: ColumnProfile, d
   if (visual.dataset_id && visual.dataset_id !== datasetId) {
     return "Un visuel utilise un seul jeu de données : créez un autre visuel pour ce jeu.";
   }
+  if (column.measure && role.kind === "dimension") {
+    return `« ${column.name} » est une mesure calculée : déposez-la dans un emplacement de valeurs.`;
+  }
   if (role.types && !role.types.includes(column.type)) {
     return `« ${role.label} » n'accepte pas les champs de type ${column.type}.`;
   }
@@ -43,7 +46,15 @@ export function bindInto(visual: Visual, role: RoleDef, column: ColumnProfile, d
 export function bestRole(visual: Visual, column: ColumnProfile): RoleDef | undefined {
   const def = VISUALS[visual.type];
   const accepts = (r: RoleDef) => !r.types || r.types.includes(column.type);
-  const free = (r: RoleDef) => !r.max || (visual.roles[r.id]?.length ?? 0) < r.max;
+  // L'Axe accepte une hiérarchie (plusieurs champs) en dépôt explicite ; un clic remplit d'abord les autres rôles.
+  const free = (r: RoleDef) => {
+    const cap = r.id === "category" ? 1 : r.max;
+    return !cap || (visual.roles[r.id]?.length ?? 0) < cap;
+  };
+  if (column.measure) {
+    const measures = def.roles.filter((r) => r.kind === "measure");
+    return measures.find(free) ?? measures[0];
+  }
   const name = column.name.toLowerCase();
   const named = def.roles.find((r) => accepts(r) && (name.includes(r.id) || (r.id === "lon" && /lng|long/.test(name))));
   if (named) return named;
@@ -61,9 +72,12 @@ export function convertRoles(visual: Visual, type: VisualType): Record<string, F
   const dims = old.filter((r) => r.kind === "dimension").flatMap((r) => visual.roles[r.id] ?? []);
   const meas = old.filter((r) => r.kind === "measure").flatMap((r) => visual.roles[r.id] ?? []);
   const out: Record<string, FieldBinding[]> = {};
+  // Une hiérarchie d'Axe reste une hiérarchie ; la Légende ne devient pas un niveau d'exploration.
+  const levels = Math.max(1, visual.roles.category?.length ?? 0);
   for (const r of VISUALS[type].roles) {
     const pool = r.kind === "dimension" ? dims : meas;
-    const take = r.max ? pool.splice(0, r.max) : pool.splice(0);
+    const cap = r.id === "category" ? Math.min(levels, r.max ?? levels) : r.max;
+    const take = cap ? pool.splice(0, cap) : pool.splice(0);
     if (take.length) out[r.id] = r.kind === "measure" ? take.map((b) => ({ ...b, agg: b.agg ?? "sum" })) : take.map((b) => ({ ...b, agg: null }));
   }
   return out;
@@ -105,6 +119,8 @@ interface StudioState {
   setTheme: (theme: Record<string, unknown>) => void;
   /** Ajoute des visuels proposés par l'IA (une seule entrée d'historique) ; retourne leurs identifiants. */
   addGenerated: (specs: ProposedVisual[], datasetId: string) => string[];
+  /** Répercute le renommage d'une colonne ou mesure calculée dans les visuels du rapport. */
+  renameField: (datasetId: string, from: string, to: string, measure: boolean) => void;
   /** Insère une zone de texte pleine largeur en haut de la page (les visuels descendent). */
   insertTextAtTop: (text: string, rows: number) => string | null;
   setVisualStyle: (id: string, patch: Record<string, unknown> | null) => void;
@@ -207,6 +223,20 @@ export const useStudio = create<StudioState>((set, get) => {
       set({ selectedId: created[0]?.id ?? null });
       return created.map((v) => v.id);
     },
+
+    renameField: (datasetId, from, to, measure) =>
+      get().mutate((r) => {
+        for (const p of r.pages) {
+          for (const v of p.visuals) {
+            if (v.dataset_id !== datasetId) continue;
+            for (const list of Object.values(v.roles)) {
+              for (const b of list) if (b.field === from && (b.agg === "calc") === measure) b.field = to;
+            }
+            if (!measure) for (const f of v.filters) if (f.field === from) f.field = to;
+          }
+          if (!measure) for (const f of p.filters) if (f.field === from) f.field = to;
+        }
+      }),
 
     insertTextAtTop: (text, rows) => {
       if (!get().page()) return null;

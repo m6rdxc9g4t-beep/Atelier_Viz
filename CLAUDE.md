@@ -29,8 +29,8 @@ cartes hors ligne, boutons d'automatisation, assistant IA (Ollama local ; Claude
 backend/
   main.py                     # create_app() ; lifespan : préférences, DuckDB, rapports, IA
   app/schemas/                # ai, dataset, query (langage de requête), report
-  app/services/engine/        # database.py (DuckDB + verrou), query.py (QueryRequest → SQL paramétré)
-  app/services/data/          # parsing, profiling, store (persistance DuckDB), context (contexte IA)
+  app/services/engine/        # database.py (DuckDB + verrou), query.py (QueryRequest → SQL paramétré), expressions.py (langage des calculs)
+  app/services/data/          # parsing, profiling, store (persistance DuckDB), model (colonnes / mesures calculées), context (contexte IA)
   app/services/reports.py     # ReportRepository (JSON)
   app/services/preferences.py # mode en ligne
   app/services/actions.py     # webhooks des boutons
@@ -66,6 +66,11 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 6. **Code bloquant** (pandas, DuckDB, disque, sous-processus) : `asyncio.to_thread`.
 7. **Tests** : chaque endpoint a un test pytest ; la logique front (pivot, filtres, gabarits, placement des champs) a des tests Vitest. Les tests forcent `claude_mode="api"` sans clé.
 8. **Configuration** : jamais de secret en dur ; tout passe par `app/core/config.py` et `.env`.
+
+## Modélisation
+- Expressions des colonnes / mesures calculées : `app/services/engine/expressions.py` (lexer → parseur → compilation typée). **Ne jamais** concaténer une expression utilisateur dans du SQL : tout passe par ce compilateur.
+- Colonnes calculées : vue `v_<id>` (`StoredDataset.source`) ; toute requête lit `dataset.source`, jamais `dataset.table` directement. Mesures : `agg = "calc"`, compilées à chaque requête (`model.measure_sql`).
+- Exploration : tout code qui lit les rôles d'un visuel pour l'afficher (requête, composant, export, résumé) part de `drillView(visual)`.
 
 ## Règles IA
 - `provider = "ollama" | "anthropic" | "auto"` ; hors ligne, `anthropic` → 403, `auto` → Ollama.

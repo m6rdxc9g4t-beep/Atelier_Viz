@@ -21,7 +21,12 @@ def dataset_context(profile: DatasetProfile) -> str:
             stats.append(f"de {col.min} à {col.max}")
         if col.top_values:
             stats.append("fréquentes : " + ", ".join(v.value for v in col.top_values[:3]))
+        if col.calculated:
+            stats.append(f"colonne calculée = {col.expression}")
         lines.append(f"- {col.name} ({'; '.join(stats)})")
+    if profile.model.measures:
+        lines.append("Mesures calculées (à utiliser telles quelles, déjà agrégées) :")
+        lines.extend(f"- {m.name} = {m.expression}" for m in profile.model.measures)
     sample = json.dumps(profile.sample[:CONTEXT_SAMPLE_ROWS], ensure_ascii=False, default=str)
     lines.append(f"Échantillon ({CONTEXT_SAMPLE_ROWS} premières lignes) : {sample}")
     return "\n".join(lines)

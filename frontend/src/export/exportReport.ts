@@ -9,6 +9,7 @@
 import { getProfile } from "../hooks/useDatasetProfiles";
 import type { DatasetProfile } from "../types/dataset";
 import type { Page, Report, Visual } from "../types/report";
+import { drillView } from "../visuals/drill";
 import { VISUALS } from "../visuals/registry";
 import type { Selection } from "../visuals/types";
 import { type ExportMode, buildVisual, frameGeometry, needsImage } from "./buildVisual";
@@ -138,7 +139,7 @@ export async function exportReport(input: ExportInput): Promise<ExportResult> {
     images.set(
       visual.id,
       await captureVisual({
-        visual,
+        visual: drillView(visual),
         def: VISUALS[visual.type],
         dataset: visual.dataset_id ? profiles.get(visual.dataset_id) : undefined,
         result: loadedVisual.result,
@@ -251,7 +252,7 @@ export async function exportReport(input: ExportInput): Promise<ExportResult> {
     const ordered = planned.page.visuals.filter((v) => planned.band.visuals.includes(v));
     for (const visual of ordered) {
       const built = buildVisual({
-        visual,
+        visual: drillView(visual),
         def: VISUALS[visual.type],
         dataset: visual.dataset_id ? profiles.get(visual.dataset_id) : undefined,
         data: data.get(visual.id) ?? { result: null, error: null, colors: null, trend: null },

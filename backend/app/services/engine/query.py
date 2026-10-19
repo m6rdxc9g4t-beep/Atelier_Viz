@@ -6,6 +6,7 @@ from app.schemas.dataset import ColumnType, DatasetProfile, Scalar
 from app.schemas.query import Agg, DateBin, Dimension, Filter, Measure, QueryColumn, QueryRequest, QueryResponse
 from app.services.data.profiling import to_json
 from app.services.engine.database import LocalDatabase, quote_ident
+from app.services.engine.expressions import ExpressionError
 
 NUMERIC_AGGS: set[Agg] = {"sum", "avg", "median"}
 AGG_SQL: dict[Agg, str] = {
@@ -25,6 +26,7 @@ class QueryError(ValueError):
 
 class _Builder:
     def __init__(self, profile: DatasetProfile, table: str) -> None:
+        self.profile = profile
         self.types: dict[str, ColumnType] = {c.name: c.type for c in profile.columns}
         self.table = quote_ident(table)
         self.params: list[Any] = []
@@ -46,6 +48,15 @@ class _Builder:
         return self.binned(dim.field, dim.bin)
 
     def measure(self, m: Measure) -> str:
+        if m.agg == "calc":
+            if not m.field:
+                raise QueryError("Une mesure calculée doit être nommée.")
+            from app.services.data.model import measure_sql  # import local : évite un cycle entre paquets
+
+            try:
+                return measure_sql(self.profile, m.field)
+            except ExpressionError as exc:
+                raise QueryError(exc.message) from exc
         if m.field is None:
             if m.agg not in {"count"}:
                 raise QueryError("Seul « count » peut s'appliquer sans champ.")
@@ -97,7 +108,7 @@ class _Builder:
 
 
 def _measure_type(m: Measure, types: dict[str, ColumnType]) -> ColumnType:
-    if m.agg in {"min", "max"} and m.field:
+    if m.agg in {"min", "max"} and m.field in types:
         return types[m.field]
     return "number"
 

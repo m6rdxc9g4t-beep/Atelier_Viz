@@ -4,7 +4,8 @@ import { useState } from "react";
 
 import type { Agg, DateBin } from "../../types/query";
 import type { FieldBinding, Visual, VisualType } from "../../types/report";
-import { AGG_LABELS, BIN_LABELS, aggsFor, bindingLabel } from "../../visuals/fields";
+import { DRILLABLE, dateHierarchy } from "../../visuals/drill";
+import { AGG_LABELS, BIN_LABELS, aggsFor, bindingLabel, findField } from "../../visuals/fields";
 import { VISUALS, VISUAL_GROUPS } from "../../visuals/registry";
 import type { OptionDef, RoleDef } from "../../visuals/types";
 import { FIELD_MIME, type DraggedField, useStudioData } from "../context";
@@ -134,7 +135,7 @@ function RoleWell({ visual, role }: { visual: Visual; role: RoleDef }) {
           if (!raw) return;
           e.preventDefault();
           const d = JSON.parse(raw) as DraggedField;
-          const column = profiles.get(d.datasetId)?.columns.find((c) => c.name === d.field);
+          const column = findField(profiles.get(d.datasetId), d.field, d.measure);
           if (column) s().dropField(visual.id, column, d.datasetId, role.id);
         }}
         className={clsx("min-h-8 space-y-1 rounded-md border border-dashed p-1", over ? "border-accent bg-accent/5" : "border-border")}
@@ -152,7 +153,8 @@ function RoleWell({ visual, role }: { visual: Visual; role: RoleDef }) {
                   <X className="size-3" aria-hidden />
                 </button>
               </div>
-              {role.kind === "measure" && (
+              {role.kind === "measure" && b.agg === "calc" && <p className="mt-1 text-[10px] text-muted">Mesure calculée</p>}
+              {role.kind === "measure" && b.agg !== "calc" && (
                 <select
                   aria-label="Agrégation"
                   value={b.agg ?? "sum"}
@@ -185,7 +187,31 @@ function RoleWell({ visual, role }: { visual: Visual; role: RoleDef }) {
           );
         })}
       </div>
+      {role.id === "category" && DRILLABLE.has(visual.type) && <HierarchyHint visual={visual} bindings={bindings} dateField={bindings.length === 1 && profile?.columns.find((c) => c.name === bindings[0]?.field)?.type === "date"} />}
     </div>
+  );
+}
+
+/** Aide à la hiérarchie : explication, ou conversion d'une date en année › trimestre › mois. */
+function HierarchyHint({ visual, bindings, dateField }: { visual: Visual; bindings: FieldBinding[]; dateField: boolean }) {
+  const first = bindings[0];
+  if (bindings.length > 1) {
+    return <p className="mt-1 text-[10px] leading-snug text-muted">Hiérarchie de {bindings.length} niveaux : explorez-la avec les flèches du visuel.</p>;
+  }
+  if (!dateField || !first) return null;
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        useStudio.getState().updateVisual(visual.id, (v) => {
+          v.roles.category = dateHierarchy(first);
+          v.options = { ...v.options, drill: { level: 0, path: [] } };
+        })
+      }
+      className="mt-1 text-[10px] font-medium text-accent hover:underline"
+    >
+      Hiérarchie de dates (année › trimestre › mois)
+    </button>
   );
 }
 
