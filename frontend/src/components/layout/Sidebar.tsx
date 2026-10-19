@@ -22,9 +22,17 @@ const NAV: NavItem[] = [
 export function Sidebar({ route, compact }: { route: Route; compact: boolean }) {
   return (
     <aside className={clsx("flex shrink-0 flex-col border-r border-border bg-surface", compact ? "w-12" : "w-12 lg:w-52")}>
-      <div className="flex h-12 items-center gap-2 border-b border-border px-3.5">
-        <BarChart3 className="size-5 shrink-0 text-accent" aria-hidden />
-        {!compact && <span className="hidden text-sm font-semibold tracking-tight lg:inline">Atelier Viz</span>}
+      <div className="flex h-12 items-center border-b border-border px-2 lg:px-3">
+        <span className="atelier-brand" title="Atelier Viz">
+          <span className="atelier-brand__tile" aria-hidden>
+            <BarChart3 />
+          </span>
+          {!compact && (
+            <span className="atelier-brand__name hidden lg:inline">
+              <span className="atelier-brand__prefix">atelier_</span>Viz
+            </span>
+          )}
+        </span>
       </div>
       <nav className="flex flex-col gap-1 p-1.5" aria-label="Navigation principale">
         {NAV.map(({ label, icon: Icon, path, match }) => {
