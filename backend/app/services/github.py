@@ -1,8 +1,13 @@
 """Synchronisation des rapports avec un dépôt GitHub (API REST, httpx).
 
 - **En ligne uniquement** : toute opération réseau est refusée hors ligne (HTTP 403, message en français).
-- **Rapports uniquement** : les fichiers `<id>.json` des rapports sont envoyés ; jamais les données des jeux,
-  la base DuckDB, les connexions ni les secrets.
+- **Rapports uniquement** : les fichiers `<id>.json` des rapports sont envoyés ; jamais les tables des jeux,
+  la base DuckDB, les connexions ni les secrets du trousseau.
+- **Valeurs privées** : un rapport recopie des valeurs des données (filtres de page et de visuel, sélections
+  des segments, exploration, signets) et peut porter une adresse de webhook secrète. Avec `strip_private`
+  (défaut), elles sont retirées avant l'envoi et, à la récupération, celles du poste sont conservées pour
+  chaque page / visuel / signet existant (`report_privacy.py`). Les empreintes (`SyncRecord`, état) portent
+  sur la forme **partagée** du rapport (celle qui est envoyée).
 - Jeton dans le trousseau du système (`connectors/secrets.py`, clé `github:token`), sinon `GITHUB_TOKEN` ;
   jamais dans `data/github.json`, les journaux ou les réponses API.
 - **Envoyer** : un seul commit par envoi via l'API Git Data (arbre → commit → mise à jour de la branche,
@@ -47,6 +52,7 @@ from app.schemas.github import (
 )
 from app.schemas.report import Report
 from app.services.connectors.secrets import SecretBackend
+from app.services.report_privacy import restore_private, strip_private
 from app.services.reports import ReportRepository
 
 API = "https://api.github.com"
@@ -69,6 +75,12 @@ def report_bytes(report: Report) -> bytes:
     return (json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
+def shared_bytes(report: Report, config: GitHubConfig | None) -> bytes:
+    """Contenu envoyé à GitHub : nettoyé des valeurs privées si l'option est active (défaut)."""
+    strip = config.strip_private if config is not None else True
+    return report_bytes(strip_private(report) if strip else report)
+
+
 def blob_sha(content: bytes) -> str:
     """Empreinte Git d'un fichier (`git hash-object`) : comparée au `sha` renvoyé par GitHub sans télécharger."""
     return hashlib.sha1(b"blob %d\0" % len(content) + content, usedforsecurity=False).hexdigest()
@@ -79,6 +91,7 @@ class _Stored(BaseModel):
 
     config: GitHubConfig | None = None
     account: str | None = None
+    repo_private: bool | None = None
     records: dict[str, SyncRecord] = Field(default_factory=dict)
     last_push: SyncEvent | None = None
     last_pull: SyncEvent | None = None
@@ -131,7 +144,7 @@ class GitHubSync:
         reports = []
         for r in self.reports.all():
             rec = stored.records.get(r.id)
-            local = blob_sha(report_bytes(r))
+            local = blob_sha(shared_bytes(r, stored.config))
             state = "new" if rec is None else ("synced" if rec.local == local else "modified")
             reports.append(ReportSyncState(id=r.id, name=r.name, updated_at=r.updated_at, state=state))
         reports.sort(key=lambda x: x.updated_at, reverse=True)
@@ -141,6 +154,7 @@ class GitHubSync:
             token_from_env=not self.secrets.get(TOKEN_KEY) and bool(self.env_token()),
             online=self.is_online(),
             account=stored.account,
+            repo_private=stored.repo_private,
             last_push=stored.last_push,
             last_pull=stored.last_pull,
             reports=reports,
@@ -149,10 +163,11 @@ class GitHubSync:
     def configure(self, data: GitHubConfigInput) -> GitHubState:
         """Enregistre le dépôt ; le jeton va au trousseau (absent = inchangé, vide = effacé)."""
         stored = self._read()
-        config = GitHubConfig(repo=data.repo, branch=data.branch, folder=data.folder)
-        if stored.config != config:
+        config = GitHubConfig(repo=data.repo, branch=data.branch, folder=data.folder, strip_private=data.strip_private)
+        if not config.same_target(stored.config):
             stored.records = {}  # autre dépôt / branche / dossier : nouvelle base de comparaison
             stored.last_push = stored.last_pull = None
+            stored.repo_private = None
         stored.config = config
         if data.token is not None:
             token = data.token.get_secret_value().strip()
@@ -209,9 +224,12 @@ class GitHubSync:
                 if exc.status_code != 404:
                     raise
                 branch_ok = False
+        private = repo.get("private")
+        private = private if isinstance(private, bool) else None
         with self._lock:
             stored = self._read()
             stored.account = account or None
+            stored.repo_private = private
             self._write(stored)
         if not can_push:
             message = f"Connecté en tant que {account}, mais ce jeton ne peut pas écrire dans {config.repo}."
@@ -229,6 +247,8 @@ class GitHubSync:
             can_push=can_push,
             default_branch=repo.get("default_branch"),
             repo_url=repo.get("html_url"),
+            private=private,
+            warning=public_warning(config) if private is False else None,
         )
 
     def _path(self, config: GitHubConfig, report_id: str) -> str:
@@ -297,7 +317,7 @@ class GitHubSync:
             to_push: list[tuple[Report, bytes, str]] = []
             unchanged, remote_newer, conflicts = 0, [], []
             for report in local:
-                content = report_bytes(report)
+                content = shared_bytes(report, config)
                 if len(content) > MAX_REPORT_BYTES:
                     raise GitHubError(f"Rapport « {report.name} » trop volumineux pour être envoyé.", 413)
                 sha = blob_sha(content)
@@ -332,7 +352,7 @@ class GitHubSync:
                 )
 
             names = [r.name for r, _, _ in to_push]
-            message = (req.message or "").strip() or _commit_message(names)
+            message = (req.message or "").strip() or _commit_message(names, config.strip_private)
             tree = api.post(
                 f"/repos/{owner}/{name}/git/trees",
                 {
@@ -403,7 +423,7 @@ class GitHubSync:
                 path = self._path(config, report_id)
                 rec = stored.records.get(report_id)
                 current = self.reports.get(report_id)
-                local_sha = blob_sha(report_bytes(current)) if current else None
+                local_sha = blob_sha(shared_bytes(current, config)) if current else None
                 if local_sha == remote_sha:
                     result.unchanged += 1
                     stored.records[report_id] = SyncRecord(remote=remote_sha, local=remote_sha, at=now)
@@ -418,14 +438,17 @@ class GitHubSync:
                     continue
                 if current is None:
                     self.reports.put(incoming)
-                    stored.records[report_id] = self._record(incoming, remote_sha, now)
+                    stored.records[report_id] = self._record(incoming, remote_sha, now, config)
                     result.imported.append(incoming.name)
                     continue
+                if config.strip_private:
+                    # Fusion explicite : filtres, sélections, exploration et webhooks restent ceux du poste.
+                    incoming = restore_private(incoming, current)
                 local_changed = rec is None or rec.local != local_sha
                 choice = req.resolutions.get(report_id)
                 if not local_changed or choice == "remote":
                     self.reports.put(incoming)
-                    stored.records[report_id] = self._record(incoming, remote_sha, now)
+                    stored.records[report_id] = self._record(incoming, remote_sha, now, config)
                     result.updated.append(incoming.name)
                 elif choice == "local":
                     # Ce poste l'emporte : la version GitHub devient la base, le prochain envoi la remplacera.
@@ -461,17 +484,34 @@ class GitHubSync:
         result.message = " ".join(parts)
         return result
 
-    def _record(self, report: Report, remote_sha: str, now: datetime) -> SyncRecord:
+    def _record(self, report: Report, remote_sha: str, now: datetime, config: GitHubConfig) -> SyncRecord:
         """Base de comparaison après écriture locale (le fichier local peut différer octet pour octet)."""
         written = self.reports.get(report.id) or report
-        return SyncRecord(remote=remote_sha, local=blob_sha(report_bytes(written)), at=now)
+        return SyncRecord(remote=remote_sha, local=blob_sha(shared_bytes(written, config)), at=now)
 
 
-def _commit_message(names: list[str]) -> str:
+def public_warning(config: GitHubConfig) -> str:
+    """Avertissement affiché quand le dépôt est public."""
+    detail = (
+        "Les filtres, sélections et adresses de webhook sont retirés avant l'envoi, mais la structure des rapports "
+        "(noms des champs, titres, textes) sera visible de tous."
+        if config.strip_private
+        else "ATTENTION : l'option de nettoyage est désactivée, les valeurs des filtres et des sélections "
+        "et les adresses de webhook seraient publiées."
+    )
+    return f"Dépôt PUBLIC : tout ce qui est envoyé est lisible par n'importe qui sur Internet. {detail}"
+
+
+def _commit_message(names: list[str], stripped: bool) -> str:
     shown = ", ".join(f"« {n} »" for n in names[:5])
     more = f" et {len(names) - 5} autre(s)" if len(names) > 5 else ""
     title = f"Atelier Viz : {len(names)} rapport(s) mis à jour"
-    return f"{title}\n\n{shown}{more}.\nEnvoyé depuis Atelier Viz (rapports uniquement, aucune donnée)."
+    what = (
+        "définition des rapports ; filtres, sélections et adresses de webhook retirés"
+        if stripped
+        else "définition des rapports avec filtres, sélections et adresses de webhook ; aucune table de données"
+    )
+    return f"{title}\n\n{shown}{more}.\nEnvoyé depuis Atelier Viz ({what})."
 
 
 def _parse_report(content: bytes, report_id: str) -> Report:

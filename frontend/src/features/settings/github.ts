@@ -34,3 +34,22 @@ export function resultLines(res: PushResult | PullResult): string[] {
   }
   return lines;
 }
+
+/** Ce qui part vers GitHub, selon l'option de nettoyage (texte exact affiché dans les réglages). */
+export function sharedContent(stripPrivate: boolean): { sent: string; removed: string | null; never: string } {
+  return {
+    sent: "un fichier JSON par rapport : pages, visuels, champs utilisés, titres, textes, thème et signets",
+    removed: stripPrivate
+      ? "les valeurs des filtres (page et visuel), les sélections des segments, les chemins d'exploration, l'état des signets et les adresses des boutons webhook"
+      : null,
+    never: "les tables des jeux, la base locale, les connexions, les planifications, les alertes et les mots de passe",
+  };
+}
+
+/** Avertissement de visibilité du dépôt (null : privé ou inconnu). */
+export function visibilityWarning(repoPrivate: boolean | null | undefined, stripPrivate: boolean): string | null {
+  if (repoPrivate !== false) return null;
+  return stripPrivate
+    ? "Dépôt public : la structure des rapports (noms des champs, titres, textes) sera lisible par tout le monde."
+    : "Dépôt public et nettoyage désactivé : les valeurs des filtres et sélections et les adresses de webhook seraient publiées.";
+}

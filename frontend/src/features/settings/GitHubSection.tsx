@@ -7,15 +7,16 @@ import { api } from "../../lib/api";
 import { openExternal } from "../../lib/desktop";
 import type { Conflict, GitHubConfig, GitHubState, GitHubTest, PullResult, PushResult, Resolution } from "../../types/github";
 import { whenLabel } from "../automation/schedule";
-import { STATE_LABEL, configError, pendingCount, resultLines } from "./github";
+import { STATE_LABEL, configError, pendingCount, resultLines, sharedContent, visibilityWarning } from "./github";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const input = "rounded-md border border-border bg-bg px-2 py-1.5 text-xs text-fg";
-const EMPTY: GitHubConfig = { repo: "", branch: "main", folder: "atelier-viz/rapports" };
+const EMPTY: GitHubConfig = { repo: "", branch: "main", folder: "atelier-viz/rapports", strip_private: true };
 
 /**
  * Réglages GitHub : dépôt, branche, dossier, jeton (trousseau) ; « Envoyer » (un commit) et
- * « Récupérer » avec résolution explicite des conflits. Rapports uniquement, jamais de données.
+ * « Récupérer » avec résolution explicite des conflits. Rapports uniquement (jamais les tables des jeux) ;
+ * filtres, sélections et adresses de webhook retirés avant l'envoi sauf si l'utilisateur décoche l'option.
  */
 export function GitHubSection() {
   const id = useId();
@@ -35,7 +36,7 @@ export function GitHubSection() {
       .state()
       .then((s) => {
         setState(s);
-        if (s.config) setForm(s.config);
+        if (s.config) setForm({ ...EMPTY, ...s.config });
       })
       .catch((e: unknown) => setError(message(e)));
   }, []);
@@ -84,6 +85,9 @@ export function GitHubSection() {
   const dirty = !state?.config || JSON.stringify(form) !== JSON.stringify(state.config) || token !== "";
   const ready = !!state?.config && state.has_token;
   const pending = state ? pendingCount(state.reports) : 0;
+  const shared = sharedContent(form.strip_private);
+  const repoPrivate = test?.private ?? state?.repo_private ?? null;
+  const publicWarning = visibilityWarning(repoPrivate, state?.config?.strip_private ?? form.strip_private);
 
   return (
     <section className="rounded-xl border border-border bg-surface p-5" aria-labelledby={`${id}-title`}>
@@ -98,7 +102,15 @@ export function GitHubSection() {
       <p className="mt-2 flex items-start gap-1.5 rounded-md border border-border bg-bg px-3 py-2 text-[11px] text-muted">
         <ShieldCheck className="mt-px size-3.5 shrink-0 text-positive" aria-hidden />
         <span>
-          <strong className="font-medium text-fg">Rapports uniquement.</strong> Seuls les fichiers des rapports (pages, visuels, filtres, signets, thème) partent vers GitHub. Les données des jeux, la base locale, les connexions et les mots de passe restent sur cette machine. Le jeton est rangé dans le trousseau du système.
+          <strong className="font-medium text-fg">Ce qui part :</strong> {shared.sent}.{" "}
+          {shared.removed ? (
+            <>
+              <strong className="font-medium text-fg">Retirés avant l'envoi :</strong> {shared.removed} (ils restent sur ce poste et ne sont pas écrasés à la récupération).{" "}
+            </>
+          ) : (
+            <strong className="font-medium text-negative">Nettoyage désactivé : les valeurs des filtres et des sélections (données réelles) et les adresses de webhook (souvent secrètes) partent aussi. </strong>
+          )}
+          <strong className="font-medium text-fg">Jamais :</strong> {shared.never}. Le jeton est rangé dans le trousseau du système.
         </span>
       </p>
       {!online && (
@@ -128,6 +140,12 @@ export function GitHubSection() {
           <input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder={state?.has_token ? "•••••••• (inchangé)" : "github_pat_…"} autoComplete="off" className={input} />
         </label>
       </div>
+      <label className="mt-3 flex items-start gap-2 text-[11px] text-fg">
+        <input type="checkbox" checked={form.strip_private} onChange={(e) => setForm({ ...form, strip_private: e.target.checked })} className="mt-0.5" />
+        <span>
+          Retirer les sélections, filtres et adresses de webhook avant l'envoi <span className="text-muted">(recommandé)</span>
+        </span>
+      </label>
       <p className="mt-1.5 text-[11px] text-muted">
         Jeton « fine-grained » limité à ce dépôt, permission <em>Contents : Read and write</em>.{" "}
         <button type="button" onClick={() => openExternal("https://github.com/settings/personal-access-tokens/new")} className="inline-flex items-center gap-0.5 text-accent hover:underline">
@@ -159,6 +177,11 @@ export function GitHubSection() {
       </div>
       {form.repo && invalid && <p className="mt-2 text-[11px] text-negative">{invalid}</p>}
       {test && <p className={clsx("mt-2 text-[11px]", test.ok ? "text-positive" : "text-negative")}>{test.message}</p>}
+      {publicWarning && (
+        <p role="alert" className="mt-2 flex items-start gap-1.5 rounded-md border border-negative/50 px-3 py-2 text-[11px] font-medium text-negative">
+          <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden /> {publicWarning}
+        </p>
+      )}
 
       {ready && state && (
         <div className="mt-5 border-t border-border pt-4">

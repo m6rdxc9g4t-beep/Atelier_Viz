@@ -8,6 +8,11 @@ export interface GitHubConfig {
   repo: string;
   branch: string;
   folder: string;
+  /**
+   * Retirer avant l'envoi filtres, sélections, exploration et adresses de webhook (défaut : vrai) ;
+   * à la récupération, ces champs restent ceux du poste.
+   */
+  strip_private: boolean;
 }
 
 /** `token` absent = inchangé ; chaîne vide = effacé. Jamais renvoyé par l'API. */
@@ -34,6 +39,8 @@ export interface GitHubState {
   token_from_env: boolean;
   online: boolean;
   account: string | null;
+  /** Visibilité lue au dernier test de connexion (null = inconnue). */
+  repo_private: boolean | null;
   last_push: SyncEvent | null;
   last_pull: SyncEvent | null;
   reports: ReportSyncState[];
@@ -46,6 +53,9 @@ export interface GitHubTest {
   can_push: boolean | null;
   default_branch: string | null;
   repo_url: string | null;
+  /** false = dépôt public (voir `warning`). */
+  private: boolean | null;
+  warning: string | null;
 }
 
 export interface Conflict {

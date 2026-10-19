@@ -59,7 +59,7 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 | Boutons URL | Ouverture dans le navigateur (action explicite) | Idem |
 | Actualisation planifiée | Sources locales / réseau privé ; SharePoint : exécution **sautée** (statut explicite) | Toutes les sources |
 | Alertes (webhook) | Adresses locales / réseau privé uniquement ; notifications dans l'application toujours | Toute adresse http(s) |
-| Synchronisation GitHub | Refusée (HTTP 403) ; configuration enregistrable | Rapports JSON uniquement, jamais de données |
+| Synchronisation GitHub | Refusée (HTTP 403) ; configuration enregistrable | Rapports JSON uniquement (jamais les tables des jeux) ; filtres, sélections et adresses de webhook retirés par défaut |
 
 Le mode se change dans l'en-tête (pastille « Hors ligne / En ligne ») ou dans Réglages ; il est stocké dans `backend/data/settings.json` et pris en compte immédiatement.
 
@@ -294,7 +294,9 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 |---|---|
 | Configuration | Dépôt `propriétaire/dépôt`, branche (créée au premier envoi depuis la branche par défaut si absente), dossier (`atelier-viz/rapports` par défaut ; pas de `..` ni `.git`) ; `data/github.json` sans secret |
 | Jeton | Jeton « fine-grained » (Contents : lecture / écriture), rangé au trousseau (`github:token`), repli `GITHUB_TOKEN` ; jamais renvoyé (`has_token`), jamais dans un message d'erreur |
-| Ce qui part | **Rapports uniquement** : un fichier `<id>.json` par rapport (pages, visuels, filtres, signets, thème). Jamais les données, la base DuckDB, les connexions, les planifications ni les secrets — affiché dans l'interface |
+| Ce qui part | **Rapports uniquement** : un fichier `<id>.json` par rapport (pages, visuels, champs utilisés, titres, textes, thème, signets). Jamais les tables des jeux, la base DuckDB, les connexions, les planifications, les alertes ni les secrets du trousseau. Un rapport **recopie** pourtant des valeurs des données et peut porter un secret : voir « Nettoyage » — le texte de l'interface dit exactement ce qui part selon l'option |
+| Nettoyage | Option « Retirer les sélections, filtres et adresses de webhook avant l'envoi » (`strip_private`, **activée par défaut**, `services/report_privacy.py`) : retire les valeurs des filtres de page et de visuel, `options.selected` / `range` / `drill`, l'état des signets (filtres, sélections, exploration, filtrage croisé) et `options.url` des boutons « Appeler un webhook » (les liens « Ouvrir une URL » restent). Les empreintes de synchronisation portent sur la forme envoyée. **Récupération = fusion explicite** : pour chaque page, visuel ou signet qui existe déjà sur le poste, ces champs restent ceux du poste (jamais effacés par une version nettoyée) ; un élément nouveau est importé tel quel. Option désactivée : tout part tel quel, et la récupération remplace tout |
+| Visibilité | « Tester la connexion » lit `private` du dépôt (`GitHubTest.private`, mémorisé dans `repo_private`) ; dépôt public → avertissement en rouge dans les réglages (plus fort si le nettoyage est désactivé) |
 | Envoyer | Un **seul commit par envoi** (API Git Data : arbre sur l'arbre de tête → commit → mise à jour de la branche **sans forcer**) ; message clair (« Atelier Viz : 2 rapport(s) mis à jour » + noms) ou personnalisé ; rien à envoyer = aucun commit ; branche modifiée pendant l'envoi → 409, rien d'écrasé |
 | Récupérer | Rapports du dossier importés (nouveaux) ou mis à jour (modifiés seulement sur GitHub) ; fichiers illisibles ignorés et listés |
 | Conflits | Base : sha de blob Git distant et local de chaque rapport à la dernière synchronisation (`blob_sha`, comparé au `sha` de l'API sans télécharger). Modifié des deux côtés → conflit listé, **rien n'est écrasé** sans choix explicite : garder ce poste, prendre GitHub, importer une copie (« … (copie GitHub) ») ; à l'envoi, « Écraser GitHub avec ce poste » |

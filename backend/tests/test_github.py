@@ -34,6 +34,7 @@ class FakeGitHub:
         self.auth: set[str] = set()
         self.commit_counter = 0
         self.race = False  # simule un commit concurrent avant la mise à jour de la branche
+        self.private = True
         root = self._tree({"README.md": self._blob(b"# Rapports\n")})
         self.branches["main"] = self._commit("Premier commit", root, [])
 
@@ -85,6 +86,7 @@ class FakeGitHub:
                 json={
                     "default_branch": "main",
                     "permissions": {"push": self.push},
+                    "private": self.private,
                     "html_url": f"https://github.com/{self.full}",
                 },
             )
@@ -204,6 +206,8 @@ def test_test_connection(client: TestClient, github: FakeGitHub) -> None:
         "can_push": None,
         "default_branch": None,
         "repo_url": None,
+        "private": None,
+        "warning": None,
     }
 
 
@@ -223,7 +227,7 @@ def test_push_one_commit_reports_only(client: TestClient, github: FakeGitHub, se
     assert set(files) == {"README.md", f"atelier/rapports/{a['id']}.json", f"atelier/rapports/{b['id']}.json"}
     assert json.loads(files[f"atelier/rapports/{a['id']}.json"])["name"] == "Ventes"
     head = github.commits[github.branches["main"]]
-    assert "2 rapport(s)" in head["message"] and "aucune donnée" in head["message"]
+    assert "2 rapport(s)" in head["message"] and "retirés" in head["message"]
     assert len(github.commits) == 2  # un seul commit pour l'envoi
     assert all(TOKEN not in json.dumps(v) for v in github.commits.values())
     assert all(state == "synced" for state in (r["state"] for r in client.get("/api/github").json()["reports"]))
@@ -337,3 +341,170 @@ def test_report_folder_layout(tmp_path: Path) -> None:
 
     assert GitHubConfig(repo="a/b", folder="/rapports/").folder == "rapports"
     assert GitHubConfig(repo="a/b", folder="").folder == ""
+
+
+# --- Valeurs privées (filtres, sélections, webhooks) ----------------------------------------------
+
+HOOK = "https://hooks.exemple.fr/webhook/jeton-secret-42"
+
+
+def private_body(name: str, region: str = "Occitanie") -> dict:
+    """Rapport dont les options recopient des valeurs réelles et une adresse de webhook secrète."""
+    flt = {"field": "region", "op": "in", "values": [region]}
+    return {
+        "name": name,
+        "dataset_id": None,
+        "theme": {},
+        "pages": [
+            {
+                "id": "p1",
+                "name": "Ventes",
+                "filters": [flt],
+                "visuals": [
+                    {
+                        "id": "seg",
+                        "type": "slicer",
+                        "layout": {"x": 0, "y": 0, "w": 10, "h": 10},
+                        "options": {"selected": [region], "range": [1, 9], "style": "list"},
+                    },
+                    {
+                        "id": "col",
+                        "type": "column",
+                        "title": "CA",
+                        "layout": {"x": 0, "y": 0, "w": 10, "h": 10},
+                        "options": {"drill": {"level": 1, "path": [{"value": region}]}, "stacked": False},
+                        "filters": [flt],
+                    },
+                    {
+                        "id": "btn",
+                        "type": "button",
+                        "layout": {"x": 0, "y": 0, "w": 10, "h": 10},
+                        "options": {"action": "webhook", "url": HOOK, "label": "Prévenir"},
+                    },
+                    {
+                        "id": "lien",
+                        "type": "button",
+                        "layout": {"x": 0, "y": 0, "w": 10, "h": 10},
+                        "options": {"action": "url", "url": "https://exemple.fr/doc", "label": "Aide"},
+                    },
+                ],
+            }
+        ],
+        "bookmarks": [
+            {
+                "id": "b1",
+                "name": "Sud",
+                "page_id": "p1",
+                "pages": {
+                    "p1": {
+                        "filters": [flt],
+                        "visuals": {"seg": {"selected": [region]}, "col": {"drill": {"level": 1}}},
+                    }
+                },
+                "selection": {"visual_id": "col", "dataset_id": "d" * 12, "filters": [flt], "keys": [region]},
+            }
+        ],
+    }
+
+
+def test_push_strips_private_values_by_default(client: TestClient, github: FakeGitHub) -> None:
+    online(client)
+    state = configure(client)
+    assert state["config"]["strip_private"] is True  # activé par défaut
+    report = new_report(client, "Ventes")
+    client.put(f"/api/reports/{report['id']}", json=private_body("Ventes"))
+    assert client.post("/api/github/push", json={}).json()["pushed"] == ["Ventes"]
+
+    sent = github.files()[f"atelier/rapports/{report['id']}.json"].decode()
+    assert "Occitanie" not in sent and "jeton-secret-42" not in sent
+    shared = json.loads(sent)
+    page = shared["pages"][0]
+    visuals = {v["id"]: v for v in page["visuals"]}
+    assert page["filters"] == [] and visuals["col"]["filters"] == []
+    assert visuals["seg"]["options"] == {"style": "list"}
+    assert visuals["col"]["options"] == {"stacked": False} and visuals["col"]["title"] == "CA"
+    assert visuals["btn"]["options"] == {"action": "webhook", "label": "Prévenir"}
+    assert visuals["lien"]["options"]["url"] == "https://exemple.fr/doc"  # lien public : gardé
+    mark = shared["bookmarks"][0]
+    assert mark["selection"] is None and mark["pages"]["p1"]["filters"] == []
+    assert mark["pages"]["p1"]["visuals"]["seg"] == {"selected": None, "range": None, "drill": None}
+    assert "retirés" in github.commits[github.branches["main"]]["message"]
+
+    # Le poste garde tout ; une nouvelle sélection n'est pas envoyée non plus.
+    local = client.get(f"/api/reports/{report['id']}").json()
+    assert local["pages"][0]["visuals"][2]["options"]["url"] == HOOK
+    assert local["pages"][0]["visuals"][0]["options"]["selected"] == ["Occitanie"]
+    client.put(f"/api/reports/{report['id']}", json=private_body("Ventes", region="Bretagne"))
+    client.post("/api/github/push", json={})
+    assert "Bretagne" not in github.files()[f"atelier/rapports/{report['id']}.json"].decode()
+
+
+def test_pull_of_stripped_report_keeps_local_private_values(client: TestClient, github: FakeGitHub) -> None:
+    online(client)
+    configure(client)
+    report = new_report(client, "Ventes")
+    client.put(f"/api/reports/{report['id']}", json=private_body("Ventes"))
+    client.post("/api/github/push", json={})
+    path = f"atelier/rapports/{report['id']}.json"
+
+    # Un collègue renomme le rapport et un visuel, ajoute un segment (avec une sélection à lui).
+    remote = json.loads(github.files()[path])
+    remote["name"] = "Ventes (collègue)"
+    remote["pages"][0]["visuals"][1]["title"] = "Chiffre d'affaires"
+    remote["pages"][0]["visuals"].append(
+        {
+            "id": "seg2",
+            "type": "slicer",
+            "layout": {"x": 0, "y": 0, "w": 5, "h": 5},
+            "options": {"selected": ["Nord"]},
+        }
+    )
+    github.write(path, json.dumps(remote, ensure_ascii=False).encode())
+    assert client.post("/api/github/pull", json={}).json()["updated"] == ["Ventes (collègue)"]
+
+    merged = client.get(f"/api/reports/{report['id']}").json()
+    page = merged["pages"][0]
+    visuals = {v["id"]: v for v in page["visuals"]}
+    assert merged["name"] == "Ventes (collègue)" and visuals["col"]["title"] == "Chiffre d'affaires"
+    # Champs privés : ceux du poste, jamais effacés par la version nettoyée.
+    assert page["filters"][0]["values"] == ["Occitanie"]
+    assert visuals["seg"]["options"]["selected"] == ["Occitanie"] and visuals["seg"]["options"]["range"] == [1, 9]
+    assert visuals["col"]["options"]["drill"]["level"] == 1 and visuals["col"]["filters"][0]["values"] == ["Occitanie"]
+    assert visuals["btn"]["options"]["url"] == HOOK
+    assert visuals["seg2"]["options"]["selected"] == ["Nord"]  # nouvel élément : tel que reçu
+    mark = merged["bookmarks"][0]
+    assert mark["selection"]["keys"] == ["Occitanie"]
+    assert mark["pages"]["p1"]["visuals"]["seg"]["selected"] == ["Occitanie"]
+    # Après fusion, le poste est « à jour » (même forme partagée que GitHub).
+    assert client.get("/api/github").json()["reports"][0]["state"] == "synced"
+
+
+def test_strip_option_can_be_disabled(client: TestClient, github: FakeGitHub) -> None:
+    online(client)
+    report = new_report(client, "Ventes")
+    client.put(f"/api/reports/{report['id']}", json=private_body("Ventes"))
+    configure(client)
+    client.post("/api/github/push", json={})
+    # Désactiver l'option garde la base de comparaison (même dépôt) : le rapport devient « modifié ».
+    state = configure(client, strip_private=False, token=None)
+    assert state["config"]["strip_private"] is False and state["reports"][0]["state"] == "modified"
+    client.post("/api/github/push", json={})
+    sent = github.files()[f"atelier/rapports/{report['id']}.json"].decode()
+    assert "Occitanie" in sent and HOOK in sent
+
+
+def test_test_connection_reports_visibility(client: TestClient, github: FakeGitHub) -> None:
+    online(client)
+    configure(client)
+    github.private = True
+    res = client.post("/api/github/test").json()
+    assert res["private"] is True and res["warning"] is None
+    assert client.get("/api/github").json()["repo_private"] is True
+    github.private = False
+    res = client.post("/api/github/test").json()
+    assert res["ok"] and res["private"] is False and "Dépôt PUBLIC" in res["warning"]
+    assert client.get("/api/github").json()["repo_private"] is False
+    configure(client, strip_private=False)
+    assert "désactivée" in client.post("/api/github/test").json()["warning"]
+    configure(client, repo="equipe/autre")  # autre dépôt : visibilité inconnue
+    assert client.get("/api/github").json()["repo_private"] is None

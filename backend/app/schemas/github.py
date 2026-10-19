@@ -1,7 +1,9 @@
 """Synchronisation des rapports avec un dépôt GitHub. Miroir TypeScript : frontend/src/types/github.ts.
 
-Seuls les fichiers JSON des rapports sont envoyés : jamais les données des jeux, ni la base DuckDB.
-Le jeton est rangé dans le trousseau du système ; l'API ne renvoie que `has_token`.
+Seuls les fichiers JSON des rapports sont envoyés : jamais les tables des jeux, ni la base DuckDB.
+Un rapport peut toutefois recopier des valeurs des données (filtres, sélections des segments, signets)
+et des adresses de webhook : `strip_private` (activé par défaut) les retire avant l'envoi
+(`app/services/report_privacy.py`). Le jeton est rangé dans le trousseau ; l'API ne renvoie que `has_token`.
 """
 
 from datetime import datetime
@@ -19,6 +21,13 @@ class GitHubConfig(BaseModel):
     repo: str = Field(pattern=r"^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$", description="« propriétaire/dépôt ».")
     branch: str = Field(default="main", min_length=1, max_length=200, pattern=r"^[A-Za-z0-9._/-]+$")
     folder: str = Field(default="atelier-viz/rapports", max_length=200)
+    strip_private: bool = Field(
+        default=True,
+        description=(
+            "Retirer avant l'envoi les filtres, sélections, chemins d'exploration et adresses de webhook "
+            "(valeurs des données, secrets possibles) ; à la récupération, ces champs restent ceux du poste."
+        ),
+    )
 
     @field_validator("folder")
     @classmethod
@@ -42,6 +51,10 @@ class GitHubConfig(BaseModel):
     def owner_repo(self) -> tuple[str, str]:
         owner, name = self.repo.split("/", 1)
         return owner, name
+
+    def same_target(self, other: "GitHubConfig | None") -> bool:
+        """Même dépôt, branche et dossier (l'option de nettoyage ne change pas la base de comparaison)."""
+        return other is not None and (self.repo, self.branch, self.folder) == (other.repo, other.branch, other.folder)
 
 
 class GitHubConfigInput(GitHubConfig):
@@ -81,6 +94,7 @@ class GitHubState(BaseModel):
     token_from_env: bool = Field(default=False, description="Jeton fourni par GITHUB_TOKEN (backend/.env).")
     online: bool = False
     account: str | None = None
+    repo_private: bool | None = Field(default=None, description="Visibilité lue au dernier test (None = inconnue).")
     last_push: SyncEvent | None = None
     last_pull: SyncEvent | None = None
     reports: list[ReportSyncState] = Field(default_factory=list)
@@ -93,6 +107,8 @@ class GitHubTest(BaseModel):
     can_push: bool | None = None
     default_branch: str | None = None
     repo_url: str | None = None
+    private: bool | None = Field(default=None, description="Dépôt privé ; False = public (voir `warning`).")
+    warning: str | None = Field(default=None, description="Avertissement (dépôt public).")
 
 
 class Conflict(BaseModel):
