@@ -6,6 +6,8 @@
 
 import json
 import shutil
+import time
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -252,16 +254,54 @@ def test_atelier_projets_lists_imports_and_refreshes(client: TestClient, projets
     assert len(all_rows["rows"]) == 4 and "projectId" not in projets.requests[-1].url.params
 
 
-def test_atelier_projets_types_are_kept() -> None:
+@pytest.fixture
+def local_tz(monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[str], None]]:
+    """Force le fuseau local de la machine (variable `TZ`), puis rétablit l'original."""
+
+    def force(name: str) -> None:
+        monkeypatch.setenv("TZ", name)
+        time.tzset()
+
+    yield force
+    monkeypatch.undo()
+    time.tzset()
+
+
+def test_atelier_projets_types_are_kept(local_tz: Callable[[str], None]) -> None:
+    local_tz("Europe/Paris")
     df = projets_frame(WORK_ITEMS_COLUMNS, work_items(None))
     assert df["Heures estimées"].tolist()[:2] == [8, 3.5]
     assert str(df["Bloqué"].dtype) == "boolean"
     assert str(df["Échéance"].iloc[0]) == "2026-11-30 00:00:00"
-    # datetime avec fuseau → UTC sans fuseau
-    assert str(df["Mis à jour le"].iloc[2]) == "2026-10-17 07:30:00"
+    # datetime avec fuseau → heure locale de la machine (Paris, heure d'été), sans fuseau
+    assert str(df["Mis à jour le"].dtype) == "datetime64[ns]"
+    assert [str(v) for v in df["Mis à jour le"]] == [
+        "2026-10-19 10:15:00",
+        "2026-10-18 19:00:00",
+        "2026-10-17 09:30:00",
+    ]
     # type inconnu → texte ; clés sans libellé → clé
     odd = projets_frame([{"key": "x", "type": "json"}, {"key": "y", "label": "", "type": "string"}], [{"x": {"a": 1}}])
     assert list(odd.columns) == ["x", "y"] and odd["x"].iloc[0] == '{"a": 1}'
+
+
+def test_atelier_projets_datetimes_follow_the_machine_time_zone(local_tz: Callable[[str], None]) -> None:
+    columns = [{"key": "t", "label": "Quand", "type": "datetime"}, {"key": "d", "label": "Jour", "type": "date"}]
+    rows = [
+        {"t": "2026-12-01T08:00:00Z", "d": "2026-12-01"},  # heure d'hiver
+        {"t": "2026-07-01T08:00:00.000Z", "d": "2026-07-01"},  # heure d'été
+        {"t": None, "d": None},
+    ]
+    local_tz("Europe/Paris")
+    paris = projets_frame(columns, rows)
+    assert [str(v) for v in paris["Quand"]] == ["2026-12-01 09:00:00", "2026-07-01 10:00:00", "NaT"]
+    local_tz("America/New_York")
+    ny = projets_frame(columns, rows)
+    assert [str(v) for v in ny["Quand"]] == ["2026-12-01 03:00:00", "2026-07-01 04:00:00", "NaT"]
+    # Les dates (AAAA-MM-JJ) ne bougent pas avec le fuseau.
+    assert [str(v) for v in ny["Jour"]] == ["2026-12-01 00:00:00", "2026-07-01 00:00:00", "NaT"]
+    local_tz("UTC")
+    assert str(projets_frame(columns, rows)["Quand"].iloc[0]) == "2026-12-01 08:00:00"
 
 
 def test_atelier_projets_not_running_is_explained(client: TestClient) -> None:

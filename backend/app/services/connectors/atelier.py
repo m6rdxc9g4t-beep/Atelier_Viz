@@ -222,6 +222,16 @@ class ProjetsClient:
         return projets_frame(raw["columns"], raw["rows"]), str(raw.get("label") or name)
 
 
+def _local_naive(series: pd.Series) -> pd.Series:
+    """Horodatages UTC → heure locale de la machine (heure d'été comprise), sans fuseau.
+
+    Atelier Projets envoie ses `datetime` en ISO 8601 UTC (« …Z ») ; l'utilisateur les attend à l'heure
+    de sa montre. `datetime.astimezone()` sans argument suit le fuseau du système (variable `TZ` comprise).
+    """
+    local = [None if pd.isna(ts) else ts.to_pydatetime().astimezone().replace(tzinfo=None) for ts in series]
+    return pd.Series(pd.to_datetime(local), index=series.index, dtype="datetime64[ns]")
+
+
 def _projets_column(kind: str, values: list[Any]) -> pd.Series:
     """Colonne typée selon le type annoncé par Atelier Projets (aucune réinterprétation)."""
     if kind == "number":
@@ -232,8 +242,9 @@ def _projets_column(kind: str, values: list[Any]) -> pd.Series:
     if kind in {"date", "datetime"}:
         series = pd.Series([v if isinstance(v, str) and v else None for v in values], dtype="object")
         converted = pd.to_datetime(series, errors="coerce", utc=True, format="ISO8601")
-        converted = converted.dt.tz_convert("UTC").dt.tz_localize(None)
-        return converted.dt.normalize() if kind == "date" else converted
+        if kind == "date":  # AAAA-MM-JJ : jour calendaire, sans décalage horaire
+            return converted.dt.tz_localize(None).dt.normalize()
+        return _local_naive(converted)
     if kind == "boolean":
         return pd.Series([v if isinstance(v, bool) else None for v in values], dtype="boolean")
     return pd.Series(
