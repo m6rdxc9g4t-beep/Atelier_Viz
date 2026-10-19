@@ -2,8 +2,10 @@
 
 import asyncio
 from collections.abc import Callable
+from typing import Any
 
 from app.schemas.ai import (
+    ChatMessage,
     ChatRequest,
     ChatResponse,
     ProviderChoice,
@@ -81,6 +83,26 @@ class AIService:
                 raise
             content = await self.anthropic.chat(request.messages, request.system)
             return ChatResponse(provider="anthropic", model=self.anthropic.model, content=content, fallback_used=True)
+
+    async def chat_json(
+        self,
+        choice: ProviderChoice,
+        task: TaskComplexity,
+        messages: list[ChatMessage],
+        system: str | None,
+        schema: dict[str, Any],
+    ) -> tuple[AIProvider, dict[str, Any]]:
+        """Sortie JSON structurée, mêmes règles de routage (et de repli) que `chat`."""
+        provider = self.resolve(choice, task)
+        try:
+            return provider, await provider.chat_json(messages, system, schema)
+        except AIProviderError:
+            can_fallback = (
+                choice == "auto" and provider is self.ollama and self.allow_cloud_fallback and self.claude_usable
+            )
+            if not can_fallback:
+                raise
+            return self.anthropic, await self.anthropic.chat_json(messages, system, schema)
 
     async def providers_status(self) -> ProvidersResponse:
         """État de tous les fournisseurs, vérifiés en parallèle (Claude non sollicité hors ligne)."""

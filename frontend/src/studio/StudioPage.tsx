@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ArrowLeft, Check, Eye, FilterX, Loader2, Palette, Pencil, Redo2, Undo2, X } from "lucide-react";
+import { ArrowLeft, Check, Eye, FilterX, Loader2, Palette, Pencil, Redo2, Sparkles, Undo2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useDatasetProfiles } from "../hooks/useDatasetProfiles";
@@ -9,6 +9,7 @@ import type { DatasetSummary } from "../types/dataset";
 import { Canvas } from "./Canvas";
 import { StudioDataContext } from "./context";
 import { PageTabs } from "./PageTabs";
+import { AIBuilderPane } from "./panes/AIBuilderPane";
 import { DataPane } from "./panes/DataPane";
 import { FiltersPane } from "./panes/FiltersPane";
 import { ThemePane } from "./panes/ThemePane";
@@ -32,7 +33,9 @@ export function StudioPage({ reportId }: { reportId: string }) {
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [activeDatasetId, setActiveDatasetId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [showTheme, setShowTheme] = useState(false);
+  // Volets de droite : édition classique, thème, ou création par l'IA.
+  const [side, setSide] = useState<"default" | "theme" | "ai">("default");
+  const toggleSide = (v: "theme" | "ai") => setSide((cur) => (cur === v ? "default" : v));
   const s = useStudio.getState;
 
   // Chargement
@@ -161,9 +164,22 @@ export function StudioPage({ reportId }: { reportId: string }) {
             {editing && (
               <button
                 type="button"
-                onClick={() => setShowTheme((v) => !v)}
-                aria-pressed={showTheme}
-                className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", showTheme ? "text-accent" : "text-muted hover:text-fg")}
+                onClick={() => toggleSide("ai")}
+                aria-pressed={side === "ai"}
+                className={clsx(
+                  "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium",
+                  side === "ai" ? "bg-accent text-accent-fg" : "bg-accent/10 text-accent hover:bg-accent/20",
+                )}
+              >
+                <Sparkles className="size-3.5" aria-hidden /> Créer avec l'IA
+              </button>
+            )}
+            {editing && (
+              <button
+                type="button"
+                onClick={() => toggleSide("theme")}
+                aria-pressed={side === "theme"}
+                className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "theme" ? "text-accent" : "text-muted hover:text-fg")}
               >
                 <Palette className="size-3.5" aria-hidden /> <span className="hidden md:inline">Thème</span>
               </button>
@@ -203,16 +219,20 @@ export function StudioPage({ reportId }: { reportId: string }) {
           >
             {page && <Canvas page={page} report={report} />}
           </section>
-          {editing &&
-            (showTheme ? (
-              <ThemePane />
-            ) : (
-              <>
-                <FiltersPane />
-                <VisualizationsPane />
-                <DataPane />
-              </>
-            ))}
+          {editing && side === "theme" && <ThemePane />}
+          {editing && side === "ai" && (
+            <>
+              <AIBuilderPane />
+              <DataPane />
+            </>
+          )}
+          {editing && side === "default" && (
+            <>
+              <FiltersPane />
+              <VisualizationsPane />
+              <DataPane />
+            </>
+          )}
           {notice && (
             <div role="status" className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-md bg-fg px-3 py-2 text-xs text-bg shadow-lg">
               {notice}

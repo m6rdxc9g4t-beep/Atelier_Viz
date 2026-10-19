@@ -55,6 +55,7 @@ def test_chat_returns_result_and_isolates_the_call(monkeypatch: pytest.MonkeyPat
     assert cmd[cmd.index("--system-prompt") + 1] == "Sois bref"
     assert call["input"] == "Bonjour"
     assert "ANTHROPIC_API_KEY" not in call["env"]  # facturation via l'abonnement
+    assert call["env"]["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] == "1"  # pas de télémétrie
 
 
 def test_chat_surfaces_cli_error() -> None:

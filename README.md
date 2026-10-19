@@ -36,7 +36,7 @@ Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages)
 
 | Action | Comment |
 |---|---|
-| Ajouter un visuel | Icône du volet Visualisations, ou clic sur un champ du volet Données |
+| Ajouter un visuel | Icône du volet Visualisations, clic sur un champ du volet Données, ou **Créer avec l'IA** (« CA par région sur une carte ») |
 | Configurer | Glisser des champs dans les puits (Axe, Légende, Valeurs…) ou directement sur le visuel |
 | Changer de type | Sélectionner le visuel puis cliquer une autre icône (les champs sont conservés) |
 | Filtrer | Segments, volet Filtres (page / visuel), clic sur un élément d'un graphique (filtrage croisé) |
@@ -47,8 +47,8 @@ Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages)
 ## Tests
 
 ```bash
-cd backend && pytest && ruff check .          # 71 tests
-cd frontend && npm test && npm run build      # 34 tests
+cd backend && pytest && ruff check .          # 82 tests
+cd frontend && npm test && npm run build      # 37 tests
 ```
 
 ## Arborescence

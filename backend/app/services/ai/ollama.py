@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 
 from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
-from app.services.ai.base import AIProviderError
+from app.services.ai.base import AIProviderError, extract_json
 
 
 class OllamaProvider:
@@ -57,11 +57,22 @@ class OllamaProvider:
 
     async def chat(self, messages: list[ChatMessage], system: str | None = None) -> str:
         """Appelle `/api/chat` en mode non streamé."""
+        return await self._chat(messages, system)
+
+    async def chat_json(
+        self, messages: list[ChatMessage], system: str | None, schema: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Sortie structurée : Ollama contraint la génération au schéma JSON fourni (`format`)."""
+        content = await self._chat(messages, system, extra={"format": schema, "options": {"temperature": 0.2}})
+        return extract_json("ollama", content)
+
+    async def _chat(self, messages: list[ChatMessage], system: str | None, extra: dict[str, Any] | None = None) -> str:
         body: dict[str, Any] = {
             "model": self.model,
             "stream": False,
             "messages": ([{"role": "system", "content": system}] if system else [])
             + [m.model_dump() for m in messages],
+            **(extra or {}),
         }
         try:
             response = await self._client.post("/api/chat", json=body)
