@@ -240,6 +240,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
         <div className="relative flex min-h-0 flex-1">
           <section
             className={clsx("relative min-w-0 flex-1 overflow-hidden bg-canvas", theme && (theme.mode === "dark" ? "theme-dark" : "theme-light"))}
+            data-theme={theme?.mode}
             style={theme ? themeVars(theme) : undefined}
             aria-label={`Page ${page?.name ?? ""}`}
           >
