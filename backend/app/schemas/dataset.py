@@ -10,7 +10,9 @@ from app.schemas.connection import DatasetOrigin
 
 ColumnType = Literal["number", "string", "date", "boolean"]
 # Fichiers importés, ou type de la connexion d'origine.
-SourceFormat = Literal["csv", "xlsx", "json", "sqlserver", "postgres", "mysql", "sqlite", "sharepoint"]
+SourceFormat = Literal[
+    "csv", "xlsx", "json", "sqlserver", "postgres", "mysql", "sqlite", "sharepoint", "atelier_tab", "atelier_projets"
+]
 Scalar = float | int | str | bool | None
 
 

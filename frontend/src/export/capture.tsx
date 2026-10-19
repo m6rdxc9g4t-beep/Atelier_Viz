@@ -62,6 +62,7 @@ export async function captureVisual(req: CaptureRequest): Promise<string | null>
   const style = req.visual.options.style as VisualStyle | undefined;
   const host = document.createElement("div");
   host.className = req.theme.mode === "dark" ? "theme-dark" : "theme-light";
+  host.setAttribute("data-theme", req.theme.mode); // fondation du design system (docs/SUITE.md §1.5)
   host.setAttribute("aria-hidden", "true");
   const vars = { ...themeVars(req.theme), ...visualCss(style, req.theme.page) } as Record<string, string>;
   Object.assign(host.style, {

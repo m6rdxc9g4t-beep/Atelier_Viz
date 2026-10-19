@@ -1,4 +1,5 @@
-"""Connexions aux sources de données externes (SQL Server, PostgreSQL, MySQL, SQLite, fichiers, SharePoint).
+"""Connexions aux sources de données externes (SQL Server, PostgreSQL, MySQL, SQLite, fichiers, SharePoint,
+Atelier Tab, Atelier Projets).
 
 Miroir TypeScript : frontend/src/types/connection.ts.
 Les mots de passe et jetons ne sont jamais renvoyés par l'API (`has_password`, `signed_in`).
@@ -6,12 +7,19 @@ Les mots de passe et jetons ne sont jamais renvoyés par l'API (`has_password`, 
 
 from datetime import datetime
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, SecretStr, model_validator
 
-ConnectorKind = Literal["sqlserver", "postgres", "mysql", "sqlite", "file", "sharepoint"]
+from app.core.network import is_loopback_host, loopback_refusal
+
+ConnectorKind = Literal[
+    "sqlserver", "postgres", "mysql", "sqlite", "file", "sharepoint", "atelier_tab", "atelier_projets"
+]
 SQL_KINDS: tuple[ConnectorKind, ...] = ("sqlserver", "postgres", "mysql", "sqlite")
 SERVER_KINDS: tuple[ConnectorKind, ...] = ("sqlserver", "postgres", "mysql")
+# Applications de la Suite Atelier (docs/SUITE.md §4.2 et §4.3) : aucun secret.
+SUITE_KINDS: tuple[ConnectorKind, ...] = ("atelier_tab", "atelier_projets")
 
 
 class ConnectionFields(BaseModel):
@@ -27,8 +35,12 @@ class ConnectionFields(BaseModel):
     database: str | None = Field(default=None, max_length=255)
     username: str | None = Field(default=None, max_length=255)
     encrypt: bool = Field(default=False, description="SQL Server : chiffrement TLS exigé.")
-    # SQLite et fichiers (OneDrive / SharePoint synchronisés)
-    path: str | None = Field(default=None, max_length=1000, description="Chemin du fichier sur cette machine.")
+    # SQLite et fichiers (OneDrive / SharePoint synchronisés) ; Atelier Tab : dossier des instantanés (vide = défaut)
+    path: str | None = Field(
+        default=None, max_length=1000, description="Chemin du fichier (ou dossier) sur cette machine."
+    )
+    # Atelier Projets : adresse de l'API locale (vide = ATELIER_PROJETS_URL, http://127.0.0.1:3000)
+    base_url: str | None = Field(default=None, max_length=500, description="Adresse d'Atelier Projets.")
     # SharePoint Online (Microsoft Graph)
     tenant: str | None = Field(
         default=None, max_length=200, description="Locataire Microsoft 365 (domaine ou identifiant)."
@@ -43,6 +55,10 @@ class ConnectionFields(BaseModel):
             raise ValueError("Le serveur est obligatoire.")
         if self.kind in {"sqlite", "file"} and not (self.path and self.path.strip()):
             raise ValueError("Le chemin du fichier est obligatoire.")
+        if self.kind == "atelier_projets" and self.base_url and self.base_url.strip():
+            parsed = urlparse(self.base_url.strip())
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                raise ValueError("Adresse attendue : http://127.0.0.1:3000 (http ou https, avec le nom du serveur).")
         return self
 
 
@@ -50,6 +66,16 @@ class ConnectionInput(ConnectionFields):
     """Création ou modification. `password` absent à la modification = mot de passe inchangé."""
 
     password: SecretStr | None = Field(default=None, description="Jamais renvoyé ; stocké dans le trousseau système.")
+
+    @model_validator(mode="after")
+    def _local_projets(self) -> "ConnectionInput":
+        # docs/SUITE.md §4.3 : Atelier Projets est local, quel que soit le mode. Contrôle de forme ici
+        # (les connexions déjà enregistrées restent lisibles) ; la résolution est vérifiée à chaque appel.
+        if self.kind == "atelier_projets" and self.base_url and self.base_url.strip():
+            host = urlparse(self.base_url.strip()).hostname or ""
+            if not is_loopback_host(host):
+                raise ValueError(loopback_refusal(host, "Atelier Projets"))
+        return self
 
 
 class Connection(ConnectionFields):
@@ -63,11 +89,20 @@ class Connection(ConnectionFields):
 
 
 class TableRef(BaseModel):
-    """Table ou vue d'une base, ou feuille d'un classeur Excel (`schema` vide)."""
+    """Table ou vue d'une base, feuille d'un classeur Excel (`schema` vide), table publiée par Atelier Tab
+    (`snapshot`, `schema` = projet) ou jeu de données d'Atelier Projets (`dataset`)."""
 
     schema_: str | None = Field(default=None, alias="schema", max_length=255)
     name: str = Field(min_length=1, max_length=255)
-    kind: Literal["table", "view", "sheet", "list"] = "table"
+    kind: Literal["table", "view", "sheet", "list", "snapshot", "dataset"] = "table"
+    id: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Identifiant stable dans la source (fichier d'Atelier Tab, nom du jeu d'Atelier Projets).",
+    )
+    description: str | None = Field(default=None, max_length=500)
+    updated_at: datetime | None = Field(default=None, description="Date de publication (Atelier Tab).")
+    rows: int | None = Field(default=None, ge=0, description="Nombre de lignes annoncé par la source.")
 
     model_config = {"populate_by_name": True}
 
@@ -80,6 +115,9 @@ class SourceSpec(BaseModel):
         default=None, max_length=20000, description="Une seule requête SELECT / WITH, en lecture seule."
     )
     url: str | None = Field(default=None, max_length=2000, description="SharePoint : lien d'un fichier ou d'une liste.")
+    project_id: str | None = Field(
+        default=None, max_length=100, description="Atelier Projets : limiter le jeu à un projet (sinon tous)."
+    )
 
     @model_validator(mode="after")
     def _one(self) -> "SourceSpec":
@@ -112,9 +150,18 @@ class TestResult(BaseModel):
     server: str | None = Field(default=None, description="Version du serveur, si connue.")
 
 
+class ProjectRef(BaseModel):
+    """Projet d'Atelier Projets (filtre facultatif d'un jeu de données)."""
+
+    id: str
+    name: str
+
+
 class TableList(BaseModel):
     tables: list[TableRef]
     truncated: bool = False
+    projects: list[ProjectRef] = Field(default_factory=list, description="Atelier Projets : projets disponibles.")
+    location: str | None = Field(default=None, description="Dossier ou adresse effectivement lus.")
 
 
 class ConnectorInfo(BaseModel):
@@ -128,6 +175,9 @@ class ConnectorInfo(BaseModel):
     default_port: int | None = None
     needs_online: bool = Field(default=False, description="Toujours sur Internet (SharePoint Online).")
     configured: bool = Field(default=True, description="SharePoint : application Entra ID renseignée.")
+    default_location: str | None = Field(
+        default=None, description="Atelier Tab : dossier par défaut ; Atelier Projets : adresse par défaut."
+    )
 
 
 class DeviceCodeStart(BaseModel):
@@ -155,6 +205,7 @@ class DatasetOrigin(BaseModel):
     table: TableRef | None = None
     query: str | None = None
     url: str | None = None
+    project_id: str | None = None
     max_rows: int | None = None
     truncated: bool = Field(default=False, description="Limite de lignes atteinte au dernier chargement.")
     refreshed_at: datetime

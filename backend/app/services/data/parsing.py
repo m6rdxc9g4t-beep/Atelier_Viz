@@ -1,7 +1,8 @@
 """Lecture de fichiers CSV / XLSX / JSON en DataFrame, avec inférence de types tolérante.
 
 Les CSV français (séparateur `;`, décimale `,`, espaces de milliers, dates JJ/MM/AAAA)
-sont gérés aussi bien que les CSV anglo-saxons.
+sont gérés aussi bien que les CSV anglo-saxons. Un JSON qui est une enveloppe DataFlow
+d'Atelier Tab est aplati selon son propre schéma (`dataflow.py`, types gardés).
 """
 
 import csv
@@ -13,6 +14,7 @@ from pathlib import PurePath
 import pandas as pd
 
 from app.schemas.dataset import SourceFormat
+from app.services.data.dataflow import DataflowError, dataflow_frame, is_dataflow
 
 SEPARATORS = ",;\t|"
 ENCODINGS = ("utf-8-sig", "cp1252")
@@ -42,18 +44,30 @@ def read_table(filename: str, content: bytes, sheet: str | None = None) -> tuple
     fmt = detect_format(filename)
     if not content.strip():
         raise DatasetError("Le fichier est vide.")
+    typed = False  # types déjà fixés par la source (enveloppe DataFlow) : pas d'inférence
     try:
         if fmt == "csv":
             df = _read_csv(content)
         elif fmt == "xlsx":
             df = pd.read_excel(io.BytesIO(content), sheet_name=sheet if sheet else 0, engine="openpyxl")
         else:
-            df = _read_json(content)
+            data = json.loads(_decode(content))
+            if is_dataflow(data):
+                df, typed = dataflow_frame(data), True
+            else:
+                df = _json_frame(data)
+    except DataflowError as exc:
+        raise DatasetError(str(exc)) from exc
     except DatasetError:
         raise
     except Exception as exc:  # pandas lève des exceptions très variées
         raise DatasetError(f"Lecture impossible du fichier {fmt.upper()} : {exc}") from exc
 
+    if typed:
+        # Enveloppe DataFlow : colonnes déjà nommées, uniques et typées ; une colonne vide reste (contrat de la source).
+        if df.empty:
+            raise DatasetError("L'instantané Atelier Tab ne contient aucune ligne.")
+        return df, fmt
     df = _clean_columns(df)
     if df.empty or len(df.columns) == 0:
         raise DatasetError("Aucune donnée exploitable dans le fichier.")
@@ -102,8 +116,8 @@ def _read_csv(content: bytes) -> pd.DataFrame:
     return df
 
 
-def _read_json(content: bytes) -> pd.DataFrame:
-    data = json.loads(_decode(content))
+def _json_frame(data: object) -> pd.DataFrame:
+    """Liste d'objets JSON (ou objet contenant une telle liste) → DataFrame."""
     if isinstance(data, dict):
         # {"data": [...]} ou {"records": [...]} : on prend la première liste trouvée.
         lists = [v for v in data.values() if isinstance(v, list)]

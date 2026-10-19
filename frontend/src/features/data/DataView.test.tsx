@@ -100,6 +100,7 @@ describe("DataView", () => {
       table: { schema: "public", name: "ventes" },
       query: null,
       url: null,
+      project_id: null,
       max_rows: null,
       truncated: false,
       refreshed_at: new Date().toISOString(),

@@ -49,7 +49,7 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 |---|---|---|
 | Données, calculs, rapports | Locaux | Locaux |
 | Fonds de carte | Empaquetés (France régions/départements, monde) | Idem |
-| Polices | Empaquetées | Idem |
+| Polices | Pile système (aucune police téléchargée) | Idem |
 | IA | Ollama uniquement ; Claude refusé (HTTP 403) | Ollama + Claude |
 | Ce qui part vers l'IA | — | Schéma + 5 lignes, seulement si « Joindre le schéma » est coché |
 | Boutons webhook | Adresses locales / réseau privé uniquement | Toute adresse http(s) |
@@ -58,6 +58,18 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 | Boutons URL | Ouverture dans le navigateur (action explicite) | Idem |
 
 Le mode se change dans l'en-tête (pastille « Hors ligne / En ligne ») ou dans Réglages ; il est stocké dans `backend/data/settings.json` et pris en compte immédiatement.
+
+## 3 bis. Suite Atelier
+
+Atelier Viz fait partie d'une suite de trois applications locales — **Atelier Viz** (BI), **Atelier Tab** (tableur et base typée), **Atelier Projets** (projets agiles, Git, temps passé) — dont le contrat commun est `docs/SUITE.md` (identique dans les trois dépôts).
+
+| Élément | Dans Atelier Viz |
+|---|---|
+| Identité visuelle | Copies verbatim du design system d'Atelier Projets (`frontend/src/styles/atelier-ds/` : `light.css`, `dark.css`, `colors.css`). Les jetons d'habillage (`--bg`, `--surface`, `--surface-2`, `--border`, `--fg`, `--muted`, `--grid`, `--canvas`, `--accent`, `--accent-fg`, `--positive`, `--negative`) dérivent des variables de fondation ; accent = violet EPIC (`--type-epic`) rapproché de l'encre, texte des boutons pleins ≥ 4,5:1 (6,2:1 en clair, 6,0:1 en sombre). Rayons 6 / 10 / 16 px, pile de polices système (aucune police téléchargée). **Inchangés** : palette de données (`--series-*`, `--seq-*`, `--div-*`) et thèmes de rapport |
+| Thème | `<html class="dark" data-theme="dark">` en sombre, `data-theme="light"` sans classe en clair (Clair / Sombre / Système) |
+| Navigation | Sélecteur « Suite Atelier » (icône grille, à gauche du titre) : les trois applications, la courante cochée, état « en marche / arrêtée » des API (`GET /api/health`, `no-cors`, 1,5 s, sans bloquer) ; ouverture par `openExternal`. Adresses dans `lib/suite.ts`, surchargeables par `VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL` |
+| Données | Import des enveloppes DataFlow d'Atelier Tab (fichier JSON) ; connecteurs « Atelier Tab » et « Atelier Projets » (§5 sexies) |
+| API | `GET /api/health` interrogée par les deux autres applications |
 
 ## 4. Modèle d'un rapport (`backend/data/reports/<id>.json`)
 
@@ -196,13 +208,17 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 | SQLite | sqlite3 | Fichier ouvert en `mode=ro` |
 | Fichier synchronisé | — | CSV / XLSX (feuille au choix) / JSON d'un dossier OneDrive, SharePoint, Teams ou réseau |
 | SharePoint Online | httpx → Microsoft Graph | Fichier par lien (`/shares/u!…/driveItem`) ou liste (colonnes visibles, pagination) ; connexion par code d'appareil |
+| Atelier Tab | — (fichiers) | Tables publiées par l'application de bureau dans un dossier (défaut `~/Atelier_Tab/exports`, `ATELIER_TAB_EXPORTS_DIR`) : instantanés DataFlow v2.1.0 `<tableId>.json`. Liste (table, projet, date, lignes), aperçu, import, actualisation. Aucun réseau |
+| Atelier Projets | httpx → API locale | `GET /api/exports/datasets` (jeux : éléments de travail, temps passé, jalons), `GET /api/exports/datasets/:name?projectId=` ; projet facultatif (`GET /api/projects`). Adresse par défaut `http://127.0.0.1:3000` (`ATELIER_PROJETS_URL`), soumise à `check_server` (hors ligne : machine et réseau privé). Aucun secret, sans proxy système |
 
 - **Registre** : `data/connections.json` (sans secret) ; secrets dans le trousseau système (`keyring`), sinon `data/secrets.json` en 0600. L'API ne renvoie que `has_password` / `signed_in`.
 - **Requêtes libres** : une instruction `SELECT` / `WITH`, mots-clés d'écriture refusés hors chaînes et commentaires (`INSERT`, `INTO`, CTE `DELETE`, `OPENROWSET`…). Garde-fou complété par la lecture seule côté serveur.
 - **Types** : ceux de la base sont gardés (pas de réinterprétation : un code postal `VARCHAR` reste du texte) ; `DECIMAL` → nombre, dates avec fuseau → UTC.
 - **Import** : copie dans DuckDB (`ds_<id>`) avec `origin` (connexion, table / requête / lien, limite de lignes, date). Limite par défaut 2 000 000 lignes (`CONNECTOR_MAX_ROWS`).
 - **Actualisation** (`POST /api/datasets/{id}/refresh`) : même identifiant ; le modèle est revalidé sur les nouvelles colonnes (409 et rien ne change s'il ne tient plus) ; les visuels ouverts se rechargent.
-- **Essais** : SQLite et Graph simulé dans `test_connections.py` ; vrais PostgreSQL / MySQL dans `test_connections_live.py` (variables `ATELIER_TEST_PG`, `ATELIER_TEST_MYSQL`).
+- **Instantanés DataFlow** (Atelier Tab, et tout fichier JSON importé qui est une enveloppe : `target_system` + `schema_version` + `project.columns_schema`) : colonnes `_ligne` (`row_index`) et `_id` (`record_id`), puis une par entrée de `columns_schema` (nom = `label`) ; valeur = `computed`, codes d'erreur `#…!` → vide ; types d'après `type` (`currency`, `number`, `percent` → nombre ; `formula` → nombre si toutes ses valeurs le sont ; `date` → date ; `checkbox` → booléen ; sinon texte, sans réinterprétation). Les lignes de total (`summary_rows`) ne sont pas importées (`app/services/data/dataflow.py`).
+- **Atelier Projets** : types de colonnes respectés (`string`, `number`, `date`, `datetime` → UTC sans fuseau, `boolean`), colonnes nommées par leur libellé ; un import mémorise le jeu et le projet dans `origin`. Projets arrêté → 503 « Atelier Projets est injoignable… lancez-le » ; ancienne version sans exports → 404 explicite.
+- **Essais** : SQLite et Graph simulé dans `test_connections.py` ; Atelier Tab (dossier temporaire) et Atelier Projets (`httpx.MockTransport`) dans `test_connections_atelier.py`, enveloppes DataFlow dans `test_dataflow.py` ; vrais PostgreSQL / MySQL dans `test_connections_live.py` (variables `ATELIER_TEST_PG`, `ATELIER_TEST_MYSQL`).
 
 ## 6. Interactions
 
@@ -244,11 +260,11 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 | GET / POST | `/api/reports` | Liste, création |
 | GET / PUT / DELETE | `/api/reports/{id}` | Lecture, sauvegarde, suppression |
 | POST | `/api/actions/webhook` | Appel d'un webhook depuis un bouton |
-| GET | `/api/connections/connectors` | Types de sources et état des pilotes |
+| GET | `/api/connections/connectors` | Types de sources et état des pilotes (Atelier Tab / Projets : emplacement par défaut) |
 | GET / POST | `/api/connections` | Connexions enregistrées (sans secret) · création |
 | PUT / DELETE | `/api/connections/{id}` | Modification (`password` absent = inchangé) · suppression avec ses secrets |
 | POST | `/api/connections/test` · `/api/connections/{id}/test` | Essai avant / après enregistrement |
-| GET | `/api/connections/{id}/tables` | Tables et vues, feuilles Excel (`?url=` pour SharePoint) |
+| GET | `/api/connections/{id}/tables` | Tables et vues, feuilles Excel (`?url=` pour SharePoint), tables publiées par Atelier Tab, jeux et projets d'Atelier Projets |
 | POST | `/api/connections/{id}/preview` · `/import` | Aperçu (≤ 200 lignes) · import en jeu de données actualisable |
 | POST | `/api/connections/{id}/login` · `/login/poll` · `/logout` | SharePoint : connexion Microsoft par code d'appareil |
 | POST | `/api/datasets/{id}/refresh` | Relit la source d'un jeu importé depuis une connexion |
@@ -258,7 +274,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (178, + 2 sur serveurs réels) côté back, Vitest (107) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (193, + 2 sur serveurs réels) côté back, Vitest (124) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -272,4 +288,5 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 5 bis — Placement libre** ✅ : visuels au pixel près n'importe où sur la page (taille de page en px, repères d'alignement, poignées, clavier, saisie X/Y/L/H, superposition et ordre, zoom), conversion automatique des anciens rapports.
 - **Jalon 5 ter — Connecteurs** ✅ : SQL Server, PostgreSQL, MySQL / MariaDB, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online (fichiers et listes), en lecture seule, secrets au trousseau, actualisation. Reste : actualisation planifiée, Excel / CSV sur un serveur HTTP, Snowflake / BigQuery.
 - **Jalon 5 quater — Application Mac** ✅ : « Atelier Viz.app » à double-cliquer (fenêtre native, icône, Dock), interface servie par l'API, enregistrement natif des fichiers.
+- **Jalon 5 quinquies — Suite Atelier** ✅ : design system commun (copies verbatim, jetons dérivés, accent violet), thème `data-theme` + `dark`, sélecteur « Suite Atelier » avec état des API, import des enveloppes DataFlow, connecteurs Atelier Tab (instantanés) et Atelier Projets (API locale), actualisables (`docs/SUITE.md`).
 - **Jalon 6 — Partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil (webhook), synchronisation des rapports avec un dépôt GitHub.

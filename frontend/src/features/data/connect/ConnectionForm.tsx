@@ -4,7 +4,7 @@ import { type ReactNode, useState } from "react";
 import { api } from "../../../lib/api";
 import type { Connection, ConnectionInput, ConnectorInfo, TestResult } from "../../../types/connection";
 import { SERVER_KINDS } from "../../../types/connection";
-import { KIND_META, missingField, toInput } from "./meta";
+import { ATELIER_PROJETS_DEFAULT_URL, KIND_META, missingField, toInput } from "./meta";
 
 const input = "w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-accent";
 
@@ -144,6 +144,36 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
           >
             <input className={`${input} font-mono text-xs`} value={value.path ?? ""} onChange={(e) => set({ path: e.target.value })} placeholder={meta.pathPlaceholder} spellCheck={false} />
           </Field>
+        )}
+
+        {kind === "atelier_tab" && (
+          <>
+            <p className="rounded-md bg-surface-2 px-3 py-2 text-xs text-muted">
+              L'application de bureau Atelier Tab publie chaque table à son enregistrement (instantané DataFlow). Atelier Viz lit ce dossier : rien ne passe par le réseau,
+              et « Actualiser » relit la dernière version publiée.
+            </p>
+            <Field label="Dossier des tables publiées" hint={`Vide : dossier par défaut (${info?.default_location ?? meta.pathPlaceholder ?? ""}).`}>
+              <input className={`${input} font-mono text-xs`} value={value.path ?? ""} onChange={(e) => set({ path: e.target.value })} placeholder={info?.default_location ?? meta.pathPlaceholder} spellCheck={false} />
+            </Field>
+          </>
+        )}
+
+        {kind === "atelier_projets" && (
+          <>
+            <p className="rounded-md bg-surface-2 px-3 py-2 text-xs text-muted">
+              Éléments de travail, temps passé et jalons, lus en lecture seule sur l'API locale d'Atelier Projets (sans mot de passe). Atelier Projets doit être lancé.
+            </p>
+            <Field label="Adresse d'Atelier Projets" hint={`Vide : ${info?.default_location ?? ATELIER_PROJETS_DEFAULT_URL}. Adresse de cette machine uniquement (127.0.0.1, localhost ou ::1).`}>
+              <input
+                className={`${input} font-mono text-xs`}
+                value={value.base_url ?? ""}
+                onChange={(e) => set({ base_url: e.target.value })}
+                placeholder={info?.default_location ?? ATELIER_PROJETS_DEFAULT_URL}
+                spellCheck={false}
+                inputMode="url"
+              />
+            </Field>
+          </>
         )}
 
         {kind === "sharepoint" && (

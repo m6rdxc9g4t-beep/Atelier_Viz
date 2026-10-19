@@ -20,8 +20,17 @@ function resolve(pref: ThemePreference): Theme {
   return pref === "system" ? (media?.matches ? "dark" : "light") : pref;
 }
 
+/**
+ * Pose les deux marqueurs du thème sur <html> (docs/SUITE.md §1.5) : classe `dark` (variantes Tailwind)
+ * et `data-theme` (variables de fondation du design system).
+ */
+export function applyThemeMarkers(theme: Theme, root: HTMLElement = document.documentElement): void {
+  root.classList.toggle("dark", theme === "dark");
+  root.setAttribute("data-theme", theme);
+}
+
 function apply(pref: ThemePreference): void {
-  document.documentElement.classList.toggle("dark", resolve(pref) === "dark");
+  applyThemeMarkers(resolve(pref));
   listeners.forEach((l) => l());
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Connection } from "../../../types/connection";
-import { describeConnection, emptyForm, formOf, groupTables, missingField, sinceLabel, suggestedName, toInput } from "./meta";
+import { describeConnection, emptyForm, formOf, groupSnapshots, groupTables, missingField, sinceLabel, sourceDetails, suggestedName, toInput } from "./meta";
 
 const pg: Connection = {
   id: "c1",
@@ -76,5 +76,53 @@ describe("connecteurs : présentation", () => {
     expect(sinceLabel("2026-10-19T11:35:00Z", now)).toBe("il y a 25 min");
     expect(sinceLabel("2026-10-19T09:00:00Z", now)).toBe("il y a 3 h");
     expect(sinceLabel("2026-10-12T09:00:00Z", now)).toBe("le 12/10/2026");
+  });
+});
+
+describe("connecteurs de la Suite Atelier", () => {
+  const tab: Connection = { ...pg, id: "t1", kind: "atelier_tab", name: "Atelier Tab", host: null, port: null, database: null, username: null, has_password: false, path: null };
+  const projets: Connection = { ...tab, id: "p1", kind: "atelier_projets", name: "Atelier Projets", base_url: "http://127.0.0.1:3900/" };
+
+  it("formulaires sans secret, champs facultatifs", () => {
+    expect(emptyForm("atelier_tab")).toEqual({ name: "Atelier Tab", kind: "atelier_tab", path: "" });
+    expect(emptyForm("atelier_projets")).toEqual({ name: "Atelier Projets", kind: "atelier_projets", base_url: "" });
+    expect(missingField(emptyForm("atelier_tab"))).toBeNull(); // dossier vide = dossier par défaut
+    expect(missingField(emptyForm("atelier_projets"))).toBeNull(); // adresse vide = adresse par défaut
+    expect(missingField({ ...emptyForm("atelier_projets"), base_url: "127.0.0.1:3000" })).toBe("Adresse attendue : http://127.0.0.1:3000.");
+    for (const url of ["http://127.0.0.1:3000", "http://localhost:3000/", "http://[::1]:3000", "http://127.0.0.2"])
+      expect(missingField({ ...emptyForm("atelier_projets"), base_url: url })).toBeNull();
+    for (const url of ["http://192.168.1.20:3000", "http://projets.example.com", "http://127.0.0.1.nip.io", "http://169.254.169.254", "http://0.0.0.0:3000"])
+      expect(missingField({ ...emptyForm("atelier_projets"), base_url: url })).toMatch(/127\.0\.0\.1, localhost ou ::1/);
+    expect(toInput(emptyForm("atelier_tab"), false)).not.toHaveProperty("password");
+    expect(toInput({ ...emptyForm("atelier_projets"), base_url: " http://127.0.0.1:3900 " }, false)).toMatchObject({ base_url: "http://127.0.0.1:3900", path: null });
+  });
+
+  it("décrit la connexion et propose le nom de la table ou du jeu", () => {
+    expect(describeConnection(tab)).toBe("~/Atelier_Tab/exports");
+    expect(describeConnection({ ...tab, path: "/Users/f/Partage/exports" })).toBe("/Users/f/Partage/exports");
+    expect(describeConnection(projets)).toBe("127.0.0.1:3900");
+    expect(describeConnection({ ...projets, base_url: null })).toBe("127.0.0.1:3000");
+    expect(suggestedName(tab, { table: { name: "Planning & Lots", schema: "Rénovation", kind: "snapshot", id: "tbl_planning_lots" } })).toBe("Planning & Lots");
+    expect(suggestedName(projets, { table: { name: "Éléments de travail", kind: "dataset", id: "work-items" }, project_id: "p1" })).toBe("Éléments de travail");
+  });
+
+  it("regroupe les tables publiées par projet et les détaille", () => {
+    const tables = [
+      { name: "Planning & Lots", schema: "Rénovation Urbaine 2026", id: "a", rows: 3, updated_at: "2026-10-18T12:57:00Z" },
+      { name: "Budget Global", schema: "Rénovation Urbaine 2026", id: "b", rows: 1 },
+      { name: "Brouillon", schema: null, id: "c" },
+      { name: "Matériaux", schema: "Chiffrage", id: "d" },
+    ];
+    expect(groupSnapshots(tables, "").map(([p, l]) => [p, l.map((t) => t.name)])).toEqual([
+      ["Chiffrage", ["Matériaux"]],
+      ["Rénovation Urbaine 2026", ["Budget Global", "Planning & Lots"]],
+      ["Sans projet", ["Brouillon"]],
+    ]);
+    expect(groupSnapshots(tables, "renovation budget")).toEqual([]);
+    expect(groupSnapshots(tables, "materiaux").map(([p]) => p)).toEqual(["Chiffrage"]);
+    expect(groupSnapshots(tables, "renovation").flatMap(([, l]) => l)).toHaveLength(2);
+    expect(sourceDetails(tables[1]!)).toBe("1 ligne");
+    expect(sourceDetails(tables[0]!)).toMatch(/^3 lignes · publiée le 18\/10\/2026 à \d{2}:57$/);
+    expect(sourceDetails({ name: "x" })).toBe("");
   });
 });

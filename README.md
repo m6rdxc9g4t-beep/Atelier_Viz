@@ -7,6 +7,7 @@ d'automatisation (URL, webhooks), assistant IA, **export PowerPoint modifiable**
 
 - Spécification : [`specification.md`](specification.md)
 - Conventions pour Claude : [`CLAUDE.md`](CLAUDE.md)
+- Suite Atelier (contrat commun avec Atelier Tab et Atelier Projets) : [`docs/SUITE.md`](docs/SUITE.md)
 
 ## Démarrage
 
@@ -60,6 +61,21 @@ fenêtre (⌘Q) arrête tout.
    sélectionnable (le voyant « Claude » passe au vert).
 
 Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages) : sauvegardez ce dossier.
+
+## Suite Atelier
+
+Atelier Viz, **Atelier Tab** (tableur et base typée) et **Atelier Projets** (projets agiles, temps passé) partagent
+le même design system, le même thème clair / sombre et se rejoignent par le sélecteur **Suite Atelier** (icône
+grille, en haut à gauche) : il ouvre chaque application et indique si Atelier Projets est en marche.
+Contrat commun : [`docs/SUITE.md`](docs/SUITE.md).
+
+| Source | Comment |
+|---|---|
+| Atelier Tab | **Données → Se connecter à une source → Atelier Tab**. L'application de bureau Atelier Tab publie chaque table à son enregistrement dans `~/Atelier_Tab/exports` (dossier modifiable dans la connexion, ou `ATELIER_TAB_EXPORTS_DIR`). Choisir une table, **Importer** ; **Actualiser** relit la dernière version publiée. Instantané limité à 50 Mo (`ATELIER_TAB_MAX_SNAPSHOT_MB`). Un fichier `.json` exporté d'Atelier Tab (enveloppe DataFlow) peut aussi être importé directement : colonnes `_ligne`, `_id` puis une par champ, valeurs calculées, types gardés. |
+| Atelier Projets | **Atelier Projets** dans la même liste : adresse `http://127.0.0.1:3000` par défaut (`ATELIER_PROJETS_URL`). Choisir un jeu (éléments de travail, temps passé, jalons) et, si besoin, un projet ; **Importer**, puis **Actualiser**. Atelier Projets doit être lancé sur cette machine (adresse `127.0.0.1`, `localhost` ou `::1` uniquement, même en mode « En ligne ») ; aucun mot de passe. |
+
+Adresses des applications dans le sélecteur : `VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`
+(fichier `frontend/.env.local`), par défaut celles de `docs/SUITE.md` §2.
 
 ## Connecteurs (SQL Server, PostgreSQL, MySQL, SQLite, OneDrive, SharePoint)
 
@@ -115,8 +131,8 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 ## Tests
 
 ```bash
-cd backend && pytest && ruff check .          # 132 tests
-cd frontend && npm test && npm run build      # 85 tests
+cd backend && pytest && ruff check .          # 193 tests
+cd frontend && npm test && npm run build      # 124 tests
 ```
 
 ## Arborescence

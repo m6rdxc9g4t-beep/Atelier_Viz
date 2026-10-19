@@ -66,10 +66,16 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 ## Connecteurs
 - `app/services/connectors/` : `ConnectionService` (registre `data/connections.json` sans secret, import, actualisation), `sql.py` (dialectes), `sharepoint.py` (Graph, code d'appareil), `secrets.py` (trousseau, sinon fichier 0600).
 - Jamais de secret dans `connections.json`, les journaux ou les réponses API. Tests : `secrets_backend="file"`.
-- Politique réseau : `check_server` (hors ligne = machine / réseau privé) ; SharePoint exige le mode en ligne (403).
+- Politique réseau : `check_server` (hors ligne = machine / réseau privé) ; SharePoint exige le mode en ligne (403) ; Atelier Projets : `check_loopback` (bouclage uniquement, quel que soit le mode, redirections jamais suivies).
 - Requête libre : `check_query` (une instruction SELECT / WITH) + lecture seule côté serveur. Les types de la base sont gardés (`rows_to_frame`, pas d'`infer_types`).
 - Un jeu importé garde `origin` ; `DatasetStore.replace_data` actualise en revalidant le modèle. Côté front, `refreshDataset` puis les visuels se rechargent (`invalidateQueries`).
 - Pilotes facultatifs (`requirements-connectors.txt`) : `Dialect.driver_installed` et message 501 si absent.
+
+## Suite Atelier
+- Contrat commun avec Atelier Tab et Atelier Projets : **`docs/SUITE.md`** (identique dans les trois dépôts ; toute modification se fait dans les trois). Le lire avant de toucher au design, au thème, à la navigation ou aux échanges de données.
+- Design system : `frontend/src/styles/atelier-ds/` = copies **verbatim** (ne jamais les modifier ici) ; les jetons d'habillage de `index.css` en dérivent. La palette de données et les thèmes de rapport restent hors du design system.
+- Thème : `useTheme` pose `class="dark"` **et** `data-theme`. Sélecteur de suite : `lib/suite.ts` + `components/layout/SuiteSwitcher.tsx`.
+- Données : enveloppes DataFlow (`app/services/data/dataflow.py`), connecteurs `atelier_tab` / `atelier_projets` (`app/services/connectors/atelier.py`, sans secret). Tests : `test_dataflow.py`, `test_connections_atelier.py` (transport httpx simulé).
 
 ## Application de bureau
 - `backend/desktop.py` → `app/desktop.py` (pywebview + uvicorn en fil) ; paquet macOS : `scripts/macos/build_app.sh`. L'interface compilée est servie par FastAPI (`settings.frontend_dist`).

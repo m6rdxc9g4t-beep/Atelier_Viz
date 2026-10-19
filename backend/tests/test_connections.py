@@ -59,7 +59,9 @@ def make(client: TestClient, **fields: Any) -> dict[str, Any]:
 
 def test_connectors_listed_with_driver_state(client: TestClient) -> None:
     infos = {c["kind"]: c for c in client.get("/api/connections/connectors").json()}
-    assert set(infos) == {"sqlserver", "postgres", "mysql", "sqlite", "file", "sharepoint"}
+    assert set(infos) == {
+        "sqlserver", "postgres", "mysql", "sqlite", "file", "sharepoint", "atelier_tab", "atelier_projets"
+    }
     assert infos["sqlite"]["driver_installed"] is True
     assert infos["sqlserver"]["default_port"] == 1433
     assert infos["sharepoint"]["needs_online"] is True and infos["sharepoint"]["configured"] is False

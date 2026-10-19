@@ -4,14 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Atelier Viz</title>
-    <!-- Aucune ressource externe : l'application fonctionne hors ligne (polices empaquetées par Vite). -->
+    <!-- Aucune ressource externe : l'application fonctionne hors ligne (pile de polices du système). -->
     <script>
-      // Applique le thème avant le premier rendu (évite le flash clair → sombre).
+      // Applique le thème avant le premier rendu (évite le flash clair → sombre) :
+      // classe « dark » et data-theme, comme useTheme (docs/SUITE.md §1.5).
       try {
         const saved = localStorage.getItem("theme");
         const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
         document.documentElement.classList.toggle("dark", dark);
-      } catch {}
+        document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+      } catch {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
     </script>
   </head>
   <body>

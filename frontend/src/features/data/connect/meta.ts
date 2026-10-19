@@ -1,9 +1,14 @@
 /** Présentation des connecteurs (icônes, libellés, champs) et petites fonctions pures testées. */
 
-import { Cloud, Database, FileSpreadsheet, type LucideIcon, Server } from "lucide-react";
+import { Cloud, Database, FileSpreadsheet, KanbanSquare, type LucideIcon, Server, Table2 } from "lucide-react";
 
-import type { Connection, ConnectionInput, ConnectorKind, TableRef } from "../../../types/connection";
+import type { Connection, ConnectionInput, ConnectorKind, SourceSpec, TableRef } from "../../../types/connection";
 import { SERVER_KINDS, tableLabel } from "../../../types/connection";
+
+/** Dossier où l'application de bureau Atelier Tab publie ses tables (docs/SUITE.md §4.2). */
+export const ATELIER_TAB_DEFAULT_FOLDER = "~/Atelier_Tab/exports";
+/** Adresse de l'API d'Atelier Projets (docs/SUITE.md §2). */
+export const ATELIER_PROJETS_DEFAULT_URL = "http://127.0.0.1:3000";
 
 export const KIND_META: Record<ConnectorKind, { icon: LucideIcon; label: string; hostPlaceholder?: string; pathPlaceholder?: string }> = {
   sqlserver: { icon: Server, label: "SQL Server", hostPlaceholder: "sql01.entreprise.local\\PROD" },
@@ -12,12 +17,16 @@ export const KIND_META: Record<ConnectorKind, { icon: LucideIcon; label: string;
   sqlite: { icon: Database, label: "SQLite", pathPlaceholder: "~/Documents/boutique.db" },
   file: { icon: FileSpreadsheet, label: "Fichier synchronisé", pathPlaceholder: "~/Library/CloudStorage/OneDrive-Entreprise/Ventes/objectifs.xlsx" },
   sharepoint: { icon: Cloud, label: "SharePoint Online" },
+  atelier_tab: { icon: Table2, label: "Atelier Tab", pathPlaceholder: ATELIER_TAB_DEFAULT_FOLDER },
+  atelier_projets: { icon: KanbanSquare, label: "Atelier Projets", hostPlaceholder: ATELIER_PROJETS_DEFAULT_URL },
 };
 
 /** Ligne secondaire d'une connexion enregistrée (serveur / base, fichier ou compte). */
 export function describeConnection(c: Connection): string {
   if (SERVER_KINDS.includes(c.kind)) return [c.host, c.database].filter(Boolean).join(" · ");
   if (c.kind === "sharepoint") return c.signed_in ? (c.account ?? "Connecté") : "Non connecté";
+  if (c.kind === "atelier_tab") return c.path?.trim() || ATELIER_TAB_DEFAULT_FOLDER;
+  if (c.kind === "atelier_projets") return (c.base_url?.trim() || ATELIER_PROJETS_DEFAULT_URL).replace(/^https?:\/\//, "").replace(/\/+$/, "");
   return c.path?.split(/[\\/]/).pop() ?? "";
 }
 
@@ -26,6 +35,7 @@ export function emptyForm(kind: ConnectorKind): ConnectionInput {
   const base: ConnectionInput = { name: KIND_META[kind].label, kind };
   if (SERVER_KINDS.includes(kind)) return { ...base, host: "", port: null, database: "", username: "", password: "", encrypt: false };
   if (kind === "sharepoint") return { ...base, name: "SharePoint", tenant: "", client_id: "" };
+  if (kind === "atelier_projets") return { ...base, base_url: "" };
   return { ...base, path: "" };
 }
 
@@ -49,7 +59,10 @@ export function toInput(form: ConnectionInput, editing: boolean): ConnectionInpu
     path: clean(form.path),
     tenant: clean(form.tenant),
     client_id: clean(form.client_id),
+    base_url: clean(form.base_url),
   };
+  // Suite Atelier : aucun secret, jamais de champ mot de passe.
+  if (form.kind === "atelier_tab" || form.kind === "atelier_projets") return out;
   if (!editing || (form.password ?? "") !== "") out.password = form.password ?? "";
   return out;
 }
@@ -58,17 +71,36 @@ export function toInput(form: ConnectionInput, editing: boolean): ConnectionInpu
 export function missingField(form: ConnectionInput): string | null {
   if (SERVER_KINDS.includes(form.kind) && !form.host?.trim()) return "Indiquez le serveur.";
   if ((form.kind === "sqlite" || form.kind === "file") && !form.path?.trim()) return "Indiquez le chemin du fichier.";
+  if (form.kind === "atelier_projets" && form.base_url?.trim()) {
+    const url = form.base_url.trim();
+    if (!/^https?:\/\/[^/\s]+/i.test(url)) return "Adresse attendue : http://127.0.0.1:3000.";
+    if (!isLoopbackUrl(url)) return "Atelier Projets doit tourner sur cette machine : utilisez 127.0.0.1, localhost ou ::1 (par exemple http://127.0.0.1:3000).";
+  }
   return null;
 }
 
+/** Vrai si l'adresse désigne cette machine : `localhost`, 127.0.0.0/8 ou ::1 (docs/SUITE.md §4.3, vérifié aussi par l'API). */
+export function isLoopbackUrl(url: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  if (host === "localhost" || host === "[::1]") return true;
+  // L'analyseur d'URL normalise déjà les écritures exotiques (0x7f.1, 2130706433…) en IPv4 décimale.
+  return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
+}
+
 /** Nom proposé pour le jeu importé. */
-export function suggestedName(c: Connection, source: { table?: TableRef | null; query?: string | null; url?: string | null }): string {
+export function suggestedName(c: Connection, source: SourceSpec): string {
   if (source.query?.trim()) return `${c.name} (requête)`;
   if (source.url?.trim()) {
     const last = decodeURIComponent(source.url.split("?")[0]?.replace(/\/(AllItems|[^/]+)\.aspx$/i, "").split("/").filter(Boolean).pop() ?? "");
     return source.table ? `${last.replace(/\.xlsx$/i, "")} — ${source.table.name}` : last || "SharePoint";
   }
   if (source.table) {
+    if (c.kind === "atelier_tab" || c.kind === "atelier_projets") return source.table.name;
     if (c.kind === "file") return `${(c.path?.split(/[\\/]/).pop() ?? "").replace(/\.xlsx$/i, "")} — ${source.table.name}`;
     return c.kind === "mysql" && source.table.schema === c.database ? source.table.name : tableLabel(source.table);
   }
@@ -95,4 +127,31 @@ export function sinceLabel(iso: string, now = Date.now()): string {
   if (minutes < 60) return `il y a ${minutes} min`;
   if (minutes < 24 * 60) return `il y a ${Math.round(minutes / 60)} h`;
   return `le ${new Date(iso).toLocaleDateString("fr-FR")}`;
+}
+
+/** Groupes de tables publiées par Atelier Tab : un groupe par projet (« Sans projet » en dernier), tables triées. */
+export function groupSnapshots(tables: TableRef[], search: string): [string, TableRef[]][] {
+  const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const q = fold(search.trim());
+  const groups = new Map<string, TableRef[]>();
+  for (const t of tables) {
+    if (q && !fold(`${t.schema ?? ""} ${t.name}`).includes(q)) continue;
+    const key = t.schema?.trim() || "Sans projet";
+    groups.set(key, [...(groups.get(key) ?? []), t]);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a === "Sans projet" ? 1 : b === "Sans projet" ? -1 : a.localeCompare(b, "fr")))
+    .map(([k, list]) => [k, [...list].sort((x, y) => x.name.localeCompare(y.name, "fr"))]);
+}
+
+/** « 3 lignes · publiée le 18/10/2026 à 14:57 » : ligne secondaire d'une table publiée ou d'un jeu. */
+export function sourceDetails(t: TableRef): string {
+  const parts: string[] = [];
+  if (typeof t.rows === "number") parts.push(`${t.rows.toLocaleString("fr-FR")} ligne${t.rows > 1 ? "s" : ""}`);
+  if (t.updated_at) {
+    const d = new Date(t.updated_at);
+    if (!Number.isNaN(d.getTime()))
+      parts.push(`publiée le ${d.toLocaleDateString("fr-FR")} à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`);
+  }
+  return parts.join(" · ");
 }

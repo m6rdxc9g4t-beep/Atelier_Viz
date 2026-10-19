@@ -10,6 +10,7 @@ from typing import Any
 
 import pandas as pd
 
+from app.core.network import LOOPBACK_NAMES, is_loopback_ip, loopback_refusal
 from app.schemas.connection import PreviewResult
 from app.services.data.profiling import to_json
 
@@ -74,6 +75,27 @@ def check_server(host: str, online: bool) -> None:
             "pour vous y connecter, ou passez par le réseau de l'entreprise.",
             403,
         )
+
+
+def check_loopback(host: str, what: str) -> None:
+    """Exige une adresse de la machine elle-même, **quel que soit le mode** (en ligne ou non).
+
+    Seuls `localhost` et les adresses de bouclage (127.0.0.0/8, ::1) sont acceptés ; `localhost` est résolu
+    et **toutes** ses adresses doivent être de bouclage. Les autres noms sont refusés sans résolution DNS
+    (pas de détournement par un DNS qui répondrait 127.0.0.1 puis une autre adresse).
+    Lève `ConnectorError` 403.
+    """
+    name = host.strip().strip("[]").lower()
+    if is_loopback_ip(name):
+        return
+    if name in LOOPBACK_NAMES:
+        try:
+            addresses = {str(info[4][0]) for info in socket.getaddrinfo(name, None)}
+        except (socket.gaierror, UnicodeError) as exc:
+            raise ConnectorError(f"« {name} » ne se résout pas sur cette machine.", 403) from exc
+        if addresses and all(is_loopback_ip(a) for a in addresses):
+            return
+    raise ConnectorError(loopback_refusal(host, what), 403)
 
 
 def unique_names(names: Sequence[Any]) -> list[str]:

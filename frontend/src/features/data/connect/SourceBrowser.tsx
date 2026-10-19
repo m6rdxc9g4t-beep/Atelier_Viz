@@ -3,10 +3,10 @@ import { Copy, ExternalLink, Eye, Loader2, LogOut, Pencil, PlugZap, Search, Tabl
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../../../lib/api";
-import type { Connection, DeviceCodeStart, PreviewResult, SourceSpec, TableRef, TestResult } from "../../../types/connection";
+import type { Connection, DeviceCodeStart, PreviewResult, ProjectRef, SourceSpec, TableRef, TestResult } from "../../../types/connection";
 import { SQL_KINDS } from "../../../types/connection";
 import type { DatasetProfile } from "../../../types/dataset";
-import { KIND_META, describeConnection, groupTables, suggestedName } from "./meta";
+import { KIND_META, describeConnection, groupSnapshots, groupTables, sourceDetails, suggestedName } from "./meta";
 
 const PREVIEW_ROWS = 50;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -38,6 +38,9 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
   const [name, setName] = useState("");
   const [maxRows, setMaxRows] = useState("");
   const [test, setTest] = useState<TestResult | null>(null);
+  const [projects, setProjects] = useState<ProjectRef[]>([]);
+  const [projectId, setProjectId] = useState("");
+  const [location, setLocation] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const needsLogin = c.kind === "sharepoint" && !c.signed_in;
 
@@ -49,6 +52,8 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
         const res = await api.connections.tables(c.id, forUrl);
         setTables(res.tables);
         setTablesTruncated(res.truncated);
+        setProjects(res.projects);
+        setLocation(res.location);
         return res.tables;
       } catch (e) {
         setError(errorText(e));
@@ -250,6 +255,72 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
             </div>
           )}
 
+          {c.kind === "atelier_tab" && (
+            <>
+              <label className="m-2 flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1 text-xs focus-within:ring-1 focus-within:ring-accent">
+                <Search className="size-3.5 text-muted" aria-hidden />
+                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher une table" aria-label="Rechercher une table" className="min-w-0 flex-1 bg-transparent outline-none" />
+              </label>
+              <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
+                {loading === "tables" && <Loader2 className="mx-auto mt-6 size-4 animate-spin text-muted" aria-label="Chargement des tables" />}
+                {tables && tables.length === 0 && loading !== "tables" && !error && (
+                  <p className="p-3 text-xs text-muted">Aucune table publiée pour l'instant : enregistrez une table dans l'application de bureau Atelier Tab.</p>
+                )}
+                {tables &&
+                  groupSnapshots(tables, search).map(([project, list]) => (
+                    <div key={project} className="mb-1">
+                      <p className="truncate px-2 pt-2 pb-0.5 text-[10px] font-medium tracking-wide text-muted uppercase" title={project}>
+                        {project}
+                      </p>
+                      {list.map((t) => (
+                        <SourceItem key={t.id ?? t.name} table={t} active={source?.table?.id === t.id} onPick={() => void show({ table: t })} />
+                      ))}
+                    </div>
+                  ))}
+              </div>
+              {location && (
+                <p className="truncate border-t border-border px-3 py-1.5 font-mono text-[10px] text-muted" title={location}>
+                  {location}
+                </p>
+              )}
+            </>
+          )}
+
+          {c.kind === "atelier_projets" && (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <label className="m-2 block space-y-1">
+                <span className="text-[11px] font-medium">Projet</span>
+                <select
+                  value={projectId}
+                  onChange={(e) => {
+                    setProjectId(e.target.value);
+                    if (source?.table) void show({ table: source.table, project_id: e.target.value || null });
+                  }}
+                  className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">Tous les projets</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="px-3 pt-1 pb-0.5 text-[10px] font-medium tracking-wide text-muted uppercase">Jeux de données</p>
+              <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
+                {loading === "tables" && <Loader2 className="mx-auto mt-6 size-4 animate-spin text-muted" aria-label="Chargement des jeux de données" />}
+                {tables?.map((t) => (
+                  <SourceItem key={t.id ?? t.name} table={t} active={source?.table?.id === t.id} onPick={() => void show({ table: t, project_id: projectId || null })} />
+                ))}
+                {tables && (
+                  <button type="button" onClick={() => void loadTables()} className="mx-2 mt-2 text-[11px] text-muted hover:text-fg hover:underline">
+                    Recharger la liste
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {c.kind === "sharepoint" && (
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
               <MicrosoftLogin connection={c} online={online} onChanged={onChanged} />
@@ -305,6 +376,10 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
               <p className="mt-16 px-6 text-center text-xs text-muted">
                 {sql
                   ? "Choisissez une table ou écrivez une requête pour voir un aperçu."
+                  : c.kind === "atelier_tab"
+                    ? "Choisissez une table publiée par Atelier Tab pour voir un aperçu."
+                    : c.kind === "atelier_projets"
+                      ? "Choisissez un jeu de données (et, si besoin, un projet) pour voir un aperçu."
                   : c.kind === "sharepoint"
                     ? needsLogin
                       ? "Connectez-vous à Microsoft 365, puis collez le lien d'un fichier ou d'une liste."
@@ -347,6 +422,26 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
         </div>
       </div>
     </div>
+  );
+}
+
+/** Table publiée (Atelier Tab) ou jeu de données (Atelier Projets) : nom, détails, description. */
+function SourceItem({ table: t, active, onPick }: { table: TableRef; active: boolean; onPick: () => void }) {
+  const details = sourceDetails(t);
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-pressed={active}
+      title={t.description ?? undefined}
+      className={clsx("flex w-full items-start gap-1.5 rounded px-2 py-1.5 text-left text-xs", active ? "bg-accent/10 text-accent" : "hover:bg-surface-2")}
+    >
+      <Table2 className="mt-px size-3.5 shrink-0 opacity-60" aria-hidden />
+      <span className="min-w-0">
+        <span className={clsx("block truncate", active && "font-medium")}>{t.name}</span>
+        {details && <span className="block truncate text-[11px] text-muted">{details}</span>}
+      </span>
+    </button>
   );
 }
 
