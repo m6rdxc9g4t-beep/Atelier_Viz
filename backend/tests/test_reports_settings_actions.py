@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import socket
 
 import httpx
 import pytest
@@ -113,3 +114,83 @@ def test_webhook_posts_payload() -> None:
 def test_webhook_route_offline_blocks_internet(client: TestClient) -> None:
     res = client.post("/api/actions/webhook", json={"url": "https://8.8.8.8/hook"})
     assert res.status_code == 403 and "hors ligne" in res.json()["detail"]
+
+
+def _fake_dns(monkeypatch: pytest.MonkeyPatch, answers: dict[str, list[list[str]]]) -> list[str]:
+    """Résolveur simulé : chaque appel pour un nom consomme la réponse suivante (rebinding)."""
+    asked: list[str] = []
+
+    def getaddrinfo(host, *args, **kwargs):  # noqa: ANN001, ANN202
+        asked.append(host)
+        ips = answers[host].pop(0) if len(answers[host]) > 1 else answers[host][0]
+        return [(socket.AF_INET6 if ":" in ip else socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 0)) for ip in ips]
+
+    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+    return asked
+
+
+def test_offline_webhook_connects_to_the_validated_ip(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 1re résolution : réseau privé (validée) ; une 2e résolution renverrait une adresse publique.
+    asked = _fake_dns(monkeypatch, {"n8n.maison.lan": [["192.168.1.20"], ["8.8.8.8"]]})
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, text="ok")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    res = asyncio.run(
+        call_webhook(
+            WebhookRequest(url="https://n8n.maison.lan:8443/webhook/x?a=1", payload={"k": "v"}),
+            online=False,
+            client=client,
+        )
+    )
+    assert res.ok and asked == ["n8n.maison.lan"]  # une seule résolution
+    sent = seen[0]
+    assert sent.url.host == "192.168.1.20" and sent.url.port == 8443 and sent.url.path == "/webhook/x"
+    assert sent.url.params["a"] == "1"
+    assert sent.headers["host"] == "n8n.maison.lan:8443"  # hôte virtuel conservé
+    assert sent.extensions["sni_hostname"] == "n8n.maison.lan"  # certificat vérifié pour le nom
+    assert json.loads(sent.content) == {"k": "v"}
+
+
+def test_offline_webhook_get_and_ip_literal_not_rewritten(monkeypatch: pytest.MonkeyPatch) -> None:
+    asked = _fake_dns(monkeypatch, {})
+    seen: list[httpx.Request] = []
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: seen.append(r) or httpx.Response(204)))
+    res = asyncio.run(
+        call_webhook(
+            WebhookRequest(url="http://127.0.0.1:5678/hook", method="GET", payload={"region": "Nord"}),
+            online=False,
+            client=client,
+        )
+    )
+    assert res.status_code == 204 and asked == []  # littéral IP : aucune résolution
+    assert seen[0].url == httpx.URL("http://127.0.0.1:5678/hook?region=Nord")
+    assert "sni_hostname" not in seen[0].extensions
+
+
+def test_offline_refuses_names_with_any_public_address(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_dns(monkeypatch, {"mixte.exemple": [["192.168.1.20", "8.8.8.8"]], "public.exemple": [["8.8.8.8"]]})
+    for host in ("mixte.exemple", "public.exemple"):
+        assert not is_local_host(host)
+        with pytest.raises(ActionError) as info:
+            asyncio.run(call_webhook(WebhookRequest(url=f"http://{host}/hook"), online=False))
+        assert info.value.status_code == 403
+
+
+def test_offline_localhost_keeps_its_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    asked = _fake_dns(monkeypatch, {})
+    seen: list[httpx.Request] = []
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: seen.append(r) or httpx.Response(200)))
+    asyncio.run(call_webhook(WebhookRequest(url="http://localhost:5678/hook"), online=False, client=client))
+    assert asked == [] and seen[0].url.host == "localhost"  # résolu par la machine : repli IPv4 / IPv6 gardé
+
+
+def test_online_webhook_is_not_pinned(monkeypatch: pytest.MonkeyPatch) -> None:
+    asked = _fake_dns(monkeypatch, {})
+    seen: list[httpx.Request] = []
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: seen.append(r) or httpx.Response(200)))
+    asyncio.run(call_webhook(WebhookRequest(url="https://hooks.exemple.fr/x"), online=True, client=client))
+    assert asked == [] and seen[0].url.host == "hooks.exemple.fr"

@@ -2,6 +2,12 @@
 
 L'appel passe par le backend (pas de problème CORS, journalisation possible).
 Règle de confidentialité : en mode hors ligne, seules les adresses locales/privées sont autorisées.
+
+Contre le « DNS rebinding » (le nom résout vers une adresse privée lors de la vérification, puis vers
+une adresse publique lors de la connexion), le nom n'est résolu **qu'une fois** hors ligne : la
+connexion se fait directement à l'adresse IP validée, avec l'en-tête `Host` d'origine, et TLS vérifie
+le certificat pour le **nom** d'origine (extension httpx `sni_hostname`). Pas de redirection suivie.
+`localhost` n'est pas résolu par un DNS externe : il est gardé tel quel (repli IPv4 / IPv6 conservé).
 """
 
 import asyncio
@@ -32,39 +38,82 @@ class ActionError(ValueError):
         self.status_code = status_code
 
 
+def _is_local_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return ip.is_private or ip.is_loopback
+
+
+LOOPBACK_NAMES = {"localhost", "localhost.localdomain", "ip6-localhost"}
+
+
+def resolve_local(host: str) -> str | None:
+    """Adresse IP locale / privée de l'hôte (une seule résolution), ou None s'il est (aussi) sur Internet.
+
+    Toutes les adresses du nom doivent être locales : un nom qui mélange privé et public est refusé.
+    `localhost` est renvoyé tel quel (résolu par la machine, jamais par un DNS du réseau).
+    """
+    if host.lower().rstrip(".") in LOOPBACK_NAMES:
+        return host
+    try:
+        return host if _is_local_ip(ipaddress.ip_address(host)) else None  # littéral IP : pas de DNS
+    except ValueError:
+        pass
+    try:
+        infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except (socket.gaierror, UnicodeError):
+        return None
+    addresses = [str(info[4][0]).split("%")[0] for info in infos]
+    if not addresses or not all(_is_local_ip(ipaddress.ip_address(a)) for a in addresses):
+        return None
+    return addresses[0]
+
+
 def is_local_host(host: str) -> bool:
     """Vrai si l'hôte est la machine elle-même ou un réseau privé."""
-    if host in {"localhost", "host.docker.internal"} or host.endswith(".local"):
-        return True
-    try:
-        addresses = {info[4][0] for info in socket.getaddrinfo(host, None)}
-    except socket.gaierror:
-        return False
-    ips = [ipaddress.ip_address(a.split("%")[0]) for a in addresses]
-    return all(ip.is_private or ip.is_loopback for ip in ips)
+    return resolve_local(host) is not None
 
 
-def validate_target(url: str, online: bool) -> None:
+def validate_target(url: str, online: bool) -> str | None:
+    """Vérifie l'URL ; hors ligne, retourne l'adresse IP validée à laquelle se connecter (None en ligne)."""
     parts = urlsplit(url)
     if parts.scheme not in {"http", "https"} or not parts.hostname:
         raise ActionError("URL invalide : seules les adresses http(s) sont acceptées.")
-    if not online and not is_local_host(parts.hostname):
+    if online:
+        return None
+    pinned = resolve_local(parts.hostname)
+    if pinned is None:
         raise ActionError(
             f"Mode hors ligne : « {parts.hostname} » est sur Internet. Activez le mode en ligne "
             "ou utilisez un service local (ex. n8n sur localhost).",
             403,
         )
+    return pinned
+
+
+def pinned_request(client: httpx.AsyncClient, req: WebhookRequest, ip: str | None) -> httpx.Request:
+    """Requête du webhook ; avec `ip`, connexion à cette adresse sans nouvelle résolution du nom.
+
+    `Host` garde le nom d'origine (hôtes virtuels) et, en HTTPS, `sni_hostname` fait vérifier le
+    certificat pour ce nom (et non pour l'adresse IP).
+    """
+    url = httpx.URL(req.url)
+    params = {k: str(v) for k, v in req.payload.items()} if req.method == "GET" else None
+    body: dict[str, Any] = {"json": req.payload} if req.method == "POST" else {}
+    headers: dict[str, str] = {}
+    extensions: dict[str, Any] = {}
+    if ip is not None and ip != url.host:
+        headers["Host"] = url.netloc.decode("ascii")
+        if url.scheme == "https":
+            extensions["sni_hostname"] = url.raw_host.decode("ascii")
+        url = url.copy_with(host=ip)
+    return client.build_request(req.method, url, params=params, headers=headers, extensions=extensions, **body)
 
 
 async def call_webhook(req: WebhookRequest, online: bool, client: httpx.AsyncClient | None = None) -> WebhookResponse:
-    await asyncio.to_thread(validate_target, req.url, online)  # résolution DNS bloquante
+    ip = await asyncio.to_thread(validate_target, req.url, online)  # résolution DNS bloquante, une seule fois
     owns_client = client is None
     client = client or httpx.AsyncClient(timeout=15.0, follow_redirects=False)
     try:
-        if req.method == "GET":
-            response = await client.get(req.url, params={k: str(v) for k, v in req.payload.items()})
-        else:
-            response = await client.post(req.url, json=req.payload)
+        response = await client.send(pinned_request(client, req, ip), follow_redirects=False)
     except httpx.HTTPError as exc:
         raise ActionError(f"Webhook injoignable : {exc}", 502) from exc
     finally:

@@ -53,7 +53,7 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 | Polices | Pile système (aucune police téléchargée) | Idem |
 | IA | Ollama uniquement ; Claude refusé (HTTP 403) | Ollama + Claude |
 | Ce qui part vers l'IA | — | Schéma + 5 lignes, seulement si « Joindre le schéma » est coché |
-| Boutons webhook | Adresses locales / réseau privé uniquement | Toute adresse http(s) |
+| Boutons webhook | Adresses locales / réseau privé uniquement (nom résolu **une seule fois**, toutes ses adresses privées ; connexion à l'IP validée avec `Host` et vérification TLS sur le nom : pas de DNS rebinding) | Toute adresse http(s) |
 | Connecteurs SQL | Serveurs locaux / réseau privé / VPN (403 pour une adresse publique) | Tout serveur |
 | SharePoint Online | Refusé (403) ; un fichier SharePoint **synchronisé** reste lisible | Microsoft Graph, compte de l'utilisateur |
 | Boutons URL | Ouverture dans le navigateur (action explicite) | Idem |

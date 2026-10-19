@@ -33,7 +33,7 @@ backend/
   app/services/data/          # parsing, profiling, store (persistance DuckDB), model (colonnes / mesures calculées), context (contexte IA)
   app/services/reports.py     # ReportRepository (JSON)
   app/services/preferences.py # mode en ligne
-  app/services/actions.py     # webhooks des boutons (et des alertes)
+  app/services/actions.py     # webhooks des boutons (et des alertes) ; hors ligne : connexion à l'IP privée validée (anti DNS rebinding)
   app/services/refresh.py     # RefreshScheduler : actualisation planifiée, journal (data/schedules.json)
   app/services/alerts.py      # AlertService : alertes sur seuil, anti-rebond, notifications (data/alerts.json)
   app/services/github.py      # GitHubSync : envoi / récupération des rapports (data/github.json)
