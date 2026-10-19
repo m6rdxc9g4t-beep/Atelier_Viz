@@ -258,13 +258,18 @@ function FormatTab({ visual }: { visual: Visual }) {
                   </label>
                 );
               }
-              const choices = o.key === "targetPage" ? (report?.pages ?? []).map((p) => ({ value: p.id, label: p.name })) : o.choices;
+              const choices =
+                o.key === "targetPage"
+                  ? (report?.pages ?? []).map((p) => ({ value: p.id, label: p.name }))
+                  : o.key === "targetBookmark"
+                    ? (report?.bookmarks ?? []).map((b) => ({ value: b.id, label: b.name }))
+                    : o.choices;
               return (
                 <label key={o.key} htmlFor={id} className="flex flex-col gap-1 text-[11px] text-muted">
                   {o.label}
                   {o.type === "select" ? (
                     <select id={id} value={String(v ?? "")} onChange={(e) => set(o.key, e.target.value)} className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg">
-                      {o.key === "targetPage" && <option value="">—</option>}
+                      {(o.key === "targetPage" || o.key === "targetBookmark") && <option value="">—</option>}
                       {choices?.map((c) => (
                         <option key={c.value} value={c.value}>
                           {c.label}

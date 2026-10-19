@@ -5,10 +5,11 @@ import { create } from "zustand";
 import type { ProposedVisual } from "../types/builder";
 import type { ColumnProfile } from "../types/dataset";
 import type { Filter } from "../types/query";
-import type { FieldBinding, Layout, Page, Report, ReportBody, Visual, VisualOptions, VisualType } from "../types/report";
+import type { Bookmark, FieldBinding, Layout, Page, Report, ReportBody, Visual, VisualOptions, VisualType } from "../types/report";
 import { defaultBinding } from "../visuals/fields";
 import { VISUALS } from "../visuals/registry";
 import type { RoleDef, Selection } from "../visuals/types";
+import { MAX_BOOKMARKS, applyBookmarkTo, captureBookmark, nextBookmarkName } from "./bookmarks";
 import { DEFAULT_PAGE, GAP, clampToPage, fitHeight, migratePage, sizePx } from "./grid";
 
 const MIN_TEXT_H = 72;
@@ -23,7 +24,7 @@ const lastEdit: { key: string | null; at: number } = { key: null, at: 0 };
 export const uid = (): string => Math.random().toString(36).slice(2, 10);
 
 export function bodyOf(r: Report): ReportBody {
-  return { name: r.name, dataset_id: r.dataset_id ?? null, pages: r.pages, theme: r.theme };
+  return { name: r.name, dataset_id: r.dataset_id ?? null, pages: r.pages, theme: r.theme, bookmarks: r.bookmarks ?? [] };
 }
 
 /** Place un champ dans un rôle (remplace le dernier si le rôle est plein). Retourne une erreur éventuelle. */
@@ -159,6 +160,17 @@ interface StudioState {
   removePage: (id: string) => void;
   duplicatePage: (id: string) => void;
   resetFilters: () => void;
+
+  /** Capture l'état courant dans un nouveau signet ; retourne son identifiant (null si la limite est atteinte). */
+  addBookmark: (name?: string) => string | null;
+  /** Remplace l'état d'un signet par l'état courant (« Mettre à jour »). */
+  updateBookmark: (id: string) => void;
+  renameBookmark: (id: string, name: string) => void;
+  setBookmarkFlags: (id: string, flags: Partial<Pick<Bookmark, "apply_page" | "apply_data">>) => void;
+  removeBookmark: (id: string) => void;
+  moveBookmark: (id: string, delta: -1 | 1) => void;
+  /** Applique un signet (page, filtres, segments, sélection, exploration). Retourne false s'il est introuvable. */
+  applyBookmark: (id: string) => boolean;
 }
 
 export const useStudio = create<StudioState>((set, get) => {
@@ -498,6 +510,69 @@ export const useStudio = create<StudioState>((set, get) => {
         r.pages.splice(r.pages.indexOf(p) + 1, 0, copy);
       });
       set({ pageId: newId, selectedId: null, selection: null });
+    },
+
+    addBookmark: (name) => {
+      const { report, pageId, selection } = get();
+      if (!report) return null;
+      const list = report.bookmarks ?? [];
+      if (list.length >= MAX_BOOKMARKS) {
+        set({ notice: `${MAX_BOOKMARKS} signets au plus par rapport.` });
+        return null;
+      }
+      const bookmark = captureBookmark(report, pageId, selection, { id: uid(), name: name?.trim() || nextBookmarkName(list) });
+      get().mutate((r) => (r.bookmarks = [...(r.bookmarks ?? []), bookmark]));
+      return bookmark.id;
+    },
+
+    updateBookmark: (id) => {
+      const { report, pageId, selection } = get();
+      const base = report?.bookmarks?.find((b) => b.id === id);
+      if (!report || !base) return;
+      const fresh = captureBookmark(report, pageId, selection, { id, name: base.name, base });
+      get().mutate((r) => (r.bookmarks = (r.bookmarks ?? []).map((b) => (b.id === id ? fresh : b))));
+    },
+
+    renameBookmark: (id, name) =>
+      get().mutate((r) => {
+        const b = r.bookmarks?.find((x) => x.id === id);
+        if (b && name.trim()) b.name = name.trim().slice(0, 80);
+      }),
+
+    setBookmarkFlags: (id, flags) =>
+      get().mutate((r) => {
+        const b = r.bookmarks?.find((x) => x.id === id);
+        if (b) Object.assign(b, flags);
+      }),
+
+    removeBookmark: (id) => get().mutate((r) => (r.bookmarks = (r.bookmarks ?? []).filter((b) => b.id !== id))),
+
+    moveBookmark: (id, delta) =>
+      get().mutate((r) => {
+        const list = r.bookmarks ?? [];
+        const i = list.findIndex((b) => b.id === id);
+        const j = i + delta;
+        if (i < 0 || j < 0 || j >= list.length) return;
+        const [b] = list.splice(i, 1);
+        if (b) list.splice(j, 0, b);
+      }),
+
+    applyBookmark: (id) => {
+      const { report, pageId, selection } = get();
+      const bookmark = report?.bookmarks?.find((b) => b.id === id);
+      if (!report || !bookmark) return false;
+      let applied: ReturnType<typeof applyBookmarkTo> | null = null;
+      // Comme un segment : pas une édition, donc pas d'entrée d'historique.
+      get().mutate((r) => (applied = applyBookmarkTo(r, bookmark, pageId, selection)), { history: false });
+      const result = applied as ReturnType<typeof applyBookmarkTo> | null;
+      if (!result) return false;
+      set({
+        pageId: result.pageId,
+        selection: result.selection,
+        selectedId: result.pageId === pageId ? get().selectedId : null,
+        notice: result.missing ? `Signet « ${bookmark.name} » appliqué ; ${result.missing} élément(s) supprimé(s) depuis ont été ignorés.` : get().notice,
+      });
+      return true;
     },
 
     resetFilters: () => {

@@ -37,6 +37,7 @@ class ReportRepository:
                     name=report.name,
                     pages=len(report.pages),
                     visuals=sum(len(p.visuals) for p in report.pages),
+                    bookmarks=len(report.bookmarks),
                     updated_at=report.updated_at,
                 )
             )

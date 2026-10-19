@@ -49,6 +49,8 @@ export interface VisualActions {
   reportName: string;
   goToPage: (pageId: string) => void;
   resetFilters: () => void;
+  /** Applique un signet du rapport ; false s'il n'existe plus. */
+  applyBookmark: (bookmarkId: string) => boolean;
   /** Filtres actifs sur la page (pages, segments, sélection) — utilisés par les boutons. */
   activeFilters: Filter[];
 }

@@ -1,5 +1,6 @@
 /** Miroir de backend/app/schemas/report.py — garder synchronisé. */
 
+import type { Scalar } from "./dataset";
 import type { Agg, DateBin, Filter } from "./query";
 
 export type VisualType =
@@ -70,11 +71,49 @@ export interface Page {
   size?: PageSize | null;
 }
 
+/** État d'un visuel capturé par un signet : sélection d'un segment, niveau d'exploration. */
+export interface BookmarkVisualState {
+  selected?: Scalar[] | null;
+  range?: Scalar[] | null;
+  /** `options.drill` ; absent = niveau supérieur. */
+  drill?: Record<string, unknown> | null;
+}
+
+export interface BookmarkPageState {
+  filters: Filter[];
+  visuals: Record<string, BookmarkVisualState>;
+}
+
+/** Filtrage croisé capturé par un signet. */
+export interface BookmarkSelection {
+  visual_id: string;
+  dataset_id: string;
+  filters: Filter[];
+  keys: string[];
+}
+
+/** Signet : état nommé d'un rapport (page active, filtres, segments, exploration), comme dans Power BI. */
+export interface Bookmark {
+  id: string;
+  name: string;
+  page_id?: string | null;
+  /** Appliquer : revenir à la page capturée. */
+  apply_page: boolean;
+  /** Appliquer : filtres, segments, sélection, exploration. */
+  apply_data: boolean;
+  pages: Record<string, BookmarkPageState>;
+  selection?: BookmarkSelection | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface ReportBody {
   name: string;
   dataset_id?: string | null;
   pages: Page[];
   theme: Record<string, unknown>;
+  /** Absent des rapports antérieurs au jalon 6 (lu comme une liste vide). */
+  bookmarks?: Bookmark[];
 }
 
 export interface Report extends ReportBody {
@@ -89,5 +128,6 @@ export interface ReportSummary {
   name: string;
   pages: number;
   visuals: number;
+  bookmarks: number;
   updated_at: string;
 }

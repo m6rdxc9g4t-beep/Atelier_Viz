@@ -340,6 +340,7 @@ export const VISUALS: Record<VisualType, VisualDef> = {
           { value: "webhook", label: "Appeler un webhook (automatisation)" },
           { value: "page", label: "Aller à une page" },
           { value: "reset", label: "Réinitialiser les filtres" },
+          { value: "bookmark", label: "Appliquer un signet" },
         ],
       },
       { key: "url", label: "URL — variables : {champ}, {page}, {rapport}, {date}", type: "text", section: "Bouton", when: (o) => o.action === "url" || o.action === "webhook" || o.action === undefined },
@@ -356,6 +357,7 @@ export const VISUALS: Record<VisualType, VisualDef> = {
       },
       { key: "confirm", label: "Demander confirmation", type: "boolean", section: "Bouton", when: (o) => o.action === "webhook" },
       { key: "targetPage", label: "Page cible", type: "select", section: "Bouton", when: (o) => o.action === "page" },
+      { key: "targetBookmark", label: "Signet", type: "select", section: "Bouton", when: (o) => o.action === "bookmark" },
       {
         key: "variant",
         label: "Apparence",

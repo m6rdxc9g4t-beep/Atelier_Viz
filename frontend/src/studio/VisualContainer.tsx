@@ -57,6 +57,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
     reportName: report.name,
     goToPage: (id) => studio().setPage(id),
     resetFilters: () => studio().resetFilters(),
+    applyBookmark: (id) => studio().applyBookmark(id),
     activeFilters: pageActiveFilters(page, selection),
   };
 
