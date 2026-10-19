@@ -119,6 +119,21 @@ Dans le Studio, bouton **Créer avec l'IA** : une phrase (« CA par région sur 
 
 Mesuré avec Claude (CLI, Sonnet) sur `ventes_2026.csv` : 5 à 6 s par demande ; « CA par région sur une carte » → carte choroplèthe des régions, « évolution mensuelle par produit » → courbes par mois avec légende, « top 3 des produits par marge moyenne » → barres triées, Top N = 3 ; aucune correction nécessaire.
 
+### Résumé de la page (« Résumer »)
+
+Bouton **Résumer** du Studio (édition et lecture) : un titre et 3 à 5 points sur la page affichée, avec ses filtres.
+
+| Étape | Détail |
+|---|---|
+| Faits | Calculés dans le navigateur à partir des résultats affichés : total, trois premiers et dernier avec leur part, évolution début → fin, maximum / minimum, répartition par légende, KPI et cible, sous-totaux de matrice… Écrits comme à l'écran (« 974 k », « 22 % »). Deux visuels aux faits identiques ne sont envoyés qu'une fois |
+| Confidentialité | Seuls ces faits partent vers l'IA (≈ 25 chiffres pour une page de tableau de bord), **jamais les lignes** ; liste consultable (« Voir les chiffres envoyés »). Hors ligne : Ollama uniquement |
+| Rédaction | Sortie JSON contrainte (titre, points, numéros des visuels cités). Consigne : recopier les nombres, ne rien calculer, aucune cause ni prévision inventée |
+| Vérification | Chaque nombre du texte est relu (formats français, k / M / Md, %, « millions ») et comparé aux faits à la précision écrite près ; dénombrements ≤ 10 et années admis. Un écart → une relance avec la liste ; ce qui reste invérifiable est écarté et signalé |
+| Studio | Points reliés à leurs visuels (clic = défilement + sélection), « Insérer dans la page » (zone de texte modifiable en haut, Ctrl+Z), « Copier » |
+| Export | Option « Synthèse de chaque page par l'IA » : en tête des notes du présentateur |
+
+Mesuré avec Claude (CLI, Sonnet) : 5 à 8 s par page ; sur les pages de démonstration, aucun chiffre écarté.
+
 ## 5 quater. Export PowerPoint
 
 Bouton **PowerPoint** du Studio (édition et lecture) → fichier `.pptx` 16:9 téléchargé. Tout est calculé **dans le navigateur** (pptxgenjs, chargé à la demande) : aucune donnée ne quitte la machine, hors ligne compris.
@@ -165,6 +180,7 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 | GET | `/api/ai/providers` | État d'Ollama et de Claude (désactivé hors ligne) |
 | POST | `/api/ai/chat` | Assistant ; `dataset_id` optionnel joint le schéma |
 | POST | `/api/ai/visuals` | Phrase + catalogue → visuels validés (`BuildResponse` : visuels, explication, moteur, corrections) |
+| POST | `/api/ai/summary` | Faits d'une page → synthèse vérifiée (`SummaryResponse` : titre, points reliés aux visuels, moteur, éléments écartés) |
 | POST | `/api/datasets` | Import multipart (CSV/XLSX/JSON, 50 Mo) → profil ; persisté dans DuckDB |
 | GET | `/api/datasets` · `/api/datasets/{id}` · `/api/datasets/{id}/rows` | Liste, profil, lignes paginées |
 | DELETE | `/api/datasets/{id}` | Suppression |
@@ -178,7 +194,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (82) côté back, Vitest (62) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (92) côté back, Vitest (73) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -186,7 +202,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 0 — Socle** ✅ · **0b — Claude via la CLI** ✅ · **1 — Import et profilage** ✅
 - **Jalon 2 — Studio** ✅ : DuckDB, rapports multi-pages, 22 visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons d'automatisation, mode hors ligne / en ligne.
 - **Jalon 2 bis — Thèmes** ✅ : thème de l'application (clair / sombre / système), thèmes de rapport, styles par visuel, couleurs hexadécimales, import de thèmes Power BI.
-- **Jalon 3 — IA qui construit** ✅ : « Crée un graphique du CA par région » → visuels validés ajoutés au Studio (Claude via `claude -p --json-schema`, Ollama en format JSON). Reste : résumé automatique d'une page.
+- **Jalon 3 — IA qui construit** ✅ : « Crée un graphique du CA par région » → visuels validés ajoutés au Studio (Claude via `claude -p --json-schema`, Ollama en format JSON). Résumé de page vérifié chiffre par chiffre, insérable dans le rapport et dans les notes PowerPoint.
 - **Jalon 4 — Export PowerPoint** ✅ : diapositives 16:9, graphiques et tableaux natifs modifiables, images pour les visuels sans équivalent, thème du rapport, notes avec les filtres. Reste : export PDF et image d'une page.
 - **Jalon 5 — Modélisation** : colonnes calculées et mesures (expressions SQL DuckDB validées), relations entre tables, hiérarchies et exploration (drill-down).
 - **Jalon 6 — Partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil (webhook), synchronisation des rapports avec un dépôt GitHub.

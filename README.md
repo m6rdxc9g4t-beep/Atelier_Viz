@@ -43,14 +43,15 @@ Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages)
 | Filtrer | Segments, volet Filtres (page / visuel), clic sur un élément d'un graphique (filtrage croisé) |
 | Automatiser | Visuel « Bouton d'action » : URL avec `{champ}`, webhook (n8n, Make, Zapier), page, réinitialisation |
 | Habiller | Bouton « Thème » : clair / sombre, préréglages (Verre, Papier, Minuit…), couleurs en hexadécimal, import de thèmes Power BI ; onglet Format d'un visuel : fond transparent, bordure, arrondi, ombre, titre, couleurs |
+| Résumer | Bouton **Résumer** : synthèse de la page par l'IA, chaque chiffre vérifié contre les données ; à insérer dans la page ou dans les notes PowerPoint |
 | Exporter | Bouton **PowerPoint** : une page = une diapositive, graphiques et tableaux modifiables dans PowerPoint (ou images fidèles), filtres listés dans les notes ; fichier créé sur la machine |
 | Raccourcis | Ctrl+Z / Ctrl+Y, Ctrl+D, Suppr, Échap |
 
 ## Tests
 
 ```bash
-cd backend && pytest && ruff check .          # 82 tests
-cd frontend && npm test && npm run build      # 62 tests
+cd backend && pytest && ruff check .          # 92 tests
+cd frontend && npm test && npm run build      # 73 tests
 ```
 
 ## Arborescence

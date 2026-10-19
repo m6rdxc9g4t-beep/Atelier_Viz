@@ -17,6 +17,10 @@ import { exportTheme, pptColor, resolveReportTheme } from "./colors";
 import { type LoadedVisual, loadVisual, mapLimit } from "./data";
 import { type Band, type FitMode, SLIDE, SLIDE_MARGIN, TITLE_BAND, contentArea, placeBand, splitPage } from "./layout";
 import { fileNameFor, formatDate, slideNotes } from "./notes";
+import { api } from "../lib/api";
+import { pageFacts } from "../summary/facts";
+import { summaryNotes, summaryRequest } from "../summary/pageSummary";
+import type { ProviderChoice } from "../types/ai";
 import { addItems } from "./writer";
 
 export interface ExportOptions {
@@ -29,12 +33,14 @@ export interface ExportOptions {
   pageTitles: boolean;
   /** Pages hautes : réduire sur une diapositive, ou répartir sur plusieurs. */
   fit: FitMode;
+  /** Synthèse IA (chiffres vérifiés) en tête des notes de chaque page. */
+  aiNotes: boolean;
 }
 
-export const DEFAULT_EXPORT_OPTIONS: ExportOptions = { pages: "all", mode: "native", titleSlide: true, pageTitles: true, fit: "split" };
+export const DEFAULT_EXPORT_OPTIONS: ExportOptions = { pages: "all", mode: "native", titleSlide: true, pageTitles: true, fit: "split", aiNotes: false };
 
 export interface ExportProgress {
-  step: "data" | "images" | "slides" | "file";
+  step: "data" | "images" | "summary" | "slides" | "file";
   done: number;
   total: number;
 }
@@ -55,6 +61,8 @@ export interface ExportInput {
   profiles: Map<string, DatasetProfile>;
   appMode: "light" | "dark";
   options: ExportOptions;
+  /** Moteur d'IA des synthèses (option `aiNotes`). */
+  aiProvider?: ProviderChoice;
   onProgress?: (p: ExportProgress) => void;
   signal?: AbortSignal;
 }
@@ -143,6 +151,25 @@ export async function exportReport(input: ExportInput): Promise<ExportResult> {
       }),
     );
     onProgress?.({ step: "images", done: i + 1, total: toCapture.length });
+  }
+
+  // 2 bis. Synthèses IA des pages (une page à la fois ; on s'arrête au premier échec).
+  const summaries = new Map<string, string[]>();
+  if (options.aiNotes) {
+    const withFacts = pages.map((page) => ({ page, facts: pageFacts(page, (id) => data.get(id)) })).filter((p) => p.facts.length);
+    onProgress?.({ step: "summary", done: 0, total: withFacts.length });
+    for (const [i, { page, facts }] of withFacts.entries()) {
+      abortIfNeeded(signal);
+      try {
+        const res = await api.summarizePage(summaryRequest(report.name, page, selectionFor(page), profiles, facts, input.aiProvider ?? "auto"), signal);
+        summaries.set(page.id, summaryNotes(res));
+      } catch (err) {
+        if ((err as Error).name === "AbortError") throw err;
+        warnings.push(`Synthèse IA interrompue (page « ${page.name} ») : ${err instanceof Error ? err.message : String(err)}`);
+        break;
+      }
+      onProgress?.({ step: "summary", done: i + 1, total: withFacts.length });
+    }
   }
 
   // 3. Diapositives.
@@ -248,7 +275,9 @@ export async function exportReport(input: ExportInput): Promise<ExportResult> {
       slideWarnings.push(...built.warnings);
     }
     warnings.push(...slideWarnings);
-    slide.addNotes(slideNotes(planned.page, selectionFor(planned.page), profiles, exportedAt, slideWarnings.map((w) => `Attention : ${w}`)));
+    const summary = planned.part === 1 ? (summaries.get(planned.page.id) ?? []) : [];
+    const notes = slideNotes(planned.page, selectionFor(planned.page), profiles, exportedAt, slideWarnings.map((w) => `Attention : ${w}`));
+    slide.addNotes(summary.length ? `${summary.join("\n")}\n\n${notes}` : notes);
   }
 
   onProgress?.({ step: "file", done: 0, total: 1 });

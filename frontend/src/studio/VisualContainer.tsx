@@ -114,6 +114,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
   return (
     <section
       aria-label={visual.title || defaultTitle(visual)}
+      data-visual-id={visual.id}
       // Sélection au clic (pas au mousedown) : un re-rendu entre mousedown et mouseup ferait perdre le clic du graphique.
       onClick={() => editing && studio().select(visual.id)}
       onDragOver={(e) => {
