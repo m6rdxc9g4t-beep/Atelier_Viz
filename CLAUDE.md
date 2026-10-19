@@ -71,6 +71,12 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Un jeu importé garde `origin` ; `DatasetStore.replace_data` actualise en revalidant le modèle. Côté front, `refreshDataset` puis les visuels se rechargent (`invalidateQueries`).
 - Pilotes facultatifs (`requirements-connectors.txt`) : `Dialect.driver_installed` et message 501 si absent.
 
+## Suite Atelier
+- Contrat commun avec Atelier Tab et Atelier Projets : **`docs/SUITE.md`** (identique dans les trois dépôts ; toute modification se fait dans les trois). Le lire avant de toucher au design, au thème, à la navigation ou aux échanges de données.
+- Design system : `frontend/src/styles/atelier-ds/` = copies **verbatim** (ne jamais les modifier ici) ; les jetons d'habillage de `index.css` en dérivent. La palette de données et les thèmes de rapport restent hors du design system.
+- Thème : `useTheme` pose `class="dark"` **et** `data-theme`. Sélecteur de suite : `lib/suite.ts` + `components/layout/SuiteSwitcher.tsx`.
+- Données : enveloppes DataFlow (`app/services/data/dataflow.py`), connecteurs `atelier_tab` / `atelier_projets` (`app/services/connectors/atelier.py`, sans secret). Tests : `test_dataflow.py`, `test_connections_atelier.py` (transport httpx simulé).
+
 ## Application de bureau
 - `backend/desktop.py` → `app/desktop.py` (pywebview + uvicorn en fil) ; paquet macOS : `scripts/macos/build_app.sh`. L'interface compilée est servie par FastAPI (`settings.frontend_dist`).
 - Front : tout enregistrement de fichier passe par `saveFile` et tout lien externe par `openExternal` (`lib/desktop.ts`) — jamais `a.download` ni `window.open` directement (WKWebView les ignore).
