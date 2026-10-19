@@ -325,7 +325,7 @@ class ConnectionService:
                 return TestResult(ok=True, message=f"Fichier trouvé ({path.stat().st_size // 1024} Ko).")
             if cfg.kind == "atelier_tab":
                 folder = self._tab_folder(cfg)
-                count = len(atelier.list_snapshots(folder, self._max_bytes))
+                count = len(atelier.list_snapshots(folder, self._snapshot_max_bytes))
                 plural = "s" if count > 1 else ""
                 return TestResult(
                     ok=True,
@@ -352,14 +352,15 @@ class ConnectionService:
             return TestResult(ok=False, message=exc.message)
 
     @property
-    def _max_bytes(self) -> int:
-        return self.settings.connector_max_file_mb * 1_000_000
+    def _snapshot_max_bytes(self) -> int:
+        """Plafond d'un instantané d'Atelier Tab (JSON chargé en mémoire en entier)."""
+        return self.settings.atelier_tab_max_snapshot_mb * 1_000_000
 
     def tables(self, connection_id: str, url: str | None = None) -> TableList:
         cfg = self.get(connection_id)
         if cfg.kind == "atelier_tab":
             folder = self._tab_folder(cfg)
-            return TableList(tables=atelier.list_snapshots(folder, self._max_bytes), location=str(folder))
+            return TableList(tables=atelier.list_snapshots(folder, self._snapshot_max_bytes), location=str(folder))
         if cfg.kind == "atelier_projets":
             with self._projets(cfg) as client:
                 datasets = client.datasets()
@@ -404,7 +405,7 @@ class ConnectionService:
             return df, truncated, name, cfg.kind
         if cfg.kind == "atelier_tab":
             df, name = atelier.read_snapshot(
-                self._tab_folder(cfg), spec.table.id if spec.table else None, self._max_bytes
+                self._tab_folder(cfg), spec.table.id if spec.table else None, self._snapshot_max_bytes
             )
             return df.head(limit), len(df) > limit, name, "atelier_tab"
         if cfg.kind == "atelier_projets":

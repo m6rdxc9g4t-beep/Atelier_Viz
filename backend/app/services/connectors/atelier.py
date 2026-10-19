@@ -1,7 +1,8 @@
 """Sources de la Suite Atelier (docs/SUITE.md §4.2 et §4.3).
 
 - **Atelier Tab** : instantanés DataFlow v2.1.0 que l'application de bureau écrit dans un dossier
-  (`~/Atelier_Tab/exports/<tableId>.json` par défaut). Aucun réseau : simple lecture de fichiers.
+  (`~/Atelier_Tab/exports/<tableId>.json` par défaut). Aucun réseau : simple lecture de fichiers, limitée au
+  dossier et à `ATELIER_TAB_MAX_SNAPSHOT_MB` ; métadonnées en cache par (chemin, mtime_ns, taille).
 - **Atelier Projets** : API locale en lecture seule (`GET /api/exports/datasets`, `GET /api/exports/datasets/:name`),
   sans secret. Adresse de la machine uniquement (`check_loopback` : 127.0.0.0/8, ::1, localhost), quel que soit
   le mode ; les redirections ne sont jamais suivies.
@@ -10,7 +11,10 @@ Fonctions synchrones (disque, httpx, pandas) : à appeler via `asyncio.to_thread
 """
 
 import json
+import os
 import re
+import threading
+from collections import OrderedDict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -21,7 +25,7 @@ import pandas as pd
 
 from app.schemas.connection import ProjectRef, TableRef
 from app.services.connectors.base import ConnectorError, short, unique_names
-from app.services.data.dataflow import DataflowError, dataflow_frame, dataflow_info, is_dataflow
+from app.services.data.dataflow import DataflowError, DataflowInfo, dataflow_frame, dataflow_info, is_dataflow
 
 # --- Atelier Tab : dossier d'instantanés -------------------------------------------------------------
 
@@ -43,37 +47,129 @@ def _require_folder(folder: Path) -> None:
         )
 
 
-def _load(path: Path, max_bytes: int) -> dict[str, Any]:
-    size = path.stat().st_size
-    if size > max_bytes:
-        raise ConnectorError(
-            f"Instantané trop volumineux ({size // 1_000_000} Mo, max {max_bytes // 1_000_000} Mo).", 413
-        )
+def _too_big(size: int, max_bytes: int) -> str:
+    return (
+        f"Instantané trop volumineux ({size / 1_000_000:.0f} Mo, max {max_bytes // 1_000_000} Mo). "
+        "Allégez la table dans Atelier Tab, ou augmentez ATELIER_TAB_MAX_SNAPSHOT_MB dans backend/.env."
+    )
+
+
+def _inside(folder: Path, path: Path) -> Path | None:
+    """Chemin réel de `path` s'il reste dans `folder` (lien symbolique compris) et désigne un fichier, sinon None."""
     try:
-        data = json.loads(path.read_text(encoding="utf-8-sig"))
+        real = path.resolve(strict=True)
+        root = folder.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
+    return real if real.is_relative_to(root) and real.is_file() else None
+
+
+def _parse(raw: bytes, name: str) -> dict[str, Any]:
+    try:
+        data = json.loads(raw.decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ConnectorError(f"Instantané illisible : {path.name} ({short(exc, 160)}).") from exc
+        raise ConnectorError(f"Instantané illisible : {name} ({short(exc, 160)}).") from exc
     if not is_dataflow(data):
-        raise ConnectorError(f"{path.name} n'est pas un instantané Atelier Tab (enveloppe DataFlow attendue).")
+        raise ConnectorError(f"{name} n'est pas un instantané Atelier Tab (enveloppe DataFlow attendue).")
     return data
+
+
+def _read_bounded(real: Path, max_bytes: int) -> tuple[bytes, os.stat_result]:
+    """Contenu du fichier (refus au-delà de `max_bytes`, même s'il grossit pendant la lecture) et son état."""
+    with real.open("rb") as handle:
+        stat = os.fstat(handle.fileno())
+        if stat.st_size > max_bytes:
+            raise ConnectorError(_too_big(stat.st_size, max_bytes), 413)
+        raw = handle.read(max_bytes + 1)
+    if len(raw) > max_bytes:
+        raise ConnectorError(_too_big(len(raw), max_bytes), 413)
+    return raw, stat
+
+
+class _InfoCache:
+    """Métadonnées des instantanés par (chemin réel, mtime_ns, taille) : « Tester » et « Parcourir » ne relisent
+    que les fichiers modifiés. `None` = fichier qui n'est pas un instantané (ignoré jusqu'à sa modification)."""
+
+    def __init__(self, capacity: int = 1024) -> None:
+        self.capacity = capacity
+        self._items: OrderedDict[tuple[str, int, int], DataflowInfo | None] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def get(self, key: tuple[str, int, int]) -> tuple[bool, DataflowInfo | None]:
+        with self._lock:
+            if key not in self._items:
+                return False, None
+            self._items.move_to_end(key)
+            return True, self._items[key]
+
+    def put(self, key: tuple[str, int, int], info: DataflowInfo | None) -> None:
+        with self._lock:
+            # Une seule entrée par fichier : l'ancienne version est oubliée.
+            for old in [k for k in self._items if k[0] == key[0] and k != key]:
+                del self._items[old]
+            self._items[key] = info
+            while len(self._items) > self.capacity:
+                self._items.popitem(last=False)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+
+
+SNAPSHOT_INFO_CACHE = _InfoCache()
+
+
+def _snapshot_info(real: Path, stat: os.stat_result, max_bytes: int) -> DataflowInfo | None:
+    """Résumé d'un instantané (depuis le cache si le fichier n'a pas changé) ; None si ce n'en est pas un."""
+    key = (str(real), stat.st_mtime_ns, stat.st_size)
+    hit, info = SNAPSHOT_INFO_CACHE.get(key)
+    if hit:
+        return info
+    try:
+        raw, current = _read_bounded(real, max_bytes)
+        info = dataflow_info(_parse(raw, real.name))
+    except (ConnectorError, OSError):
+        info, current = None, stat
+    SNAPSHOT_INFO_CACHE.put((str(real), current.st_mtime_ns, current.st_size), info)
+    return info
 
 
 def list_snapshots(folder: Path, max_bytes: int) -> list[TableRef]:
     """Tables publiées dans le dossier : nom, projet (`schema`), date de publication, nombre de lignes.
 
-    Les fichiers JSON qui ne sont pas des instantanés (ou illisibles, en cours d'écriture) sont ignorés.
+    - Les fichiers JSON qui ne sont pas des instantanés (ou illisibles, en cours d'écriture) sont ignorés,
+      comme les liens symboliques qui sortent du dossier.
+    - Un instantané plus gros que `max_bytes` est listé (sous son nom de fichier) sans être lu : son import
+      explique la limite.
+    - Les métadonnées sont mises en cache par (chemin, mtime_ns, taille).
     """
     _require_folder(folder)
     tables: list[TableRef] = []
     for path in sorted(folder.glob("*.json")):
-        if not path.is_file() or not _SNAPSHOT_ID_RE.match(path.stem):
+        if not _SNAPSHOT_ID_RE.match(path.stem):
+            continue
+        real = _inside(folder, path)
+        if real is None:
             continue
         try:
-            data = _load(path, max_bytes)
-        except (ConnectorError, OSError):
+            stat = real.stat()
+        except OSError:
             continue
-        info = dataflow_info(data)
-        published = info.exported_at or datetime.fromtimestamp(path.stat().st_mtime, UTC)
+        published_fallback = datetime.fromtimestamp(stat.st_mtime, UTC)
+        if stat.st_size > max_bytes:
+            tables.append(
+                TableRef(
+                    name=path.stem,
+                    kind="snapshot",
+                    id=path.stem,
+                    description=_too_big(stat.st_size, max_bytes)[:500],
+                    updated_at=published_fallback,
+                )
+            )
+            continue
+        info = _snapshot_info(real, stat, max_bytes)
+        if info is None:
+            continue
         tables.append(
             TableRef(
                 name=info.table_name,
@@ -81,7 +177,7 @@ def list_snapshots(folder: Path, max_bytes: int) -> list[TableRef]:
                 kind="snapshot",
                 id=path.stem,
                 description=info.workspace_name or None,
-                updated_at=published,
+                updated_at=info.exported_at or published_fallback,
                 rows=info.rows,
             )
         )
@@ -90,21 +186,33 @@ def list_snapshots(folder: Path, max_bytes: int) -> list[TableRef]:
 
 
 def read_snapshot(folder: Path, snapshot_id: str | None, max_bytes: int) -> tuple[pd.DataFrame, str]:
-    """(données à plat, nom de la table) d'un instantané désigné par son identifiant (nom du fichier sans `.json`)."""
+    """(données à plat, nom de la table) d'un instantané désigné par son identifiant (nom du fichier sans `.json`).
+
+    Le fichier doit être dans le dossier (pas de « .. », pas de lien symbolique qui en sort) et ne pas dépasser
+    `max_bytes` (HTTP 413 sinon).
+    """
     if not snapshot_id or not _SNAPSHOT_ID_RE.match(snapshot_id) or ".." in snapshot_id:
         raise ConnectorError("Choisissez une table publiée par Atelier Tab.")
     _require_folder(folder)
     path = folder / f"{snapshot_id}.json"
-    if not path.is_file():
+    real = _inside(folder, path)
+    if real is None:
+        if path.is_symlink() and not path.resolve().is_relative_to(folder.resolve()):
+            raise ConnectorError(
+                f"« {snapshot_id} » est un lien vers un fichier hors du dossier {folder} : refusé.", 403
+            )
         raise ConnectorError(
             f"La table « {snapshot_id} » n'est plus publiée dans {folder} (supprimée dans Atelier Tab ?).", 404
         )
-    data = _load(path, max_bytes)
+    raw, stat = _read_bounded(real, max_bytes)
+    data = _parse(raw, path.name)
+    info = dataflow_info(data)
+    SNAPSHOT_INFO_CACHE.put((str(real), stat.st_mtime_ns, stat.st_size), info)
     try:
         df = dataflow_frame(data)
     except DataflowError as exc:
         raise ConnectorError(str(exc)) from exc
-    return df, dataflow_info(data).table_name
+    return df, info.table_name
 
 
 # --- Atelier Projets : API locale --------------------------------------------------------------------

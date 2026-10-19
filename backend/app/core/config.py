@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     sharepoint_tenant: str = "organizations"
     # Suite Atelier (docs/SUITE.md §4) : instantanés d'Atelier Tab, API locale d'Atelier Projets
     atelier_tab_exports_dir: Path = Path("~/Atelier_Tab/exports")
+    # Taille maximale d'un instantané d'Atelier Tab (JSON entièrement chargé en mémoire : ~10 à 20 × sa taille).
+    atelier_tab_max_snapshot_mb: int = Field(default=50, ge=1, le=2000)
     atelier_projets_url: str = "http://127.0.0.1:3000"
     atelier_projets_timeout_seconds: float = 30.0
 

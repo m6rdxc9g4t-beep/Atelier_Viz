@@ -5,6 +5,7 @@
 """
 
 import json
+import os
 import shutil
 import time
 from collections.abc import Callable, Iterator
@@ -112,6 +113,87 @@ def test_atelier_tab_default_folder_and_errors(settings: Settings, tmp_path: Pat
         assert bad.status_code == 422
         none = client.post(f"/api/connections/{c['id']}/preview", json={})
         assert none.status_code == 422 and "Choisissez" in none.json()["detail"]
+
+
+def test_atelier_tab_snapshot_size_limit(settings: Settings, exports: Path) -> None:
+    settings.atelier_tab_max_snapshot_mb = 1
+    big = json.loads((exports / "tbl_materiaux.json").read_text(encoding="utf-8"))
+    big["project"]["padding"] = "x" * 1_200_000  # > 1 Mo
+    (exports / "tbl_enorme.json").write_text(json.dumps(big), encoding="utf-8")
+    with TestClient(create_app(settings)) as client:
+        c = make(client, name="Atelier Tab", kind="atelier_tab", path=str(exports))
+        tables = {t["id"]: t for t in client.get(f"/api/connections/{c['id']}/tables").json()["tables"]}
+        # Listé sans être lu, avec l'explication ; les autres tables restent disponibles.
+        assert set(tables) == {"tbl_enorme", "tbl_materiaux", "tbl_planning_lots"}
+        assert "trop volumineux" in tables["tbl_enorme"]["description"] and tables["tbl_enorme"]["rows"] is None
+        r = client.post(f"/api/connections/{c['id']}/preview", json={"table": tables["tbl_enorme"]})
+        assert r.status_code == 413
+        assert "max 1 Mo" in r.json()["detail"] and "ATELIER_TAB_MAX_SNAPSHOT_MB" in r.json()["detail"]
+        ok = client.post(f"/api/connections/{c['id']}/preview", json={"table": tables["tbl_materiaux"]})
+        assert ok.status_code == 200
+    assert Settings(_env_file=None).atelier_tab_max_snapshot_mb == 50  # type: ignore[call-arg]
+
+
+def test_atelier_tab_metadata_cache(client: TestClient, exports: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.connectors import atelier
+
+    atelier.SNAPSHOT_INFO_CACHE.clear()
+    parsed: list[str] = []
+    real_parse = atelier._parse
+
+    def counting(raw: bytes, name: str) -> dict[str, Any]:
+        parsed.append(name)
+        return real_parse(raw, name)
+
+    monkeypatch.setattr(atelier, "_parse", counting)
+    c = make(client, name="Atelier Tab", kind="atelier_tab", path=str(exports))
+    assert client.post(f"/api/connections/{c['id']}/test").json()["ok"] is True
+    first = sorted(parsed)
+    # Les deux instantanés et les deux JSON qui n'en sont pas : lus une fois.
+    assert first == ["notes.json", "tbl_materiaux.json", "tbl_planning_lots.json", "tbl_tmp.json"]
+
+    parsed.clear()
+    client.get(f"/api/connections/{c['id']}/tables")
+    client.post(f"/api/connections/{c['id']}/test")
+    assert parsed == []  # rien n'a changé : aucune relecture
+
+    # Atelier Tab republie une table : seule celle-ci est relue, et la liste est à jour.
+    path = exports / "tbl_materiaux.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["project"]["source_table"]["name"] = "Matériaux v2"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    os.utime(path, ns=(time.time_ns(), time.time_ns() + 5_000_000_000))
+    names = [t["name"] for t in client.get(f"/api/connections/{c['id']}/tables").json()["tables"]]
+    assert parsed == ["tbl_materiaux.json"] and "Matériaux v2" in names
+
+    # Le fichier en cours d'écriture est terminé : il apparaît.
+    shutil.copy(FIXTURES / "dataflow_planning.json", exports / "tbl_tmp.json")
+    parsed.clear()
+    ids = [t["id"] for t in client.get(f"/api/connections/{c['id']}/tables").json()["tables"]]
+    assert parsed == ["tbl_tmp.json"] and "tbl_tmp" in ids
+
+
+def test_atelier_tab_symlinks_cannot_leave_the_folder(client: TestClient, exports: Path, tmp_path: Path) -> None:
+    outside = tmp_path / "ailleurs"
+    outside.mkdir()
+    shutil.copy(FIXTURES / "dataflow_planning.json", outside / "secret.json")
+    (exports / "tbl_fuite.json").symlink_to(outside / "secret.json")
+    (exports / "tbl_casse.json").symlink_to(outside / "absent.json")
+    # Lien interne au dossier : accepté.
+    (exports / "tbl_alias.json").symlink_to(exports / "tbl_materiaux.json")
+
+    c = make(client, name="Atelier Tab", kind="atelier_tab", path=str(exports))
+    ids = {t["id"] for t in client.get(f"/api/connections/{c['id']}/tables").json()["tables"]}
+    assert ids == {"tbl_alias", "tbl_materiaux", "tbl_planning_lots"}
+    r = client.post(f"/api/connections/{c['id']}/preview", json={"table": {"name": "x", "id": "tbl_fuite"}})
+    assert r.status_code == 403 and "hors du dossier" in r.json()["detail"]
+    r = client.post(f"/api/connections/{c['id']}/preview", json={"table": {"name": "x", "id": "tbl_casse"}})
+    assert r.status_code == 403
+    (exports / "tbl_mort.json").symlink_to(exports / "disparu.json")  # lien interne cassé
+    r = client.post(f"/api/connections/{c['id']}/preview", json={"table": {"name": "x", "id": "tbl_mort"}})
+    assert r.status_code == 404 and "n'est plus publiée" in r.json()["detail"]
+    alias = client.post(f"/api/connections/{c['id']}/preview", json={"table": {"name": "x", "id": "tbl_alias"}})
+    assert alias.status_code == 200
 
 
 # --- Atelier Projets ----------------------------------------------------------------------------------
