@@ -140,11 +140,14 @@ Correspondance des colonnes (`atelier_mapping`) :
 Identité : chaque élément importé garde `externalRef = "atelier-tab:<source_table.id ?? project.id>:<record_id>"` ; un réimport **met à jour** l'élément au lieu d'en créer un autre.
 Réponse (`200`) : `{ projectId, storyId, created, updated, skipped, warnings: string[], items: [{ recordId, workItemId, action }] }`.
 
-CORS : ces deux routes acceptent les origines `http://127.0.0.1:*`, `http://localhost:*` et `null`, méthodes `POST, OPTIONS`,
+CORS : ces deux routes acceptent les seules origines `http://127.0.0.1:*` et `http://localhost:*`, méthodes `POST, OPTIONS`,
 en-têtes `Content-Type, Authorization, Idempotency-Key, X-Atelier-Schema-Version`.
 L'app de bureau Tab (origine `app://atelier`) n'envoie pas depuis la page : le processus principal relaie la requête **sans en-tête `Origin`**,
 uniquement vers `http(s)://127.0.0.1|localhost/api/imports/atelier-tab[/preview]` et avec les seuls en-têtes ci-dessus.
-Projets traite une requête sans `Origin` comme un appel local ordinaire (garde `local-only`).
+Projets traite une requête sans `Origin` comme un appel local ordinaire (garde `local-only`). L'origine `null` est **refusée** :
+n'importe quelle page web peut l'envoyer (iframe sandbox, URL `data:`, fichier local).
+Jeton `ATELIER_IMPORT_TOKEN` (facultatif) : exigé des appels externes (sans `Origin` ou d'une autre origine), pas de l'interface de Projets elle-même ;
+vérifié avant la lecture du corps.
 La réponse peut contenir davantage que le minimum ci-dessus (compteur `unchanged`, détail par ligne, en-tête `Idempotency-Replayed`) ;
 `schema_version` du corps est contrôlé comme l'en-tête (≠ 2.1.0 → 422).
 
@@ -173,7 +176,7 @@ Jeux : `work-items` (id, projet, phase, epic, story, type, statut (libellé), st
 Les clés sont en `snake_case` sans accent (`heures_estimees`), les libellés en français avec accents.
 
 **Viz** ajoute un connecteur **« Atelier Projets »** : adresse (défaut `http://127.0.0.1:3000`), choix du jeu et du projet (facultatif), import et actualisation.
-Adresse locale uniquement (politique `check_server` : autorisée hors ligne).
+Adresse **locale uniquement**, quel que soit le mode : `127.0.0.1`, `localhost` ou `::1` (après résolution).
 
 ---
 
