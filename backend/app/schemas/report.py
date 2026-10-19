@@ -7,8 +7,9 @@ Le backend valide la structure (pages, visuels, positions, liaisons de champs) m
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.dataset import Scalar
 from app.schemas.query import Agg, DateBin, Filter
 
 VisualType = Literal[
@@ -91,6 +92,46 @@ class Page(BaseModel):
     )
 
 
+class BookmarkVisualState(BaseModel):
+    """État d'un visuel capturé par un signet : sélection d'un segment, niveau d'exploration."""
+
+    selected: list[Scalar] | None = Field(default=None, description="Segment : valeurs cochées.")
+    range: list[Scalar] | None = Field(default=None, max_length=2, description="Segment « plage » : [min, max].")
+    drill: dict[str, Any] | None = Field(
+        default=None, description="Exploration (`options.drill`) ; absent = niveau supérieur."
+    )
+
+
+class BookmarkPageState(BaseModel):
+    """Filtres de la page et état de ses visuels au moment de la capture."""
+
+    filters: list[Filter] = Field(default_factory=list)
+    visuals: dict[str, BookmarkVisualState] = Field(default_factory=dict)
+
+
+class BookmarkSelection(BaseModel):
+    """Filtrage croisé (clic dans un visuel) capturé par un signet."""
+
+    visual_id: str
+    dataset_id: str
+    filters: list[Filter] = Field(default_factory=list)
+    keys: list[str] = Field(default_factory=list)
+
+
+class Bookmark(BaseModel):
+    """Signet : état nommé d'un rapport (page active, filtres, segments, exploration), comme dans Power BI."""
+
+    id: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=80)
+    page_id: str | None = Field(default=None, description="Page affichée lors de la capture.")
+    apply_page: bool = Field(default=True, description="Appliquer : revenir à la page capturée.")
+    apply_data: bool = Field(default=True, description="Appliquer : filtres, segments, sélection, exploration.")
+    pages: dict[str, BookmarkPageState] = Field(default_factory=dict, description="État par identifiant de page.")
+    selection: BookmarkSelection | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
 class ReportBody(BaseModel):
     """Contenu modifiable d'un rapport."""
 
@@ -98,6 +139,15 @@ class ReportBody(BaseModel):
     dataset_id: str | None = Field(default=None, description="Jeu de données par défaut des nouveaux visuels.")
     pages: list[Page] = Field(default_factory=list)
     theme: dict[str, Any] = Field(default_factory=dict)
+    # Absent des rapports antérieurs au jalon 6 : liste vide à la lecture (migration tolérante).
+    bookmarks: list[Bookmark] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def _unique_bookmarks(self) -> "ReportBody":
+        ids = [b.id for b in self.bookmarks]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Deux signets ont le même identifiant.")
+        return self
 
 
 class Report(ReportBody):
@@ -112,6 +162,7 @@ class ReportSummary(BaseModel):
     name: str
     pages: int
     visuals: int
+    bookmarks: int = 0
     updated_at: datetime
 
 

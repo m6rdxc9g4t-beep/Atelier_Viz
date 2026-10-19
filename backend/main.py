@@ -4,8 +4,9 @@ Lancer depuis le dossier backend/ :  uvicorn main:app --reload
 Documentation interactive :          http://localhost:8000/docs
 """
 
+import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,10 +19,13 @@ from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.services.actions import ActionError
 from app.services.ai import AIProviderError
+from app.services.alerts import AlertError, AlertService
 from app.services.connectors import ConnectionService, ConnectorError, build_secrets
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase, QueryError
+from app.services.github import GitHubError, GitHubSync
 from app.services.preferences import PreferencesStore
+from app.services.refresh import RefreshScheduler
 from app.services.reports import ReportRepository
 
 
@@ -36,15 +40,50 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.database = LocalDatabase(data_dir / "atelier.duckdb")
         app.state.dataset_store = DatasetStore(app.state.database)
         app.state.reports = ReportRepository(data_dir / "reports")
+        secrets = build_secrets(settings.secrets_backend, data_dir / "secrets.json")
         app.state.connections = ConnectionService(
             data_dir / "connections.json",
-            build_secrets(settings.secrets_backend, data_dir / "secrets.json"),
+            secrets,
             settings,
             app.state.dataset_store,
             is_online=lambda: app.state.preferences.get().online_mode,
         )
         app.state.ai_service = build_ai_service(settings, is_online=lambda: app.state.preferences.get().online_mode)
+        # Actualisation planifiée des jeux importés (fichier à côté de connections.json).
+        app.state.scheduler = RefreshScheduler(
+            data_dir / "schedules.json",
+            app.state.dataset_store,
+            app.state.connections.refresh,
+            is_online=lambda: app.state.preferences.get().online_mode,
+        )
+        # Synchronisation des rapports avec GitHub (en ligne uniquement ; jeton au trousseau).
+        app.state.github = GitHubSync(
+            data_dir / "github.json",
+            app.state.reports,
+            secrets,
+            is_online=lambda: app.state.preferences.get().online_mode,
+            env_token=lambda: settings.github_token.get_secret_value() if settings.github_token else None,
+        )
+        # Alertes sur seuil : évaluées après chaque actualisation réussie d'un jeu.
+        app.state.alerts = AlertService(
+            data_dir / "alerts.json",
+            app.state.dataset_store,
+            app.state.database,
+            is_online=lambda: app.state.preferences.get().online_mode,
+        )
+        app.state.scheduler.on_refreshed(app.state.alerts.evaluate_dataset)
+        ticker = (
+            asyncio.create_task(app.state.scheduler.run_forever(settings.scheduler_period_seconds))
+            if settings.scheduler_enabled
+            else None
+        )
         yield
+        if ticker is not None:
+            ticker.cancel()
+            with suppress(asyncio.CancelledError):
+                await ticker
+        # Actualisations en cours : annulées et attendues (délai borné) avant de fermer DuckDB.
+        await app.state.scheduler.shutdown(settings.scheduler_shutdown_seconds)
         await app.state.ai_service.aclose()
         app.state.database.close()
 
@@ -70,6 +109,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(ActionError)
     async def action_error_handler(_: Request, exc: ActionError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
+
+    @app.exception_handler(AlertError)
+    async def alert_error_handler(_: Request, exc: AlertError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+    @app.exception_handler(GitHubError)
+    async def github_error_handler(_: Request, exc: GitHubError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
     @app.exception_handler(ConnectorError)
     async def connector_error_handler(_: Request, exc: ConnectorError) -> JSONResponse:

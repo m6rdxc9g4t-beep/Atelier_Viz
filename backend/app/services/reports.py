@@ -3,6 +3,7 @@
 Le format fichier est volontaire : il se versionne tel quel dans Git (jalon GitHub).
 """
 
+import builtins
 import json
 import re
 import uuid
@@ -37,6 +38,7 @@ class ReportRepository:
                     name=report.name,
                     pages=len(report.pages),
                     visuals=sum(len(p.visuals) for p in report.pages),
+                    bookmarks=len(report.bookmarks),
                     updated_at=report.updated_at,
                 )
             )
@@ -73,6 +75,23 @@ class ReportRepository:
         )
         self._write(report)
         return report
+
+    def put(self, report: Report) -> Report:
+        """Écrit un rapport tel quel (identifiant et dates conservés) : import depuis GitHub."""
+        if self._path(report.id) is None:
+            raise ValueError(f"Identifiant de rapport invalide : « {report.id} ».")
+        self._write(report)
+        return report
+
+    def all(self) -> "builtins.list[Report]":
+        """Tous les rapports lisibles (les fichiers corrompus sont ignorés)."""
+        out: builtins.list[Report] = []
+        for path in sorted(self.directory.glob("*.json")):
+            try:
+                out.append(Report.model_validate_json(path.read_text(encoding="utf-8")))
+            except ValueError:
+                continue
+        return out
 
     def delete(self, report_id: str) -> bool:
         path = self._path(report_id)

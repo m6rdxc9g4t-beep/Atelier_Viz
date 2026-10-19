@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 
-from app.api.deps import ConnectionsDep, SettingsDep, StoreDep
+from app.api.deps import AlertsDep, SchedulerDep, SettingsDep, StoreDep
 from app.schemas.dataset import (
     DatasetModel,
     DatasetProfile,
@@ -95,11 +95,14 @@ async def check_expression(dataset_id: str, check: ExpressionCheck, store: Store
 
 
 @router.post("/{dataset_id}/refresh", response_model=DatasetProfile)
-async def refresh_dataset(dataset_id: str, store: StoreDep, connections: ConnectionsDep) -> DatasetProfile:
-    """Relit la source d'un jeu importé depuis une connexion (même identifiant : les rapports suivent)."""
-    dataset = await get_or_404(store, dataset_id)
+async def refresh_dataset(dataset_id: str, store: StoreDep, scheduler: SchedulerDep) -> DatasetProfile:
+    """Relit la source d'un jeu importé depuis une connexion (même identifiant : les rapports suivent).
+
+    Passe par l'ordonnanceur : une seule actualisation à la fois par jeu, inscrite au journal.
+    """
+    await get_or_404(store, dataset_id)
     try:
-        updated = await asyncio.to_thread(connections.refresh, dataset)
+        await scheduler.run(dataset_id, "manual", raise_errors=True)
     except ModelError as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -109,12 +112,14 @@ async def refresh_dataset(dataset_id: str, store: StoreDep, connections: Connect
                 "issues": [i.model_dump() for i in exc.issues],
             },
         ) from exc
-    return updated.profile()
+    return (await get_or_404(store, dataset_id)).profile()
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_dataset(dataset_id: str, store: StoreDep) -> Response:
-    """Supprime définitivement un jeu de données."""
+async def delete_dataset(dataset_id: str, store: StoreDep, scheduler: SchedulerDep, alerts: AlertsDep) -> Response:
+    """Supprime définitivement un jeu de données (et sa planification d'actualisation, ses alertes)."""
     if not await asyncio.to_thread(store.remove, dataset_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Jeu de données « {dataset_id} » introuvable.")
+    await asyncio.to_thread(scheduler.forget, dataset_id)
+    await asyncio.to_thread(alerts.forget_dataset, dataset_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

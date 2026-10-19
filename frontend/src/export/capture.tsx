@@ -105,6 +105,7 @@ export async function captureVisual(req: CaptureRequest): Promise<string | null>
             reportName: req.report.name,
             goToPage: noop,
             resetFilters: noop,
+            applyBookmark: () => false,
             activeFilters: req.filters,
           }}
           editing={false}

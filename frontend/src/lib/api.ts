@@ -17,6 +17,9 @@ import type {
   TableList,
   TestResult,
 } from "../types/connection";
+import type { Alert, AlertInput, AlertNotification } from "../types/alert";
+import type { GitHubConfigInput, GitHubState, GitHubTest, PullRequest, PullResult, PushRequest, PushResult } from "../types/github";
+import type { RefreshRun, RefreshSchedule, ScheduleState } from "../types/refresh";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
 
 export interface Preferences {
@@ -116,6 +119,39 @@ export const api = {
     login: (id: string) => request<DeviceCodeStart>(`/connections/${id}/login`, { method: "POST" }),
     poll: (id: string) => request<AuthStatus>(`/connections/${id}/login/poll`, { method: "POST" }),
     logout: (id: string) => request<Connection>(`/connections/${id}/logout`, { method: "POST" }),
+  },
+
+  refresh: {
+    list: () => request<ScheduleState[]>("/refresh"),
+    get: (datasetId: string) => request<ScheduleState>(`/refresh/${datasetId}`),
+    set: (datasetId: string, schedule: RefreshSchedule) =>
+      request<ScheduleState>(`/refresh/${datasetId}`, { method: "PUT", body: JSON.stringify(schedule) }),
+    /** Actualise tout de suite ; le résultat est aussi inscrit au journal. */
+    run: (datasetId: string) => request<RefreshRun>(`/refresh/${datasetId}/run`, { method: "POST" }),
+    /** Horodatage de la dernière actualisation de chaque jeu actualisable. */
+    versions: () => request<Record<string, string>>("/refresh/versions"),
+  },
+
+  alerts: {
+    list: (datasetId?: string) => request<Alert[]>(`/alerts${datasetId ? `?dataset_id=${datasetId}` : ""}`),
+    /** Crée l'alerte et l'évalue une première fois. */
+    create: (body: AlertInput) => request<Alert>("/alerts", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: AlertInput) => request<Alert>(`/alerts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    remove: (id: string) => request<void>(`/alerts/${id}`, { method: "DELETE" }),
+    evaluate: (id: string) => request<Alert>(`/alerts/${id}/evaluate`, { method: "POST" }),
+    notifications: () => request<AlertNotification[]>("/alerts/notifications"),
+    /** Liste vide = toutes. */
+    markRead: (ids: string[] = []) =>
+      request<AlertNotification[]>("/alerts/notifications/read", { method: "POST", body: JSON.stringify({ ids }) }),
+  },
+
+  github: {
+    state: () => request<GitHubState>("/github"),
+    configure: (body: GitHubConfigInput) => request<GitHubState>("/github", { method: "PUT", body: JSON.stringify(body) }),
+    disconnect: () => request<GitHubState>("/github", { method: "DELETE" }),
+    test: () => request<GitHubTest>("/github/test", { method: "POST" }),
+    push: (body: PushRequest = {}) => request<PushResult>("/github/push", { method: "POST", body: JSON.stringify(body) }),
+    pull: (body: PullRequest = {}) => request<PullResult>("/github/pull", { method: "POST", body: JSON.stringify(body) }),
   },
 
   query: (body: QueryRequest, signal?: AbortSignal) =>

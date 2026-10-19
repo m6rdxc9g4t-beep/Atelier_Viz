@@ -33,7 +33,10 @@ backend/
   app/services/data/          # parsing, profiling, store (persistance DuckDB), model (colonnes / mesures calculées), context (contexte IA)
   app/services/reports.py     # ReportRepository (JSON)
   app/services/preferences.py # mode en ligne
-  app/services/actions.py     # webhooks des boutons
+  app/services/actions.py     # webhooks des boutons (et des alertes) ; hors ligne : connexion à l'IP privée validée (anti DNS rebinding)
+  app/services/refresh.py     # RefreshScheduler : actualisation planifiée, journal (data/schedules.json)
+  app/services/alerts.py      # AlertService : alertes sur seuil, anti-rebond, notifications (data/alerts.json)
+  app/services/github.py      # GitHubSync : envoi / récupération des rapports (data/github.json)
   app/services/connectors/    # sources externes : sql (SQL Server, PostgreSQL, MySQL, SQLite), sharepoint (Graph), secrets, service
   app/services/ai/            # ollama, claude_cli, anthropic, service (routage + mode hors ligne)
   tests/                      # pytest — data_dir temporaire par test, aucun réseau ni CLI réels
@@ -43,9 +46,9 @@ frontend/src/
   visuals/types.ts            # contrat VisualDef / VisualProps
   visuals/common.tsx          # requête générique, couleurs, info-bulles, sélection
   visuals/{charts,data,maps,interactive}/
-  studio/                     # StudioPage, Canvas, VisualContainer, store (zustand), filters, starter, ExportDialog, panes/
+  studio/                     # StudioPage, Canvas, VisualContainer, store (zustand), filters, starter, bookmarks, ExportDialog, panes/
   export/                     # export PowerPoint : plan, données, captures, descripteurs, écriture pptxgenjs
-  features/                   # reports (accueil), data (import), settings, assistant
+  features/                   # reports (accueil), data (import), automation (planifications, alertes), settings (+ GitHub), assistant
   lib/api.ts, lib/router.ts   # client HTTP typé, routeur par hash
   types/                      # miroirs TypeScript des schémas Pydantic
 samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées)
@@ -76,6 +79,14 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Design system : `frontend/src/styles/atelier-ds/` = copies **verbatim** (ne jamais les modifier ici) ; les jetons d'habillage de `index.css` en dérivent. La palette de données et les thèmes de rapport restent hors du design system.
 - Thème : `useTheme` pose `class="dark"` **et** `data-theme`. Sélecteur de suite : `lib/suite.ts` + `components/layout/SuiteSwitcher.tsx`.
 - Données : enveloppes DataFlow (`app/services/data/dataflow.py`), connecteurs `atelier_tab` / `atelier_projets` (`app/services/connectors/atelier.py`, sans secret). Tests : `test_dataflow.py`, `test_connections_atelier.py` (transport httpx simulé).
+
+## Partage et automatisation (jalon 6)
+- **Signets** : capture / application pures dans `studio/bookmarks.ts` ; tout nouvel état de visuel « à retenir » (comme `options.selected`, `options.drill`) s'ajoute à `BookmarkVisualState` (schéma + miroir TS + `captured`). Appliquer un signet n'entre pas dans l'historique. `report.bookmarks` est facultatif : toujours lire `r.bookmarks ?? []`.
+- **Ordonnanceur** : une seule exécution par jeu (`RefreshScheduler.run`) ; toute actualisation (manuelle comprise) passe par lui pour être journalisée. Horloge injectable : les tests appellent `tick()` sans attendre ; `conftest` coupe l'ordonnanceur réel (`scheduler_enabled=False`).
+- **Après actualisation** : abonner un observateur (`scheduler.on_refreshed`) plutôt que d'appeler un service depuis `connectors/service.py`. Côté front, `useDataVersions` (interrogation de `/api/refresh/versions`) recharge profils et visuels ; `onDatasetRefreshed` pour les écrans qui listent des jeux.
+- **Alertes** : la mesure est une `Measure` + `Filter` du langage de requête, évaluée par `run_query` — jamais d'expression ni de SQL propre aux alertes. Déclenchement au franchissement seulement (`Alert.met`).
+- **GitHub** : rapports uniquement (jamais `data/` hors `reports/`) ; un rapport recopie des valeurs des données : tout nouveau champ de rapport qui en contient (ou un secret) s'ajoute à `services/report_privacy.py` (retrait à l'envoi, conservation locale à la récupération, testés) ; jeton au trousseau (`github:token`) ; un commit par envoi via l'API Git Data, mise à jour de branche sans `force` ; conflit = sha de blob distant ET local changés depuis `SyncRecord` → jamais d'écrasement sans `resolutions`. Tests : `FakeGitHub` (`httpx.MockTransport`) ; `conftest` ignore `GITHUB_TOKEN`.
+- Boîte de dialogue ouverte depuis un visuel : `createPortal` vers `document.body` et `stopPropagation` (sinon le zoom du canvas et la sélection du visuel interfèrent).
 
 ## Application de bureau
 - `backend/desktop.py` → `app/desktop.py` (pywebview + uvicorn en fil) ; paquet macOS : `scripts/macos/build_app.sh`. L'interface compilée est servie par FastAPI (`settings.frontend_dist`).

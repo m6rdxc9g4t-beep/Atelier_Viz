@@ -2,8 +2,9 @@
 
 Outil de Business Intelligence **local**, dans l'esprit de Power BI : import de données, rapports
 multi-pages, 22 types de visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons
-d'automatisation (URL, webhooks), assistant IA, **export PowerPoint modifiable** — avec un interrupteur
-**« En ligne »** pour activer Claude.
+d'automatisation (URL, webhooks), assistant IA, **export PowerPoint modifiable**, signets, actualisation
+planifiée, alertes sur seuil, rapports versionnés dans GitHub — avec un interrupteur **« En ligne »** pour
+activer Claude.
 
 - Spécification : [`specification.md`](specification.md)
 - Conventions pour Claude : [`CLAUDE.md`](CLAUDE.md)
@@ -60,7 +61,17 @@ fenêtre (⌘Q) arrête tout.
 4. Dans l'application, cliquez sur **Hors ligne** en haut à droite : il passe à **En ligne** et Claude devient
    sélectionnable (le voyant « Claude » passe au vert).
 
-Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages) : sauvegardez ce dossier.
+Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages, connexions, planifications
+`schedules.json`, alertes `alerts.json`, dépôt GitHub `github.json`) : sauvegardez ce dossier.
+
+## Partage et automatisation
+
+| Fonction | Où | À savoir |
+|---|---|---|
+| Signets | Studio → **Signets** | Retient la page, les filtres, les segments, la sélection et l'exploration ; un clic pour revenir à cet état. Un Bouton d'action peut « Appliquer un signet » |
+| Actualisation planifiée | Données → **Planifier**, ou **Automatisation** | Jeux importés d'une connexion : toutes les N minutes / heures ou chaque jour à HH:MM, tant que l'application est ouverte. Journal des exécutions ; les rapports ouverts se mettent à jour seuls. SharePoint hors ligne : exécution sautée |
+| Alertes | **Automatisation → Alertes**, ou cloche d'un KPI / d'une jauge | « Somme de chiffre_affaires < 150 000 » (filtres possibles) : notification dans l'application (cloche de l'en-tête) et / ou webhook (n8n, Make…), au franchissement du seuil, après chaque actualisation |
+| GitHub | **Réglages → Synchronisation GitHub** | Mode « En ligne ». Dépôt `propriétaire/dépôt`, branche, dossier, jeton fine-grained (*Contents : read and write*) rangé au trousseau. **Envoyer** = un commit ; **Récupérer** = import, conflits jamais écrasés sans votre choix. **Seuls les rapports partent** (jamais les tables des jeux) ; option *Retirer les sélections, filtres et adresses de webhook avant l'envoi*, **activée par défaut**, car un rapport recopie des valeurs des données et l'adresse (souvent secrète) des webhooks ; avertissement si le dépôt est public |
 
 ## Suite Atelier
 
@@ -131,8 +142,8 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 ## Tests
 
 ```bash
-cd backend && pytest && ruff check .          # 193 tests
-cd frontend && npm test && npm run build      # 124 tests
+cd backend && pytest && ruff check .          # 249 tests
+cd frontend && npm test && npm run build      # 147 tests
 ```
 
 ## Arborescence
@@ -144,17 +155,18 @@ atelier-viz/
 ├── backend/
 │   ├── main.py
 │   └── app/
-│       ├── api/routes/           # health, settings, ai, datasets, query, reports, actions
+│       ├── api/routes/           # health, settings, ai, datasets, query, reports, actions, connections, refresh, alerts, github
 │       ├── schemas/              # ai, dataset, query, report
 │       └── services/
 │           ├── engine/           # DuckDB : stockage + requêtes (GROUPING SETS pour les matrices)
 │           ├── data/             # import, typage, profilage
 │           ├── ai/               # Ollama, Claude CLI, API Anthropic, routage hors ligne / en ligne
-│           └── reports.py · preferences.py · actions.py
+│           ├── connectors/       # SQL, fichiers, SharePoint, secrets (trousseau)
+│           └── reports.py · preferences.py · actions.py · refresh.py · alerts.py · github.py
 └── frontend/src/
     ├── visuals/                  # registre + 22 visuels (charts, data, maps, interactive)
     ├── studio/                   # canvas, volets, pages, état d'édition, filtres
-    ├── features/                 # accueil rapports, données, réglages, assistant
+    ├── features/                 # accueil rapports, données, automatisation, réglages, assistant
     └── assets/geo/               # fonds de carte France (Licence Ouverte Etalab)
 ```
 

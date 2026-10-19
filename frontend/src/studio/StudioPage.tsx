@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ArrowLeft, Check, Eye, FilterX, Loader2, Palette, Pencil, Presentation, Redo2, ScrollText, Sparkles, Undo2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, Check, Eye, FilterX, Loader2, Palette, Pencil, Presentation, Redo2, ScrollText, Sparkles, Undo2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useDatasetProfiles } from "../hooks/useDatasetProfiles";
@@ -11,6 +11,7 @@ import { StudioDataContext } from "./context";
 import { ExportDialog } from "./ExportDialog";
 import { PageTabs } from "./PageTabs";
 import { AIBuilderPane } from "./panes/AIBuilderPane";
+import { BookmarksPane } from "./panes/BookmarksPane";
 import { SummaryPane } from "./panes/SummaryPane";
 import { DataPane } from "./panes/DataPane";
 import { FiltersPane } from "./panes/FiltersPane";
@@ -36,8 +37,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
   const [activeDatasetId, setActiveDatasetId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Volets de droite : édition classique, thème, ou création par l'IA.
-  const [side, setSide] = useState<"default" | "theme" | "ai" | "summary">("default");
-  const toggleSide = (v: "theme" | "ai" | "summary") => setSide((cur) => (cur === v ? "default" : v));
+  const [side, setSide] = useState<"default" | "theme" | "ai" | "summary" | "bookmarks">("default");
+  const toggleSide = (v: "theme" | "ai" | "summary" | "bookmarks") => setSide((cur) => (cur === v ? "default" : v));
   const [exporting, setExporting] = useState(false);
   const s = useStudio.getState;
 
@@ -205,6 +206,15 @@ export function StudioPage({ reportId }: { reportId: string }) {
             )}
             <button
               type="button"
+              onClick={() => toggleSide("bookmarks")}
+              aria-pressed={side === "bookmarks"}
+              title="Signets : enregistrer et rappeler un état du rapport (page, filtres, segments)"
+              className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "bookmarks" ? "text-accent" : "text-muted hover:text-fg")}
+            >
+              <Bookmark className="size-3.5" aria-hidden /> <span className="hidden md:inline">Signets</span>
+            </button>
+            <button
+              type="button"
               onClick={() => toggleSide("summary")}
               aria-pressed={side === "summary"}
               title="Synthèse de la page par l'IA, chiffres vérifiés"
@@ -247,6 +257,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
             {page && <Canvas page={page} report={report} />}
           </section>
           {side === "summary" && <SummaryPane />}
+          {side === "bookmarks" && <BookmarksPane />}
           {editing && side === "theme" && <ThemePane />}
           {editing && side === "ai" && (
             <>

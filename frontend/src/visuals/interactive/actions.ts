@@ -2,7 +2,7 @@
 
 import type { Filter } from "../../types/query";
 
-export type ButtonAction = "url" | "webhook" | "page" | "reset";
+export type ButtonAction = "url" | "webhook" | "page" | "reset" | "bookmark";
 
 /** Valeurs d'un champ dans les filtres actifs (segments, sélection, filtres de page). */
 export function filterValues(filters: Filter[], field: string): string[] {

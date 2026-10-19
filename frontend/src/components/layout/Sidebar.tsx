@@ -1,8 +1,9 @@
 import clsx from "clsx";
-import { BarChart3, Database, LayoutDashboard, type LucideIcon, Settings } from "lucide-react";
+import { Database, LayoutDashboard, type LucideIcon, Settings, Workflow } from "lucide-react";
 
 import type { Route } from "../../lib/router";
 import { navigate } from "../../lib/router";
+import { AtelierBrand } from "./AtelierBrand";
 
 interface NavItem {
   label: string;
@@ -14,6 +15,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { label: "Rapports", icon: LayoutDashboard, path: "/", match: ["reports", "studio"] },
   { label: "Données", icon: Database, path: "/donnees", match: ["data"] },
+  { label: "Automatisation", icon: Workflow, path: "/automatisation", match: ["automation"] },
   { label: "Réglages", icon: Settings, path: "/reglages", match: ["settings"] },
 ];
 
@@ -21,9 +23,8 @@ const NAV: NavItem[] = [
 export function Sidebar({ route, compact }: { route: Route; compact: boolean }) {
   return (
     <aside className={clsx("flex shrink-0 flex-col border-r border-border bg-surface", compact ? "w-12" : "w-12 lg:w-52")}>
-      <div className="flex h-12 items-center gap-2 border-b border-border px-3.5">
-        <BarChart3 className="size-5 shrink-0 text-accent" aria-hidden />
-        {!compact && <span className="hidden text-sm font-semibold tracking-tight lg:inline">Atelier Viz</span>}
+      <div className={clsx("flex h-12 items-center border-b border-border px-2", !compact && "lg:px-3")}>
+        <AtelierBrand showName={!compact} nameClassName="hidden lg:inline" />
       </div>
       <nav className="flex flex-col gap-1 p-1.5" aria-label="Navigation principale">
         {NAV.map(({ label, icon: Icon, path, match }) => {

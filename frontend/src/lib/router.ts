@@ -6,6 +6,7 @@ export type Route =
   | { name: "reports" }
   | { name: "studio"; id: string }
   | { name: "data" }
+  | { name: "automation" }
   | { name: "settings" };
 
 export function parseRoute(hash: string): Route {
@@ -14,6 +15,7 @@ export function parseRoute(hash: string): Route {
   if (studio?.[1]) return { name: "studio", id: studio[1] };
   if (path === "/donnees") return { name: "data" };
   if (path === "/reglages") return { name: "settings" };
+  if (path === "/automatisation") return { name: "automation" };
   return { name: "reports" };
 }
 

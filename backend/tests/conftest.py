@@ -46,6 +46,8 @@ def settings(tmp_path: Path) -> Settings:
         anthropic_api_key=None,
         data_dir=tmp_path,
         secrets_backend="file",  # jamais le trousseau réel du développeur
+        github_token=None,  # jamais le GITHUB_TOKEN de l'environnement
+        scheduler_enabled=False,  # l'ordonnanceur est piloté à la main dans les tests (horloge injectée)
         _env_file=None,
     )
 

@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { openExternal } from "../../lib/desktop";
-import { ExternalLink, Loader2, Play, RotateCcw, SquareArrowRight } from "lucide-react";
+import { Bookmark, ExternalLink, Loader2, Play, RotateCcw, SquareArrowRight } from "lucide-react";
 import { useState } from "react";
 
 import { RichText } from "../../features/assistant/RichText";
@@ -8,7 +8,7 @@ import { api } from "../../lib/api";
 import { opt, type VisualProps } from "../types";
 import { type ButtonAction, isSafeUrl, renderTemplate, webhookPayload } from "./actions";
 
-const ICONS = { url: ExternalLink, webhook: Play, page: SquareArrowRight, reset: RotateCcw };
+const ICONS = { url: ExternalLink, webhook: Play, page: SquareArrowRight, reset: RotateCcw, bookmark: Bookmark };
 
 /** Bouton d'automatisation : ouvrir une URL, appeler un webhook, changer de page, réinitialiser. */
 export function ButtonVisual(props: VisualProps) {
@@ -29,6 +29,12 @@ export function ButtonVisual(props: VisualProps) {
     }
     if (action === "reset") {
       actions.resetFilters();
+      return;
+    }
+    if (action === "bookmark") {
+      const target = opt<string>(visual, def, "targetBookmark");
+      if (!target || !actions.applyBookmark(target)) setStatus({ tone: "error", text: "Signet introuvable : choisissez-en un dans l'onglet Format." });
+      else setStatus(null);
       return;
     }
     const url = renderTemplate(opt<string>(visual, def, "url") ?? "", ctx);

@@ -5,6 +5,7 @@ import { usePreferences } from "../../hooks/usePreferences";
 import type { Theme } from "../../hooks/useTheme";
 import type { ProviderStatus } from "../../types/ai";
 import { ProviderBadges } from "../ai/ProviderBadges";
+import { NotificationBell } from "../../features/automation/NotificationBell";
 import { SuiteSwitcher } from "./SuiteSwitcher";
 
 interface TopbarProps {
@@ -50,6 +51,7 @@ export function Topbar(props: TopbarProps) {
         <div className="hidden md:block">
           <ProviderBadges providers={props.providers} loading={props.providersLoading} error={props.providersError} onRefresh={props.onRefreshProviders} />
         </div>
+        <NotificationBell />
         <button
           type="button"
           onClick={onToggleAssistant}

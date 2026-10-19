@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "../lib/api";
 import { invalidateQueries } from "../visuals/useQueryResult";
+import { noteVersion } from "./useDataVersions";
 import type { DatasetProfile } from "../types/dataset";
 
 const cache = new Map<string, Promise<DatasetProfile>>();
@@ -66,6 +67,7 @@ export function useDatasetProfiles(ids: (string | null | undefined)[]): Map<stri
  */
 export async function refreshDataset(id: string): Promise<DatasetProfile> {
   const profile = await api.datasets.refresh(id);
+  noteVersion(id, profile.origin?.refreshed_at);
   setProfile(profile);
   invalidateQueries(id);
   return profile;
