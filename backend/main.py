@@ -23,6 +23,7 @@ from app.services.alerts import AlertError, AlertService
 from app.services.connectors import ConnectionService, ConnectorError, build_secrets
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase, QueryError
+from app.services.github import GitHubError, GitHubSync
 from app.services.preferences import PreferencesStore
 from app.services.refresh import RefreshScheduler
 from app.services.reports import ReportRepository
@@ -39,9 +40,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.database = LocalDatabase(data_dir / "atelier.duckdb")
         app.state.dataset_store = DatasetStore(app.state.database)
         app.state.reports = ReportRepository(data_dir / "reports")
+        secrets = build_secrets(settings.secrets_backend, data_dir / "secrets.json")
         app.state.connections = ConnectionService(
             data_dir / "connections.json",
-            build_secrets(settings.secrets_backend, data_dir / "secrets.json"),
+            secrets,
             settings,
             app.state.dataset_store,
             is_online=lambda: app.state.preferences.get().online_mode,
@@ -53,6 +55,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.dataset_store,
             app.state.connections.refresh,
             is_online=lambda: app.state.preferences.get().online_mode,
+        )
+        # Synchronisation des rapports avec GitHub (en ligne uniquement ; jeton au trousseau).
+        app.state.github = GitHubSync(
+            data_dir / "github.json",
+            app.state.reports,
+            secrets,
+            is_online=lambda: app.state.preferences.get().online_mode,
+            env_token=lambda: settings.github_token.get_secret_value() if settings.github_token else None,
         )
         # Alertes sur seuil : évaluées après chaque actualisation réussie d'un jeu.
         app.state.alerts = AlertService(
@@ -100,6 +110,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(AlertError)
     async def alert_error_handler(_: Request, exc: AlertError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+    @app.exception_handler(GitHubError)
+    async def github_error_handler(_: Request, exc: GitHubError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
     @app.exception_handler(ConnectorError)

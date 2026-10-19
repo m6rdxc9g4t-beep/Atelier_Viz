@@ -12,6 +12,7 @@ from app.services.alerts import AlertService
 from app.services.connectors import ConnectionService
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase
+from app.services.github import GitHubSync
 from app.services.preferences import PreferencesStore
 from app.services.refresh import RefreshScheduler
 from app.services.reports import ReportRepository
@@ -98,6 +99,12 @@ def get_alerts(request: Request) -> AlertService:
     return alerts
 
 
+def get_github(request: Request) -> GitHubSync:
+    """Synchronisation des rapports avec GitHub."""
+    github: GitHubSync = request.app.state.github
+    return github
+
+
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 AIServiceDep = Annotated[AIService, Depends(get_ai_service)]
 DatabaseDep = Annotated[LocalDatabase, Depends(get_database)]
@@ -107,3 +114,4 @@ PreferencesDep = Annotated[PreferencesStore, Depends(get_preferences)]
 ConnectionsDep = Annotated[ConnectionService, Depends(get_connections)]
 SchedulerDep = Annotated[RefreshScheduler, Depends(get_scheduler)]
 AlertsDep = Annotated[AlertService, Depends(get_alerts)]
+GitHubDep = Annotated[GitHubSync, Depends(get_github)]

@@ -18,6 +18,7 @@ import type {
   TestResult,
 } from "../types/connection";
 import type { Alert, AlertInput, AlertNotification } from "../types/alert";
+import type { GitHubConfigInput, GitHubState, GitHubTest, PullRequest, PullResult, PushRequest, PushResult } from "../types/github";
 import type { RefreshRun, RefreshSchedule, ScheduleState } from "../types/refresh";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
 
@@ -142,6 +143,15 @@ export const api = {
     /** Liste vide = toutes. */
     markRead: (ids: string[] = []) =>
       request<AlertNotification[]>("/alerts/notifications/read", { method: "POST", body: JSON.stringify({ ids }) }),
+  },
+
+  github: {
+    state: () => request<GitHubState>("/github"),
+    configure: (body: GitHubConfigInput) => request<GitHubState>("/github", { method: "PUT", body: JSON.stringify(body) }),
+    disconnect: () => request<GitHubState>("/github", { method: "DELETE" }),
+    test: () => request<GitHubTest>("/github/test", { method: "POST" }),
+    push: (body: PushRequest = {}) => request<PushResult>("/github/push", { method: "POST", body: JSON.stringify(body) }),
+    pull: (body: PullRequest = {}) => request<PullResult>("/github/pull", { method: "POST", body: JSON.stringify(body) }),
   },
 
   query: (body: QueryRequest, signal?: AbortSignal) =>

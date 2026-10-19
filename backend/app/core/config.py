@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = True
     scheduler_period_seconds: float = Field(default=15.0, ge=1.0)
 
-    # GitHub (jalon 2)
+    # GitHub : synchronisation des rapports (jeton de repli ; d'ordinaire saisi dans l'interface → trousseau)
     github_token: SecretStr | None = None
 
     @property

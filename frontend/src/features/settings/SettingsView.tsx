@@ -4,6 +4,7 @@ import { Cloud, HardDrive, Monitor, Moon, RefreshCw, Sun } from "lucide-react";
 import { usePreferences } from "../../hooks/usePreferences";
 import { useProviders } from "../../hooks/useProviders";
 import { type ThemePreference, useTheme } from "../../hooks/useTheme";
+import { GitHubSection } from "./GitHubSection";
 
 /** Réglages : bascule hors ligne / en ligne et état des moteurs d'IA. */
 export function SettingsView() {
@@ -116,6 +117,7 @@ export function SettingsView() {
           Claude passe par la CLI Claude Code connectée à votre abonnement (CLAUDE_MODE=cli dans backend/.env), ou par l'API avec une clé (CLAUDE_MODE=api).
         </p>
       </section>
+      <GitHubSection />
     </div>
   );
 }
