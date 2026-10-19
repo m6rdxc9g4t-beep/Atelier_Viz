@@ -11,7 +11,6 @@ Contrat : `docs/SUITE.md` §4.2 ; schéma de référence : `atelier-tab/src/data
 - Les lignes de total (`summary_rows`) ne sont pas importées.
 """
 
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -19,8 +18,9 @@ from typing import Any
 import pandas as pd
 
 NUMERIC_TYPES = {"currency", "number", "percent"}
-ERROR_CODES = {"#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#NUM!", "#N/A", "#CYCLE!", "#ERROR!"}
-_ERROR_RE = re.compile(r"^#[A-Z0-9/]+[!?]$")
+# Liste fermée, identique à `ERROR_CODES` d'Atelier Tab (`src/engine/formula/values.ts`) :
+# un texte saisi comme « #URGENT! » reste une valeur.
+ERROR_CODES = frozenset({"#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#NUM!", "#N/A", "#CYCLE!", "#ERROR!"})
 
 
 class DataflowError(ValueError):
@@ -49,7 +49,7 @@ def is_dataflow(data: Any) -> bool:
 
 def is_error(value: Any) -> bool:
     """Code d'erreur de formule d'Atelier Tab (`#DIV/0!`, `#NAME?`…)."""
-    return isinstance(value, str) and (value in ERROR_CODES or bool(_ERROR_RE.match(value)))
+    return isinstance(value, str) and value in ERROR_CODES
 
 
 def _project(data: dict[str, Any]) -> dict[str, Any]:

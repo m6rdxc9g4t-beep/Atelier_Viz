@@ -26,6 +26,27 @@ def test_recognises_the_envelope_only() -> None:
     assert not is_error("#1 du classement") and not is_error(0)
 
 
+def test_error_codes_are_a_closed_list() -> None:
+    """Seuls les 8 codes d'Atelier Tab sont des erreurs : un texte « #URGENT! » est conservé."""
+    for code in ("#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#NUM!", "#N/A", "#CYCLE!", "#ERROR!"):
+        assert is_error(code)
+    for text in ("#URGENT!", "#TODO?", "#A1!", "#ref!", "#N/A ", "#DIV/0"):
+        assert not is_error(text)
+    envelope = {
+        "target_system": "atelier",
+        "schema_version": "2.1.0",
+        "project": {
+            "name": "P",
+            "columns_schema": [{"col_letter": "A", "label": "Note", "type": "text"}],
+            "records": [
+                {"row_index": 0, "record_id": "r1", "values": {"A": {"computed": "#URGENT!"}}},
+                {"row_index": 1, "record_id": "r2", "values": {"A": {"computed": "#REF!"}}},
+            ],
+        },
+    }
+    assert dataflow_frame(envelope)["Note"].tolist() == ["#URGENT!", None]
+
+
 def test_flattens_the_specification_example() -> None:
     df = dataflow_frame(load("dataflow_planning.json"))
     assert list(df.columns) == [
