@@ -2,8 +2,7 @@
 
 import type { Layout, Page, VisualType } from "../types/report";
 import { VISUALS } from "../visuals/registry";
-
-export const GRID_WIDTH = 24;
+import { GRID_COLS as GRID_WIDTH } from "./grid";
 
 /**
  * Range les visuels en rangées, de gauche à droite, sous le visuel le plus bas de la page.

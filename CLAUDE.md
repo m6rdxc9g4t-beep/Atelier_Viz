@@ -42,7 +42,8 @@ frontend/src/
   visuals/types.ts            # contrat VisualDef / VisualProps
   visuals/common.tsx          # requête générique, couleurs, info-bulles, sélection
   visuals/{charts,data,maps,interactive}/
-  studio/                     # StudioPage, Canvas, VisualContainer, store (zustand), filters, starter, panes/
+  studio/                     # StudioPage, Canvas, VisualContainer, store (zustand), filters, starter, ExportDialog, panes/
+  export/                     # export PowerPoint : plan, données, captures, descripteurs, écriture pptxgenjs
   features/                   # reports (accueil), data (import), settings, assistant
   lib/api.ts, lib/router.ts   # client HTTP typé, routeur par hash
   types/                      # miroirs TypeScript des schémas Pydantic
@@ -54,6 +55,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 2. Écrire le composant (`VisualProps`) dans `frontend/src/visuals/…`.
 3. Ajouter l'entrée dans `VISUALS` (`registry.ts`) : rôles, options, `query` (souvent `genericQuery`).
 4. Mettre à jour le test du registre (`logic.test.ts`) et la spec §5.
+5. Export PowerPoint : entrée dans `BUILDERS` (natif) ou `IMAGE_ONLY` (`frontend/src/export/buildVisual.ts`).
 
 ## Règles de code
 1. **Modularité** : routes minces, logique dans `services/` ; un visuel = un composant + une entrée de registre.
@@ -71,6 +73,13 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Seuls le **schéma** et **5 lignes** partent vers l'IA, et seulement si l'utilisateur coche « Joindre le schéma ».
 - Création de visuels : `app/services/ai/builder.py` (schéma contraint → `repair` → une relance max). Le catalogue vient du registre frontend (`visuals/catalog.ts`) : ne pas le dupliquer côté backend. Tout visuel qui arrive au Studio est passé par `repair`.
 - Tout fournisseur implémente `chat` et `chat_json` (sortie structurée).
+
+## Export PowerPoint
+- `frontend/src/export/` : tout se passe dans le navigateur (pptxgenjs chargé à la demande) ; aucune donnée envoyée.
+- Chaîne : `exportReport.ts` (plan, données, captures) → `buildVisual.ts` (visuel → descripteurs `items.ts`, testables) → `writer.ts` (seul module qui appelle pptxgenjs).
+- Nouveau type de visuel : l'ajouter à `BUILDERS` (natif) ou à `IMAGE_ONLY` (capture) dans `buildVisual.ts`, avec un test dans `export.test.ts`.
+- Pièges pptxgenjs : couleurs sans « # » (`pptColor`), options jamais partagées (le writer clone), pas d'étiquette `outEnd` sur un empilé, pas d'axe secondaire (et jamais de double axe), `isTextBox` sur les textes.
+- Après une modification : exporter la galerie, `python scripts/office/validate.py` (skill pptx) puis contrôler le rendu.
 
 ## Thèmes
 - `frontend/src/theme/` : `color.ts` (hex, mélange, contraste WCAG), `reportTheme.ts` (préréglages, `themeVars`, `visualCss`, import Power BI), `ColorInput.tsx`.

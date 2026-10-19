@@ -2,7 +2,8 @@
 
 Outil de Business Intelligence **local**, dans l'esprit de Power BI : import de données, rapports
 multi-pages, 22 types de visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons
-d'automatisation (URL, webhooks), assistant IA — avec un interrupteur **« En ligne »** pour activer Claude.
+d'automatisation (URL, webhooks), assistant IA, **export PowerPoint modifiable** — avec un interrupteur
+**« En ligne »** pour activer Claude.
 
 - Spécification : [`specification.md`](specification.md)
 - Conventions pour Claude : [`CLAUDE.md`](CLAUDE.md)
@@ -42,13 +43,14 @@ Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages)
 | Filtrer | Segments, volet Filtres (page / visuel), clic sur un élément d'un graphique (filtrage croisé) |
 | Automatiser | Visuel « Bouton d'action » : URL avec `{champ}`, webhook (n8n, Make, Zapier), page, réinitialisation |
 | Habiller | Bouton « Thème » : clair / sombre, préréglages (Verre, Papier, Minuit…), couleurs en hexadécimal, import de thèmes Power BI ; onglet Format d'un visuel : fond transparent, bordure, arrondi, ombre, titre, couleurs |
+| Exporter | Bouton **PowerPoint** : une page = une diapositive, graphiques et tableaux modifiables dans PowerPoint (ou images fidèles), filtres listés dans les notes ; fichier créé sur la machine |
 | Raccourcis | Ctrl+Z / Ctrl+Y, Ctrl+D, Suppr, Échap |
 
 ## Tests
 
 ```bash
 cd backend && pytest && ruff check .          # 82 tests
-cd frontend && npm test && npm run build      # 37 tests
+cd frontend && npm test && npm run build      # 62 tests
 ```
 
 ## Arborescence

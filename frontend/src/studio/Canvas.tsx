@@ -1,11 +1,9 @@
 import ReactGridLayout, { useContainerWidth, verticalCompactor } from "react-grid-layout";
 
 import type { Page, Report } from "../types/report";
+import { GRID_COLS, GRID_MARGIN, GRID_PADDING, ROW_HEIGHT } from "./grid";
 import { useStudio } from "./store";
 import { VisualContainer } from "./VisualContainer";
-
-export const GRID_COLS = 24;
-export const ROW_HEIGHT = 16;
 
 /** Canvas de la page : grille de 24 colonnes, déplacement par la poignée, redimensionnement par le coin. */
 export function Canvas({ page, report }: { page: Page; report: Report }) {
@@ -35,7 +33,7 @@ export function Canvas({ page, report }: { page: Page; report: Report }) {
         <ReactGridLayout
           width={width - 8}
           layout={layout}
-          gridConfig={{ cols: GRID_COLS, rowHeight: ROW_HEIGHT, margin: [8, 8], containerPadding: [4, 4] }}
+          gridConfig={{ cols: GRID_COLS, rowHeight: ROW_HEIGHT, margin: [GRID_MARGIN, GRID_MARGIN], containerPadding: [GRID_PADDING, GRID_PADDING] }}
           dragConfig={{ enabled: editing, handle: ".visual-handle", cancel: "button" }}
           resizeConfig={{ enabled: editing, handles: ["se", "e", "s"] }}
           compactor={verticalCompactor}
