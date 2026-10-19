@@ -6,7 +6,8 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 - un interrupteur **« En ligne »** active Claude (via la CLI Claude Code et l'abonnement claude.ai) et les webhooks vers Internet ;
 - des rapports multi-pages avec plus de 20 types de visuels, segments, filtres, filtrage croisé, cartes ;
 - des **boutons d'automatisation** (URL paramétrées par les filtres, webhooks n8n / Make / Zapier, navigation) ;
-- **export PowerPoint** : une page = une diapositive, graphiques et tableaux PowerPoint modifiables, généré sur la machine.
+- **export PowerPoint** : une page = une diapositive, graphiques et tableaux PowerPoint modifiables, généré sur la machine ;
+- **partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil, rapports versionnés dans un dépôt GitHub.
 
 ## 2. Architecture
 
@@ -56,6 +57,9 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 | Connecteurs SQL | Serveurs locaux / réseau privé / VPN (403 pour une adresse publique) | Tout serveur |
 | SharePoint Online | Refusé (403) ; un fichier SharePoint **synchronisé** reste lisible | Microsoft Graph, compte de l'utilisateur |
 | Boutons URL | Ouverture dans le navigateur (action explicite) | Idem |
+| Actualisation planifiée | Sources locales / réseau privé ; SharePoint : exécution **sautée** (statut explicite) | Toutes les sources |
+| Alertes (webhook) | Adresses locales / réseau privé uniquement ; notifications dans l'application toujours | Toute adresse http(s) |
+| Synchronisation GitHub | Refusée (HTTP 403) ; configuration enregistrable | Rapports JSON uniquement, jamais de données |
 
 Le mode se change dans l'en-tête (pastille « Hors ligne / En ligne ») ou dans Réglages ; il est stocké dans `backend/data/settings.json` et pris en compte immédiatement.
 
@@ -96,6 +100,7 @@ Atelier Viz fait partie d'une suite de trois applications locales — **Atelier 
 - Anciens rapports (sans `size`) : `layout` en cases d'une grille de 24 colonnes ; ils sont convertis en px à l'ouverture (`migratePage`, mêmes positions) puis réenregistrés, et l'export les convertit de la même façon.
 - `roles` = puits du volet Visualisations (Axe, Légende, Valeurs…). Une liaison sans `agg` est une dimension ; `bin` regroupe les dates (année, trimestre, mois, semaine, jour).
 - `options` est libre côté backend ; chaque type de visuel définit les siennes (registre frontend).
+- `bookmarks` : signets du rapport (§ 6 bis). Absent des rapports antérieurs au jalon 6 : lu comme une liste vide, réécrit au prochain enregistrement.
 
 ## 5. Catalogue de visuels (22)
 
@@ -240,6 +245,61 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 | Aller à une page | Navigation entre pages du rapport |
 | Réinitialiser les filtres | Segments, filtres de page, sélection |
 
+## 6 bis. Partage et automatisation (jalon 6)
+
+### Signets
+Comme dans Power BI : bouton **Signets** du Studio (édition et lecture) → volet Signets.
+
+| Élément | Règle |
+|---|---|
+| Capture | Page affichée ; pour **chaque page** : filtres de page, sélection des segments (valeurs ou plage), niveau d'exploration des visuels explorables ; filtrage croisé en cours (s'il porte sur la page affichée) |
+| Stockage | `report.bookmarks` (JSON du rapport) : `id`, `name`, `page_id`, `apply_page`, `apply_data`, `pages{page → {filters, visuals{visuel → {selected, range, drill}}}}`, `selection`, dates. 100 signets au plus |
+| Appliquer | Clic sur le signet ; pas d'entrée d'historique (comme un segment). Options « Page affichée » / « Données » (on peut ne rétablir que la page, ou que les filtres) |
+| Robustesse | Pages ou visuels supprimés depuis la capture : ignorés, signalés (« 2 éléments ignorés ») ; visuels ajoutés depuis : laissés tels quels |
+| Gestion | Ajouter (nom proposé « Signet N »), renommer (double-clic), mettre à jour avec l'état actuel, monter / descendre, supprimer avec confirmation |
+| Bouton | Action « Appliquer un signet » du Bouton d'action (non liée dans l'export PowerPoint, comme les webhooks) |
+
+Logique pure : `studio/bookmarks.ts` (`captureBookmark`, `applyBookmarkTo`), testée dans `bookmarks.test.ts`.
+
+### Actualisation planifiée des sources
+Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Planifier**, ou écran **Automatisation**.
+
+| Élément | Règle |
+|---|---|
+| Planification | Désactivée · toutes les N minutes / heures (une semaine au plus) · chaque jour à HH:MM (heure locale de la machine, changements d'heure compris) |
+| Ordonnanceur | Tâche asyncio du lifespan (`RefreshScheduler.run_forever`, passage toutes les `SCHEDULER_PERIOD_SECONDS` = 15 s) ; horloge injectable (`tick` testé sans attente) ; échéance manquée pendant que l'application était fermée : rattrapée **une fois** |
+| Exclusion | Une seule exécution à la fois par jeu (verrou asyncio) : une exécution planifiée concurrente est sautée, une actualisation manuelle reçoit un 409 |
+| Politique réseau | SharePoint Online hors ligne : exécution **sautée** (« exige le mode En ligne ») ; serveur SQL public hors ligne : sautée (403 de `check_server`) |
+| Journal | 20 dernières exécutions par jeu : début, durée, statut (réussie / échec / sautée), déclenchement (planifiée / manuelle), lignes, message (modèle incompatible, source introuvable…). L'actualisation manuelle passe aussi par le journal |
+| Persistance | `data/schedules.json` (à côté de `connections.json`, écriture atomique, sans secret) ; planification oubliée avec son jeu |
+| Rechargement | Le front interroge `GET /api/refresh/versions` (horodatage `origin.refreshed_at` par jeu) toutes les 20 s quand la fenêtre est visible ; une version changée → profil relu + `invalidateQueries` : les visuels ouverts se rechargent |
+| Après succès | Observateurs prévenus (`on_refreshed`) : les alertes du jeu sont évaluées |
+
+### Alertes sur seuil
+Écran **Automatisation → Alertes**, ou icône cloche d'un visuel **KPI / jauge** du Studio (mesure, filtres actifs et cible repris).
+
+| Élément | Règle |
+|---|---|
+| Définition | Jeu + mesure (`Measure` du langage de requête : agrégat d'un champ, nombre de lignes, ou mesure calculée `agg = "calc"`) + filtres facultatifs (`Filter`) + comparaison (>, ≥, <, ≤, =, ≠) + seuil + actions |
+| Calcul | `run_query` du moteur : champs validés contre le profil, mesures calculées compilées par `expressions.py`, valeurs en paramètres liés — **jamais de SQL brut**. Mesure vérifiée à l'enregistrement (422 sinon) ; valeur actuelle affichée pendant la saisie |
+| Évaluation | Après chaque actualisation réussie du jeu, à la création, et à la demande (« Évaluer maintenant ») |
+| Anti-rebond | Déclenche au **franchissement** (condition qui devient vraie), pas à chaque évaluation où elle reste vraie ; règle modifiée = état remis à zéro ; valeur vide ou erreur : état inchangé |
+| Actions | Notification dans l'application (cloche de l'en-tête, non lues, « Tout marquer comme lu ») et / ou webhook GET / POST via `services/actions.py` (corps : alerte, jeu, valeur, comparaison, seuil, message, date) ; hors ligne : adresses locales seulement |
+| Historique | 50 évaluations par alerte (valeur, condition, déclenchement, statut HTTP ou erreur du webhook) ; 100 notifications ; `data/alerts.json` ; alertes supprimées avec leur jeu |
+
+### Synchronisation des rapports avec GitHub
+**Réglages → Synchronisation GitHub**. Mode « En ligne » obligatoire (403 sinon).
+
+| Élément | Règle |
+|---|---|
+| Configuration | Dépôt `propriétaire/dépôt`, branche (créée au premier envoi depuis la branche par défaut si absente), dossier (`atelier-viz/rapports` par défaut ; pas de `..` ni `.git`) ; `data/github.json` sans secret |
+| Jeton | Jeton « fine-grained » (Contents : lecture / écriture), rangé au trousseau (`github:token`), repli `GITHUB_TOKEN` ; jamais renvoyé (`has_token`), jamais dans un message d'erreur |
+| Ce qui part | **Rapports uniquement** : un fichier `<id>.json` par rapport (pages, visuels, filtres, signets, thème). Jamais les données, la base DuckDB, les connexions, les planifications ni les secrets — affiché dans l'interface |
+| Envoyer | Un **seul commit par envoi** (API Git Data : arbre sur l'arbre de tête → commit → mise à jour de la branche **sans forcer**) ; message clair (« Atelier Viz : 2 rapport(s) mis à jour » + noms) ou personnalisé ; rien à envoyer = aucun commit ; branche modifiée pendant l'envoi → 409, rien d'écrasé |
+| Récupérer | Rapports du dossier importés (nouveaux) ou mis à jour (modifiés seulement sur GitHub) ; fichiers illisibles ignorés et listés |
+| Conflits | Base : sha de blob Git distant et local de chaque rapport à la dernière synchronisation (`blob_sha`, comparé au `sha` de l'API sans télécharger). Modifié des deux côtés → conflit listé, **rien n'est écrasé** sans choix explicite : garder ce poste, prendre GitHub, importer une copie (« … (copie GitHub) ») ; à l'envoi, « Écraser GitHub avec ce poste » |
+| État | Par rapport, sans réseau : jamais envoyé / modifié / à jour ; derniers envoi (lien du commit) et récupération |
+
 ## 7. API backend
 
 | Méthode | Route | Description |
@@ -267,14 +327,23 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 | GET | `/api/connections/{id}/tables` | Tables et vues, feuilles Excel (`?url=` pour SharePoint), tables publiées par Atelier Tab, jeux et projets d'Atelier Projets |
 | POST | `/api/connections/{id}/preview` · `/import` | Aperçu (≤ 200 lignes) · import en jeu de données actualisable |
 | POST | `/api/connections/{id}/login` · `/login/poll` · `/logout` | SharePoint : connexion Microsoft par code d'appareil |
-| POST | `/api/datasets/{id}/refresh` | Relit la source d'un jeu importé depuis une connexion |
+| POST | `/api/datasets/{id}/refresh` | Relit la source d'un jeu importé depuis une connexion (inscrit au journal ; 409 si déjà en cours) |
+| GET | `/api/refresh` · `/api/refresh/versions` | Jeux actualisables (planification, prochaine exécution, journal) · horodatage de version par jeu |
+| GET / PUT | `/api/refresh/{id}` | Planification d'un jeu (`off`, `interval` + `every` / `unit`, `daily` + `at`) |
+| POST | `/api/refresh/{id}/run` | Actualise tout de suite ; renvoie l'exécution (réussie / échec / sautée) |
+| GET / POST | `/api/alerts` | Alertes (`?dataset_id=`) · création (mesure vérifiée, première évaluation) |
+| GET / PUT / DELETE | `/api/alerts/{id}` | Lecture, modification (anti-rebond remis à zéro si la règle change), suppression |
+| POST | `/api/alerts/{id}/evaluate` | Évaluation à la demande |
+| GET · POST | `/api/alerts/notifications` · `/read` | Notifications dans l'application · marquer comme lues (liste vide = toutes) |
+| GET / PUT / DELETE | `/api/github` | État (sans jeton, sans réseau) · configuration (`token` absent = inchangé, vide = effacé) · oubli |
+| POST | `/api/github/test` · `/push` · `/pull` | Vérifie l'accès · envoie (un commit) · récupère (résolutions des conflits) — en ligne uniquement |
 
 Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le schéma, identifiants entre guillemets, valeurs en paramètres liés (test d'injection inclus).
 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (193, + 2 sur serveurs réels) côté back, Vitest (124) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (209, + 2 sur serveurs réels) côté back, Vitest (126) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -289,4 +358,4 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 5 ter — Connecteurs** ✅ : SQL Server, PostgreSQL, MySQL / MariaDB, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online (fichiers et listes), en lecture seule, secrets au trousseau, actualisation. Reste : actualisation planifiée, Excel / CSV sur un serveur HTTP, Snowflake / BigQuery.
 - **Jalon 5 quater — Application Mac** ✅ : « Atelier Viz.app » à double-cliquer (fenêtre native, icône, Dock), interface servie par l'API, enregistrement natif des fichiers.
 - **Jalon 5 quinquies — Suite Atelier** ✅ : design system commun (copies verbatim, jetons dérivés, accent violet), thème `data-theme` + `dark`, sélecteur « Suite Atelier » avec état des API, import des enveloppes DataFlow, connecteurs Atelier Tab (instantanés) et Atelier Projets (API locale), actualisables (`docs/SUITE.md`).
-- **Jalon 6 — Partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil (webhook), synchronisation des rapports avec un dépôt GitHub.
+- **Jalon 6 — Partage et automatisation** ✅ : signets (volet, bouton d'action), actualisation planifiée des sources (ordonnanceur, journal, rechargement des visuels), alertes sur seuil (anti-rebond, notifications, webhook), synchronisation des rapports avec un dépôt GitHub (un commit par envoi, conflits jamais écrasés). Reste : signets personnels / groupes de signets et diaporama de signets ; notifications système (macOS) et e-mail ; alertes par dimension (« pour chaque région ») et sur variation (%) ; historique Git d'un rapport et restauration d'une version ; GitHub Enterprise (URL d'API configurable) ; actualisation planifiée quand l'application est fermée (service système).

@@ -159,7 +159,7 @@ export function RunLog({ runs }: { runs: RefreshRun[] }) {
           <th scope="col" className="py-1 pr-2 font-medium">Exécution</th>
           <th scope="col" className="py-1 pr-2 font-medium">Statut</th>
           <th scope="col" className="py-1 pr-2 text-right font-medium">Durée</th>
-          <th scope="col" className="py-1 pr-2 text-right font-medium">Lignes</th>
+          <th scope="col" className="py-1 pr-4 text-right font-medium">Lignes</th>
           <th scope="col" className="py-1 font-medium">Détail</th>
         </tr>
       </thead>
@@ -177,7 +177,7 @@ export function RunLog({ runs }: { runs: RefreshRun[] }) {
                 </span>
               </td>
               <td className="py-1 pr-2 text-right whitespace-nowrap tabular-nums">{durationLabel(r.duration_ms)}</td>
-              <td className="py-1 pr-2 text-right tabular-nums">{r.rows === null ? "—" : formatCount(r.rows)}</td>
+              <td className="py-1 pr-4 text-right tabular-nums">{r.rows === null ? "—" : formatCount(r.rows)}</td>
               <td className="max-w-72 truncate py-1 text-muted" title={r.message ?? ""}>
                 {r.message ?? ""}
               </td>
