@@ -1,0 +1,31 @@
+ville;latitude;longitude;region;format;surface_m2;ca_annuel;satisfaction;ouverture
+Paris;48.8566;2.3522;Île-de-France;Supermarché;3407;18807960;4.1;06/09/2010
+Marseille;43.2965;5.3698;Provence-Alpes-Côte d'Azur;Supermarché;1885;9403970;3.3;26/12/2015
+Lyon;45.764;4.8357;Auvergne-Rhône-Alpes;Hypermarché;9245;56590321;4.2;20/01/2021
+Toulouse;43.6047;1.4442;Occitanie;Supermarché;1646;10677386;4.2;25/08/2005
+Nice;43.7102;7.262;Provence-Alpes-Côte d'Azur;Supermarché;3626;21265614;4.0;22/02/2009
+Nantes;47.2184;-1.5536;Pays de la Loire;Supermarché;3757;22693426;3.7;08/09/2004
+Montpellier;43.6108;3.8767;Occitanie;Hypermarché;10613;47549297;3.7;03/01/2022
+Strasbourg;48.5734;7.7521;Grand Est;Proximité;253;1371758;4.8;13/07/1997
+Bordeaux;44.8378;-0.5792;Nouvelle-Aquitaine;Supermarché;2605;11531228;3.7;14/02/1999
+Lille;50.6292;3.0573;Hauts-de-France;Supermarché;1544;8351255;4.0;22/09/2001
+Rennes;48.1173;-1.6778;Bretagne;Supermarché;2036;11958770;3.4;14/04/1995
+Reims;49.2583;4.0317;Grand Est;Supermarché;2745;13032839;3.8;28/10/2015
+Toulon;43.1242;5.928;Provence-Alpes-Côte d'Azur;Supermarché;2099;11225470;3.2;20/06/2021
+Grenoble;45.1885;5.7245;Auvergne-Rhône-Alpes;Supermarché;1804;8555843;4.2;01/10/2006
+Dijon;47.322;5.0415;Bourgogne-Franche-Comté;Supermarché;2021;11029979;4.1;28/07/2000
+Angers;47.4784;-0.5632;Pays de la Loire;Supermarché;2435;11806575;3.5;24/11/2012
+Nîmes;43.8367;4.3601;Occitanie;Hypermarché;9180;40429586;3.3;04/01/2011
+Clermont-Ferrand;45.7772;3.087;Auvergne-Rhône-Alpes;Proximité;463;2451177;4.6;16/05/2011
+Le Havre;49.4944;0.1079;Normandie;Hypermarché;11901;57051377;4.1;28/10/2014
+Brest;48.3904;-4.4861;Bretagne;Hypermarché;7739;33895282;3.9;08/01/1996
+Tours;47.3941;0.6848;Centre-Val de Loire;Hypermarché;9021;60711053;3.3;05/08/2005
+Limoges;45.8336;1.2611;Nouvelle-Aquitaine;Supermarché;3637;24229044;4.1;01/08/2024
+Amiens;49.8941;2.2958;Hauts-de-France;Supermarché;1637;9422194;3.3;03/12/2004
+Metz;49.1193;6.1757;Grand Est;Supermarché;1808;10160685;4.4;24/12/2017
+Besançon;47.2378;6.0241;Bourgogne-Franche-Comté;Hypermarché;8798;52624177;4.6;28/07/2020
+Orléans;47.903;1.9093;Centre-Val de Loire;Hypermarché;10095;58802339;3.8;19/01/2014
+Rouen;49.4432;1.0999;Normandie;Hypermarché;6742;43738447;4.4;13/12/2017
+Caen;49.1829;-0.3707;Normandie;Supermarché;3394;14994128;4.4;01/05/2014
+Perpignan;42.6887;2.8948;Occitanie;Hypermarché;6182;33956808;4.2;16/05/2023
+Ajaccio;41.9192;8.7386;Corse;Hypermarché;8466;49022974;4.0;25/06/2016

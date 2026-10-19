@@ -1,0 +1,140 @@
+@import "tailwindcss";
+@import "react-grid-layout/css/styles.css";
+@import "react-resizable/css/styles.css";
+
+/* Le mode sombre suit la classe .dark posée sur <html> (voir useTheme). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tokens. Les composants n'utilisent QUE ces noms (bg-surface, text-muted, var(--series-1)…).
+ * Palette de données : palette de référence validée (daltonisme, contraste) du guide dataviz —
+ * ordre fixe, jamais recyclé ; la version sombre est un jeu de pas distinct, pas une inversion.
+ */
+:root,
+.theme-light {
+  --bg: #f4f4f2;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --border: #e3e2de;
+  --fg: #0b0b0b;
+  --muted: #62615c;
+  --accent: #2a78d6;
+  --accent-fg: #ffffff;
+  --positive: #0b7a0b;
+  --negative: #d03b3b;
+  --grid: #e8e7e3;
+  --canvas: #ebeae6;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+
+  /* Séquentiel (bleu) : intensités, cartes choroplèthes, heatmaps */
+  --seq-100: #cde2fb;
+  --seq-200: #9ec5f4;
+  --seq-300: #6da7ec;
+  --seq-400: #3987e5;
+  --seq-500: #256abf;
+  --seq-600: #184f95;
+  --seq-700: #0d366b;
+
+  /* Divergent : hausse / baisse (cascade, écarts) */
+  --div-pos: #2a78d6;
+  --div-neg: #e34948;
+  --div-mid: #c9c8c2;
+}
+
+.dark,
+.theme-dark {
+  --bg: #0f0f0e;
+  --surface: #1a1a19;
+  --surface-2: #242422;
+  --border: #33332f;
+  --fg: #f0efec;
+  --muted: #a6a59c;
+  --accent: #3987e5;
+  --accent-fg: #0b0b0b;
+  --positive: #34c78a;
+  --negative: #f06a6a;
+  --grid: #2c2c29;
+  --canvas: #121211;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+
+  --seq-100: #184f95;
+  --seq-200: #1c5cab;
+  --seq-300: #256abf;
+  --seq-400: #2a78d6;
+  --seq-500: #5598e7;
+  --seq-600: #86b6ef;
+  --seq-700: #b7d3f6;
+
+  --div-pos: #3987e5;
+  --div-neg: #e66767;
+  --div-mid: #4a4a45;
+}
+
+/*
+ * Habillage des visuels et de la page. Redéclaré sur chaque racine de thème pour que
+ * var(--surface) se résolve avec les couleurs de cette racine (thèmes de rapport).
+ */
+:root,
+.theme-light,
+.dark,
+.theme-dark {
+  --page-bg: var(--bg);
+  --visual-bg: var(--surface);
+  --visual-border: 1px solid var(--border);
+  --visual-radius: 8px;
+  --visual-shadow: none;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-canvas: var(--canvas);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Grille du canvas : poignée de redimensionnement discrète, placeholder aux couleurs du thème. */
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent);
+  opacity: 0.15;
+  border-radius: 8px;
+}
+.react-grid-item > .react-resizable-handle::after {
+  border-color: var(--muted);
+}
+/* Pas de cadre de focus après un clic souris dans un graphique (le clavier garde l'info-bulle). */
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus {
+  outline: none;
+}

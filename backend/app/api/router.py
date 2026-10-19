@@ -1,0 +1,14 @@
+"""Agrégation de toutes les routes sous le préfixe /api."""
+
+from fastapi import APIRouter
+
+from app.api.routes import actions, ai, datasets, health, query, reports, settings
+
+api_router = APIRouter(prefix="/api")
+api_router.include_router(health.router)
+api_router.include_router(settings.router)
+api_router.include_router(ai.router)
+api_router.include_router(datasets.router)
+api_router.include_router(query.router)
+api_router.include_router(reports.router)
+api_router.include_router(actions.router)

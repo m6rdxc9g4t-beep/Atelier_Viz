@@ -1,0 +1,73 @@
+"""Import et consultation des jeux de données (persistés dans DuckDB)."""
+
+import asyncio
+from typing import Annotated
+
+from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
+
+from app.api.deps import SettingsDep, StoreDep
+from app.schemas.dataset import DatasetProfile, DatasetRows, DatasetSummary
+from app.services.data import DatasetError, DatasetStore, StoredDataset, read_table
+
+router = APIRouter(prefix="/datasets", tags=["datasets"])
+
+
+async def get_or_404(store: DatasetStore, dataset_id: str) -> StoredDataset:
+    dataset = await asyncio.to_thread(store.get, dataset_id)
+    if dataset is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Jeu de données « {dataset_id} » introuvable.")
+    return dataset
+
+
+@router.post("", response_model=DatasetProfile, status_code=status.HTTP_201_CREATED)
+async def upload_dataset(
+    store: StoreDep,
+    settings: SettingsDep,
+    file: Annotated[UploadFile, File(description="Fichier CSV, XLSX ou JSON")],
+) -> DatasetProfile:
+    """Importe un fichier, infère les types de colonnes, l'enregistre et retourne son profil."""
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    content = await file.read(max_bytes + 1)
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE, f"Fichier trop volumineux (max {settings.max_upload_mb} Mo)."
+        )
+    filename = file.filename or "donnees.csv"
+    try:
+        df, fmt = await asyncio.to_thread(read_table, filename, content)
+    except DatasetError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    dataset = await asyncio.to_thread(store.add, filename, fmt, df)
+    return dataset.profile()
+
+
+@router.get("", response_model=list[DatasetSummary])
+async def list_datasets(store: StoreDep) -> list[DatasetSummary]:
+    """Jeux de données importés, du plus récent au plus ancien."""
+    return [d.summary() for d in await asyncio.to_thread(store.list)]
+
+
+@router.get("/{dataset_id}", response_model=DatasetProfile)
+async def get_dataset(dataset_id: str, store: StoreDep) -> DatasetProfile:
+    """Profil complet : colonnes typées, statistiques, échantillon."""
+    return (await get_or_404(store, dataset_id)).profile()
+
+
+@router.get("/{dataset_id}/rows", response_model=DatasetRows)
+async def get_rows(
+    dataset_id: str,
+    store: StoreDep,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+) -> DatasetRows:
+    """Lignes paginées, pour l'aperçu tabulaire."""
+    dataset = await get_or_404(store, dataset_id)
+    return await asyncio.to_thread(store.rows, dataset, offset, limit)
+
+
+@router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_dataset(dataset_id: str, store: StoreDep) -> Response:
+    """Supprime définitivement un jeu de données."""
+    if not await asyncio.to_thread(store.remove, dataset_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Jeu de données « {dataset_id} » introuvable.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
