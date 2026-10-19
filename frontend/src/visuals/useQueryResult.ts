@@ -47,17 +47,33 @@ export function runQuery(req: QueryRequest): Promise<QueryResult> {
   return promise;
 }
 
-/** À appeler quand un jeu de données change (réimport, suppression). */
+const invalidated = new Set<(datasetId?: string) => void>();
+
+/** À appeler quand un jeu de données change (actualisation, réimport, suppression) : les visuels affichés se rechargent. */
 export function invalidateQueries(datasetId?: string): void {
   for (const key of cache.keys()) {
     if (!datasetId || key.includes(`"dataset_id":"${datasetId}"`)) cache.delete(key);
   }
+  invalidated.forEach((listener) => listener(datasetId));
 }
 
 /** Résultat d'une requête ; `null` = visuel pas encore configuré. */
 export function useQueryResult(req: QueryRequest | null): State {
   const key = req ? JSON.stringify(req) : null;
   const [state, setState] = useState<State>({ result: null, loading: req !== null, error: null });
+  // Incrémenté quand les données du jeu changent : la même requête est relancée.
+  const [version, setVersion] = useState(0);
+  const datasetId = req?.dataset_id;
+
+  useEffect(() => {
+    const listener = (id?: string) => {
+      if (!id || id === datasetId) setVersion((v) => v + 1);
+    };
+    invalidated.add(listener);
+    return () => {
+      invalidated.delete(listener);
+    };
+  }, [datasetId]);
 
   useEffect(() => {
     if (!key) {
@@ -74,7 +90,7 @@ export function useQueryResult(req: QueryRequest | null): State {
     return () => {
       alive = false;
     };
-  }, [key]);
+  }, [key, version]);
 
   return state;
 }

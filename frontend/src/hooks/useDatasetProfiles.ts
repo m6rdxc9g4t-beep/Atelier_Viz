@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { api } from "../lib/api";
+import { invalidateQueries } from "../visuals/useQueryResult";
 import type { DatasetProfile } from "../types/dataset";
 
 const cache = new Map<string, Promise<DatasetProfile>>();
@@ -57,4 +58,15 @@ export function useDatasetProfiles(ids: (string | null | undefined)[]): Map<stri
   }, []);
 
   return profiles;
+}
+
+/**
+ * Relit la source d'un jeu importé depuis une connexion : nouveau profil partagé, et les visuels
+ * qui l'utilisent se rechargent.
+ */
+export async function refreshDataset(id: string): Promise<DatasetProfile> {
+  const profile = await api.datasets.refresh(id);
+  setProfile(profile);
+  invalidateQueries(id);
+  return profile;
 }

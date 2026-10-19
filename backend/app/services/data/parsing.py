@@ -37,8 +37,8 @@ def detect_format(filename: str) -> SourceFormat:
     return formats[suffix]
 
 
-def read_table(filename: str, content: bytes) -> tuple[pd.DataFrame, SourceFormat]:
-    """Lit le fichier et retourne un DataFrame aux colonnes typées."""
+def read_table(filename: str, content: bytes, sheet: str | None = None) -> tuple[pd.DataFrame, SourceFormat]:
+    """Lit le fichier et retourne un DataFrame aux colonnes typées (`sheet` : feuille Excel, sinon la première)."""
     fmt = detect_format(filename)
     if not content.strip():
         raise DatasetError("Le fichier est vide.")
@@ -46,7 +46,7 @@ def read_table(filename: str, content: bytes) -> tuple[pd.DataFrame, SourceForma
         if fmt == "csv":
             df = _read_csv(content)
         elif fmt == "xlsx":
-            df = pd.read_excel(io.BytesIO(content), sheet_name=0, engine="openpyxl")
+            df = pd.read_excel(io.BytesIO(content), sheet_name=sheet if sheet else 0, engine="openpyxl")
         else:
             df = _read_json(content)
     except DatasetError:
@@ -58,6 +58,20 @@ def read_table(filename: str, content: bytes) -> tuple[pd.DataFrame, SourceForma
     if df.empty or len(df.columns) == 0:
         raise DatasetError("Aucune donnée exploitable dans le fichier.")
     return infer_types(df), fmt
+
+
+def excel_sheets(content: bytes) -> list[str]:
+    """Noms des feuilles d'un classeur Excel."""
+    from openpyxl import load_workbook
+
+    try:
+        wb = load_workbook(io.BytesIO(content), read_only=True)
+    except Exception as exc:  # noqa: BLE001 — openpyxl / zipfile
+        raise DatasetError(f"Classeur Excel illisible : {exc}") from exc
+    try:
+        return list(wb.sheetnames)
+    finally:
+        wb.close()
 
 
 def _decode(content: bytes) -> str:

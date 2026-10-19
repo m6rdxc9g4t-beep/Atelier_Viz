@@ -1,7 +1,10 @@
 /** Miroir de backend/app/schemas/dataset.py — garder synchronisé. */
 
+import type { DatasetOrigin } from "./connection";
+
 export type ColumnType = "number" | "string" | "date" | "boolean";
-export type SourceFormat = "csv" | "xlsx" | "json";
+/** Fichier importé, ou type de la connexion d'origine. */
+export type SourceFormat = "csv" | "xlsx" | "json" | "sqlserver" | "postgres" | "mysql" | "sqlite" | "sharepoint";
 export type Scalar = number | string | boolean | null;
 export type Row = Record<string, Scalar>;
 
@@ -72,6 +75,8 @@ export interface DatasetSummary {
   rows: number;
   columns_count: number;
   created_at: string;
+  /** Connexion d'origine (jeu actualisable). */
+  origin?: DatasetOrigin | null;
 }
 
 export interface DatasetProfile extends DatasetSummary {

@@ -1,0 +1,5 @@
+# Pilotes des connecteurs de bases de données (facultatifs : n'installez que ceux dont vous avez besoin).
+# SQLite, les fichiers synchronisés et SharePoint n'ont besoin de rien de plus.
+pymssql>=2.3        # SQL Server / Azure SQL (macOS 14+, Windows, Linux)
+psycopg[binary]>=3.2  # PostgreSQL
+pymysql>=1.1        # MySQL / MariaDB

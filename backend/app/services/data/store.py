@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 import duckdb
 import pandas as pd
 
+from app.schemas.connection import DatasetOrigin
 from app.schemas.dataset import (
     DatasetModel,
     DatasetProfile,
@@ -75,7 +76,7 @@ class DatasetStore:
         self.db = db
         self.db.execute(_META_DDL)
 
-    def add(self, name: str, fmt: SourceFormat, df: pd.DataFrame) -> StoredDataset:
+    def add(self, name: str, fmt: SourceFormat, df: pd.DataFrame, origin: DatasetOrigin | None = None) -> StoredDataset:
         dataset_id = uuid.uuid4().hex[:12]
         name = self._unique_name(name)
         profile = DatasetProfile(
@@ -87,6 +88,7 @@ class DatasetStore:
             created_at=datetime.now(UTC),
             columns=build_profile(df),
             sample=records(df, limit=SAMPLE_ROWS),
+            origin=origin,
         )
         self.db.write_dataframe(f"ds_{dataset_id}", df)
         self.db.execute(
@@ -146,6 +148,40 @@ class DatasetStore:
             self.db.execute(previous)  # la vue précédente est rétablie : rien n'est modifié
             raise ModelError([ModelIssue(kind="column", name="(modèle)", error=f"Calcul impossible : {exc}")]) from exc
         updated = profile.model_copy(update={"columns": base + calculated, "model": model})
+        self.db.execute("UPDATE __datasets SET profile = ? WHERE id = ?", [updated.model_dump_json(), dataset.id])
+        return StoredDataset(dataset.id, updated)
+
+    def replace_data(self, dataset: StoredDataset, df: pd.DataFrame, origin: DatasetOrigin | None) -> StoredDataset:
+        """Actualise le contenu d'un jeu (même identifiant : les rapports restent branchés).
+
+        Le modèle (colonnes et mesures calculées) est revalidé sur les nouvelles colonnes : s'il ne
+        tient plus (colonne disparue…), `ModelError` est levée et rien n'est modifié.
+        """
+        profile = dataset.profile_data
+        staging = f"ds_{dataset.id}__new"
+        self.db.write_dataframe(staging, df)
+        try:
+            base = build_profile(df)
+            compiled = compile_model({c.name: c.type for c in base}, profile.model)
+            if compiled.issues:
+                raise ModelError(compiled.issues)
+            table, new = quote_ident(dataset.table), quote_ident(staging)
+            self.db.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM {new}")
+        finally:
+            self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(staging)}")
+        source = f"v_{dataset.id}" if compiled.columns else dataset.table
+        expressions = {c.name: c.expression for c in profile.model.columns}
+        self.db.execute(view_ddl(dataset.id, compiled.columns))
+        calculated = [profile_calculated(self.db, source, c, expressions[c.name]) for c in compiled.columns]
+        updated = profile.model_copy(
+            update={
+                "rows": len(df),
+                "columns_count": len(df.columns),
+                "columns": base + calculated,
+                "sample": records(df, limit=SAMPLE_ROWS),
+                "origin": origin,
+            }
+        )
         self.db.execute("UPDATE __datasets SET profile = ? WHERE id = ?", [updated.model_dump_json(), dataset.id])
         return StoredDataset(dataset.id, updated)
 

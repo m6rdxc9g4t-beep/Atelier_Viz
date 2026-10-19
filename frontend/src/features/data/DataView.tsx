@@ -1,9 +1,12 @@
 import clsx from "clsx";
-import { FileSpreadsheet, Trash2, X } from "lucide-react";
+import { Cable, Cloud, Database, FileSpreadsheet, RefreshCw, Trash2, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
 
 import type { DatasetsState } from "../../hooks/useDatasets";
 import { formatCount } from "../../lib/format";
+import type { DatasetSummary } from "../../types/dataset";
+import { ConnectDialog } from "./connect/ConnectDialog";
+import { KIND_META, sinceLabel } from "./connect/meta";
 import { DataPreview } from "./DataPreview";
 import { FieldsPanel, TYPE_META } from "./FieldsPanel";
 import { UploadDropzone } from "./UploadDropzone";
@@ -12,6 +15,16 @@ import { UploadDropzone } from "./UploadDropzone";
 export function DataView({ state }: { state: DatasetsState }) {
   const { datasets, selected, uploading, error } = state;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const connectButton = (
+    <button
+      type="button"
+      onClick={() => setConnecting(true)}
+      className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2"
+    >
+      <Cable className="size-3.5 text-accent" aria-hidden /> Se connecter à une source
+    </button>
+  );
 
   return (
     <div className="mx-auto flex h-full max-w-7xl flex-col gap-4">
@@ -35,6 +48,11 @@ export function DataView({ state }: { state: DatasetsState }) {
               </button>{" "}
               (ventes 2026 et magasins).
             </p>
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-4 py-4 text-center">
+              <p className="text-sm font-medium">Ou connectez-vous à vos données</p>
+              <p className="text-xs text-muted">SQL Server, PostgreSQL, MySQL, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online.</p>
+              {connectButton}
+            </div>
           </div>
         )
       ) : (
@@ -55,18 +73,31 @@ export function DataView({ state }: { state: DatasetsState }) {
                       : "border-transparent text-muted hover:bg-surface-2 hover:text-fg",
                   )}
                 >
-                  <FileSpreadsheet className="size-3.5" aria-hidden />
+                  <SourceIcon dataset={d} />
                   {d.name}
                 </button>
               ))}
             </div>
+            {connectButton}
             <UploadDropzone variant="compact" onFile={state.upload} uploading={uploading} />
           </div>
 
           {selected && (
             <>
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3">
-                <h2 className="mr-auto truncate text-sm font-semibold">{selected.name}</h2>
+                <div className="mr-auto min-w-0">
+                  <h2 className="truncate text-sm font-semibold">{selected.name}</h2>
+                  {selected.origin && (
+                    <p className="flex items-center gap-1 truncate text-[11px] text-muted">
+                      {KIND_META[selected.origin.kind].label} · {selected.origin.connection_name} · actualisé {sinceLabel(selected.origin.refreshed_at)}
+                      {selected.origin.truncated && (
+                        <span className="ml-1 flex items-center gap-0.5 text-negative" title="La limite de lignes choisie à l'import a été atteinte">
+                          <TriangleAlert className="size-3" aria-hidden /> limite de lignes atteinte
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
                 <Stat label="Lignes" value={formatCount(selected.rows)} />
                 <Stat label="Colonnes" value={formatCount(selected.columns_count)} />
                 {(["number", "date", "string", "boolean"] as const).map((t) => {
@@ -80,6 +111,18 @@ export function DataView({ state }: { state: DatasetsState }) {
                     </span>
                   );
                 })}
+                {selected.origin && (
+                  <button
+                    type="button"
+                    onClick={() => void state.refresh(selected.id)}
+                    disabled={state.refreshing === selected.id}
+                    title="Relire la source et mettre à jour les rapports"
+                    className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2 disabled:opacity-60"
+                  >
+                    <RefreshCw className={clsx("size-3.5", state.refreshing === selected.id && "animate-spin")} aria-hidden />
+                    {state.refreshing === selected.id ? "Actualisation…" : "Actualiser"}
+                  </button>
+                )}
                 {confirmDelete ? (
                   <span className="flex items-center gap-2 text-xs">
                     <span className="text-muted">Supprimer définitivement ?</span>
@@ -121,8 +164,15 @@ export function DataView({ state }: { state: DatasetsState }) {
           )}
         </>
       )}
+      {connecting && <ConnectDialog onClose={() => setConnecting(false)} onImported={state.added} />}
     </div>
   );
+}
+
+function SourceIcon({ dataset }: { dataset: DatasetSummary }) {
+  const kind = dataset.origin?.kind;
+  const Icon = kind === "sharepoint" ? Cloud : kind && kind !== "file" ? Database : FileSpreadsheet;
+  return <Icon className="size-3.5" aria-label={kind ? KIND_META[kind].label : undefined} aria-hidden={!kind} />;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

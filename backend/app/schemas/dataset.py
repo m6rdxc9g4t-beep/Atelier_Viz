@@ -6,8 +6,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.connection import DatasetOrigin
+
 ColumnType = Literal["number", "string", "date", "boolean"]
-SourceFormat = Literal["csv", "xlsx", "json"]
+# Fichiers importés, ou type de la connexion d'origine.
+SourceFormat = Literal["csv", "xlsx", "json", "sqlserver", "postgres", "mysql", "sqlite", "sharepoint"]
 Scalar = float | int | str | bool | None
 
 
@@ -83,6 +86,7 @@ class DatasetSummary(BaseModel):
     rows: int
     columns_count: int
     created_at: datetime
+    origin: DatasetOrigin | None = Field(default=None, description="Connexion d'origine (jeu actualisable).")
 
 
 class DatasetProfile(DatasetSummary):

@@ -17,6 +17,7 @@ from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.services.actions import ActionError
 from app.services.ai import AIProviderError
+from app.services.connectors import ConnectionService, ConnectorError, build_secrets
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase, QueryError
 from app.services.preferences import PreferencesStore
@@ -34,6 +35,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.database = LocalDatabase(data_dir / "atelier.duckdb")
         app.state.dataset_store = DatasetStore(app.state.database)
         app.state.reports = ReportRepository(data_dir / "reports")
+        app.state.connections = ConnectionService(
+            data_dir / "connections.json",
+            build_secrets(settings.secrets_backend, data_dir / "secrets.json"),
+            settings,
+            app.state.dataset_store,
+            is_online=lambda: app.state.preferences.get().online_mode,
+        )
         app.state.ai_service = build_ai_service(settings, is_online=lambda: app.state.preferences.get().online_mode)
         yield
         await app.state.ai_service.aclose()
@@ -61,6 +69,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(ActionError)
     async def action_error_handler(_: Request, exc: ActionError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
+
+    @app.exception_handler(ConnectorError)
+    async def connector_error_handler(_: Request, exc: ConnectorError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
     app.include_router(api_router)
     return app

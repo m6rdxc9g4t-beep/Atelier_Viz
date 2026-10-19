@@ -5,6 +5,18 @@ import type { BuildRequest, BuildResponse } from "../types/builder";
 import type { SummaryRequest, SummaryResponse } from "../types/summary";
 import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult, SampleFile, SamplesImport } from "../types/dataset";
 import type { QueryRequest, QueryResponse } from "../types/query";
+import type {
+  AuthStatus,
+  Connection,
+  ConnectionInput,
+  ConnectorInfo,
+  DeviceCodeStart,
+  ImportRequest,
+  PreviewRequest,
+  PreviewResult,
+  TableList,
+  TestResult,
+} from "../types/connection";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
 
 export interface Preferences {
@@ -84,6 +96,26 @@ export const api = {
       request<DatasetProfile>(`/datasets/${id}/model`, { method: "PUT", body: JSON.stringify(model) }),
     checkExpression: (id: string, body: ExpressionCheck, signal?: AbortSignal) =>
       request<ExpressionResult>(`/datasets/${id}/model/check`, { method: "POST", body: JSON.stringify(body), signal }),
+    /** Relit la source d'un jeu importé depuis une connexion (même identifiant). */
+    refresh: (id: string) => request<DatasetProfile>(`/datasets/${id}/refresh`, { method: "POST" }),
+  },
+
+  connections: {
+    connectors: () => request<ConnectorInfo[]>("/connections/connectors"),
+    list: () => request<Connection[]>("/connections"),
+    create: (body: ConnectionInput) => request<Connection>("/connections", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: ConnectionInput) => request<Connection>(`/connections/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    remove: (id: string) => request<void>(`/connections/${id}`, { method: "DELETE" }),
+    /** Essai avant enregistrement. */
+    testUnsaved: (body: ConnectionInput) => request<TestResult>("/connections/test", { method: "POST", body: JSON.stringify(body) }),
+    test: (id: string) => request<TestResult>(`/connections/${id}/test`, { method: "POST" }),
+    tables: (id: string, url?: string) => request<TableList>(`/connections/${id}/tables${url ? `?url=${encodeURIComponent(url)}` : ""}`),
+    preview: (id: string, body: PreviewRequest, signal?: AbortSignal) =>
+      request<PreviewResult>(`/connections/${id}/preview`, { method: "POST", body: JSON.stringify(body), signal }),
+    import: (id: string, body: ImportRequest) => request<DatasetProfile>(`/connections/${id}/import`, { method: "POST", body: JSON.stringify(body) }),
+    login: (id: string) => request<DeviceCodeStart>(`/connections/${id}/login`, { method: "POST" }),
+    poll: (id: string) => request<AuthStatus>(`/connections/${id}/login/poll`, { method: "POST" }),
+    logout: (id: string) => request<Connection>(`/connections/${id}/logout`, { method: "POST" }),
   },
 
   query: (body: QueryRequest, signal?: AbortSignal) =>

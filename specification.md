@@ -46,6 +46,8 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 | IA | Ollama uniquement ; Claude refusé (HTTP 403) | Ollama + Claude |
 | Ce qui part vers l'IA | — | Schéma + 5 lignes, seulement si « Joindre le schéma » est coché |
 | Boutons webhook | Adresses locales / réseau privé uniquement | Toute adresse http(s) |
+| Connecteurs SQL | Serveurs locaux / réseau privé / VPN (403 pour une adresse publique) | Tout serveur |
+| SharePoint Online | Refusé (403) ; un fichier SharePoint **synchronisé** reste lisible | Microsoft Graph, compte de l'utilisateur |
 | Boutons URL | Ouverture dans le navigateur (action explicite) | Idem |
 
 Le mode se change dans l'en-tête (pastille « Hors ligne / En ligne ») ou dans Réglages ; il est stocké dans `backend/data/settings.json` et pris en compte immédiatement.
@@ -175,6 +177,26 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 - « Hiérarchie de dates » : un champ date devient année › trimestre › mois.
 - État enregistré dans `options.drill` ; requêtes, export PowerPoint et résumé IA utilisent le niveau affiché (`drillView`).
 
+## 5 sexies. Connecteurs de données
+
+« Se connecter à une source » (page Données) : connexions enregistrées, parcours, aperçu, import, actualisation.
+
+| Source | Pilote | Lecture |
+|---|---|---|
+| SQL Server / Azure SQL | pymssql (FreeTDS) | Tables et vues (`INFORMATION_SCHEMA`), requête libre ; `TOP (n)` ; instance nommée, compte Windows, TLS |
+| PostgreSQL | psycopg 3 | Session `default_transaction_read_only` + `statement_timeout` |
+| MySQL / MariaDB | PyMySQL | `SET SESSION TRANSACTION READ ONLY` |
+| SQLite | sqlite3 | Fichier ouvert en `mode=ro` |
+| Fichier synchronisé | — | CSV / XLSX (feuille au choix) / JSON d'un dossier OneDrive, SharePoint, Teams ou réseau |
+| SharePoint Online | httpx → Microsoft Graph | Fichier par lien (`/shares/u!…/driveItem`) ou liste (colonnes visibles, pagination) ; connexion par code d'appareil |
+
+- **Registre** : `data/connections.json` (sans secret) ; secrets dans le trousseau système (`keyring`), sinon `data/secrets.json` en 0600. L'API ne renvoie que `has_password` / `signed_in`.
+- **Requêtes libres** : une instruction `SELECT` / `WITH`, mots-clés d'écriture refusés hors chaînes et commentaires (`INSERT`, `INTO`, CTE `DELETE`, `OPENROWSET`…). Garde-fou complété par la lecture seule côté serveur.
+- **Types** : ceux de la base sont gardés (pas de réinterprétation : un code postal `VARCHAR` reste du texte) ; `DECIMAL` → nombre, dates avec fuseau → UTC.
+- **Import** : copie dans DuckDB (`ds_<id>`) avec `origin` (connexion, table / requête / lien, limite de lignes, date). Limite par défaut 2 000 000 lignes (`CONNECTOR_MAX_ROWS`).
+- **Actualisation** (`POST /api/datasets/{id}/refresh`) : même identifiant ; le modèle est revalidé sur les nouvelles colonnes (409 et rien ne change s'il ne tient plus) ; les visuels ouverts se rechargent.
+- **Essais** : SQLite et Graph simulé dans `test_connections.py` ; vrais PostgreSQL / MySQL dans `test_connections_live.py` (variables `ATELIER_TEST_PG`, `ATELIER_TEST_MYSQL`).
+
 ## 6. Interactions
 
 - **Filtres** (dans l'ordre d'application) : page → segments de la page → sélection par clic dans un autre visuel (filtrage croisé) → filtres du visuel. Ils ne s'appliquent qu'aux visuels du même jeu de données (ou possédant le champ, pour les filtres de page).
@@ -215,13 +237,21 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 | GET / POST | `/api/reports` | Liste, création |
 | GET / PUT / DELETE | `/api/reports/{id}` | Lecture, sauvegarde, suppression |
 | POST | `/api/actions/webhook` | Appel d'un webhook depuis un bouton |
+| GET | `/api/connections/connectors` | Types de sources et état des pilotes |
+| GET / POST | `/api/connections` | Connexions enregistrées (sans secret) · création |
+| PUT / DELETE | `/api/connections/{id}` | Modification (`password` absent = inchangé) · suppression avec ses secrets |
+| POST | `/api/connections/test` · `/api/connections/{id}/test` | Essai avant / après enregistrement |
+| GET | `/api/connections/{id}/tables` | Tables et vues, feuilles Excel (`?url=` pour SharePoint) |
+| POST | `/api/connections/{id}/preview` · `/import` | Aperçu (≤ 200 lignes) · import en jeu de données actualisable |
+| POST | `/api/connections/{id}/login` · `/login/poll` · `/logout` | SharePoint : connexion Microsoft par code d'appareil |
+| POST | `/api/datasets/{id}/refresh` | Relit la source d'un jeu importé depuis une connexion |
 
 Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le schéma, identifiants entre guillemets, valeurs en paramètres liés (test d'injection inclus).
 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (132) côté back, Vitest (85) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (167, + 2 sur serveurs réels) côté back, Vitest (104) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -233,5 +263,5 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 4 — Export PowerPoint** ✅ : diapositives 16:9, graphiques et tableaux natifs modifiables, images pour les visuels sans équivalent, thème du rapport, notes avec les filtres. Reste : export PDF et image d'une page.
 - **Jalon 5 — Modélisation** ✅ : mesures et colonnes calculées (langage analysé et compilé, jamais de SQL brut), hiérarchies et exploration (drill-down), hiérarchie de dates. Reste : relations entre tables (jointures entre jeux de données).
 - **Jalon 5 bis — Placement libre** ✅ : visuels au pixel près n'importe où sur la page (taille de page en px, repères d'alignement, poignées, clavier, saisie X/Y/L/H, superposition et ordre, zoom), conversion automatique des anciens rapports.
-- **Jalon 5 ter — Connecteurs** (en cours) : SQL Server, PostgreSQL, MySQL, SQLite, SharePoint / OneDrive, avec actualisation.
+- **Jalon 5 ter — Connecteurs** ✅ : SQL Server, PostgreSQL, MySQL / MariaDB, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online (fichiers et listes), en lecture seule, secrets au trousseau, actualisation. Reste : actualisation planifiée, Excel / CSV sur un serveur HTTP, Snowflake / BigQuery.
 - **Jalon 6 — Partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil (webhook), synchronisation des rapports avec un dépôt GitHub.
