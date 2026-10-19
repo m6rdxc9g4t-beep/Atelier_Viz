@@ -34,6 +34,7 @@ backend/
   app/services/reports.py     # ReportRepository (JSON)
   app/services/preferences.py # mode en ligne
   app/services/actions.py     # webhooks des boutons
+  app/services/connectors/    # sources externes : sql (SQL Server, PostgreSQL, MySQL, SQLite), sharepoint (Graph), secrets, service
   app/services/ai/            # ollama, claude_cli, anthropic, service (routage + mode hors ligne)
   tests/                      # pytest — data_dir temporaire par test, aucun réseau ni CLI réels
 frontend/src/
@@ -61,6 +62,14 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Page en pixels (`Page.size`, 1280 × 720 par défaut) ; `Visual.layout` en px de page. Géométrie pure dans `studio/grid.ts` (migration des anciens rapports en grille, bornage, hauteur) et `studio/snap.ts` (déplacement, redimensionnement, repères), testée dans `studio/placement.test.ts`.
 - Toute lecture d'un rapport potentiellement ancien passe par `migratePage` (le Studio le fait dans `load`, l'export dans `planSlides`).
 - Le zoom met la page à l'échelle par `transform: scale` : une info-bulle maison positionnée à la souris utilise `localPoint` (`visuals/common.tsx`).
+
+## Connecteurs
+- `app/services/connectors/` : `ConnectionService` (registre `data/connections.json` sans secret, import, actualisation), `sql.py` (dialectes), `sharepoint.py` (Graph, code d'appareil), `secrets.py` (trousseau, sinon fichier 0600).
+- Jamais de secret dans `connections.json`, les journaux ou les réponses API. Tests : `secrets_backend="file"`.
+- Politique réseau : `check_server` (hors ligne = machine / réseau privé) ; SharePoint exige le mode en ligne (403).
+- Requête libre : `check_query` (une instruction SELECT / WITH) + lecture seule côté serveur. Les types de la base sont gardés (`rows_to_frame`, pas d'`infer_types`).
+- Un jeu importé garde `origin` ; `DatasetStore.replace_data` actualise en revalidant le modèle. Côté front, `refreshDataset` puis les visuels se rechargent (`invalidateQueries`).
+- Pilotes facultatifs (`requirements-connectors.txt`) : `Dialect.driver_installed` et message 501 si absent.
 
 ## Règles de code
 1. **Modularité** : routes minces, logique dans `services/` ; un visuel = un composant + une entrée de registre.

@@ -43,6 +43,40 @@ de démonstration s'ouvre. On peut aussi les importer depuis **Données → Char
 
 Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages) : sauvegardez ce dossier.
 
+## Connecteurs (SQL Server, PostgreSQL, MySQL, SQLite, OneDrive, SharePoint)
+
+Page **Données → Se connecter à une source**. Une connexion est enregistrée une fois ; on choisit ensuite une
+table, une requête `SELECT` ou une feuille, on voit un aperçu, puis **Importer** copie les données dans la base
+locale (les rapports restent rapides et marchent hors ligne). **Actualiser** (page Données, ou volet Données du
+Studio) relit la source : même jeu, mêmes rapports, mesures et colonnes calculées conservées.
+
+```bash
+# Pilotes des bases (dans l'environnement du backend ; n'installez que ceux utiles)
+pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (PostgreSQL), pymysql (MySQL)
+```
+
+| Source | À savoir |
+|---|---|
+| SQL Server / Azure SQL | Serveur `sql01.entreprise.local` ou instance `serveur\INSTANCE` ; compte SQL ou Windows `DOMAINE\utilisateur` ; cocher « chiffrement » pour Azure SQL. Sur Mac, pymssql s'installe sur macOS 14 ou plus récent. |
+| PostgreSQL, MySQL / MariaDB | Serveur, port, base, utilisateur. La session est ouverte **en lecture seule** par le serveur. |
+| SQLite | Chemin du fichier `.db`, ouvert en lecture seule. |
+| Fichier synchronisé | CSV, Excel (choix de la feuille) ou JSON d'un dossier **OneDrive / SharePoint / Teams synchronisé** (sur Mac : `~/Library/CloudStorage/OneDrive-<Entreprise>/…`) ou d'un partage réseau. Fonctionne hors ligne. |
+| SharePoint Online | Fichier d'une bibliothèque (lien « Copier le lien ») ou **liste** SharePoint, avec votre compte Microsoft 365. Mode « En ligne » requis. |
+
+- **Hors ligne**, seuls la machine et les réseaux privés (entreprise, VPN) sont joignables ; une base sur Internet demande le mode « En ligne ».
+- **Mots de passe et jetons** : rangés dans le trousseau du système (Trousseau macOS…), jamais dans les fichiers de l'application ni renvoyés par l'API.
+- **Lecture seule** : une requête libre doit être une seule instruction `SELECT` / `WITH` (pas de `INSERT`, `SELECT … INTO`, `;` au milieu…). Un compte limité à la lecture reste conseillé (`db_datareader`, `pg_read_all_data`…).
+
+### Activer SharePoint Online (une fois, par l'administrateur Microsoft 365)
+
+1. [portal.azure.com](https://portal.azure.com) → **Microsoft Entra ID → Inscriptions d'applications → Nouvelle inscription** : « Atelier Viz », comptes de cet annuaire uniquement.
+2. **Authentification → Paramètres avancés → Autoriser les flux de clients publics : Oui.**
+3. **Autorisations d'API → Microsoft Graph → Autorisations déléguées** : `Sites.Read.All`, `Files.Read.All` (+ `User.Read`, `offline_access`) ; accorder le consentement administrateur si l'entreprise l'exige.
+4. Copier l'**ID d'application (client)** dans `backend/.env` : `SHAREPOINT_CLIENT_ID=…` et `SHAREPOINT_TENANT=entreprise.fr`, puis relancer `uvicorn`.
+5. Passer en **En ligne**, créer une connexion SharePoint, **Se connecter à Microsoft 365** : saisir le code affiché sur microsoft.com/devicelogin.
+
+Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichier synchronisé** (bouton « Synchroniser » ou « Ajouter un raccourci à Mes fichiers » dans SharePoint).
+
 ## Dans le Studio
 
 | Action | Comment |

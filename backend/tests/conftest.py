@@ -41,7 +41,12 @@ def settings(tmp_path: Path) -> Settings:
     # Mode "api" sans clé : aucun test ne lance la vraie CLI ni n'appelle l'API.
     # data_dir temporaire : chaque test a sa propre base DuckDB et ses propres rapports.
     return Settings(  # type: ignore[call-arg]
-        app_env="test", claude_mode="api", anthropic_api_key=None, data_dir=tmp_path, _env_file=None
+        app_env="test",
+        claude_mode="api",
+        anthropic_api_key=None,
+        data_dir=tmp_path,
+        secrets_backend="file",  # jamais le trousseau réel du développeur
+        _env_file=None,
     )
 
 

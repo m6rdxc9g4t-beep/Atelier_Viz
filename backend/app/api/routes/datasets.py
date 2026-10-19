@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 
-from app.api.deps import SettingsDep, StoreDep
+from app.api.deps import ConnectionsDep, SettingsDep, StoreDep
 from app.schemas.dataset import (
     DatasetModel,
     DatasetProfile,
@@ -92,6 +92,24 @@ async def check_expression(dataset_id: str, check: ExpressionCheck, store: Store
     """Vérifie une expression pendant la saisie : erreur localisée, type et aperçu des valeurs."""
     dataset = await get_or_404(store, dataset_id)
     return await asyncio.to_thread(store.check, dataset, check)
+
+
+@router.post("/{dataset_id}/refresh", response_model=DatasetProfile)
+async def refresh_dataset(dataset_id: str, store: StoreDep, connections: ConnectionsDep) -> DatasetProfile:
+    """Relit la source d'un jeu importé depuis une connexion (même identifiant : les rapports suivent)."""
+    dataset = await get_or_404(store, dataset_id)
+    try:
+        updated = await asyncio.to_thread(connections.refresh, dataset)
+    except ModelError as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            {
+                "message": "Les nouvelles données ne correspondent plus au modèle (colonne disparue ?) : "
+                "rien n'a changé.",
+                "issues": [i.model_dump() for i in exc.issues],
+            },
+        ) from exc
+    return updated.profile()
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)

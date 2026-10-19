@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "../lib/api";
 import { invalidateQueries } from "../visuals/useQueryResult";
-import { forgetProfile } from "./useDatasetProfiles";
+import { forgetProfile, refreshDataset } from "./useDatasetProfiles";
 import type { DatasetProfile, DatasetSummary } from "../types/dataset";
 
 export interface DatasetsState {
@@ -16,6 +16,12 @@ export interface DatasetsState {
   /** Importe les jeux d'exemple du dépôt (samples/). */
   loadSamples: () => Promise<void>;
   remove: (id: string) => Promise<void>;
+  /** Ajoute un jeu importé depuis une connexion et le sélectionne. */
+  added: (profile: DatasetProfile) => void;
+  /** Relit la source d'un jeu issu d'une connexion. */
+  refresh: (id: string) => Promise<void>;
+  /** Identifiant du jeu en cours d'actualisation. */
+  refreshing: string | null;
   clearError: () => void;
 }
 
@@ -28,6 +34,7 @@ export function useDatasets(): DatasetsState {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState<string | null>(null);
 
   const select = useCallback((id: string) => {
     setLoading(true);
@@ -103,7 +110,30 @@ export function useDatasets(): DatasetsState {
     [datasets, selected, select],
   );
 
+  const added = useCallback((profile: DatasetProfile) => {
+    setDatasets((list) => [profile, ...list.filter((d) => d.id !== profile.id)]);
+    setSelected(profile);
+    setError(null);
+  }, []);
+
+  const refresh = useCallback(async (id: string) => {
+    setRefreshing(id);
+    setError(null);
+    try {
+      const profile = await refreshDataset(id);
+      setDatasets((list) => list.map((d) => (d.id === id ? profile : d)));
+      setSelected((cur) => (cur?.id === id ? profile : cur));
+    } catch (err) {
+      setError(`Actualisation impossible : ${message(err)}`);
+    } finally {
+      setRefreshing(null);
+    }
+  }, []);
+
   return {
+    added,
+    refresh,
+    refreshing,
     datasets,
     selected,
     loading,

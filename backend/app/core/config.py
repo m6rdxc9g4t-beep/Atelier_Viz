@@ -42,6 +42,16 @@ class Settings(BaseSettings):
     # Jeux d'exemple livrés avec le dépôt (bouton « Charger l'exemple »)
     samples_dir: Path = Path(__file__).resolve().parents[3] / "samples"
 
+    # Connecteurs (SQL Server, PostgreSQL, MySQL, SQLite, fichiers, SharePoint)
+    secrets_backend: Literal["auto", "keyring", "file"] = "auto"  # trousseau système, sinon data/secrets.json (0600)
+    connector_login_timeout_seconds: float = 15.0
+    connector_query_timeout_seconds: float = 300.0
+    connector_max_rows: int = 2_000_000
+    connector_max_file_mb: int = 500
+    # SharePoint Online : application Entra ID (client public, Sites.Read.All + Files.Read.All déléguées)
+    sharepoint_client_id: str | None = None
+    sharepoint_tenant: str = "organizations"
+
     # GitHub (jalon 2)
     github_token: SecretStr | None = None
 

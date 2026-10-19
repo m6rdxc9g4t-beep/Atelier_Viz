@@ -1,8 +1,10 @@
 import clsx from "clsx";
-import { Calculator, Pencil, Plus, Search, SquareFunction } from "lucide-react";
+import { Calculator, Pencil, Plus, RefreshCw, Search, SquareFunction } from "lucide-react";
 import { useState } from "react";
 
+import { KIND_META, sinceLabel } from "../../features/data/connect/meta";
 import { TYPE_META } from "../../features/data/FieldsPanel";
+import { refreshDataset } from "../../hooks/useDatasetProfiles";
 import type { ColumnProfile } from "../../types/dataset";
 import { measureField } from "../../visuals/fields";
 import { VISUALS } from "../../visuals/registry";
@@ -17,6 +19,7 @@ export function DataPane() {
   const selectedId = useStudio((s) => s.selectedId);
   const report = useStudio((s) => s.report);
   const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [editor, setEditor] = useState<{ kind: ModelItemKind; initial?: { name: string; expression: string } } | null>(null);
   const profile = activeDatasetId ? profiles.get(activeDatasetId) : undefined;
   const selected = report?.pages.flatMap((p) => p.visuals).find((v) => v.id === selectedId);
@@ -98,6 +101,31 @@ export function DataPane() {
             </option>
           ))}
         </select>
+        {profile?.origin && (
+          <div className="flex items-center gap-1 text-[11px] text-muted">
+            <span
+              className="min-w-0 flex-1 truncate"
+              title={`${KIND_META[profile.origin.kind].label} · ${profile.origin.connection_name} — actualisé ${sinceLabel(profile.origin.refreshed_at)}`}
+            >
+              {sinceLabel(profile.origin.refreshed_at)}
+            </span>
+            <button
+              type="button"
+              disabled={refreshing}
+              onClick={() => {
+                setRefreshing(true);
+                refreshDataset(profile.id)
+                  .then((p) => useStudio.getState().notify(`« ${p.name} » actualisé : ${p.rows.toLocaleString("fr-FR")} lignes.`))
+                  .catch((e: unknown) => useStudio.getState().notify(`Actualisation impossible : ${e instanceof Error ? e.message : String(e)}`))
+                  .finally(() => setRefreshing(false));
+              }}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-accent hover:bg-accent/10 disabled:opacity-60"
+              title="Relire la source : tous les visuels se mettent à jour"
+            >
+              <RefreshCw className={clsx("size-3", refreshing && "animate-spin")} aria-hidden /> Actualiser
+            </button>
+          </div>
+        )}
         <label className="flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1 text-xs">
           <Search className="size-3 text-muted" aria-hidden />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un champ" className="min-w-0 flex-1 bg-transparent outline-none" />

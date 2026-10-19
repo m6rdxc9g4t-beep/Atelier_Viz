@@ -31,6 +31,9 @@ function state(overrides: Partial<DatasetsState> = {}): DatasetsState {
     upload: vi.fn(),
     loadSamples: vi.fn(),
     remove: vi.fn(),
+    added: vi.fn(),
+    refresh: vi.fn(),
+    refreshing: null,
     clearError: vi.fn(),
     ...overrides,
   };
@@ -86,6 +89,32 @@ describe("DataView", () => {
     expect(await within(preview).findByText((text) => text.replace(/\s/g, "") === expected)).toBeInTheDocument();
     expect(within(preview).getByText("05/01/2026")).toBeInTheDocument();
     expect(within(preview).getByText("—")).toBeInTheDocument();
+  });
+
+  it("indique la source d'un jeu importé depuis une connexion et l'actualise", async () => {
+    const refresh = vi.fn();
+    const origin = {
+      connection_id: "c1",
+      connection_name: "Entrepôt",
+      kind: "postgres" as const,
+      table: { schema: "public", name: "ventes" },
+      query: null,
+      url: null,
+      max_rows: null,
+      truncated: false,
+      refreshed_at: new Date().toISOString(),
+    };
+    const fromDb = { ...profile, origin };
+    render(<DataView state={state({ datasets: [fromDb], selected: fromDb, refresh })} />);
+    expect(screen.getByText(/PostgreSQL · Entrepôt · actualisé à l'instant/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Actualiser" }));
+    expect(refresh).toHaveBeenCalledWith("abc");
+  });
+
+  it("n'offre pas d'actualisation pour un fichier importé, mais propose de se connecter", () => {
+    render(<DataView state={state()} />);
+    expect(screen.queryByRole("button", { name: "Actualiser" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Se connecter à une source" })).toBeInTheDocument();
   });
 
   it("affiche les erreurs d'import", () => {
