@@ -3,7 +3,7 @@
 import type { ChatRequest, ChatResponse, ProvidersResponse } from "../types/ai";
 import type { BuildRequest, BuildResponse } from "../types/builder";
 import type { SummaryRequest, SummaryResponse } from "../types/summary";
-import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult } from "../types/dataset";
+import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult, SampleFile, SamplesImport } from "../types/dataset";
 import type { QueryRequest, QueryResponse } from "../types/query";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
 
@@ -62,6 +62,12 @@ export const api = {
     request<BuildResponse>("/ai/visuals", { method: "POST", body: JSON.stringify(body), signal }),
   summarizePage: (body: SummaryRequest, signal?: AbortSignal) =>
     request<SummaryResponse>("/ai/summary", { method: "POST", body: JSON.stringify(body), signal }),
+
+  samples: {
+    list: () => request<SampleFile[]>("/samples"),
+    /** Importe les exemples absents (jamais de doublon). */
+    load: () => request<SamplesImport>("/samples", { method: "POST" }),
+  },
 
   datasets: {
     list: () => request<DatasetSummary[]>("/datasets"),

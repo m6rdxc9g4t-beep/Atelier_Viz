@@ -1,4 +1,4 @@
-import { FileBarChart2, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { FileBarChart2, Loader2, Plus, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { api } from "../../lib/api";
@@ -8,6 +8,9 @@ import type { DatasetSummary } from "../../types/dataset";
 import type { ReportSummary } from "../../types/report";
 
 const dateFmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" });
+
+/** Rapport de démonstration construit sur les données d'exemple du dépôt (samples/). */
+export const EXAMPLE_REPORT = "Exemple — Ventes 2026";
 
 /** Accueil : rapports existants, création vide ou « rapport de démarrage » généré depuis un jeu de données. */
 export function ReportsHome() {
@@ -46,6 +49,28 @@ export function ReportsHome() {
     }
   };
 
+  const openExample = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.samples.load();
+      const ventes = res.datasets.find((d) => d.name === "ventes_2026.csv");
+      if (!ventes) throw new Error("Le fichier samples/ventes_2026.csv est introuvable dans le dépôt.");
+      const existing = reports?.find((r) => r.name === EXAMPLE_REPORT);
+      if (existing) {
+        navigate(`/rapports/${existing.id}`);
+        return;
+      }
+      const report = await api.reports.create(EXAMPLE_REPORT, ventes.id);
+      const profile = await api.datasets.get(ventes.id);
+      await api.reports.save(report.id, { name: EXAMPLE_REPORT, dataset_id: ventes.id, theme: {}, pages: starterPages(profile) });
+      navigate(`/rapports/${report.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
   const remove = async (id: string) => {
     await api.reports.remove(id);
     setReports((list) => list?.filter((r) => r.id !== id) ?? null);
@@ -54,6 +79,21 @@ export function ReportsHome() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
+      {reports !== null && (reports.length === 0 || !datasets.length) && (
+        <section className="flex flex-col gap-4 rounded-xl border border-accent/30 bg-accent/5 p-5 sm:flex-row sm:items-center">
+          <Wand2 className="size-6 shrink-0 text-accent" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold">Découvrir avec un exemple</h2>
+            <p className="mt-1 text-xs text-muted">
+              Importe les données d'exemple du dépôt (573 ventes 2026 et 30 magasins) et ouvre un rapport prêt à explorer : filtres, carte, export PowerPoint, IA.
+            </p>
+          </div>
+          <button type="button" disabled={busy} onClick={() => void openExample()} className="flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-50">
+            {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Wand2 className="size-4" aria-hidden />}
+            Ouvrir l'exemple
+          </button>
+        </section>
+      )}
       <section className="rounded-xl border border-border bg-surface p-5">
         <h2 className="text-base font-semibold">Nouveau rapport</h2>
         <p className="mt-1 text-xs text-muted">Partez d'une page vide, ou laissez l'application proposer une première mise en page à partir de vos données.</p>
@@ -75,6 +115,15 @@ export function ReportsHome() {
             Rapport de démarrage
           </button>
         </div>
+        {datasets.length > 0 && reports !== null && reports.length > 0 && (
+          <p className="mt-3 text-xs text-muted">
+            Ou{" "}
+            <button type="button" disabled={busy} onClick={() => void openExample()} className="text-accent underline disabled:opacity-50">
+              ouvrir le rapport d'exemple
+            </button>{" "}
+            (données du dossier samples/ du dépôt).
+          </p>
+        )}
         {!datasets.length && (
           <p className="mt-3 text-xs text-muted">
             Importez d'abord un fichier dans{" "}

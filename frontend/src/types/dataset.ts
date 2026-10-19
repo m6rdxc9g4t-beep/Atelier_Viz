@@ -87,3 +87,15 @@ export interface DatasetRows {
   offset: number;
   limit: number;
 }
+
+/** Fichier d'exemple livré avec le dépôt (`samples/`). */
+export interface SampleFile {
+  name: string;
+  imported: boolean;
+}
+
+export interface SamplesImport {
+  datasets: DatasetSummary[];
+  /** Fichiers importés par cet appel (les autres l'étaient déjà). */
+  imported: string[];
+}

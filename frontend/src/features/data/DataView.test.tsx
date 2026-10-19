@@ -29,6 +29,7 @@ function state(overrides: Partial<DatasetsState> = {}): DatasetsState {
     error: null,
     select: vi.fn(),
     upload: vi.fn(),
+    loadSamples: vi.fn(),
     remove: vi.fn(),
     clearError: vi.fn(),
     ...overrides,
@@ -57,6 +58,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("DataView", () => {
+  it("propose de charger les données d'exemple quand rien n'est importé", async () => {
+    const loadSamples = vi.fn();
+    render(<DataView state={state({ datasets: [], selected: null, loadSamples })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Charger les données d'exemple" }));
+    expect(loadSamples).toHaveBeenCalledOnce();
+  });
+
   it("affiche une zone de dépôt quand aucun jeu n'est importé", () => {
     render(<DataView state={state({ datasets: [], selected: null })} />);
     expect(screen.getByText("Déposez un fichier de données")).toBeInTheDocument();

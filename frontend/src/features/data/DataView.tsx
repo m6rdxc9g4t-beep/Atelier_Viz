@@ -25,7 +25,18 @@ export function DataView({ state }: { state: DatasetsState }) {
       )}
 
       {datasets.length === 0 ? (
-        !state.loading && <UploadDropzone onFile={state.upload} uploading={uploading} />
+        !state.loading && (
+          <div className="space-y-3">
+            <UploadDropzone onFile={state.upload} uploading={uploading} />
+            <p className="text-center text-xs text-muted">
+              Pas de fichier sous la main ?{" "}
+              <button type="button" disabled={uploading} onClick={() => void state.loadSamples()} className="font-medium text-accent hover:underline disabled:opacity-50">
+                Charger les données d'exemple
+              </button>{" "}
+              (ventes 2026 et magasins).
+            </p>
+          </div>
+        )
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
