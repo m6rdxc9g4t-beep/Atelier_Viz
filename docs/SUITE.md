@@ -51,7 +51,7 @@ Les dérivés (`--accent-soft`, mélanges) utilisent `color-mix(in oklab, …)` 
 ### 1.3 Forme et typographie
 - Rayons : 6 / 10 / 16 px (`--ds-radius-sm|md|lg`).
 - Police : pile système (`ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, …`), mono `ui-monospace, "SF Mono", …`.
-  Aucune police téléchargée (pas de CDN, pas de Google Fonts).
+  Aucune police téléchargée (pas de CDN, pas de Google Fonts). Exception : la police de marque embarquée (§1.6).
 
 ### 1.4 Statuts et types
 Les 8 statuts et leurs libellés français sont communs. Toute interface qui affiche un statut de workflow utilise ces couleurs.
@@ -75,6 +75,19 @@ Sur `<html>`, chaque application pose **les deux marqueurs** :
 - sombre : `class="dark"` **et** `data-theme="dark"` ;
 - clair : pas de classe `dark` et `data-theme="light"`.
 Choix proposés : Clair, Sombre, Système. Chaque application garde sa propre clé de préférence.
+
+### 1.6 Marque (logo + nom)
+Les six applications Atelier (Projets, Viz, Tab, Ciné, Savoir, Trésorerie) affichent leur marque de la même façon,
+comme sur leurs logos : tuile au dégradé cyan avec icône Lucide blanche, puis `atelier_` atténué et le nom en gras.
+
+- Source : `Atelier_Projets/design-system/brand/` (`atelier-brand.css`, police Nunito variable embarquée, licence OFL).
+  Copies verbatim : `frontend/src/styles/atelier-brand/` (Viz), `src/styles/atelier-brand/` (Tab),
+  `frontend/src/brand/` (Ciné), `static/brand/` (Savoir, Trésorerie).
+- Balisage : `button.atelier-brand` > `.atelier-brand__tile` (icône) + `.atelier-brand__name` > `.atelier-brand__prefix` (« atelier_ ») + nom.
+- Icônes : Projets `calendar-check`, Viz `chart-column`, Tab `table-2`, Ciné `play`, Savoir `graduation-cap`, Trésorerie `landmark`.
+- La police de marque ne sert qu'à la marque ; le reste de l'interface garde la pile système.
+- Clic sur la marque : fenêtre « À propos » (`<dialog class="atelier-about">`) avec le logo complet de l'application en grand, son nom et une phrase de présentation. Identique partout, toujours sombre.
+- Icônes : l'icône d'application (Dock, `.app`, Electron) est le logo complet ; le favicon (`favicon-64.png`, `apple-touch-icon.png`) est la tuile de l'étiquette du logo.
 
 ---
 
