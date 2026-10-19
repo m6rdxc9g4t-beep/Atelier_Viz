@@ -171,7 +171,7 @@ export function DataView({ state }: { state: DatasetsState }) {
 
 function SourceIcon({ dataset }: { dataset: DatasetSummary }) {
   const kind = dataset.origin?.kind;
-  const Icon = kind === "sharepoint" ? Cloud : kind && kind !== "file" ? Database : FileSpreadsheet;
+  const Icon = kind === "sharepoint" ? Cloud : kind === "atelier_tab" || kind === "atelier_projets" ? KIND_META[kind].icon : kind && kind !== "file" ? Database : FileSpreadsheet;
   return <Icon className="size-3.5" aria-label={kind ? KIND_META[kind].label : undefined} aria-hidden={!kind} />;
 }
 

@@ -1,0 +1,309 @@
+"""Connecteurs de la Suite Atelier (docs/SUITE.md §4.2 et §4.3).
+
+- Atelier Tab : dossier d'instantanés DataFlow dans un répertoire temporaire (aucun réseau).
+- Atelier Projets : API simulée par `httpx.MockTransport` (aucun réseau réel).
+"""
+
+import json
+import shutil
+from pathlib import Path
+from typing import Any
+
+import httpx
+import pytest
+from fastapi.testclient import TestClient
+
+from app.core.config import Settings
+from app.services.connectors.atelier import projets_frame
+from main import create_app
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def make(client: TestClient, **fields: Any) -> dict[str, Any]:
+    r = client.post("/api/connections", json=fields)
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+@pytest.fixture
+def exports(tmp_path: Path) -> Path:
+    """Dossier d'instantanés : deux tables publiées, plus des fichiers à ignorer."""
+    folder = tmp_path / "Atelier_Tab" / "exports"
+    folder.mkdir(parents=True)
+    shutil.copy(FIXTURES / "dataflow_planning.json", folder / "tbl_planning_lots.json")
+    shutil.copy(FIXTURES / "dataflow_materiaux.json", folder / "tbl_materiaux.json")
+    (folder / "notes.json").write_text('[{"a": 1}]', encoding="utf-8")  # pas une enveloppe
+    (folder / "tbl_tmp.json").write_text("{ en cours d'écriture", encoding="utf-8")
+    (folder / "lisez-moi.txt").write_text("rien", encoding="utf-8")
+    return folder
+
+
+# --- Atelier Tab ------------------------------------------------------------------------------------
+
+
+def test_atelier_tab_lists_imports_and_refreshes(client: TestClient, exports: Path) -> None:
+    infos = {c["kind"]: c for c in client.get("/api/connections/connectors").json()}
+    assert infos["atelier_tab"]["default_location"].endswith("Atelier_Tab/exports")
+    assert infos["atelier_tab"]["driver_installed"] is True and infos["atelier_tab"]["needs_online"] is False
+
+    c = make(client, name="Atelier Tab", kind="atelier_tab", path=str(exports))
+    test = client.post(f"/api/connections/{c['id']}/test").json()
+    assert test["ok"] is True and "2 tables publiées" in test["message"]
+
+    listing = client.get(f"/api/connections/{c['id']}/tables").json()
+    assert listing["location"] == str(exports)
+    tables = listing["tables"]
+    assert [(t["schema"], t["name"], t["id"], t["kind"], t["rows"]) for t in tables] == [
+        ("Chiffrage Matériaux", "Matériaux", "tbl_materiaux", "snapshot", 3),
+        ("Rénovation Urbaine 2026", "Planning & Lots", "tbl_planning_lots", "snapshot", 3),
+    ]
+    assert tables[1]["updated_at"].startswith("2026-10-18T12:57")
+
+    planning = tables[1]
+    preview = client.post(f"/api/connections/{c['id']}/preview", json={"table": planning, "limit": 2}).json()
+    assert preview["truncated"] is True and preview["columns"][:3] == ["_ligne", "_id", "Lot / Tâche"]
+    assert preview["rows"][0]["Coût TTC"] == 54000
+
+    r = client.post(f"/api/connections/{c['id']}/import", json={"table": planning})
+    assert r.status_code == 201, r.text
+    ds = r.json()
+    assert ds["name"] == "Planning & Lots" and ds["format"] == "atelier_tab" and ds["rows"] == 3
+    assert ds["origin"]["kind"] == "atelier_tab" and ds["origin"]["table"]["id"] == "tbl_planning_lots"
+    assert {c["name"]: c["type"] for c in ds["columns"]}["Échéance"] == "date"
+
+    # Atelier Tab republie la table (une ligne de plus) : l'actualisation relit l'instantané.
+    data = json.loads((exports / "tbl_planning_lots.json").read_text(encoding="utf-8"))
+    new = json.loads(json.dumps(data["project"]["records"][0]))
+    new.update(row_index=4, record_id="rec_04")
+    new["values"]["C"]["computed"] = 10000
+    data["project"]["records"].append(new)
+    (exports / "tbl_planning_lots.json").write_text(json.dumps(data), encoding="utf-8")
+    refreshed = client.post(f"/api/datasets/{ds['id']}/refresh")
+    assert refreshed.status_code == 200, refreshed.text
+    assert refreshed.json()["id"] == ds["id"] and refreshed.json()["rows"] == 4
+
+    # Table supprimée dans Atelier Tab : message clair, données conservées.
+    (exports / "tbl_planning_lots.json").unlink()
+    gone = client.post(f"/api/datasets/{ds['id']}/refresh")
+    assert gone.status_code == 404 and "n'est plus publiée" in gone.json()["detail"]
+    assert client.get(f"/api/datasets/{ds['id']}").json()["rows"] == 4
+
+
+def test_atelier_tab_default_folder_and_errors(settings: Settings, tmp_path: Path) -> None:
+    folder = tmp_path / "defaut"
+    settings.atelier_tab_exports_dir = folder
+    with TestClient(create_app(settings)) as client:
+        c = make(client, name="Atelier Tab", kind="atelier_tab")  # dossier vide = dossier par défaut
+        missing = client.get(f"/api/connections/{c['id']}/tables")
+        assert missing.status_code == 404 and "Dossier introuvable" in missing.json()["detail"]
+        assert client.post(f"/api/connections/{c['id']}/test").json()["ok"] is False
+
+        folder.mkdir()
+        assert client.get(f"/api/connections/{c['id']}/tables").json() == {
+            "tables": [],
+            "truncated": False,
+            "projects": [],
+            "location": str(folder),
+        }
+        bad = client.post(f"/api/connections/{c['id']}/preview", json={"table": {"name": "x", "id": "../secret"}})
+        assert bad.status_code == 422
+        none = client.post(f"/api/connections/{c['id']}/preview", json={})
+        assert none.status_code == 422 and "Choisissez" in none.json()["detail"]
+
+
+# --- Atelier Projets ----------------------------------------------------------------------------------
+
+DATASETS = [
+    {"name": "work-items", "label": "Éléments de travail", "description": "Tâches, bugs…", "rowCount": 3},
+    {"name": "time-entries", "label": "Temps passé", "description": "Saisies de temps", "rowCount": 2},
+    {"name": "milestones", "label": "Jalons", "description": "Jalons des projets", "rowCount": 1},
+]
+
+WORK_ITEMS_COLUMNS = [
+    {"key": "id", "label": "Identifiant", "type": "string"},
+    {"key": "projet", "label": "Projet", "type": "string"},
+    {"key": "statut", "label": "Statut", "type": "string"},
+    {"key": "heures_estimees", "label": "Heures estimées", "type": "number"},
+    {"key": "echeance", "label": "Échéance", "type": "date"},
+    {"key": "maj_le", "label": "Mis à jour le", "type": "datetime"},
+    {"key": "bloque", "label": "Bloqué", "type": "boolean"},
+]
+
+
+def work_items(project_id: str | None) -> list[dict[str, Any]]:
+    rows = [
+        {
+            "id": "WI-1",
+            "projet": "Atelier",
+            "statut": "En cours",
+            "heures_estimees": 8,
+            "echeance": "2026-11-30",
+            "maj_le": "2026-10-19T08:15:00.000Z",
+            "bloque": False,
+        },
+        {
+            "id": "WI-2",
+            "projet": "Atelier",
+            "statut": "Terminée",
+            "heures_estimees": 3.5,
+            "echeance": None,
+            "maj_le": "2026-10-18T17:00:00.000Z",
+            "bloque": True,
+        },
+        {
+            "id": "WI-3",
+            "projet": "Site",
+            "statut": "À faire",
+            "heures_estimees": None,
+            "echeance": "2027-01-15",
+            "maj_le": "2026-10-17T09:30:00+02:00",
+            "bloque": None,
+        },
+    ]
+    return [r for r in rows if project_id is None or (project_id == "p1") == (r["projet"] == "Atelier")]
+
+
+class FakeProjets:
+    """Atelier Projets simulé : enregistre les requêtes reçues."""
+
+    def __init__(self) -> None:
+        self.requests: list[httpx.Request] = []
+        self.extra_rows: list[dict[str, Any]] = []
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        path = request.url.path
+        if request.method != "GET":
+            return httpx.Response(405)
+        if path == "/api/health":
+            return httpx.Response(200, json={"status": "ok", "database": "ok", "timestamp": "2026-10-19T10:00:00Z"})
+        if path == "/api/projects":
+            return httpx.Response(200, json=[{"id": "p1", "name": "Atelier"}, {"id": "p2", "name": "Site"}])
+        if path == "/api/exports/datasets":
+            return httpx.Response(200, json=DATASETS)
+        if path == "/api/exports/datasets/work-items":
+            rows = work_items(request.url.params.get("projectId")) + self.extra_rows
+            return httpx.Response(
+                200,
+                json={
+                    "name": "work-items",
+                    "label": "Éléments de travail",
+                    "generatedAt": "2026-10-19T10:00:00Z",
+                    "columns": WORK_ITEMS_COLUMNS,
+                    "rows": rows,
+                },
+            )
+        return httpx.Response(404, json={"message": "Introuvable"})
+
+
+@pytest.fixture
+def projets(client: TestClient) -> FakeProjets:
+    fake = FakeProjets()
+    client.app.state.connections.projets_http_factory = lambda: httpx.Client(  # type: ignore[attr-defined]
+        transport=httpx.MockTransport(fake)
+    )
+    return fake
+
+
+def test_atelier_projets_lists_imports_and_refreshes(client: TestClient, projets: FakeProjets) -> None:
+    infos = {c["kind"]: c for c in client.get("/api/connections/connectors").json()}
+    assert infos["atelier_projets"]["default_location"] == "http://127.0.0.1:3000"
+
+    c = make(client, name="Atelier Projets", kind="atelier_projets", base_url="http://127.0.0.1:3900/")
+    assert "password" not in c and c["has_password"] is False
+    test = client.post(f"/api/connections/{c['id']}/test").json()
+    assert test["ok"] is True and "3 jeux" in test["message"] and test["server"] == "http://127.0.0.1:3900"
+
+    listing = client.get(f"/api/connections/{c['id']}/tables").json()
+    assert [(t["id"], t["name"], t["kind"], t["rows"]) for t in listing["tables"]] == [
+        ("work-items", "Éléments de travail", "dataset", 3),
+        ("time-entries", "Temps passé", "dataset", 2),
+        ("milestones", "Jalons", "dataset", 1),
+    ]
+    assert listing["projects"] == [{"id": "p1", "name": "Atelier"}, {"id": "p2", "name": "Site"}]
+    assert all(str(r.url).startswith("http://127.0.0.1:3900/api/") for r in projets.requests)
+
+    table = listing["tables"][0]
+    r = client.post(f"/api/connections/{c['id']}/import", json={"table": table, "project_id": "p1"})
+    assert r.status_code == 201, r.text
+    ds = r.json()
+    assert ds["name"] == "Éléments de travail" and ds["format"] == "atelier_projets" and ds["rows"] == 2
+    assert ds["origin"]["project_id"] == "p1" and ds["origin"]["table"]["id"] == "work-items"
+    assert projets.requests[-1].url.params["projectId"] == "p1"
+    types = {col["name"]: col["type"] for col in ds["columns"]}
+    assert types == {
+        "Identifiant": "string",
+        "Projet": "string",
+        "Statut": "string",
+        "Heures estimées": "number",
+        "Échéance": "date",
+        "Mis à jour le": "date",
+        "Bloqué": "boolean",
+    }
+
+    # Actualisation : même projet, nouvelles lignes.
+    projets.extra_rows = [dict(work_items(None)[0], id="WI-4")]
+    refreshed = client.post(f"/api/datasets/{ds['id']}/refresh").json()
+    assert refreshed["rows"] == 3 and projets.requests[-1].url.params["projectId"] == "p1"
+
+    # Tous les projets : pas de paramètre projectId.
+    all_rows = client.post(f"/api/connections/{c['id']}/preview", json={"table": table}).json()
+    assert len(all_rows["rows"]) == 4 and "projectId" not in projets.requests[-1].url.params
+
+
+def test_atelier_projets_types_are_kept() -> None:
+    df = projets_frame(WORK_ITEMS_COLUMNS, work_items(None))
+    assert df["Heures estimées"].tolist()[:2] == [8, 3.5]
+    assert str(df["Bloqué"].dtype) == "boolean"
+    assert str(df["Échéance"].iloc[0]) == "2026-11-30 00:00:00"
+    # datetime avec fuseau → UTC sans fuseau
+    assert str(df["Mis à jour le"].iloc[2]) == "2026-10-17 07:30:00"
+    # type inconnu → texte ; clés sans libellé → clé
+    odd = projets_frame([{"key": "x", "type": "json"}, {"key": "y", "label": "", "type": "string"}], [{"x": {"a": 1}}])
+    assert list(odd.columns) == ["x", "y"] and odd["x"].iloc[0] == '{"a": 1}'
+
+
+def test_atelier_projets_not_running_is_explained(client: TestClient) -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("Connection refused", request=request)
+
+    client.app.state.connections.projets_http_factory = lambda: httpx.Client(  # type: ignore[attr-defined]
+        transport=httpx.MockTransport(refuse)
+    )
+    c = make(client, name="Atelier Projets", kind="atelier_projets")
+    test = client.post(f"/api/connections/{c['id']}/test").json()
+    assert test["ok"] is False and "injoignable" in test["message"] and "lancez-le" in test["message"]
+    r = client.get(f"/api/connections/{c['id']}/tables")
+    assert r.status_code == 503 and "Atelier Projets est injoignable à http://127.0.0.1:3000" in r.json()["detail"]
+
+
+def test_atelier_projets_old_version_and_bad_answers(client: TestClient) -> None:
+    def old(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/exports/datasets":
+            return httpx.Response(404)
+        return httpx.Response(200, text="pas du json")
+
+    client.app.state.connections.projets_http_factory = lambda: httpx.Client(  # type: ignore[attr-defined]
+        transport=httpx.MockTransport(old)
+    )
+    c = make(client, name="Atelier Projets", kind="atelier_projets")
+    r = client.get(f"/api/connections/{c['id']}/tables")
+    assert r.status_code == 404 and "mettez-le à jour" in r.json()["detail"]
+    preview = client.post(f"/api/connections/{c['id']}/preview", json={"table": {"name": "x", "id": "x"}})
+    assert preview.status_code == 502 and "JSON attendu" in preview.json()["detail"]
+    assert client.post(f"/api/connections/{c['id']}/preview", json={}).status_code == 422
+
+
+def test_atelier_projets_address_is_validated_and_local_only(
+    client: TestClient, projets: FakeProjets, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bad = client.post("/api/connections", json={"name": "x", "kind": "atelier_projets", "base_url": "ftp://srv"})
+    assert bad.status_code == 422
+    import socket
+
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **k: [(None, None, None, "", ("93.184.216.34", 0))])
+    c = make(client, name="Distant", kind="atelier_projets", base_url="http://projets.example.com")
+    r = client.get(f"/api/connections/{c['id']}/tables")
+    assert r.status_code == 403 and "hors ligne" in r.json()["detail"]
+    assert projets.requests == []  # rien n'est parti

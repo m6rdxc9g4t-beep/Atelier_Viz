@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # SharePoint Online : application Entra ID (client public, Sites.Read.All + Files.Read.All déléguées)
     sharepoint_client_id: str | None = None
     sharepoint_tenant: str = "organizations"
+    # Suite Atelier (docs/SUITE.md §4) : instantanés d'Atelier Tab, API locale d'Atelier Projets
+    atelier_tab_exports_dir: Path = Path("~/Atelier_Tab/exports")
+    atelier_projets_url: str = "http://127.0.0.1:3000"
+    atelier_projets_timeout_seconds: float = 30.0
 
     # GitHub (jalon 2)
     github_token: SecretStr | None = None

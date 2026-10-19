@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { usePreferences } from "../../../hooks/usePreferences";
 import { api } from "../../../lib/api";
 import type { Connection, ConnectionInput, ConnectorInfo, ConnectorKind } from "../../../types/connection";
+import { SUITE_KINDS } from "../../../types/connection";
 import type { DatasetProfile } from "../../../types/dataset";
 import { ConnectionForm } from "./ConnectionForm";
 import { KIND_META, describeConnection, emptyForm, formOf } from "./meta";
@@ -14,8 +15,9 @@ type View = { kind: "pick" } | { kind: "form"; form: ConnectionInput; editing: C
 
 /**
  * « Obtenir des données » : bases SQL (SQL Server, PostgreSQL, MySQL, SQLite), fichiers synchronisés
- * (OneDrive, SharePoint, partage réseau) et SharePoint Online. Les connexions sont enregistrées ;
- * un import copie les données dans la base locale, actualisable ensuite.
+ * (OneDrive, SharePoint, partage réseau), SharePoint Online et applications de la Suite Atelier
+ * (Atelier Tab, Atelier Projets). Les connexions sont enregistrées ; un import copie les données dans
+ * la base locale, actualisable ensuite.
  */
 export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: () => void; onImported: (p: DatasetProfile) => void; initialKind?: ConnectorKind }) {
   const titleId = useId();
@@ -151,13 +153,29 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
   );
 }
 
-/** Choix du type de source (« Obtenir des données » de Power BI). */
+/** Choix du type de source (« Obtenir des données » de Power BI) : Suite Atelier d'abord, puis bases et fichiers. */
 function ConnectorPicker({ connectors, online, onPick }: { connectors: ConnectorInfo[]; online: boolean; onPick: (k: ConnectorKind) => void }) {
+  const suite = connectors.filter((c) => SUITE_KINDS.includes(c.kind));
+  const others = connectors.filter((c) => !SUITE_KINDS.includes(c.kind));
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-5">
       <h3 className="text-sm font-semibold">Nouvelle connexion</h3>
-      <p className="mt-1 text-xs text-muted">Bases de l'entreprise, fichiers synchronisés depuis OneDrive ou SharePoint, ou SharePoint Online directement.</p>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+      <p className="mt-1 text-xs text-muted">Applications de la Suite Atelier, bases de l'entreprise, fichiers synchronisés depuis OneDrive ou SharePoint, ou SharePoint Online directement.</p>
+      {suite.length > 0 && (
+        <>
+          <p className="mt-4 text-[10px] font-medium tracking-wide text-muted uppercase">Suite Atelier</p>
+          <ConnectorGrid connectors={suite} online={online} onPick={onPick} />
+          <p className="mt-4 text-[10px] font-medium tracking-wide text-muted uppercase">Bases et fichiers</p>
+        </>
+      )}
+      <ConnectorGrid connectors={others} online={online} onPick={onPick} />
+    </div>
+  );
+}
+
+function ConnectorGrid({ connectors, online, onPick }: { connectors: ConnectorInfo[]; online: boolean; onPick: (k: ConnectorKind) => void }) {
+  return (
+    <div className="mt-2 grid gap-2 sm:grid-cols-2">
         {connectors.map((info) => {
           const Icon = KIND_META[info.kind].icon;
           const note = !info.driver_installed
@@ -185,7 +203,6 @@ function ConnectorPicker({ connectors, online, onPick }: { connectors: Connector
             </button>
           );
         })}
-      </div>
     </div>
   );
 }

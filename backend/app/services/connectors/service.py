@@ -4,6 +4,8 @@
   mots de passe et jetons Microsoft dans le trousseau du système (`secrets.py`).
 - Hors ligne : seuls la machine et les réseaux privés sont joignables ; SharePoint Online exige
   le mode « En ligne » (HTTP 403 sinon).
+- Suite Atelier : instantanés d'Atelier Tab (dossier local, aucun réseau) et API locale d'Atelier Projets
+  (`atelier.py`, sans secret).
 - Méthodes synchrones (réseau, pilotes, pandas, DuckDB) : à appeler via `asyncio.to_thread`.
 """
 
@@ -39,7 +41,7 @@ from app.schemas.connection import (
     TestResult,
 )
 from app.schemas.dataset import SourceFormat
-from app.services.connectors import sql
+from app.services.connectors import atelier, sql
 from app.services.connectors.base import ConnectorError, check_server, preview_of
 from app.services.connectors.secrets import SecretBackend
 from app.services.connectors.sharepoint import PendingLogin, SharePointClient, Tokens
@@ -60,6 +62,7 @@ class ConnectionService:
         store: DatasetStore,
         is_online: Callable[[], bool],
         http_factory: Callable[[], httpx.Client] | None = None,
+        projets_http_factory: Callable[[], httpx.Client] | None = None,
     ) -> None:
         self.path = path
         self.secrets = secrets
@@ -67,6 +70,10 @@ class ConnectionService:
         self.store = store
         self.is_online = is_online
         self.http_factory = http_factory or (lambda: httpx.Client(timeout=60.0))
+        # Atelier Projets est local : pas de proxy système (trust_env=False), délai court.
+        self.projets_http_factory = projets_http_factory or (
+            lambda: httpx.Client(timeout=settings.atelier_projets_timeout_seconds, trust_env=False)
+        )
         self._lock = threading.Lock()
         self._pending: dict[str, PendingLogin] = {}
 
@@ -186,6 +193,24 @@ class ConnectionService:
                 configured=bool(self.settings.sharepoint_client_id),
             )
         )
+        infos.append(
+            ConnectorInfo(
+                kind="atelier_tab",
+                label="Atelier Tab",
+                description="Tables publiées par l'application de bureau Atelier Tab (instantanés locaux)",
+                driver_installed=True,
+                default_location=str(self.settings.atelier_tab_exports_dir),
+            )
+        )
+        infos.append(
+            ConnectorInfo(
+                kind="atelier_projets",
+                label="Atelier Projets",
+                description="Éléments de travail, temps passé et jalons d'Atelier Projets (API locale)",
+                driver_installed=True,
+                default_location=self.settings.atelier_projets_url,
+            )
+        )
         return infos
 
     # --- Lecture ------------------------------------------------------------------------------
@@ -194,6 +219,8 @@ class ConnectionService:
         """Politique réseau : hors ligne, pas d'Internet."""
         if cfg.kind in SERVER_KINDS:
             check_server(cfg.host or "", self.is_online())
+        elif cfg.kind == "atelier_projets":
+            check_server(atelier.projets_host(self._projets_base(cfg)), self.is_online())
         elif cfg.kind == "sharepoint" and not self.is_online():
             raise ConnectorError(
                 "Mode hors ligne : SharePoint Online est sur Internet. "
@@ -229,6 +256,19 @@ class ConnectionService:
                 f"Fichier trop volumineux ({size // 1_000_000} Mo, max {self.settings.connector_max_file_mb} Mo).", 413
             )
         return path
+
+    def _tab_folder(self, cfg: ConnectionFields) -> Path:
+        return atelier.tab_folder(cfg.path, self.settings.atelier_tab_exports_dir)
+
+    def _projets_base(self, cfg: ConnectionFields) -> str:
+        return atelier.projets_base(cfg.base_url, self.settings.atelier_projets_url)
+
+    @contextmanager
+    def _projets(self, cfg: ConnectionFields) -> Iterator[atelier.ProjetsClient]:
+        """Client d'Atelier Projets (politique réseau vérifiée), fermé à la sortie."""
+        self._guard(cfg)
+        with self.projets_http_factory() as http:
+            yield atelier.ProjetsClient(self._projets_base(cfg), http)
 
     def _tokens(self, connection_id: str) -> Tokens | None:
         raw = self.secrets.get(self._key(connection_id, "msgraph"))
@@ -279,6 +319,24 @@ class ConnectionService:
             if cfg.kind == "file":
                 path = self._file(cfg)
                 return TestResult(ok=True, message=f"Fichier trouvé ({path.stat().st_size // 1024} Ko).")
+            if cfg.kind == "atelier_tab":
+                folder = self._tab_folder(cfg)
+                count = len(atelier.list_snapshots(folder, self._max_bytes))
+                plural = "s" if count > 1 else ""
+                return TestResult(
+                    ok=True,
+                    message=f"Dossier trouvé : {count} table{plural} publiée{plural}.",
+                    server=str(folder),
+                )
+            if cfg.kind == "atelier_projets":
+                with self._projets(cfg) as client:
+                    client.health()
+                    count = len(client.datasets())
+                return TestResult(
+                    ok=True,
+                    message=f"Atelier Projets répond : {count} jeu{'x' if count > 1 else ''} de données.",
+                    server=self._projets_base(cfg),
+                )
             if not connection_id:
                 return TestResult(ok=False, message="Enregistrez la connexion puis connectez-vous à Microsoft 365.")
             with self._sharepoint_ready(self.get(connection_id)) as sp:
@@ -289,8 +347,20 @@ class ConnectionService:
                 raise
             return TestResult(ok=False, message=exc.message)
 
+    @property
+    def _max_bytes(self) -> int:
+        return self.settings.connector_max_file_mb * 1_000_000
+
     def tables(self, connection_id: str, url: str | None = None) -> TableList:
         cfg = self.get(connection_id)
+        if cfg.kind == "atelier_tab":
+            folder = self._tab_folder(cfg)
+            return TableList(tables=atelier.list_snapshots(folder, self._max_bytes), location=str(folder))
+        if cfg.kind == "atelier_projets":
+            with self._projets(cfg) as client:
+                datasets = client.datasets()
+                projects = client.projects()
+            return TableList(tables=datasets, projects=projects, location=self._projets_base(cfg))
         if cfg.kind in SQL_KINDS:
             with self._sql(cfg, connection_id=connection_id) as conn:
                 tables, truncated = sql.list_tables(conn, cfg)
@@ -328,6 +398,17 @@ class ConnectionService:
                 else spec.table.name
             )
             return df, truncated, name, cfg.kind
+        if cfg.kind == "atelier_tab":
+            df, name = atelier.read_snapshot(
+                self._tab_folder(cfg), spec.table.id if spec.table else None, self._max_bytes
+            )
+            return df.head(limit), len(df) > limit, name, "atelier_tab"
+        if cfg.kind == "atelier_projets":
+            if spec.table is None or not (spec.table.id or spec.table.name):
+                raise ConnectorError("Choisissez un jeu de données d'Atelier Projets.")
+            with self._projets(cfg) as client:
+                df, label = client.dataset(spec.table.id or spec.table.name, spec.project_id)
+            return df.head(limit), len(df) > limit, label, "atelier_projets"
         if cfg.kind == "file":
             path = self._file(cfg)
             sheet = spec.table.name if spec.table else None
@@ -373,7 +454,7 @@ class ConnectionService:
             raise ConnectorError(
                 f"La connexion « {origin.connection_name} » a été supprimée : actualisation impossible.", 409
             ) from exc
-        spec = SourceSpec(table=origin.table, query=origin.query, url=origin.url)
+        spec = SourceSpec(table=origin.table, query=origin.query, url=origin.url, project_id=origin.project_id)
         max_rows = min(origin.max_rows or self.settings.connector_max_rows, self.settings.connector_max_rows)
         df, truncated, _, _ = self._fetch(cfg, spec, max_rows)
         if df.empty or not len(df.columns):
@@ -389,6 +470,7 @@ class ConnectionService:
             table=spec.table,
             query=spec.query.strip() if spec.query and spec.query.strip() else None,
             url=spec.url.strip() if spec.url and spec.url.strip() else None,
+            project_id=spec.project_id.strip() if spec.project_id and spec.project_id.strip() else None,
             max_rows=max_rows,
             truncated=truncated,
             refreshed_at=datetime.now(UTC),

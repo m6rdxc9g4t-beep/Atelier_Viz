@@ -4,7 +4,7 @@ import type { DatasetOrigin } from "./connection";
 
 export type ColumnType = "number" | "string" | "date" | "boolean";
 /** Fichier importé, ou type de la connexion d'origine. */
-export type SourceFormat = "csv" | "xlsx" | "json" | "sqlserver" | "postgres" | "mysql" | "sqlite" | "sharepoint";
+export type SourceFormat = "csv" | "xlsx" | "json" | "sqlserver" | "postgres" | "mysql" | "sqlite" | "sharepoint" | "atelier_tab" | "atelier_projets";
 export type Scalar = number | string | boolean | null;
 export type Row = Record<string, Scalar>;
 
