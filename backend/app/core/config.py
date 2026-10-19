@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     # Données locales : base DuckDB, rapports JSON, préférences (tout reste sur la machine)
     data_dir: Path = Path("data")
     max_upload_mb: int = 50
+    # Jeux d'exemple livrés avec le dépôt (bouton « Charger l'exemple »)
+    samples_dir: Path = Path(__file__).resolve().parents[3] / "samples"
 
     # GitHub (jalon 2)
     github_token: SecretStr | None = None

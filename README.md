@@ -28,8 +28,18 @@ ollama serve && ollama pull llama3.2                   # IA locale
 claude auth login && claude update                     # Claude (mode « En ligne »), avec votre compte claude.ai
 ```
 
-Premier essai : **Données → Parcourir…** → `samples/ventes_2026.csv` (et `samples/magasins.csv`),
-puis **Rapports → Rapport de démarrage**.
+Premier essai : **Rapports → Ouvrir l'exemple**. Les données d'exemple du dossier `samples/`
+(`ventes_2026.csv` : 573 ventes ; `magasins.csv` : 30 magasins avec coordonnées) sont importées et un rapport
+de démonstration s'ouvre. On peut aussi les importer depuis **Données → Charger les données d'exemple**.
+
+### Activer Claude
+
+1. Installez Claude Code : `curl -fsSL https://claude.ai/install.sh | bash` (ou `brew install --cask claude-code`),
+   puis vérifiez dans un nouveau terminal : `claude --version`.
+2. Connectez-vous avec votre compte claude.ai : `claude auth login`.
+3. Redémarrez le serveur (`uvicorn`) s'il tournait déjà, pour qu'il trouve la commande `claude`.
+4. Dans l'application, cliquez sur **Hors ligne** en haut à droite : il passe à **En ligne** et Claude devient
+   sélectionnable (le voyant « Claude » passe au vert).
 
 Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages) : sauvegardez ce dossier.
 
@@ -52,8 +62,8 @@ Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages)
 ## Tests
 
 ```bash
-cd backend && pytest && ruff check .          # 129 tests
-cd frontend && npm test && npm run build      # 84 tests
+cd backend && pytest && ruff check .          # 132 tests
+cd frontend && npm test && npm run build      # 85 tests
 ```
 
 ## Arborescence

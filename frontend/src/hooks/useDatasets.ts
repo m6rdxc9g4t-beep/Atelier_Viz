@@ -13,6 +13,8 @@ export interface DatasetsState {
   error: string | null;
   select: (id: string) => void;
   upload: (file: File) => Promise<void>;
+  /** Importe les jeux d'exemple du dépôt (samples/). */
+  loadSamples: () => Promise<void>;
   remove: (id: string) => Promise<void>;
   clearError: () => void;
 }
@@ -65,6 +67,22 @@ export function useDatasets(): DatasetsState {
     }
   }, []);
 
+  const loadSamples = useCallback(async () => {
+    setUploading(true);
+    setError(null);
+    try {
+      const res = await api.samples.load();
+      setDatasets(await api.datasets.list());
+      const first = res.datasets.find((d) => d.name === "ventes_2026.csv") ?? res.datasets[0];
+      if (first) select(first.id);
+      else setError("Aucun fichier d'exemple trouvé dans le dossier samples/ du dépôt.");
+    } catch (err) {
+      setError(message(err));
+    } finally {
+      setUploading(false);
+    }
+  }, [select]);
+
   const remove = useCallback(
     async (id: string) => {
       try {
@@ -93,6 +111,7 @@ export function useDatasets(): DatasetsState {
     error,
     select,
     upload,
+    loadSamples,
     remove,
     clearError: () => setError(null),
   };
