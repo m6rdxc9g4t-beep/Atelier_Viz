@@ -52,7 +52,7 @@ Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages)
 ## Tests
 
 ```bash
-cd backend && pytest && ruff check .          # 120 tests
+cd backend && pytest && ruff check .          # 130 tests
 cd frontend && npm test && npm run build      # 84 tests
 ```
 

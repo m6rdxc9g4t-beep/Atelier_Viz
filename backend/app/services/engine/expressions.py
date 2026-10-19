@@ -19,6 +19,7 @@ Syntaxe (inspirée d'Excel / DAX, fonctions en anglais ou en français) :
 """
 
 import difflib
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Literal
@@ -31,6 +32,9 @@ ExprType = Literal["number", "string", "boolean", "date", "null"]
 
 MAX_LENGTH = 2000
 MAX_DEPTH = 8
+#: Garde-fous contre les expressions démesurées (pile Python, analyseur SQL de DuckDB).
+MAX_NESTING = 40
+MAX_TOKENS = 300
 
 
 class ExpressionError(ValueError):
@@ -145,7 +149,18 @@ CONSTANTS = {"TRUE": True, "VRAI": True, "FALSE": False, "FAUX": False}
 class Parser:
     def __init__(self, text: str) -> None:
         self.tokens = tokenize(text)
+        if len(self.tokens) > MAX_TOKENS:
+            raise ExpressionError(
+                f"Expression trop complexe ({MAX_TOKENS} éléments au plus) : découpez-la en plusieurs mesures."
+            )
         self.i = 0
+        self.nesting = 0
+
+    def enter(self) -> None:
+        """Profondeur d'imbrication (parenthèses, signes, appels) bornée : jamais de RecursionError."""
+        self.nesting += 1
+        if self.nesting > MAX_NESTING:
+            raise ExpressionError(f"Expression trop imbriquée ({MAX_NESTING} niveaux au plus).", self.tok.pos)
 
     @property
     def tok(self) -> Token:
@@ -174,6 +189,13 @@ class Parser:
         return node
 
     def or_(self) -> Node:
+        self.enter()
+        try:
+            return self._or()
+        finally:
+            self.nesting -= 1
+
+    def _or(self) -> Node:
         node = self.and_()
         while self.keyword() == "OR":
             pos = self.tok.pos
@@ -224,7 +246,11 @@ class Parser:
         if self.tok.kind == "op" and self.tok.value in {"-", "+"}:
             tok = self.tok
             self.i += 1
-            operand = self.unary()
+            self.enter()
+            try:
+                operand = self.unary()
+            finally:
+                self.nesting -= 1
             return operand if tok.value == "+" else Unary(tok.pos, "-", operand)
         return self.primary()
 
@@ -371,6 +397,8 @@ class Compiler:
     def compile(self, node: Node) -> Compiled:
         match node:
             case Num(value=v):
+                if not math.isfinite(v) or abs(v) >= 1e300:
+                    raise ExpressionError("Nombre trop grand.", node.pos)
                 text = str(int(v)) if v.is_integer() and abs(v) < 1e15 else repr(v)
                 return Compiled(text, "number")
             case Str(value=v):
@@ -561,9 +589,12 @@ class Compiler:
 
 def compile_expression(text: str, kind: Kind, scope: Scope, name: str | None = None) -> Compiled:
     """Analyse et compile une expression ; lève `ExpressionError` (message en français, position)."""
-    tree = Parser(text).parse()
-    stack = (name,) if name and kind == "measure" else ()
-    result = Compiler(scope, kind, stack).compile(tree)
+    try:
+        tree = Parser(text).parse()
+        stack = (name,) if name and kind == "measure" else ()
+        result = Compiler(scope, kind, stack).compile(tree)
+    except RecursionError as exc:  # filet de sécurité : les bornes ci-dessus doivent l'éviter
+        raise ExpressionError("Expression trop complexe : découpez-la en plusieurs mesures.") from exc
     if kind == "measure" and result.type not in {"number", "null"}:
         raise ExpressionError(f"Une mesure doit produire un nombre (ici : {TYPE_LABEL[result.type]}).", 0)
     if result.type == "null":

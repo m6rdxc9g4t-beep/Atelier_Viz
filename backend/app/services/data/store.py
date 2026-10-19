@@ -10,6 +10,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+import duckdb
 import pandas as pd
 
 from app.schemas.dataset import (
@@ -19,6 +20,7 @@ from app.schemas.dataset import (
     DatasetSummary,
     ExpressionCheck,
     ExpressionResult,
+    ModelIssue,
     SourceFormat,
 )
 from app.services.data.model import ModelError, check_expression, compile_model, profile_calculated, view_ddl
@@ -134,10 +136,15 @@ class DatasetStore:
         compiled = compile_model({c.name: c.type for c in base}, model)
         if compiled.issues:
             raise ModelError(compiled.issues)
-        self.db.execute(view_ddl(dataset.id, compiled.columns))
+        previous = view_ddl(dataset.id, compile_model({c.name: c.type for c in base}, profile.model).columns)
         source = f"v_{dataset.id}" if compiled.columns else dataset.table
         expressions = {c.name: c.expression for c in model.columns}
-        calculated = [profile_calculated(self.db, source, c, expressions[c.name]) for c in compiled.columns]
+        try:
+            self.db.execute(view_ddl(dataset.id, compiled.columns))
+            calculated = [profile_calculated(self.db, source, c, expressions[c.name]) for c in compiled.columns]
+        except duckdb.Error as exc:
+            self.db.execute(previous)  # la vue précédente est rétablie : rien n'est modifié
+            raise ModelError([ModelIssue(kind="column", name="(modèle)", error=f"Calcul impossible : {exc}")]) from exc
         updated = profile.model_copy(update={"columns": base + calculated, "model": model})
         self.db.execute("UPDATE __datasets SET profile = ? WHERE id = ?", [updated.model_dump_json(), dataset.id])
         return StoredDataset(dataset.id, updated)

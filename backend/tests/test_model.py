@@ -227,3 +227,64 @@ def test_routes(client: TestClient) -> None:
         ).status_code
         == 422
     )
+
+
+# ─── Robustesse (revue de sécurité) ──────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "(" * 600 + "ca" + ")" * 600,  # imbrication profonde
+        "-" * 1000 + "ca",  # chaîne de signes
+        " + ".join(["ca"] * 400),  # trop d'éléments
+    ],
+)
+def test_deep_or_huge_expressions_fail_cleanly(text: str) -> None:
+    message, _ = error_of(text, "column")
+    assert "trop" in message
+
+
+def test_infinite_number_is_rejected() -> None:
+    assert error_of("ca + " + "9" * 400, "column")[0] == "Nombre trop grand."
+
+
+def test_literal_with_template_marker_is_not_altered(store: DatasetStore) -> None:
+    model = DatasetModel.model_validate(
+        {"measures": [{"name": "piège", "expression": 'SUM(IF(region = "{distinct}", 1, 0)) + COUNT(*)'}]}
+    )
+    store.set_model(store.list()[0], model)
+    plain = query(store, dimensions=[{"field": "region"}], measures=[{"field": "piège", "agg": "calc"}])
+    assert plain == [{"region": "Nord", "calc(piège)": 3}, {"region": "Sud", "calc(piège)": 2}]
+    grouped = query(
+        store,
+        dimensions=[{"field": "region"}],
+        measures=[{"field": "piège", "agg": "calc"}],
+        grouping_sets=[["region"], []],
+    )
+    assert grouped[-1]["calc(piège)"] == 5
+
+
+@pytest.mark.parametrize("name", ["a\x00b", "a‮b", "a\x1fb"])
+def test_control_characters_in_names_are_refused(name: str) -> None:
+    with pytest.raises(ValueError, match="invisible ou de contrôle"):
+        DatasetModel.model_validate({"columns": [{"name": name, "expression": "1"}]})
+
+
+def test_routes_never_return_500_on_hostile_input(client: TestClient) -> None:
+    dataset_id = client.post("/api/datasets", files={"file": ("v.csv", CSV, "text/csv")}).json()["id"]
+    for expression in ["(" * 600 + "ca" + ")" * 600, "-" * 1000 + "ca", "ca + " + "9" * 400]:
+        res = client.post(
+            f"/api/datasets/{dataset_id}/model/check", json={"kind": "column", "name": "x", "expression": expression}
+        )
+        assert res.status_code == 200 and res.json()["ok"] is False
+        res = client.put(
+            f"/api/datasets/{dataset_id}/model", json={"columns": [{"name": "x", "expression": expression}]}
+        )
+        assert res.status_code == 422
+    assert (
+        client.put(
+            f"/api/datasets/{dataset_id}/model", json={"columns": [{"name": "a\x00b", "expression": "1"}]}
+        ).status_code
+        == 422
+    )

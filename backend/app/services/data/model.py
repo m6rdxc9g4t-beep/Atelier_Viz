@@ -9,6 +9,8 @@
 
 from dataclasses import dataclass
 
+import duckdb
+
 from app.schemas.dataset import (
     ColumnProfile,
     ColumnType,
@@ -163,7 +165,10 @@ def check_expression(
         if name.lower() in {n.lower() for n in base} | {c.name.lower() for c in items}:
             return ExpressionResult(ok=False, error="Ce nom est déjà utilisé par une autre colonne.")
         table = quote_ident(f"ds_{profile.id}")
-        _, rows = db.execute(f"SELECT {result.sql} FROM {table} LIMIT 5")
+        try:
+            _, rows = db.execute(f"SELECT {result.sql} FROM {table} LIMIT 5")
+        except duckdb.Error as exc:
+            return ExpressionResult(ok=False, error=f"Calcul impossible : {exc}")
         return ExpressionResult(ok=True, type=result.type, preview=[to_json(r[0]) for r in rows])  # type: ignore[arg-type]
 
     others = {m.name: m.expression for m in model.measures if m.name != check.name}
@@ -174,5 +179,8 @@ def check_expression(
         result = compile_expression(check.expression, "measure", scope, name=name)
     except ExpressionError as exc:
         return ExpressionResult(ok=False, error=exc.message, position=exc.position)
-    _, rows = db.execute(f"SELECT {result.sql} FROM {quote_ident(source)}")
+    try:
+        _, rows = db.execute(f"SELECT {result.sql} FROM {quote_ident(source)}")
+    except duckdb.Error as exc:
+        return ExpressionResult(ok=False, error=f"Calcul impossible : {exc}")
     return ExpressionResult(ok=True, type="number", preview=[to_json(rows[0][0])])

@@ -165,7 +165,7 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 | Stockage | Vue DuckDB `v_<id>` = table + colonnes calculées ; profil (types, statistiques) recalculé | Modèle du jeu (`profile.model`), compilée à chaque requête |
 
 - **Langage** : `+ - * /`, comparaisons, `AND/OR/NOT` (ou `ET/OU/NON`), textes entre guillemets, noms entre crochets s'ils contiennent des espaces. Fonctions en anglais ou en français : `SUM/SOMME`, `AVG/MOYENNE`, `COUNT/NB` (`COUNT(*)`, `COUNT(DISTINCT x)`), `COUNT_DISTINCT`, `MIN`, `MAX`, `MEDIAN`, `DIVIDE/DIVISER`, `IF/SI`, `ROUND/ARRONDI`, `ABS`, `COALESCE`, `YEAR/ANNEE`, `MONTH/MOIS`, `CONCAT`.
-- **Sécurité** : aucune expression n'est passée à DuckDB ; elle est analysée (lexer + parseur), typée et recompilée (`quote_ident` pour les noms, littéraux réécrits). Division par zéro = vide.
+- **Sécurité** : aucune expression n'est passée à DuckDB ; elle est analysée (lexer + parseur), typée et recompilée (`quote_ident` pour les noms, littéraux réécrits). Division par zéro = vide. Bornes : 2 000 caractères, 300 éléments, 40 niveaux d'imbrication ; noms sans caractère de contrôle ni invisible ; toute erreur du moteur devient un 422 lisible (jamais un 500). Revue de sécurité indépendante faite : aucune injection possible, 4 défauts de robustesse corrigés et couverts par des tests.
 - **Contrôles** : type (« SUM attend un nombre, pas un texte »), agrégation obligatoire dans une mesure, références circulaires, noms en double, suggestions (« Vouliez-vous dire chiffre_affaires ? »), position de l'erreur soulignée. Un modèle invalide n'est jamais enregistré (HTTP 422 avec la liste des erreurs).
 - **Éditeur** : vérification à la frappe, aperçu (5 premières valeurs ou valeur sur tout le jeu), fonctions et champs insérables, renommage répercuté dans les visuels du rapport, suppression avec avertissement si l'élément est utilisé.
 
@@ -217,7 +217,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (120) côté back, Vitest (84) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (130) côté back, Vitest (84) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 

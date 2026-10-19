@@ -1,5 +1,6 @@
 """Schémas des jeux de données importés. Miroir TypeScript : frontend/src/types/dataset.ts."""
 
+import unicodedata
 from datetime import datetime
 from typing import Any, Literal
 
@@ -41,6 +42,9 @@ def _check_name(name: str) -> str:
         raise ValueError("Le nom est obligatoire.")
     if FORBIDDEN_NAME_CHARS & set(name) or name.startswith("__"):
         raise ValueError('Le nom ne peut pas contenir | [ ] " ni commencer par « __ ».')
+    # Caractères de contrôle et de mise en forme invisibles (NUL, inversion de sens RLO…).
+    if any(unicodedata.category(c) in {"Cc", "Cf"} for c in name):
+        raise ValueError("Le nom contient un caractère invisible ou de contrôle.")
     return name
 
 
