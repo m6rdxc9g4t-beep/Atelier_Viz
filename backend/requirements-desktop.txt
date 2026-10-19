@@ -1,0 +1,2 @@
+# Application de bureau (fenêtre native macOS / Windows / Linux) : scripts/macos/build_app.sh l’installe.
+pywebview>=5.3

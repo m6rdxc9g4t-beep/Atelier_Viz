@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.api.deps import build_ai_service
@@ -75,6 +76,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
     app.include_router(api_router)
+
+    # Interface compilée (frontend/dist) : l'application complète sur une seule adresse, sans Vite.
+    # Montée après l'API : les routes /api/... restent prioritaires.
+    dist = settings.frontend_dist
+    if settings.serve_frontend and (dist / "index.html").is_file():
+        app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
     return app
 
 

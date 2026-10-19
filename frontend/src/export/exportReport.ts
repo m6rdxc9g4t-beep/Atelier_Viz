@@ -6,6 +6,7 @@
  * visuels sans équivalent natif → écriture pptxgenjs (chargé à la demande).
  */
 
+import { type SaveOutcome, saveFile } from "../lib/desktop";
 import { getProfile } from "../hooks/useDatasetProfiles";
 import type { DatasetProfile } from "../types/dataset";
 import type { Page, Report, Visual } from "../types/report";
@@ -300,14 +301,7 @@ export async function exportReport(input: ExportInput): Promise<ExportResult> {
 
 const hasData = (v: Visual): boolean => VISUALS[v.type].query !== undefined;
 
-/** Télécharge un fichier dans le navigateur (dossier Téléchargements). */
-export function downloadBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+/** Enregistre le fichier : téléchargement dans un navigateur, « Enregistrer sous » dans l'application de bureau. */
+export function downloadBlob(blob: Blob, fileName: string): Promise<SaveOutcome> {
+  return saveFile(blob, fileName);
 }

@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { saveFile } from "../../lib/desktop";
 import { Download, Monitor, Moon, RotateCcw, Sun, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 
@@ -24,11 +25,7 @@ export function ThemePane() {
   const exportTheme = () => {
     if (!theme) return;
     const blob = new Blob([JSON.stringify(theme, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `theme-${report.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    void saveFile(blob, `theme-${report.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`);
   };
 
   return (

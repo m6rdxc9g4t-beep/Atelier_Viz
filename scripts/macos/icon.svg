@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Icône Atelier Viz : grille macOS (824 px utiles, coins arrondis 185 px, ombre légère). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#0b1530" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#shine)"/>
+  </g>
+  <!-- Barres -->
+  <g fill="#ffffff">
+    <rect x="277" y="580" width="130" height="196" rx="24" opacity="0.7"/>
+    <rect x="447" y="470" width="130" height="306" rx="24" opacity="0.84"/>
+    <rect x="617" y="350" width="130" height="426" rx="24" opacity="0.96"/>
+  </g>
+  <!-- Tendance -->
+  <polyline points="300,470 512,352 682,250 772,196" fill="none" stroke="#fbbf24" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="772" cy="196" r="38" fill="#fbbf24"/>
+  <!-- Ligne de base -->
+  <rect x="252" y="796" width="520" height="22" rx="11" fill="#ffffff" opacity="0.9"/>
+</svg>
