@@ -142,8 +142,8 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 ## Tests
 
 ```bash
-cd backend && pytest && ruff check .          # 239 tests
-cd frontend && npm test && npm run build      # 146 tests
+cd backend && pytest && ruff check .          # 249 tests
+cd frontend && npm test && npm run build      # 147 tests
 ```
 
 ## Arborescence
