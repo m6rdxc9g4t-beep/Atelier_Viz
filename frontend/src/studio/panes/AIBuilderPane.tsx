@@ -1,11 +1,8 @@
 import clsx from "clsx";
-import { Check, Loader2, Plus, ShieldCheck, Sparkles, TriangleAlert, X } from "lucide-react";
+import { Check, Loader2, Plus, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { usePreferences } from "../../hooks/usePreferences";
-import { useProviders } from "../../hooks/useProviders";
 import { api } from "../../lib/api";
-import type { ProviderChoice } from "../../types/ai";
 import type { BuildResponse, ProposedVisual } from "../../types/builder";
 import type { DatasetProfile } from "../../types/dataset";
 import { aiCatalog } from "../../visuals/catalog";
@@ -14,6 +11,7 @@ import { VISUALS } from "../../visuals/registry";
 import { useStudioData } from "../context";
 import { useStudio } from "../store";
 import { defaultTitle } from "../../visuals/title";
+import { EnginePicker, useEngine } from "./EnginePicker";
 import { Pane, Section } from "./Pane";
 
 /** Suggestions de demandes adaptées aux colonnes du jeu de données. */
@@ -34,21 +32,12 @@ export function suggestPrompts(profile: DatasetProfile | undefined): string[] {
   return out.slice(0, 4);
 }
 
-const PROVIDERS: { value: ProviderChoice; label: string }[] = [
-  { value: "auto", label: "Auto" },
-  { value: "ollama", label: "Ollama" },
-  { value: "anthropic", label: "Claude" },
-];
-
 /** Volet « Créer avec l'IA » : une phrase → des visuels validés, à ajouter à la page. */
 export function AIBuilderPane() {
   const { activeDatasetId, profiles } = useStudioData();
   const report = useStudio((s) => s.report);
   const pageId = useStudio((s) => s.pageId);
-  const { prefs } = usePreferences();
-  const { providers } = useProviders();
-  const online = prefs?.online_mode ?? false;
-  const [choice, setChoice] = useState<ProviderChoice>("auto");
+  const engine = useEngine();
   const [prompt, setPrompt] = useState("");
   const [count, setCount] = useState(3);
   const [pending, setPending] = useState(false);
@@ -61,11 +50,7 @@ export function AIBuilderPane() {
   const suggestions = useMemo(() => suggestPrompts(profile), [profile]);
   const page = report?.pages.find((p) => p.id === pageId);
 
-  const provider: ProviderChoice = !online && choice === "anthropic" ? "auto" : choice;
-  const claude = providers.find((p) => p.name === "anthropic");
-  const ollama = providers.find((p) => p.name === "ollama");
-  const engine = provider === "anthropic" || (provider === "auto" && online && claude?.available) ? "Claude" : "Ollama (local)";
-  const engineDown = engine === "Claude" ? claude && !claude.available : ollama && !ollama.available;
+  const provider = engine.provider;
 
   useEffect(() => {
     if (!pending) return;
@@ -114,36 +99,10 @@ export function AIBuilderPane() {
   return (
     <Pane title="Créer avec l'IA" width="w-80">
       <Section title="Moteur">
-        <div className="grid grid-cols-3 gap-1 rounded-md border border-border p-0.5 text-[11px]" role="radiogroup" aria-label="Moteur d'IA">
-          {PROVIDERS.map((p) => {
-            const disabled = p.value === "anthropic" && !online;
-            return (
-              <button
-                key={p.value}
-                type="button"
-                role="radio"
-                aria-checked={provider === p.value}
-                disabled={disabled}
-                title={disabled ? "Activez le mode « En ligne » pour utiliser Claude" : undefined}
-                onClick={() => setChoice(p.value)}
-                className={clsx(
-                  "rounded py-1.5 disabled:cursor-not-allowed disabled:opacity-40",
-                  provider === p.value ? "bg-surface-2 font-medium text-fg" : "text-muted hover:text-fg",
-                )}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-        <p className={clsx("mt-2 flex items-start gap-1.5 text-[11px]", engineDown ? "text-negative" : "text-muted")}>
-          {engineDown ? <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden /> : <ShieldCheck className="mt-px size-3 shrink-0" aria-hidden />}
-          <span>
-            {engineDown
-              ? `${engine} n'est pas disponible (voir Réglages).`
-              : `Réponse par ${engine}. Seuls les noms de colonnes, leurs statistiques et 5 lignes d'exemple de « ${profile?.name ?? "…"} » sont envoyés.`}
-          </span>
-        </p>
+        <EnginePicker
+          engine={engine}
+          note={`Seuls les noms de colonnes, leurs statistiques et 5 lignes d'exemple de « ${profile?.name ?? "…"} » sont envoyés.`}
+        />
       </Section>
 
       <Section title="Votre demande">

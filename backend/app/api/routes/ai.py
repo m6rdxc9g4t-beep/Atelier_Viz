@@ -6,7 +6,9 @@ from app.api.deps import AIServiceDep, StoreDep
 from app.api.routes.datasets import get_or_404
 from app.schemas.ai import ChatRequest, ChatResponse, ProvidersResponse
 from app.schemas.builder import BuildRequest, BuildResponse
+from app.schemas.summary import SummaryRequest, SummaryResponse
 from app.services.ai.builder import build_visuals
+from app.services.ai.summary import summarize
 from app.services.data.context import dataset_context
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -38,3 +40,10 @@ async def build(payload: BuildRequest, service: AIServiceDep, store: StoreDep) -
     """Crée des visuels à partir d'une phrase. Le schéma et 5 lignes du jeu de données sont envoyés à l'IA."""
     dataset = await get_or_404(store, payload.dataset_id)
     return await build_visuals(service, payload, dataset.profile())
+
+
+@router.post("/summary", response_model=SummaryResponse)
+async def summary(payload: SummaryRequest, service: AIServiceDep) -> SummaryResponse:
+    """Synthèse d'une page. Seuls les faits agrégés envoyés par le frontend partent vers l'IA ;
+    chaque chiffre de la réponse est vérifié contre ces faits."""
+    return await summarize(service, payload)

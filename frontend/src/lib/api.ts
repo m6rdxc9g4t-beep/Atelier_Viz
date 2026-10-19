@@ -2,6 +2,7 @@
 
 import type { ChatRequest, ChatResponse, ProvidersResponse } from "../types/ai";
 import type { BuildRequest, BuildResponse } from "../types/builder";
+import type { SummaryRequest, SummaryResponse } from "../types/summary";
 import type { DatasetProfile, DatasetRows, DatasetSummary } from "../types/dataset";
 import type { QueryRequest, QueryResponse } from "../types/query";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
@@ -51,6 +52,8 @@ export const api = {
   chat: (body: ChatRequest) => request<ChatResponse>("/ai/chat", { method: "POST", body: JSON.stringify(body) }),
   buildVisuals: (body: BuildRequest, signal?: AbortSignal) =>
     request<BuildResponse>("/ai/visuals", { method: "POST", body: JSON.stringify(body), signal }),
+  summarizePage: (body: SummaryRequest, signal?: AbortSignal) =>
+    request<SummaryResponse>("/ai/summary", { method: "POST", body: JSON.stringify(body), signal }),
 
   datasets: {
     list: () => request<DatasetSummary[]>("/datasets"),

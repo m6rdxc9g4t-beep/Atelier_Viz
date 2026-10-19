@@ -12,6 +12,7 @@ import {
 } from "../export/exportReport";
 import { useTheme } from "../hooks/useTheme";
 import { useStudioData } from "./context";
+import { useEngine } from "./panes/EnginePicker";
 import { useStudio } from "./store";
 
 const STORAGE_KEY = "atelier.export.options";
@@ -36,6 +37,7 @@ function saveOptions(o: ExportOptions): void {
 const STEPS: Record<ExportProgress["step"], string> = {
   data: "Calcul des visuels",
   images: "Capture des cartes et visuels spéciaux",
+  summary: "Synthèse IA des pages",
   slides: "Création des diapositives",
   file: "Écriture du fichier",
 };
@@ -47,6 +49,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const selection = useStudio((s) => s.selection);
   const { profiles } = useStudioData();
   const { theme: appMode } = useTheme();
+  const engine = useEngine();
   const [options, setOptions] = useState<ExportOptions>(readOptions);
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
@@ -91,6 +94,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         profiles,
         appMode,
         options,
+        aiProvider: engine.provider,
         onProgress: setProgress,
         signal: abort.current.signal,
       });
@@ -165,12 +169,28 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                     onChange={(on) => set({ fit: on ? "split" : "fit" })}
                     label="Répartir les pages très longues sur plusieurs diapositives"
                   />
+                  <Toggle
+                    checked={options.aiNotes && !engine.down}
+                    disabled={engine.down}
+                    onChange={(aiNotes) => set({ aiNotes })}
+                    label="Synthèse de chaque page par l'IA dans les notes du présentateur"
+                    hint={
+                      engine.down
+                        ? `${engine.label} n'est pas disponible (voir Réglages).`
+                        : `Par ${engine.label}, environ 5 s par page. Seuls des chiffres agrégés sont envoyés ; chaque chiffre de la synthèse est vérifié.`
+                    }
+                  />
                 </div>
               </Field>
 
               <p className="flex items-start gap-1.5 text-[11px] text-muted">
                 <ShieldCheck className="mt-px size-3 shrink-0" aria-hidden />
-                Le fichier est créé sur cet ordinateur : aucune donnée n'est envoyée. Les filtres et segments actifs sont appliqués et listés dans les notes.
+                {options.aiNotes && !engine.down
+                  ? engine.label === "Claude"
+                    ? "Le fichier est créé sur cet ordinateur ; pour les synthèses, seuls des chiffres agrégés sont envoyés à Claude. "
+                    : "Le fichier est créé sur cet ordinateur ; les synthèses sont rédigées par Ollama, sur cette machine. "
+                  : "Le fichier est créé sur cet ordinateur : aucune donnée n'est envoyée. "}
+                Les filtres et segments actifs sont appliqués et listés dans les notes.
               </p>
             </div>
 
@@ -329,11 +349,26 @@ function Choice({ checked, onSelect, icon, title, text }: { checked: boolean; on
   );
 }
 
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+function Toggle({
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
   return (
-    <label className="flex cursor-pointer items-start gap-2 text-xs">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />
-      <span>{label}</span>
+    <label className={clsx("flex items-start gap-2 text-xs", disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />
+      <span>
+        {label}
+        {hint && <span className="mt-0.5 block text-[11px] text-muted">{hint}</span>}
+      </span>
     </label>
   );
 }

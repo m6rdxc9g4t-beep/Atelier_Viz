@@ -105,6 +105,8 @@ interface StudioState {
   setTheme: (theme: Record<string, unknown>) => void;
   /** Ajoute des visuels proposés par l'IA (une seule entrée d'historique) ; retourne leurs identifiants. */
   addGenerated: (specs: ProposedVisual[], datasetId: string) => string[];
+  /** Insère une zone de texte pleine largeur en haut de la page (les visuels descendent). */
+  insertTextAtTop: (text: string, rows: number) => string | null;
   setVisualStyle: (id: string, patch: Record<string, unknown> | null) => void;
   applyStyleToPage: (id: string) => void;
   undo: () => void;
@@ -204,6 +206,27 @@ export const useStudio = create<StudioState>((set, get) => {
       withPage((p) => p.visuals.push(...created));
       set({ selectedId: created[0]?.id ?? null });
       return created.map((v) => v.id);
+    },
+
+    insertTextAtTop: (text, rows) => {
+      if (!get().page()) return null;
+      const h = Math.max(3, Math.round(rows));
+      const visual: Visual = {
+        id: uid(),
+        type: "text",
+        title: null,
+        layout: { x: 0, y: 0, w: 24, h },
+        dataset_id: null,
+        roles: {},
+        options: { text, size: "sm" },
+        filters: [],
+      };
+      withPage((p) => {
+        for (const v of p.visuals) v.layout = { ...v.layout, y: v.layout.y + h };
+        p.visuals.unshift(visual);
+      });
+      set({ selectedId: visual.id });
+      return visual.id;
     },
 
     setVisualStyle: (id, patch) =>
