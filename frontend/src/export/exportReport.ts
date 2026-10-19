@@ -16,7 +16,8 @@ import { type ExportMode, buildVisual, frameGeometry, needsImage } from "./build
 import { captureVisual } from "./capture";
 import { exportTheme, pptColor, resolveReportTheme } from "./colors";
 import { type LoadedVisual, loadVisual, mapLimit } from "./data";
-import { type Band, type FitMode, SLIDE, SLIDE_MARGIN, TITLE_BAND, contentArea, placeBand, splitPage } from "./layout";
+import { migratePage } from "../studio/grid";
+import { type Band, type FitMode, REF_WIDTH, SLIDE, SLIDE_MARGIN, TITLE_BAND, contentArea, placeBand, splitPage } from "./layout";
 import { fileNameFor, formatDate, slideNotes } from "./notes";
 import { api } from "../lib/api";
 import { pageFacts } from "../summary/facts";
@@ -83,9 +84,12 @@ export function planSlides(pages: Page[], options: Pick<ExportOptions, "fit" | "
   const area = contentArea(options.pageTitles);
   const slides: PlannedSlide[] = [];
   const firstSlide = new Map<string, number>();
-  for (const page of pages) {
-    const bands = splitPage(page.visuals, area, options.fit);
-    const list = bands.length ? bands : [{ visuals: [], top: 0, bottom: 0 }];
+  for (const raw of pages) {
+    // Anciens rapports (grille) : convertis en pixels comme dans le Studio.
+    const page = migratePage(raw);
+    const width = page.size?.width ?? REF_WIDTH;
+    const bands = splitPage(page.visuals, area, options.fit, width);
+    const list = bands.length ? bands : [{ visuals: [], top: 0, bottom: 0, width }];
     firstSlide.set(page.id, slides.length + 1 + (options.titleSlide ? 1 : 0));
     list.forEach((band, i) => slides.push({ page, band, part: i + 1, parts: list.length }));
   }

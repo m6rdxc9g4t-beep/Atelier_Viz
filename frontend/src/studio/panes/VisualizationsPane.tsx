@@ -11,6 +11,7 @@ import type { OptionDef, RoleDef } from "../../visuals/types";
 import { FIELD_MIME, type DraggedField, useStudioData } from "../context";
 import { useStudio } from "../store";
 import { Pane, Section } from "./Pane";
+import { PageSizeSection, PositionSection } from "./PositionSection";
 import { VisualStyleSection } from "./VisualStyleSection";
 
 /** Volet Visualisations : galerie (ajouter / changer de type) + onglets Champs et Format. */
@@ -56,7 +57,10 @@ export function VisualizationsPane() {
       </div>
 
       {!visual ? (
-        <p className="p-4 text-xs text-muted">Cliquez sur une icône pour ajouter un visuel, ou sélectionnez un visuel du canvas pour le configurer.</p>
+        <>
+          <p className="p-4 text-xs text-muted">Cliquez sur une icône pour ajouter un visuel, ou sélectionnez un visuel du canvas pour le configurer.</p>
+          <PageSizeSection />
+        </>
       ) : (
         <>
           <div className="flex border-b border-border text-xs" role="tablist">
@@ -238,6 +242,7 @@ function FormatTab({ visual }: { visual: Visual }) {
           />
         </label>
       </Section>
+      <PositionSection visual={visual} />
       <VisualStyleSection visual={visual} />
       {[...sections.entries()].map(([title, opts]) => (
         <Section key={title} title={title}>

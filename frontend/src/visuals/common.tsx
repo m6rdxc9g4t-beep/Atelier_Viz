@@ -10,6 +10,18 @@ import { bindingKey, dimension, measure } from "./fields";
 import type { NumberFormat } from "./format";
 import type { OptionDef, Selection, VisualDef } from "./types";
 
+/**
+ * Position de la souris dans un élément, en px CSS de l'élément : corrige l'échelle du canvas
+ * (zoom de la page par `transform: scale`) pour placer une info-bulle maison au bon endroit.
+ */
+export function localPoint(e: { clientX: number; clientY: number }, el: Element | null | undefined): { x: number; y: number } {
+  if (!el) return { x: e.clientX, y: e.clientY };
+  const r = el.getBoundingClientRect();
+  const sx = el.clientWidth > 0 ? r.width / el.clientWidth : 1;
+  const sy = el.clientHeight > 0 ? r.height / el.clientHeight : 1;
+  return { x: (e.clientX - r.left) / (sx || 1), y: (e.clientY - r.top) / (sy || 1) };
+}
+
 export const MAX_SERIES = 8;
 
 /** Couleur catégorielle n°i (ordre fixe validé ; au-delà de 8 on regroupe en « Autres »). */

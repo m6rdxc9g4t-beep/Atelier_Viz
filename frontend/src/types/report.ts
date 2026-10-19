@@ -34,11 +34,18 @@ export interface FieldBinding {
   label?: string | null;
 }
 
+/** Position d'un visuel en pixels de page (anciens rapports : cases de grille, converties à l'ouverture). */
 export interface Layout {
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+/** Taille de la page en pixels (16:9 = 1280 × 720). */
+export interface PageSize {
+  width: number;
+  height: number;
 }
 
 export type VisualOptions = Record<string, unknown>;
@@ -59,6 +66,8 @@ export interface Page {
   name: string;
   visuals: Visual[];
   filters: Filter[];
+  /** Absent = ancienne grille (convertie par `migratePage`). */
+  size?: PageSize | null;
 }
 
 export interface ReportBody {

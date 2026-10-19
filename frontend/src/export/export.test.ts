@@ -8,7 +8,7 @@ import type { QueryResult } from "../visuals/useQueryResult";
 import { type BuildContext, type VisualData, buildVisual, columnWidths, needsImage, richTextRuns } from "./buildVisual";
 import { exportTheme, pptColor, resolveColor, resolveReportTheme, visualColors } from "./colors";
 import type { SlideItem } from "./items";
-import { REF_WIDTH, contentArea, fontPt, gridRect, placeBand, splitPage } from "./layout";
+import { REF_WIDTH, contentArea, fontPt, placeBand, splitPage } from "./layout";
 import { describeFilter, fileNameFor, slideNotes } from "./notes";
 import { excelFormat } from "./numberFormat";
 import { planSlides } from "./exportReport";
@@ -75,46 +75,54 @@ function ctx(v: Visual, d: VisualData, extra: Partial<BuildContext> = {}): Build
 const ofKind = <K extends SlideItem["kind"]>(items: SlideItem[], kind: K) => items.filter((i): i is Extract<SlideItem, { kind: K }> => i.kind === kind);
 
 describe("géométrie", () => {
-  it("reproduit les positions de la grille (24 colonnes, lignes de 16 px, marges de 8 px)", () => {
-    const full = gridRect({ x: 0, y: 0, w: 24, h: 1 });
-    expect(full.x).toBe(4);
-    expect(full.w).toBeCloseTo(REF_WIDTH - 8);
-    expect(gridRect({ x: 0, y: 2, w: 1, h: 3 })).toMatchObject({ y: 4 + 2 * 24, h: 3 * 16 + 2 * 8 });
-  });
-
   it("garde une page courte sur une diapositive et coupe une page haute entre deux rangées", () => {
     const area = contentArea(true);
-    const short = [visual("kpi", {}, {}, { x: 0, y: 0, w: 6, h: 7 }), visual("column", {}, {}, { x: 0, y: 7, w: 24, h: 14 })];
+    const short = [visual("kpi", {}, {}, { x: 16, y: 16, w: 300, h: 150 }), visual("column", {}, {}, { x: 16, y: 182, w: 1248, h: 400 })];
     expect(splitPage(short, area, "split")).toHaveLength(1);
 
-    const tall = Array.from({ length: 6 }, (_, i) => visual("column", {}, {}, { x: 0, y: i * 14, w: 24, h: 14 }));
+    const tall = Array.from({ length: 6 }, (_, i) => visual("column", {}, {}, { x: 16, y: 16 + i * 340, w: 1248, h: 320 }));
     const bands = splitPage(tall, area, "split");
     expect(bands.length).toBeGreaterThan(1);
     expect(bands.flatMap((b) => b.visuals)).toHaveLength(6);
     // Jamais de visuel coupé : chaque bande commence au haut d'un visuel.
-    for (const b of bands) expect(b.visuals.some((v) => gridRect(v.layout).y === b.top)).toBe(true);
+    for (const b of bands) expect(b.visuals.some((v) => v.layout.y === b.top)).toBe(true);
     expect(splitPage(tall, area, "fit")).toHaveLength(1);
   });
 
   it("n'isole pas deux visuels côte à côte qui se chevauchent verticalement", () => {
     const area = contentArea(false);
-    const a = visual("column", {}, {}, { x: 0, y: 0, w: 12, h: 30 });
-    const b = visual("column", {}, {}, { x: 12, y: 10, w: 12, h: 30 });
-    const c = visual("column", {}, {}, { x: 0, y: 40, w: 24, h: 30 });
-    const bands = splitPage([a, b, c], area, "split", 1);
+    const a = visual("column", {}, {}, { x: 0, y: 0, w: 640, h: 700 });
+    const b = visual("column", {}, {}, { x: 640, y: 240, w: 640, h: 700 });
+    const c = visual("column", {}, {}, { x: 0, y: 960, w: 1280, h: 700 });
+    const bands = splitPage([a, b, c], area, "split", REF_WIDTH, 1);
     expect(bands[0]?.visuals).toEqual([a, b]);
   });
 
-  it("met une bande à l'échelle sans sortir de la zone utile", () => {
+  it("met une bande à l'échelle sans sortir de la zone utile, selon la largeur de la page", () => {
     const area = contentArea(true);
-    const v = visual("column", {}, {}, { x: 0, y: 0, w: 24, h: 60 });
+    const v = visual("column", {}, {}, { x: 16, y: 16, w: 1248, h: 1400 });
     const band = splitPage([v], area, "fit")[0]!;
     const r = placeBand(band, area).rect(v.layout);
     expect(r.y).toBeCloseTo(area.y);
     expect(r.y + r.h).toBeLessThanOrEqual(area.y + area.h + 1e-6);
     expect(r.x + r.w).toBeLessThanOrEqual(area.x + area.w + 1e-6);
+
+    // Page 16:9 de 1280 px : la largeur de la page occupe celle de la zone utile.
+    const wide = visual("column", {}, {}, { x: 0, y: 0, w: 1280, h: 200 });
+    const p = placeBand(splitPage([wide], area, "fit", 1280)[0]!, area);
+    expect(p.rect(wide.layout).w).toBeCloseTo(area.w);
+    // Page étroite (960 px) : même échelle relative, centrée.
+    const narrow = visual("column", {}, {}, { x: 0, y: 0, w: 960, h: 200 });
+    const q = placeBand(splitPage([narrow], area, "fit", 960)[0]!, area);
+    expect(q.rect(narrow.layout).w).toBeCloseTo(area.w);
     expect(fontPt(11, 0.01)).toBe(8);
     expect(fontPt(2, 0.01)).toBe(7);
+  });
+
+  it("exporte un ancien rapport (grille) comme dans le Studio", () => {
+    const legacy: Page = { id: "p1", name: "A", visuals: [visual("kpi", {}, {}, { x: 0, y: 0, w: 24, h: 8 })], filters: [] };
+    const plan = planSlides([legacy], { fit: "split", pageTitles: true, titleSlide: false });
+    expect(plan.slides[0]?.band.visuals[0]?.layout).toEqual({ x: 4, y: 4, w: 1272, h: 184 });
   });
 
   it("numérote les diapositives et retrouve la première diapositive de chaque page", () => {

@@ -8,7 +8,7 @@ import { useSize } from "../../hooks/useSize";
 import type { Scalar } from "../../types/dataset";
 import { SequentialLegend, sequential } from "../charts/MoreCharts";
 import { columnType } from "../charts/series";
-import { Legend, OTHER_COLOR, TooltipBox, VisualMessage, dimmed, first, numberFormat, seriesColor, toggleSelection, valueKey } from "../common";
+import { Legend, OTHER_COLOR, TooltipBox, VisualMessage, dimmed, first, localPoint, numberFormat, seriesColor, toggleSelection, valueKey } from "../common";
 import { bindingKey, bindingLabel } from "../fields";
 import { formatDimension, formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
@@ -98,10 +98,10 @@ export function ChoroplethVisual(props: VisualProps) {
                   className={hit ? "cursor-pointer hover:brightness-110" : undefined}
                   onClick={() => hit && toggleSelection(selection, visual, loc, hit.raw, onSelect)}
                   onMouseMove={(e) => {
-                    const box = e.currentTarget.ownerSVGElement?.getBoundingClientRect();
+                    const pt = localPoint(e, e.currentTarget.ownerSVGElement);
                     setHover({
-                      x: e.clientX - (box?.left ?? 0),
-                      y: e.clientY - (box?.top ?? 0),
+                      x: pt.x,
+                      y: pt.y,
                       title: featureName(feat),
                       rows: [{ label: bindingLabel(m), value: hit ? formatNumber(hit.value, fmt) : "—" }],
                     });
@@ -190,10 +190,10 @@ export function PointMapVisual(props: VisualProps) {
                     stroke="var(--surface)"
                     strokeWidth={1.5}
                     onMouseMove={(e) => {
-                      const box = e.currentTarget.ownerSVGElement?.getBoundingClientRect();
+                      const pt = localPoint(e, e.currentTarget.ownerSVGElement);
                       const rows = sizeB ? [{ label: bindingLabel(sizeB), value: formatNumber(p.size, fmt) }] : [];
                       rows.push({ label: "Coordonnées", value: `${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}` });
-                      setHover({ x: e.clientX - (box?.left ?? 0), y: e.clientY - (box?.top ?? 0), title: p.label, rows });
+                      setHover({ x: pt.x, y: pt.y, title: p.label, rows });
                     }}
                   />
                 );

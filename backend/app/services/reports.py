@@ -9,7 +9,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.schemas.report import Page, Report, ReportBody, ReportCreate, ReportSummary
+from app.schemas.report import Page, PageSize, Report, ReportBody, ReportCreate, ReportSummary
 
 _ID_RE = re.compile(r"^[0-9a-f]{12}$")
 
@@ -54,7 +54,7 @@ class ReportRepository:
             id=uuid.uuid4().hex[:12],
             name=payload.name,
             dataset_id=payload.dataset_id,
-            pages=[Page(id="p1", name="Page 1")],
+            pages=[Page(id="p1", name="Page 1", size=PageSize())],
             created_at=now,
             updated_at=now,
         )

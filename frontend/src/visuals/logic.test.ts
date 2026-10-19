@@ -171,13 +171,20 @@ describe("édition", () => {
     expect(convertRoles(v, "pie")).toEqual({ category: [{ field: "region", agg: null }], values: [{ field: "ca", agg: "sum" }] });
   });
 
-  it("empile un nouveau visuel sous les autres", () => {
-    const page: Page = { id: "p", name: "P", visuals: [visual("kpi")], filters: [] };
-    expect(newVisual("table", page, dataset.id).layout).toMatchObject({ x: 0, y: 8 });
+  it("place un nouveau visuel dans le premier espace libre de la page", () => {
+    const kpi = { ...visual("kpi"), layout: { x: 16, y: 16, w: 300, h: 150 } };
+    const page: Page = { id: "p", name: "P", visuals: [kpi], filters: [], size: { width: 1280, height: 720 } };
+    // À droite du KPI, avec 16 px de marge.
+    expect(newVisual("table", page, dataset.id).layout).toMatchObject({ x: 332, y: 16 });
   });
 
   it("génère un rapport de démarrage cohérent", () => {
     const pages = starterPages(dataset);
+    // En pixels, dans une page 16:9 de 1280 px de large (allongée si besoin).
+    for (const p of pages) {
+      expect(p.size?.width).toBe(1280);
+      for (const v of p.visuals) expect(v.layout.x + v.layout.w).toBeLessThanOrEqual(1280);
+    }
     expect(pages.map((p) => p.name)).toEqual(["Vue d'ensemble", "Détail"]);
     const types = pages.flatMap((p) => p.visuals.map((v) => v.type));
     expect(types).toEqual(expect.arrayContaining(["kpi", "column", "map", "matrix", "table", "button", "slicer"]));
@@ -232,16 +239,22 @@ describe("IA qui construit", () => {
     expect(cat.flatMap((c) => c.options.map((o) => o.key))).not.toContain("suffix");
   });
 
-  it("place les nouveaux visuels en rangées sous le contenu existant", async () => {
+  it("place les nouveaux visuels sans chevauchement, puis sous le contenu quand la page est pleine", async () => {
     const { placeVisuals } = await import("../studio/placement");
-    const page: Page = { id: "p", name: "P", visuals: [visual("kpi")], filters: [] };
-    // kpi existant : y 0 → 8 ; column 8 de large, map 8, table 8 → une rangée ; matrix 10 → rangée suivante
-    expect(placeVisuals(page, ["column", "map", "table", "matrix"])).toEqual([
-      { x: 0, y: 8, w: 8, h: 14 },
-      { x: 8, y: 8, w: 8, h: 16 },
-      { x: 16, y: 8, w: 8, h: 14 },
-      { x: 0, y: 24, w: 10, h: 14 },
-    ]);
+    const kpi = { ...visual("kpi"), layout: { x: 16, y: 16, w: 300, h: 150 } };
+    const page: Page = { id: "p", name: "P", visuals: [kpi], filters: [], size: { width: 1280, height: 720 } };
+    const placed = placeVisuals(page, ["column", "map", "table", "matrix"]);
+    // Tailles par défaut du registre (cases de grille) converties en px : 8 × 14 cases → 419 × 328.
+    expect(placed[0]).toEqual({ x: 332, y: 16, w: 419, h: 328 });
+    expect(placed[1]).toMatchObject({ x: 767, y: 16 });
+    expect(placed[2]).toMatchObject({ x: 16, y: 360 });
+    // Plus de place dans 720 px : sous le contenu (la page s'agrandira).
+    expect(placed[3]).toMatchObject({ x: 16, y: 704 });
+    const all = [kpi.layout, ...placed];
+    for (const [i, a] of all.entries()) {
+      expect(a.x + a.w).toBeLessThanOrEqual(1280);
+      for (const b of all.slice(i + 1)) expect(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y).toBe(true);
+    }
   });
 
   it("propose des demandes adaptées au jeu de données", async () => {

@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ArrowDown, ArrowUp, ChevronsDown, Copy, GripHorizontal, Loader2, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BringToFront, ChevronsDown, Copy, GripHorizontal, Loader2, SendToBack, Trash2 } from "lucide-react";
 import { type DragEvent, memo, useMemo, useState } from "react";
 
 import type { Page, Report, Visual } from "../types/report";
@@ -155,12 +155,32 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
       {editing && (
         <div
           className={clsx(
-            "visual-handle absolute inset-x-0 top-0 z-20 flex h-6 cursor-move items-center justify-between rounded-t-lg px-1.5 text-muted",
+            "visual-handle absolute inset-x-0 top-0 z-20 flex h-6 cursor-move touch-none items-center justify-between rounded-t-lg px-1.5 text-muted",
             selected ? "opacity-100" : "opacity-0 group-hover/visual:opacity-100",
           )}
         >
           <GripHorizontal className="size-3.5" aria-hidden />
           <span className="flex gap-0.5">
+            <button
+              type="button"
+              aria-label="Premier plan"
+              title="Premier plan"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => studio().reorder(visual.id, "front")}
+              className="rounded bg-surface p-1 hover:text-fg"
+            >
+              <BringToFront className="size-3" aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Arrière-plan"
+              title="Arrière-plan"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => studio().reorder(visual.id, "back")}
+              className="rounded bg-surface p-1 hover:text-fg"
+            >
+              <SendToBack className="size-3" aria-hidden />
+            </button>
             <button
               type="button"
               aria-label="Dupliquer le visuel"
