@@ -5,6 +5,7 @@ import { usePreferences } from "../../hooks/usePreferences";
 import type { Theme } from "../../hooks/useTheme";
 import type { ProviderStatus } from "../../types/ai";
 import { ProviderBadges } from "../ai/ProviderBadges";
+import { SuiteSwitcher } from "./SuiteSwitcher";
 
 interface TopbarProps {
   title: string;
@@ -25,7 +26,10 @@ export function Topbar(props: TopbarProps) {
 
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4">
-      <h1 className="min-w-0 truncate text-sm font-semibold">{title}</h1>
+      <div className="flex min-w-0 items-center gap-2">
+        <SuiteSwitcher />
+        <h1 className="min-w-0 truncate text-sm font-semibold">{title}</h1>
+      </div>
       <div className="flex items-center gap-2">
         <button
           type="button"
