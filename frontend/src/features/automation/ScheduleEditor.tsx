@@ -145,8 +145,8 @@ export function ScheduleEditor({ state, onChange, compact = false }: { state: Sc
   );
 }
 
-const STATUS_ICON = { success: CircleCheck, error: CircleAlert, skipped: CircleSlash };
-const STATUS_TONE = { success: "text-positive", error: "text-negative", skipped: "text-muted" };
+const STATUS_ICON = { success: CircleCheck, error: CircleAlert, skipped: CircleSlash, interrupted: CircleSlash };
+const STATUS_TONE = { success: "text-positive", error: "text-negative", skipped: "text-muted", interrupted: "text-negative" };
 
 /** Journal des dernières exécutions (succès / échec / sautée, durée, lignes). */
 export function RunLog({ runs }: { runs: RefreshRun[] }) {

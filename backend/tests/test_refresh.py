@@ -270,3 +270,116 @@ def test_schedule_api_errors(client: TestClient) -> None:
     assert client.post(f"/api/refresh/{uploaded['id']}/run").status_code == 422
     assert client.get("/api/refresh/aaaaaaaaaaaa").status_code == 404
     assert client.get("/api/refresh").json() == []
+
+
+# --- Tâches retenues et arrêt propre --------------------------------------------------------------
+
+
+def test_tick_keeps_strong_references_until_done(client: TestClient, tmp_path: Path) -> None:
+    ds = add_origin_dataset(client.app.state.dataset_store)  # type: ignore[attr-defined]
+    clock = Clock(datetime(2026, 10, 19, 8, 0, tzinfo=UTC))
+    started, release = threading.Event(), threading.Event()
+
+    def refresher(d: StoredDataset) -> StoredDataset:
+        started.set()
+        release.wait(5)
+        return d
+
+    sched = make(client, tmp_path, refresher, clock)
+    sched.set_schedule(ds.id, RefreshSchedule(mode="interval", every=1, unit="minutes"))
+    clock.advance(minutes=1)
+
+    async def go() -> tuple[int, int, int]:
+        tasks = await sched.tick()
+        held = len(sched._tasks)  # noqa: SLF001 — la boucle asyncio ne garde qu'une référence faible
+        del tasks
+        await asyncio.to_thread(started.wait, 5)
+        busy = sched.in_flight()
+        release.set()
+        while sched.in_flight():
+            await asyncio.sleep(0.01)
+        return held, busy, len(sched._tasks)  # noqa: SLF001
+
+    held, busy, after = asyncio.run(go())
+    assert held == 1 and busy == 2 and after == 0  # la tâche et son fil ; libérés à la fin
+    assert sched.get(ds.id).runs[0].status == "success"
+
+
+def test_shutdown_waits_for_running_refresh_before_closing(client: TestClient, tmp_path: Path) -> None:
+    ds = add_origin_dataset(client.app.state.dataset_store)  # type: ignore[attr-defined]
+    clock = Clock(datetime(2026, 10, 19, 8, 0, tzinfo=UTC))
+    started, finished = threading.Event(), threading.Event()
+
+    def refresher(d: StoredDataset) -> StoredDataset:
+        started.set()
+        threading.Event().wait(0.3)
+        finished.set()
+        return d
+
+    sched = make(client, tmp_path, refresher, clock)
+    sched.set_schedule(ds.id, RefreshSchedule(mode="interval", every=1, unit="minutes"))
+    clock.advance(minutes=1)
+
+    async def go() -> tuple[int, bool, list]:
+        tasks = await sched.tick()
+        await asyncio.to_thread(started.wait, 5)
+        left = await sched.shutdown(timeout=5)
+        done_before_return = finished.is_set()
+        assert all(t.cancelled() for t in tasks)
+        return left, done_before_return, await sched.tick()
+
+    left, done, again = asyncio.run(go())
+    assert left == 0 and done  # rien ne tourne plus quand l'appelant ferme DuckDB
+    assert again == []  # plus aucun lancement après l'arrêt
+    run = sched.get(ds.id).runs[0]
+    assert run.status == "success" and run.rows == 2 and "arrêt" in (run.message or "")
+
+
+def test_shutdown_logs_interrupted_refresh_after_timeout(client: TestClient, tmp_path: Path) -> None:
+    ds = add_origin_dataset(client.app.state.dataset_store)  # type: ignore[attr-defined]
+    clock = Clock(datetime(2026, 10, 19, 8, 0, tzinfo=UTC))
+    started, release = threading.Event(), threading.Event()
+
+    def stuck(d: StoredDataset) -> StoredDataset:
+        started.set()
+        release.wait(5)
+        return d
+
+    sched = make(client, tmp_path, stuck, clock)
+    sched.set_schedule(ds.id, RefreshSchedule(mode="interval", every=1, unit="minutes"))
+    clock.advance(minutes=1)
+
+    async def go() -> int:
+        await sched.tick()
+        await asyncio.to_thread(started.wait, 5)
+        try:
+            return await sched.shutdown(timeout=0.2)
+        finally:
+            release.set()
+
+    assert asyncio.run(go()) == 1  # un fil encore actif à l'échéance : signalé
+    run = sched.get(ds.id).runs[0]
+    assert run.status == "interrupted" and "Interrompue" in (run.message or "")
+    assert not sched.is_running(ds.id)
+
+
+def test_lifespan_stops_scheduler_before_closing_database(settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    from main import create_app
+
+    order: list[str] = []
+    with TestClient(create_app(settings)) as c:
+        app = c.app
+        sched, db = app.state.scheduler, app.state.database  # type: ignore[attr-defined]
+        real_shutdown, real_close = sched.shutdown, db.close
+
+        async def shutdown(timeout: float = 10.0) -> int:
+            order.append(f"scheduler:{timeout}")
+            return await real_shutdown(timeout)
+
+        def close() -> None:
+            order.append("database")
+            real_close()
+
+        monkeypatch.setattr(sched, "shutdown", shutdown)
+        monkeypatch.setattr(db, "close", close)
+    assert order == [f"scheduler:{settings.scheduler_shutdown_seconds}", "database"]

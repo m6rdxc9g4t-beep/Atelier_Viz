@@ -41,7 +41,7 @@ export function durationLabel(ms: number): string {
   return `${Math.round(ms / 60_000)} min`;
 }
 
-export const STATUS_LABEL: Record<RefreshRun["status"], string> = { success: "Réussie", error: "Échec", skipped: "Sautée" };
+export const STATUS_LABEL: Record<RefreshRun["status"], string> = { success: "Réussie", error: "Échec", skipped: "Sautée", interrupted: "Interrompue" };
 
 /** Avertissement à afficher pour une planification (source SharePoint hors ligne…). */
 export function scheduleWarning(state: ScheduleState, online: boolean): string | null {

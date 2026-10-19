@@ -3,7 +3,8 @@
 import type { ConnectorKind } from "./connection";
 
 export type ScheduleMode = "off" | "interval" | "daily";
-export type RunStatus = "success" | "error" | "skipped";
+/** `interrupted` : arrêt de l'application pendant l'actualisation (relancée à la prochaine échéance). */
+export type RunStatus = "success" | "error" | "skipped" | "interrupted";
 export type RunTrigger = "schedule" | "manual";
 
 /** Planification : désactivée, toutes les N minutes / heures, ou chaque jour à HH:MM (heure locale). */

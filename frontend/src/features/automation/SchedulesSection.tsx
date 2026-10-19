@@ -10,8 +10,8 @@ import { KIND_META } from "../data/connect/meta";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { STATUS_LABEL, describeSchedule, scheduleWarning, whenLabel } from "./schedule";
 
-const STATUS_ICON = { success: CircleCheck, error: CircleAlert, skipped: CircleSlash };
-const STATUS_TONE = { success: "text-positive", error: "text-negative", skipped: "text-muted" };
+const STATUS_ICON = { success: CircleCheck, error: CircleAlert, skipped: CircleSlash, interrupted: CircleSlash };
+const STATUS_TONE = { success: "text-positive", error: "text-negative", skipped: "text-muted", interrupted: "text-negative" };
 
 /** Liste des jeux actualisables : planification, prochaine exécution, dernier résultat ; dépliable pour modifier. */
 export function SchedulesSection() {

@@ -7,6 +7,10 @@
 - Politique réseau : SharePoint Online exige le mode « En ligne » ; hors ligne, l'exécution est
   sautée avec un statut explicite (de même qu'un serveur SQL public refusé hors ligne).
 - Après chaque actualisation réussie, les observateurs (`on_refreshed`) sont prévenus (alertes).
+- Arrêt propre (`shutdown`, appelé par le lifespan **avant** la fermeture de DuckDB) : les tâches lancées
+  par `tick` sont gardées (référence forte) puis annulées ; le travail en cours dans un fil (`to_thread`
+  ne peut pas être interrompu) est attendu jusqu'à un délai borné. Une actualisation qui ne s'est pas
+  terminée à temps est journalisée « interrompue » ; une qui s'est terminée garde son vrai résultat.
 """
 
 import asyncio
@@ -29,6 +33,7 @@ from app.services.data.store import DatasetStore, StoredDataset
 logger = logging.getLogger(__name__)
 
 MAX_RUNS = 20
+INTERRUPTED = "Interrompue par l'arrêt de l'application : elle sera relancée à la prochaine échéance."
 Clock = Callable[[], datetime]
 Refresher = Callable[[StoredDataset], StoredDataset]
 Listener = Callable[[str], Awaitable[None]]
@@ -46,6 +51,11 @@ class _Entry(BaseModel):
     since: datetime | None = Field(default=None, description="Date de la dernière modification de la planification.")
     last_at: datetime | None = Field(default=None, description="Dernier déclenchement planifié.")
     runs: list[RefreshRun] = Field(default_factory=list)
+
+
+def _consume(future: "asyncio.Future[StoredDataset]") -> None:
+    if not future.cancelled():
+        future.exception()
 
 
 class RefreshBusyError(ConnectorError):
@@ -96,6 +106,11 @@ class RefreshScheduler:
         self._locks: dict[str, asyncio.Lock] = {}
         self._running: set[str] = set()
         self._listeners: list[Listener] = []
+        self._tasks: set[asyncio.Task[RefreshRun]] = set()  # tâches de `tick` (référence forte)
+        self._work: set[asyncio.Future[StoredDataset]] = set()  # actualisations en cours dans un fil
+        self._stopping = False
+        self._deadline: float | None = None  # échéance de l'arrêt (horloge de la boucle)
+        self.shutdown_grace = 10.0  # attente du fil si la tâche est annulée hors `shutdown`
 
     # --- Persistance ----------------------------------------------------------------------------
 
@@ -237,6 +252,7 @@ class RefreshScheduler:
             rows: int | None = None
             message: str | None = None
             error: Exception | None = None
+            cancelled = False
             try:
                 origin = dataset.profile_data.origin
                 if origin is not None and origin.kind == "sharepoint" and not self.is_online():
@@ -244,8 +260,19 @@ class RefreshScheduler:
                     message = "Mode hors ligne : SharePoint Online exige le mode « En ligne ». Exécution sautée."
                     error = ConnectorError(message, 403)
                 else:
-                    updated = await asyncio.to_thread(self.refresher, dataset)
-                    rows = updated.profile_data.rows
+                    work = self._start(dataset)
+                    try:
+                        updated: StoredDataset | None = await asyncio.shield(work)
+                    except asyncio.CancelledError:
+                        # Arrêt de l'application : le fil ne peut pas être interrompu, on l'attend (borné).
+                        cancelled = True
+                        updated = await self._settle(work)
+                    if updated is None:
+                        status, message = "interrupted", INTERRUPTED
+                    else:
+                        rows = updated.profile_data.rows
+                        if cancelled:
+                            message = "Terminée pendant l'arrêt de l'application."
             except ConnectorError as exc:
                 # 403 = refus de la politique réseau (hors ligne) : sauté, pas en échec.
                 status, message, error = ("skipped" if exc.status_code == 403 else "error"), exc.message, exc
@@ -266,6 +293,11 @@ class RefreshScheduler:
                 rows=rows,
                 message=message,
             )
+            if cancelled:
+                self._log(dataset_id, run)  # écriture directe : la tâche est en cours d'annulation
+                if status == "interrupted":
+                    logger.warning("Actualisation de %s interrompue par l'arrêt de l'application.", dataset_id)
+                raise asyncio.CancelledError
             await asyncio.to_thread(self._log, dataset_id, run)
         if status == "success":
             for listener in self._listeners:
@@ -277,6 +309,21 @@ class RefreshScheduler:
             raise error
         return run
 
+    def _start(self, dataset: StoredDataset) -> "asyncio.Future[StoredDataset]":
+        """Lance l'actualisation dans un fil ; le garde jusqu'à sa fin (l'arrêt l'attend avant de fermer DuckDB)."""
+        work = asyncio.ensure_future(asyncio.to_thread(self.refresher, dataset))
+        self._work.add(work)
+        work.add_done_callback(self._work.discard)
+        work.add_done_callback(_consume)  # fil fini après l'échéance de l'arrêt : erreur lue, pas d'avertissement
+        return work
+
+    async def _settle(self, work: "asyncio.Future[StoredDataset]") -> StoredDataset | None:
+        """Attend la fin du fil jusqu'à l'échéance de l'arrêt ; None s'il tourne encore (interrompue)."""
+        loop = asyncio.get_running_loop()
+        timeout = self.shutdown_grace if self._deadline is None else max(0.0, self._deadline - loop.time())
+        done, _ = await asyncio.wait({work}, timeout=timeout)
+        return work.result() if done else None  # une erreur du fil est relevée et journalisée comme telle
+
     def _log(self, dataset_id: str, run: RefreshRun) -> None:
         def apply(entry: _Entry) -> None:
             entry.runs = [*entry.runs, run][-MAX_RUNS:]
@@ -285,6 +332,8 @@ class RefreshScheduler:
 
     async def tick(self) -> list[asyncio.Task[RefreshRun]]:
         """Lance les actualisations arrivées à échéance ; retourne les tâches lancées (les tests les attendent)."""
+        if self._stopping:
+            return []
         now = self.clock()
         entries = await asyncio.to_thread(self._read)
         tasks: list[asyncio.Task[RefreshRun]] = []
@@ -304,8 +353,38 @@ class RefreshScheduler:
 
             # Prochaine échéance comptée depuis ce déclenchement (une exécution manquée est rattrapée une fois).
             await asyncio.to_thread(self._update, dataset_id, mark)
-            tasks.append(asyncio.create_task(self.run(dataset_id, "schedule")))
+            task = asyncio.create_task(self.run(dataset_id, "schedule"))
+            self._tasks.add(task)  # la boucle ne garde qu'une référence faible : on la retient ici
+            task.add_done_callback(self._tasks.discard)
+            tasks.append(task)
         return tasks
+
+    def in_flight(self) -> int:
+        """Nombre de tâches planifiées et d'actualisations (fils) encore en cours."""
+        return len(self._tasks) + sum(1 for w in self._work if not w.done())
+
+    async def shutdown(self, timeout: float = 10.0) -> int:
+        """Arrêt propre, à appeler avant de fermer DuckDB.
+
+        Plus aucun lancement ; les tâches planifiées sont annulées (chacune journalise son issue) et les
+        actualisations en cours dans un fil (manuelles comprises) sont attendues au plus `timeout` secondes.
+        Retourne le nombre de fils encore actifs à l'échéance (0 = tout est terminé).
+        """
+        self._stopping = True
+        loop = asyncio.get_running_loop()
+        self._deadline = loop.time() + timeout
+        tasks = list(self._tasks)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.wait(tasks, timeout=timeout + 1.0)  # chaque tâche s'arrête au plus à l'échéance
+        pending = [w for w in self._work if not w.done()]
+        if pending:
+            await asyncio.wait(pending, timeout=max(0.0, self._deadline - loop.time()))
+        left = sum(1 for w in self._work if not w.done())
+        if left:
+            logger.warning("Arrêt : %d actualisation(s) encore en cours après %.0f s.", left, timeout)
+        return left
 
     async def run_forever(self, period_seconds: float = 15.0) -> None:
         """Boucle de l'ordonnanceur (tâche du lifespan, annulée à l'arrêt).

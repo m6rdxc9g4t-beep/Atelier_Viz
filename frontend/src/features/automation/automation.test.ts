@@ -4,10 +4,14 @@ import { changedDatasets, noteVersion, pollVersions } from "../../hooks/useDataV
 import { api } from "../../lib/api";
 import type { DatasetProfile } from "../../types/dataset";
 import { parseRoute } from "../../lib/router";
-import { describeSchedule, durationLabel, scheduleError, scheduleWarning, whenLabel } from "./schedule";
+import { STATUS_LABEL, describeSchedule, durationLabel, scheduleError, scheduleWarning, whenLabel } from "./schedule";
 import type { ScheduleState } from "../../types/refresh";
 
 describe("planifications", () => {
+  it("nomme chaque statut du journal, interruption à l'arrêt comprise", () => {
+    expect(STATUS_LABEL).toEqual({ success: "Réussie", error: "Échec", skipped: "Sautée", interrupted: "Interrompue" });
+  });
+
   it("décrit et contrôle une planification", () => {
     expect(describeSchedule({ mode: "off", every: 1, unit: "hours", at: "07:00" })).toBe("Désactivée");
     expect(describeSchedule({ mode: "interval", every: 15, unit: "minutes", at: "07:00" })).toBe("Toutes les 15 minutes");

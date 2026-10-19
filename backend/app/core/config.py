@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     # Actualisation planifiée et alertes (data/schedules.json, data/alerts.json)
     scheduler_enabled: bool = True
     scheduler_period_seconds: float = Field(default=15.0, ge=1.0)
+    # Arrêt : délai laissé aux actualisations en cours avant la fermeture de DuckDB
+    scheduler_shutdown_seconds: float = Field(default=10.0, ge=0.0, le=300.0)
 
     # GitHub : synchronisation des rapports (jeton de repli ; d'ordinaire saisi dans l'interface → trousseau)
     github_token: SecretStr | None = None

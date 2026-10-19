@@ -267,10 +267,11 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | Élément | Règle |
 |---|---|
 | Planification | Désactivée · toutes les N minutes / heures (une semaine au plus) · chaque jour à HH:MM (heure locale de la machine, changements d'heure compris) |
-| Ordonnanceur | Tâche asyncio du lifespan (`RefreshScheduler.run_forever`, passage toutes les `SCHEDULER_PERIOD_SECONDS` = 15 s) ; horloge injectable (`tick` testé sans attente) ; échéance manquée pendant que l'application était fermée : rattrapée **une fois** |
+| Ordonnanceur | Tâche asyncio du lifespan (`RefreshScheduler.run_forever`, passage toutes les `SCHEDULER_PERIOD_SECONDS` = 15 s) ; horloge injectable (`tick` testé sans attente) ; échéance manquée pendant que l'application était fermée : rattrapée **une fois** ; les tâches lancées sont retenues (référence forte) |
+| Arrêt | Lifespan : boucle annulée, puis `RefreshScheduler.shutdown` **avant** la fermeture de DuckDB : plus aucun lancement, tâches annulées, actualisations en cours (dans un fil, manuelles comprises) attendues au plus `SCHEDULER_SHUTDOWN_SECONDS` (10 s) ; non terminée à temps → journalisée **interrompue** |
 | Exclusion | Une seule exécution à la fois par jeu (verrou asyncio) : une exécution planifiée concurrente est sautée, une actualisation manuelle reçoit un 409 |
 | Politique réseau | SharePoint Online hors ligne : exécution **sautée** (« exige le mode En ligne ») ; serveur SQL public hors ligne : sautée (403 de `check_server`) |
-| Journal | 20 dernières exécutions par jeu : début, durée, statut (réussie / échec / sautée), déclenchement (planifiée / manuelle), lignes, message (modèle incompatible, source introuvable…). L'actualisation manuelle passe aussi par le journal |
+| Journal | 20 dernières exécutions par jeu : début, durée, statut (réussie / échec / sautée / interrompue), déclenchement (planifiée / manuelle), lignes, message (modèle incompatible, source introuvable…). L'actualisation manuelle passe aussi par le journal |
 | Persistance | `data/schedules.json` (à côté de `connections.json`, écriture atomique, sans secret) ; planification oubliée avec son jeu |
 | Rechargement | Le front interroge `GET /api/refresh/versions` (horodatage `origin.refreshed_at` par jeu) toutes les 20 s quand la fenêtre est visible ; une version changée → profil relu + `invalidateQueries` : les visuels ouverts se rechargent |
 | Après succès | Observateurs prévenus (`on_refreshed`) : les alertes du jeu sont évaluées |

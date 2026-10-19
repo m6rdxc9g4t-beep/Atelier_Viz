@@ -82,6 +82,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ticker.cancel()
             with suppress(asyncio.CancelledError):
                 await ticker
+        # Actualisations en cours : annulées et attendues (délai borné) avant de fermer DuckDB.
+        await app.state.scheduler.shutdown(settings.scheduler_shutdown_seconds)
         await app.state.ai_service.aclose()
         app.state.database.close()
 

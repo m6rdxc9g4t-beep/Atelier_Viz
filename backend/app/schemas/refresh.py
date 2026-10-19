@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 from app.schemas.connection import ConnectorKind
 
 ScheduleMode = Literal["off", "interval", "daily"]
-RunStatus = Literal["success", "error", "skipped"]
+RunStatus = Literal["success", "error", "skipped", "interrupted"]
 RunTrigger = Literal["schedule", "manual"]
 
 
