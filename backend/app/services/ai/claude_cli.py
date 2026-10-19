@@ -11,7 +11,8 @@ Isolation de chaque appel :
 - `--system-prompt`    : remplace entièrement le prompt système de Claude Code ;
 - `--no-session-persistence` : rien n'est écrit dans l'historique des sessions ;
 - répertoire de travail temporaire vide, et `ANTHROPIC_API_KEY` retirée de l'environnement
-  pour que la facturation passe bien par l'abonnement.
+  pour que la facturation passe bien par l'abonnement ;
+- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` : ni télémétrie, ni rapport d'erreur, ni mise à jour automatique.
 
 Le sous-processus est lancé dans un thread (`subprocess.run`) plutôt qu'avec
 `asyncio.create_subprocess_exec` : sous Windows, `uvicorn --reload` utilise une boucle
@@ -28,7 +29,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
-from app.services.ai.base import AIProviderError
+from app.services.ai.base import AIProviderError, extract_json
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -84,6 +85,26 @@ class ClaudeCliProvider:
         return self._status(True, None)
 
     async def chat(self, messages: list[ChatMessage], system: str | None = None) -> str:
+        payload = await self._ask(messages, system)
+        result = payload.get("result")
+        if not isinstance(result, str):
+            raise AIProviderError("anthropic", "Claude (CLI) : champ `result` absent de la réponse.")
+        return result
+
+    async def chat_json(
+        self, messages: list[ChatMessage], system: str | None, schema: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Sortie structurée native de la CLI (`--json-schema`) : le JSON est validé par Claude Code."""
+        payload = await self._ask(messages, system, ["--json-schema", json.dumps(schema, ensure_ascii=False)], turns=2)
+        structured = payload.get("structured_output")
+        if isinstance(structured, dict):
+            return structured
+        return extract_json("anthropic", str(payload.get("result") or ""))
+
+    async def _ask(
+        self, messages: list[ChatMessage], system: str | None, extra: Sequence[str] = (), turns: int = 1
+    ) -> dict[str, Any]:
+        """Lance `claude -p` isolé et retourne l'objet JSON final (`type: result`)."""
         if self._path is None:
             raise AIProviderError("anthropic", "CLI `claude` introuvable sur cette machine.", 400)
 
@@ -98,11 +119,12 @@ class ClaudeCliProvider:
             "--disable-slash-commands",
             "--no-session-persistence",
             "--max-turns",
-            "1",
+            str(turns),
             "--model",
             self.model,
             "--system-prompt",
             system or DEFAULT_SYSTEM_PROMPT,
+            *extra,
         ]
         proc = await self._run(args, stdin=format_conversation(messages), timeout=self.timeout)
         payload = parse_result(proc.stdout)
@@ -113,10 +135,7 @@ class ClaudeCliProvider:
             raise AIProviderError("anthropic", f"Réponse illisible de la CLI Claude : {detail}")
         if payload.get("is_error") or proc.returncode != 0:
             raise AIProviderError("anthropic", f"Claude (CLI) : {payload.get('result') or 'erreur inconnue'}")
-        result = payload.get("result")
-        if not isinstance(result, str):
-            raise AIProviderError("anthropic", "Claude (CLI) : champ `result` absent de la réponse.")
-        return result
+        return payload
 
     async def aclose(self) -> None:
         return None
@@ -124,6 +143,8 @@ class ClaudeCliProvider:
     async def _run(self, args: Sequence[str], *, stdin: str | None, timeout: float) -> subprocess.CompletedProcess[str]:
         """Exécute la CLI dans un dossier vide, sans clé API dans l'environnement."""
         env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+        # Seul l'appel au modèle sort de la machine : pas de télémétrie, de rapport d'erreur ni de mise à jour auto.
+        env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
         with tempfile.TemporaryDirectory(prefix="atelier-viz-claude-") as cwd:
             try:
                 return await asyncio.to_thread(

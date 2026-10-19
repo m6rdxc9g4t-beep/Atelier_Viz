@@ -103,6 +103,22 @@ Options communes : légende, étiquettes, tri (catégorie / valeur), Top N, form
 
 Mécanique : variables CSS posées sur la racine du rapport puis sur chaque visuel (`--series-n`, `--fg`, `--grid`, `--visual-bg`…) ; aucun composant de graphique ne contient de couleur en dur. Les palettes des préréglages ont été vérifiées avec le validateur dataviz sur chacun de leurs fonds.
 
+## 5 ter. L'IA qui construit (« Créer avec l'IA »)
+
+Dans le Studio, bouton **Créer avec l'IA** : une phrase (« CA par région sur une carte », « tableau de bord des ventes »…) → 1 à 6 visuels proposés, ajoutés à la page en un clic.
+
+| Étape | Détail |
+|---|---|
+| Catalogue | Dérivé du registre frontend (types, rôles, options utiles) et envoyé avec la demande : une seule source de vérité |
+| Prompt | Règles de choix des graphiques (temps → courbes, géographie → carte, part d'un tout ≤ 6 catégories, pas de double axe…) + schéma du jeu (colonnes, statistiques, 5 lignes) |
+| Sortie structurée | Claude CLI : `--json-schema` (`structured_output`) ; Ollama : `format` = schéma JSON ; API Claude : schéma dans la consigne + extraction. Les noms de champs sont une énumération des colonnes réelles |
+| Validation / réparation | Types et rôles du catalogue, champs existants, agrégation compatible (sinon `count`), période par défaut `month` sur les dates, maximum par rôle, options filtrées, fond de carte déduit du nom du champ |
+| Relance | Si un visuel reste invalide, une seconde demande avec la liste des erreurs ; ce qui ne peut être réparé est écarté (HTTP 422 si rien n'est valide) |
+| Studio | Cartes de proposition (type, titre, champs par rôle), « Ajouter » / « Tout ajouter », placement automatique en rangées, une seule entrée d'historique (Ctrl+Z) |
+| Confidentialité | Moteur affiché ; hors ligne, Claude n'est pas sélectionnable et « Auto » utilise Ollama. Appels CLI sans télémétrie (`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`) |
+
+Mesuré avec Claude (CLI, Sonnet) sur `ventes_2026.csv` : 5 à 6 s par demande ; « CA par région sur une carte » → carte choroplèthe des régions, « évolution mensuelle par produit » → courbes par mois avec légende, « top 3 des produits par marge moyenne » → barres triées, Top N = 3 ; aucune correction nécessaire.
+
 ## 6. Interactions
 
 - **Filtres** (dans l'ordre d'application) : page → segments de la page → sélection par clic dans un autre visuel (filtrage croisé) → filtres du visuel. Ils ne s'appliquent qu'aux visuels du même jeu de données (ou possédant le champ, pour les filtres de page).
@@ -129,6 +145,7 @@ Mécanique : variables CSS posées sur la racine du rapport puis sur chaque visu
 | GET / PUT | `/api/settings` | Mode en ligne (`online_mode`) |
 | GET | `/api/ai/providers` | État d'Ollama et de Claude (désactivé hors ligne) |
 | POST | `/api/ai/chat` | Assistant ; `dataset_id` optionnel joint le schéma |
+| POST | `/api/ai/visuals` | Phrase + catalogue → visuels validés (`BuildResponse` : visuels, explication, moteur, corrections) |
 | POST | `/api/datasets` | Import multipart (CSV/XLSX/JSON, 50 Mo) → profil ; persisté dans DuckDB |
 | GET | `/api/datasets` · `/api/datasets/{id}` · `/api/datasets/{id}/rows` | Liste, profil, lignes paginées |
 | DELETE | `/api/datasets/{id}` | Suppression |
@@ -142,7 +159,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (71) côté back, Vitest (34) côté front ; parcours vérifiés dans un vrai navigateur (Playwright).
+- Tests : pytest (82) côté back, Vitest (37) côté front ; parcours vérifiés dans un vrai navigateur (Playwright).
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -150,7 +167,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 0 — Socle** ✅ · **0b — Claude via la CLI** ✅ · **1 — Import et profilage** ✅
 - **Jalon 2 — Studio** ✅ : DuckDB, rapports multi-pages, 22 visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons d'automatisation, mode hors ligne / en ligne.
 - **Jalon 2 bis — Thèmes** ✅ : thème de l'application (clair / sombre / système), thèmes de rapport, styles par visuel, couleurs hexadécimales, import de thèmes Power BI.
-- **Jalon 3 — IA qui construit** : « Crée un graphique du CA par région » → visuel ajouté (Claude via `claude -p --json-schema`, Ollama en format JSON), résumé automatique d'une page.
+- **Jalon 3 — IA qui construit** ✅ : « Crée un graphique du CA par région » → visuels validés ajoutés au Studio (Claude via `claude -p --json-schema`, Ollama en format JSON). Reste : résumé automatique d'une page.
 - **Jalon 4 — Export** : PowerPoint natif (python-pptx, graphiques modifiables), PDF, image.
 - **Jalon 5 — Modélisation** : colonnes calculées et mesures (expressions SQL DuckDB validées), relations entre tables, hiérarchies et exploration (drill-down).
 - **Jalon 6 — Partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil (webhook), synchronisation des rapports avec un dépôt GitHub.

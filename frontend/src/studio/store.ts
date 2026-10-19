@@ -2,12 +2,14 @@
 
 import { create } from "zustand";
 
+import type { ProposedVisual } from "../types/builder";
 import type { ColumnProfile } from "../types/dataset";
 import type { Filter } from "../types/query";
 import type { FieldBinding, Layout, Page, Report, ReportBody, Visual, VisualOptions, VisualType } from "../types/report";
 import { defaultBinding } from "../visuals/fields";
 import { VISUALS } from "../visuals/registry";
 import type { RoleDef, Selection } from "../visuals/types";
+import { placeVisuals } from "./placement";
 
 export type SaveState = "saved" | "dirty" | "saving" | "error";
 export type Mode = "edit" | "view";
@@ -101,6 +103,8 @@ interface StudioState {
    */
   mutate: (fn: (r: Report) => void, opts?: { history?: boolean; coalesce?: string }) => void;
   setTheme: (theme: Record<string, unknown>) => void;
+  /** Ajoute des visuels proposés par l'IA (une seule entrée d'historique) ; retourne leurs identifiants. */
+  addGenerated: (specs: ProposedVisual[], datasetId: string) => string[];
   setVisualStyle: (id: string, patch: Record<string, unknown> | null) => void;
   applyStyleToPage: (id: string) => void;
   undo: () => void;
@@ -182,6 +186,25 @@ export const useStudio = create<StudioState>((set, get) => {
     },
 
     setTheme: (theme) => get().mutate((r) => (r.theme = theme), { coalesce: "theme" }),
+
+    addGenerated: (specs, datasetId) => {
+      const page = get().page();
+      if (!page || !specs.length) return [];
+      const layouts = placeVisuals(page, specs.map((s) => s.type));
+      const created: Visual[] = specs.map((spec, i) => ({
+        id: uid(),
+        type: spec.type,
+        title: spec.title,
+        layout: layouts[i] ?? { x: 0, y: 0, ...VISUALS[spec.type].size },
+        dataset_id: datasetId,
+        roles: spec.roles,
+        options: spec.options,
+        filters: [],
+      }));
+      withPage((p) => p.visuals.push(...created));
+      set({ selectedId: created[0]?.id ?? null });
+      return created.map((v) => v.id);
+    },
 
     setVisualStyle: (id, patch) =>
       get().mutate(

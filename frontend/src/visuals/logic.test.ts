@@ -217,3 +217,34 @@ describe("couleurs stables", () => {
     expect(many.get("v7")).toBe("var(--muted)");
   });
 });
+
+describe("IA qui construit", () => {
+  it("catalogue transmis à l'IA : visuels avec données, options utiles seulement", async () => {
+    const { aiCatalog } = await import("./catalog");
+    const cat = aiCatalog();
+    expect(cat.map((c) => c.type)).not.toContain("button");
+    expect(cat.map((c) => c.type)).toContain("map");
+    const map = cat.find((c) => c.type === "map")!;
+    expect(map.options.find((o) => o.key === "geo")?.choices).toEqual(["fr-regions", "fr-departements", "world"]);
+    expect(cat.flatMap((c) => c.options.map((o) => o.key))).not.toContain("suffix");
+  });
+
+  it("place les nouveaux visuels en rangées sous le contenu existant", async () => {
+    const { placeVisuals } = await import("../studio/placement");
+    const page: Page = { id: "p", name: "P", visuals: [visual("kpi")], filters: [] };
+    // kpi existant : y 0 → 8 ; column 8 de large, map 8, table 8 → une rangée ; matrix 10 → rangée suivante
+    expect(placeVisuals(page, ["column", "map", "table", "matrix"])).toEqual([
+      { x: 0, y: 8, w: 8, h: 14 },
+      { x: 8, y: 8, w: 8, h: 16 },
+      { x: 16, y: 8, w: 8, h: 14 },
+      { x: 0, y: 24, w: 10, h: 14 },
+    ]);
+  });
+
+  it("propose des demandes adaptées au jeu de données", async () => {
+    const { suggestPrompts } = await import("../studio/panes/AIBuilderPane");
+    const s = suggestPrompts(dataset);
+    expect(s[0]).toBe("ca par region sur une carte");
+    expect(s.some((x) => x.startsWith("Évolution mensuelle de ca"))).toBe(true);
+  });
+});

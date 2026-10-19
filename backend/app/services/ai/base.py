@@ -1,6 +1,7 @@
 """Contrat commun à tous les fournisseurs IA."""
 
-from typing import Protocol
+import json
+from typing import Any, Protocol
 
 from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
 
@@ -38,6 +39,34 @@ class AIProvider(Protocol):
         """
         ...
 
+    async def chat_json(
+        self, messages: list[ChatMessage], system: str | None, schema: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Comme `chat`, mais la réponse est un objet JSON conforme (autant que possible) à `schema`.
+
+        Raises:
+            AIProviderError: fournisseur indisponible ou réponse non JSON.
+        """
+        ...
+
     async def aclose(self) -> None:
         """Libère les ressources réseau."""
         ...
+
+
+def extract_json(provider: ProviderName, text: str) -> dict[str, Any]:
+    """Extrait le premier objet JSON d'une réponse (tolère un bloc ```json … ``` ou du texte autour)."""
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        cleaned = cleaned[cleaned.find("{") :] if "{" in cleaned else cleaned
+    start, end = cleaned.find("{"), cleaned.rfind("}")
+    if start == -1 or end <= start:
+        raise AIProviderError(provider, "La réponse de l'IA ne contient pas d'objet JSON.", 502)
+    try:
+        data = json.loads(cleaned[start : end + 1])
+    except json.JSONDecodeError as exc:
+        raise AIProviderError(provider, f"JSON invalide renvoyé par l'IA : {exc.msg}.", 502) from exc
+    if not isinstance(data, dict):
+        raise AIProviderError(provider, "La réponse JSON de l'IA n'est pas un objet.", 502)
+    return data

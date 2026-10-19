@@ -5,6 +5,8 @@ from fastapi import APIRouter
 from app.api.deps import AIServiceDep, StoreDep
 from app.api.routes.datasets import get_or_404
 from app.schemas.ai import ChatRequest, ChatResponse, ProvidersResponse
+from app.schemas.builder import BuildRequest, BuildResponse
+from app.services.ai.builder import build_visuals
 from app.services.data.context import dataset_context
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -29,3 +31,10 @@ async def chat(payload: ChatRequest, service: AIServiceDep, store: StoreDep) -> 
         system = f"{payload.system}\n\n{context}" if payload.system else context
         payload = payload.model_copy(update={"system": system})
     return await service.chat(payload)
+
+
+@router.post("/visuals", response_model=BuildResponse)
+async def build(payload: BuildRequest, service: AIServiceDep, store: StoreDep) -> BuildResponse:
+    """Crée des visuels à partir d'une phrase. Le schéma et 5 lignes du jeu de données sont envoyés à l'IA."""
+    dataset = await get_or_404(store, payload.dataset_id)
+    return await build_visuals(service, payload, dataset.profile())

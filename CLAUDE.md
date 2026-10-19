@@ -69,7 +69,8 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - `provider = "ollama" | "anthropic" | "auto"` ; hors ligne, `anthropic` → 403, `auto` → Ollama.
 - Mode CLI : appels isolés (`--safe-mode`, `--tools ""`, `--system-prompt`, `--no-session-persistence`, dossier vide, `ANTHROPIC_API_KEY` retirée). Ne jamais donner d'outils à la CLI.
 - Seuls le **schéma** et **5 lignes** partent vers l'IA, et seulement si l'utilisateur coche « Joindre le schéma ».
-- Une IA qui crée des visuels doit produire du JSON validé (schéma `Visual`) avant d'arriver au Studio.
+- Création de visuels : `app/services/ai/builder.py` (schéma contraint → `repair` → une relance max). Le catalogue vient du registre frontend (`visuals/catalog.ts`) : ne pas le dupliquer côté backend. Tout visuel qui arrive au Studio est passé par `repair`.
+- Tout fournisseur implémente `chat` et `chat_json` (sortie structurée).
 
 ## Thèmes
 - `frontend/src/theme/` : `color.ts` (hex, mélange, contraste WCAG), `reportTheme.ts` (préréglages, `themeVars`, `visualCss`, import Power BI), `ColorInput.tsx`.
