@@ -10,6 +10,7 @@ import {
   downloadBlob,
   exportReport,
 } from "../export/exportReport";
+import type { SaveOutcome } from "../lib/desktop";
 import { useTheme } from "../hooks/useTheme";
 import { useStudioData } from "./context";
 import { useEngine } from "./panes/EnginePicker";
@@ -53,7 +54,15 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   const [options, setOptions] = useState<ExportOptions>(readOptions);
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
+  const [saved, setSaved] = useState<SaveOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const save = (res: ExportResult) => {
+    setError(null);
+    downloadBlob(res.blob, res.fileName).then(setSaved, (e: unknown) => {
+      setSaved({ kind: "cancelled" });
+      setError(e instanceof Error ? e.message : String(e));
+    });
+  };
   const abort = useRef<AbortController | null>(null);
   const titleId = useId();
   const firstField = useRef<HTMLButtonElement>(null);
@@ -99,7 +108,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         signal: abort.current.signal,
       });
       setResult(res);
-      downloadBlob(res.blob, res.fileName);
+      save(res);
     } catch (err) {
       if ((err as Error).name === "AbortError") setProgress(null);
       else setError(err instanceof Error ? err.message : String(err));
@@ -122,7 +131,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
         </header>
 
         {result ? (
-          <Summary result={result} onDownload={() => downloadBlob(result.blob, result.fileName)} onClose={onClose} />
+          <Summary result={result} saved={saved} error={error} onDownload={() => save(result)} onClose={onClose} />
         ) : (
           <>
             <div className={clsx("space-y-4 px-4 py-4", running && "pointer-events-none opacity-60")}>
@@ -234,7 +243,19 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Summary({ result, onDownload, onClose }: { result: ExportResult; onDownload: () => void; onClose: () => void }) {
+function Summary({
+  result,
+  saved,
+  error,
+  onDownload,
+  onClose,
+}: {
+  result: ExportResult;
+  saved: SaveOutcome | null;
+  error: string | null;
+  onDownload: () => void;
+  onClose: () => void;
+}) {
   const kb = result.blob.size / 1024;
   const size = kb > 1024 ? `${(kb / 1024).toFixed(1).replace(".", ",")} Mo` : `${Math.round(kb)} Ko`;
   return (
@@ -252,8 +273,19 @@ function Summary({ result, onDownload, onClose }: { result: ExportResult; onDown
           <Stat value={result.imageVisuals} label="en image" />
         </dl>
         <p className="text-[11px] text-muted">
-          {size} · enregistré dans votre dossier Téléchargements. Ouvrez-le avec PowerPoint, Keynote ou LibreOffice.
+          {size} ·{" "}
+          {saved?.kind === "saved"
+            ? `enregistré dans ${saved.path}.`
+            : saved?.kind === "cancelled"
+              ? "pas encore enregistré : « Enregistrer à nouveau » pour choisir l'emplacement."
+              : "enregistré dans votre dossier Téléchargements."}{" "}
+          Ouvrez-le avec PowerPoint, Keynote ou LibreOffice.
         </p>
+        {error && (
+          <p role="alert" className="text-[11px] text-negative">
+            {error}
+          </p>
+        )}
         {result.warnings.length > 0 && (
           <details className="text-[11px] text-muted">
             <summary className="cursor-pointer">
@@ -269,7 +301,7 @@ function Summary({ result, onDownload, onClose }: { result: ExportResult; onDown
       </div>
       <footer className="flex justify-end gap-2 border-t border-border px-4 py-3">
         <button type="button" onClick={onDownload} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
-          <Download className="size-3.5" aria-hidden /> Télécharger à nouveau
+          <Download className="size-3.5" aria-hidden /> {saved?.kind === "downloaded" || !saved ? "Télécharger à nouveau" : "Enregistrer à nouveau"}
         </button>
         <button type="button" onClick={onClose} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
           Terminé

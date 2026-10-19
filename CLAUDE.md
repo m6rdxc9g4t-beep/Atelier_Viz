@@ -71,6 +71,11 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Un jeu importé garde `origin` ; `DatasetStore.replace_data` actualise en revalidant le modèle. Côté front, `refreshDataset` puis les visuels se rechargent (`invalidateQueries`).
 - Pilotes facultatifs (`requirements-connectors.txt`) : `Dialect.driver_installed` et message 501 si absent.
 
+## Application de bureau
+- `backend/desktop.py` → `app/desktop.py` (pywebview + uvicorn en fil) ; paquet macOS : `scripts/macos/build_app.sh`. L'interface compilée est servie par FastAPI (`settings.frontend_dist`).
+- Front : tout enregistrement de fichier passe par `saveFile` et tout lien externe par `openExternal` (`lib/desktop.ts`) — jamais `a.download` ni `window.open` directement (WKWebView les ignore).
+- Requêtes vers le serveur local sans proxy (`_local` dans desktop.py : macOS applique sinon le proxy système).
+
 ## Règles de code
 1. **Modularité** : routes minces, logique dans `services/` ; un visuel = un composant + une entrée de registre.
 2. **Typage strict** : TypeScript `strict` + `noUncheckedIndexedAccess`, pas de `any` ; Pydantic pour tout ce qui traverse l'API.

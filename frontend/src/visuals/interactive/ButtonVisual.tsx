@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { openExternal } from "../../lib/desktop";
 import { ExternalLink, Loader2, Play, RotateCcw, SquareArrowRight } from "lucide-react";
 import { useState } from "react";
 
@@ -36,7 +37,7 @@ export function ButtonVisual(props: VisualProps) {
         setStatus({ tone: "error", text: "URL invalide (http, https ou mailto)." });
         return;
       }
-      window.open(url, "_blank", "noopener,noreferrer");
+      openExternal(url);
       return;
     }
     // Webhook : confirmation en ligne (pas de boîte de dialogue native), puis appel via le backend.

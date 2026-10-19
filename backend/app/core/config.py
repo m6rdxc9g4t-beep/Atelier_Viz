@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Données locales : base DuckDB, rapports JSON, préférences (tout reste sur la machine)
     data_dir: Path = Path("data")
     max_upload_mb: int = 50
+    # Interface compilée (npm run build) servie par l'API : une seule adresse, utilisée par l'application de bureau.
+    frontend_dist: Path = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+    serve_frontend: bool = True
     # Jeux d'exemple livrés avec le dépôt (bouton « Charger l'exemple »)
     samples_dir: Path = Path(__file__).resolve().parents[3] / "samples"
 

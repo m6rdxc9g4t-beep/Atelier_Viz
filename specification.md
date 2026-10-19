@@ -36,6 +36,13 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 | IA locale | Ollama | Mode hors ligne |
 | IA en ligne | Claude via `claude -p` (abonnement) ou API | Mode en ligne uniquement |
 
+### Application de bureau
+
+- `scripts/macos/build_app.sh` crée `~/Applications/Atelier Viz.app` (Info.plist, icône `scripts/macos/icon.png` → icns, lanceur qui fige le chemin du dépôt, l'interpréteur Python et le PATH).
+- `backend/desktop.py` → `app/desktop.py` : serveur uvicorn dans un fil (127.0.0.1, port 8000 sinon un port libre), interface compilée servie par FastAPI (`frontend/dist`, montée après `/api`), fenêtre native pywebview (WKWebView sur macOS), stockage persistant, arrêt propre à la fermeture.
+- Réutilise un serveur Atelier Viz déjà lancé ; refuse proprement si la base DuckDB est verrouillée par un autre processus (page d'erreur dans la fenêtre).
+- Pont JavaScript `window.pywebview.api` : `save_file` (boîte « Enregistrer sous ») et `open_external` (http, https, mailto uniquement) ; côté front, `lib/desktop.ts` (`saveFile`, `openExternal`) bascule seul entre application et navigateur.
+
 ## 3. Principe hors ligne / en ligne
 
 | | Hors ligne (défaut) | En ligne |
@@ -251,7 +258,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (167, + 2 sur serveurs réels) côté back, Vitest (104) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (178, + 2 sur serveurs réels) côté back, Vitest (107) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -264,4 +271,5 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 5 — Modélisation** ✅ : mesures et colonnes calculées (langage analysé et compilé, jamais de SQL brut), hiérarchies et exploration (drill-down), hiérarchie de dates. Reste : relations entre tables (jointures entre jeux de données).
 - **Jalon 5 bis — Placement libre** ✅ : visuels au pixel près n'importe où sur la page (taille de page en px, repères d'alignement, poignées, clavier, saisie X/Y/L/H, superposition et ordre, zoom), conversion automatique des anciens rapports.
 - **Jalon 5 ter — Connecteurs** ✅ : SQL Server, PostgreSQL, MySQL / MariaDB, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online (fichiers et listes), en lecture seule, secrets au trousseau, actualisation. Reste : actualisation planifiée, Excel / CSV sur un serveur HTTP, Snowflake / BigQuery.
+- **Jalon 5 quater — Application Mac** ✅ : « Atelier Viz.app » à double-cliquer (fenêtre native, icône, Dock), interface servie par l'API, enregistrement natif des fichiers.
 - **Jalon 6 — Partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil (webhook), synchronisation des rapports avec un dépôt GitHub.

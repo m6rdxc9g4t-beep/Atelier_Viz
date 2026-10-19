@@ -32,6 +32,24 @@ Premier essai : **Rapports → Ouvrir l'exemple**. Les données d'exemple du dos
 (`ventes_2026.csv` : 573 ventes ; `magasins.csv` : 30 magasins avec coordonnées) sont importées et un rapport
 de démonstration s'ouvre. On peut aussi les importer depuis **Données → Charger les données d'exemple**.
 
+### Application Mac à double-cliquer
+
+Une fois, depuis le dépôt et dans l'environnement Python du backend :
+
+```bash
+conda activate atelier            # ou : source backend/.venv/bin/activate
+./scripts/macos/build_app.sh      # crée ~/Applications/Atelier Viz.app
+```
+
+Ensuite, **double-clic sur « Atelier Viz »** (Finder, Spotlight, ou le Dock : clic droit → Options → Garder
+dans le Dock). L'application ouvre sa propre fenêtre : pas de terminal, pas de `npm run dev`. Fermer la
+fenêtre (⌘Q) arrête tout.
+
+- Même dépôt, mêmes données (`backend/data`) que le mode développement ; un seul des deux à la fois (la base n'accepte qu'un programme). Si un `uvicorn` tourne déjà, l'application le réutilise.
+- Exports PowerPoint et thèmes : boîte « Enregistrer sous » ; liens externes (Microsoft 365, boutons URL) : navigateur par défaut.
+- Après un `git pull` : relancez `./scripts/macos/build_app.sh`.
+- En cas de souci : `~/Library/Logs/Atelier Viz/atelier-viz.log`. Sans fenêtre native, `python desktop.py --browser` (dans `backend/`) ouvre l'application dans le navigateur.
+
 ### Activer Claude
 
 1. Installez Claude Code : `curl -fsSL https://claude.ai/install.sh | bash` (ou `brew install --cask claude-code`),
