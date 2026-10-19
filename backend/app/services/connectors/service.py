@@ -5,7 +5,7 @@
 - Hors ligne : seuls la machine et les réseaux privés sont joignables ; SharePoint Online exige
   le mode « En ligne » (HTTP 403 sinon).
 - Suite Atelier : instantanés d'Atelier Tab (dossier local, aucun réseau) et API locale d'Atelier Projets
-  (`atelier.py`, sans secret).
+  (`atelier.py`, sans secret, adresse de bouclage uniquement, quel que soit le mode).
 - Méthodes synchrones (réseau, pilotes, pandas, DuckDB) : à appeler via `asyncio.to_thread`.
 """
 
@@ -42,7 +42,7 @@ from app.schemas.connection import (
 )
 from app.schemas.dataset import SourceFormat
 from app.services.connectors import atelier, sql
-from app.services.connectors.base import ConnectorError, check_server, preview_of
+from app.services.connectors.base import ConnectorError, check_loopback, check_server, preview_of
 from app.services.connectors.secrets import SecretBackend
 from app.services.connectors.sharepoint import PendingLogin, SharePointClient, Tokens
 from app.services.data.parsing import DatasetError, detect_format, excel_sheets, read_table
@@ -70,9 +70,12 @@ class ConnectionService:
         self.store = store
         self.is_online = is_online
         self.http_factory = http_factory or (lambda: httpx.Client(timeout=60.0))
-        # Atelier Projets est local : pas de proxy système (trust_env=False), délai court.
+        # Atelier Projets est local : pas de proxy système (trust_env=False), délai court, aucune redirection
+        # suivie (elle pourrait mener hors de la machine).
         self.projets_http_factory = projets_http_factory or (
-            lambda: httpx.Client(timeout=settings.atelier_projets_timeout_seconds, trust_env=False)
+            lambda: httpx.Client(
+                timeout=settings.atelier_projets_timeout_seconds, trust_env=False, follow_redirects=False
+            )
         )
         self._lock = threading.Lock()
         self._pending: dict[str, PendingLogin] = {}
@@ -216,11 +219,12 @@ class ConnectionService:
     # --- Lecture ------------------------------------------------------------------------------
 
     def _guard(self, cfg: ConnectionFields) -> None:
-        """Politique réseau : hors ligne, pas d'Internet."""
+        """Politique réseau : hors ligne, pas d'Internet ; Atelier Projets toujours sur la machine."""
         if cfg.kind in SERVER_KINDS:
             check_server(cfg.host or "", self.is_online())
         elif cfg.kind == "atelier_projets":
-            check_server(atelier.projets_host(self._projets_base(cfg)), self.is_online())
+            # docs/SUITE.md §4.3 : adresse de la machine uniquement, quel que soit le mode.
+            check_loopback(atelier.projets_host(self._projets_base(cfg)), "Atelier Projets")
         elif cfg.kind == "sharepoint" and not self.is_online():
             raise ConnectorError(
                 "Mode hors ligne : SharePoint Online est sur Internet. "

@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, SecretStr, model_validator
 
+from app.core.network import is_loopback_host, loopback_refusal
+
 ConnectorKind = Literal[
     "sqlserver", "postgres", "mysql", "sqlite", "file", "sharepoint", "atelier_tab", "atelier_projets"
 ]
@@ -64,6 +66,16 @@ class ConnectionInput(ConnectionFields):
     """Création ou modification. `password` absent à la modification = mot de passe inchangé."""
 
     password: SecretStr | None = Field(default=None, description="Jamais renvoyé ; stocké dans le trousseau système.")
+
+    @model_validator(mode="after")
+    def _local_projets(self) -> "ConnectionInput":
+        # docs/SUITE.md §4.3 : Atelier Projets est local, quel que soit le mode. Contrôle de forme ici
+        # (les connexions déjà enregistrées restent lisibles) ; la résolution est vérifiée à chaque appel.
+        if self.kind == "atelier_projets" and self.base_url and self.base_url.strip():
+            host = urlparse(self.base_url.strip()).hostname or ""
+            if not is_loopback_host(host):
+                raise ValueError(loopback_refusal(host, "Atelier Projets"))
+        return self
 
 
 class Connection(ConnectionFields):

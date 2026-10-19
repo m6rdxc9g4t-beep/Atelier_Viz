@@ -89,6 +89,10 @@ describe("connecteurs de la Suite Atelier", () => {
     expect(missingField(emptyForm("atelier_tab"))).toBeNull(); // dossier vide = dossier par défaut
     expect(missingField(emptyForm("atelier_projets"))).toBeNull(); // adresse vide = adresse par défaut
     expect(missingField({ ...emptyForm("atelier_projets"), base_url: "127.0.0.1:3000" })).toBe("Adresse attendue : http://127.0.0.1:3000.");
+    for (const url of ["http://127.0.0.1:3000", "http://localhost:3000/", "http://[::1]:3000", "http://127.0.0.2"])
+      expect(missingField({ ...emptyForm("atelier_projets"), base_url: url })).toBeNull();
+    for (const url of ["http://192.168.1.20:3000", "http://projets.example.com", "http://127.0.0.1.nip.io", "http://169.254.169.254", "http://0.0.0.0:3000"])
+      expect(missingField({ ...emptyForm("atelier_projets"), base_url: url })).toMatch(/127\.0\.0\.1, localhost ou ::1/);
     expect(toInput(emptyForm("atelier_tab"), false)).not.toHaveProperty("password");
     expect(toInput({ ...emptyForm("atelier_projets"), base_url: " http://127.0.0.1:3900 " }, false)).toMatchObject({ base_url: "http://127.0.0.1:3900", path: null });
   });

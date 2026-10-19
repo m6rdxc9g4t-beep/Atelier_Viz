@@ -3,7 +3,8 @@
 - **Atelier Tab** : instantanés DataFlow v2.1.0 que l'application de bureau écrit dans un dossier
   (`~/Atelier_Tab/exports/<tableId>.json` par défaut). Aucun réseau : simple lecture de fichiers.
 - **Atelier Projets** : API locale en lecture seule (`GET /api/exports/datasets`, `GET /api/exports/datasets/:name`),
-  sans secret. L'adresse passe par la politique réseau `check_server` (machine et réseau privé hors ligne).
+  sans secret. Adresse de la machine uniquement (`check_loopback` : 127.0.0.0/8, ::1, localhost), quel que soit
+  le mode ; les redirections ne sont jamais suivies.
 
 Fonctions synchrones (disque, httpx, pandas) : à appeler via `asyncio.to_thread`.
 """
@@ -134,7 +135,8 @@ class ProjetsClient:
     def _get(self, path: str, params: dict[str, str] | None = None) -> Any:
         url = f"{self.base}{path}"
         try:
-            response = self.http.get(url, params=params)
+            # Jamais de redirection : elle pourrait mener hors de la machine (docs/SUITE.md §4.3).
+            response = self.http.get(url, params=params, follow_redirects=False)
         except httpx.TimeoutException as exc:
             raise ConnectorError(f"Atelier Projets ne répond pas à temps ({self.base}).", 504) from exc
         except httpx.HTTPError as exc:
@@ -143,6 +145,12 @@ class ProjetsClient:
                 "ou corrigez l'adresse de la connexion.",
                 503,
             ) from exc
+        if response.is_redirect:
+            raise ConnectorError(
+                f"Atelier Projets ({self.base}) a renvoyé une redirection (HTTP {response.status_code}) : "
+                "elle n'est pas suivie. Indiquez l'adresse exacte de son API (par exemple http://127.0.0.1:3000).",
+                502,
+            )
         if response.status_code == 404:
             raise ConnectorError(
                 f"Atelier Projets ({self.base}) ne connaît pas {path.split('?')[0]} : "

@@ -72,7 +72,7 @@ Contrat commun : [`docs/SUITE.md`](docs/SUITE.md).
 | Source | Comment |
 |---|---|
 | Atelier Tab | **Données → Se connecter à une source → Atelier Tab**. L'application de bureau Atelier Tab publie chaque table à son enregistrement dans `~/Atelier_Tab/exports` (dossier modifiable dans la connexion, ou `ATELIER_TAB_EXPORTS_DIR`). Choisir une table, **Importer** ; **Actualiser** relit la dernière version publiée. Un fichier `.json` exporté d'Atelier Tab (enveloppe DataFlow) peut aussi être importé directement : colonnes `_ligne`, `_id` puis une par champ, valeurs calculées, types gardés. |
-| Atelier Projets | **Atelier Projets** dans la même liste : adresse `http://127.0.0.1:3000` par défaut (`ATELIER_PROJETS_URL`). Choisir un jeu (éléments de travail, temps passé, jalons) et, si besoin, un projet ; **Importer**, puis **Actualiser**. Atelier Projets doit être lancé ; aucun mot de passe. |
+| Atelier Projets | **Atelier Projets** dans la même liste : adresse `http://127.0.0.1:3000` par défaut (`ATELIER_PROJETS_URL`). Choisir un jeu (éléments de travail, temps passé, jalons) et, si besoin, un projet ; **Importer**, puis **Actualiser**. Atelier Projets doit être lancé sur cette machine (adresse `127.0.0.1`, `localhost` ou `::1` uniquement, même en mode « En ligne ») ; aucun mot de passe. |
 
 Adresses des applications dans le sélecteur : `VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`
 (fichier `frontend/.env.local`), par défaut celles de `docs/SUITE.md` §2.

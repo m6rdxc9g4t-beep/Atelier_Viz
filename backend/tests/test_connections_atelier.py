@@ -335,15 +335,116 @@ def test_atelier_projets_old_version_and_bad_answers(client: TestClient) -> None
     assert client.post(f"/api/connections/{c['id']}/preview", json={}).status_code == 422
 
 
-def test_atelier_projets_address_is_validated_and_local_only(
-    client: TestClient, projets: FakeProjets, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_atelier_projets_address_is_validated_and_local_only(client: TestClient, projets: FakeProjets) -> None:
     bad = client.post("/api/connections", json={"name": "x", "kind": "atelier_projets", "base_url": "ftp://srv"})
     assert bad.status_code == 422
+    # Adresses locales acceptées à l'enregistrement…
+    for url in ("http://127.0.0.1:3000", "http://localhost:3000", "http://[::1]:3000", "http://127.0.0.2:3000"):
+        ok = client.post("/api/connections", json={"name": "ok", "kind": "atelier_projets", "base_url": url})
+        assert ok.status_code == 201, url
+    # … tout le reste refusé, même en mode « En ligne » (réseau privé, Internet, IP déguisée, métadonnées cloud).
+    client.put("/api/settings", json={"online_mode": True})
+    for url in (
+        "http://192.168.1.20:3000",
+        "http://10.0.0.5:3000",
+        "http://169.254.169.254/latest",
+        "http://projets.example.com",
+        "http://127.0.0.1.nip.io:3000",
+        "http://0.0.0.0:3000",
+        "http://[::ffff:10.0.0.1]:3000",
+    ):
+        r = client.post("/api/connections", json={"name": "x", "kind": "atelier_projets", "base_url": url})
+        assert r.status_code == 422, url
+        assert "n'est pas une adresse locale" in r.text and "127.0.0.1, localhost ou ::1" in r.text
+        r = client.post("/api/connections/test", json={"name": "x", "kind": "atelier_projets", "base_url": url})
+        assert r.status_code == 422, url
+    assert projets.requests == []  # rien n'est parti
+
+
+def write_registry(client: TestClient, base_url: str) -> str:
+    """Connexion enregistrée par une version antérieure (adresse non vérifiée à l'époque)."""
+    service = client.app.state.connections  # type: ignore[attr-defined]
+    service.path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "ancienne",
+                    "name": "Ancienne",
+                    "kind": "atelier_projets",
+                    "base_url": base_url,
+                    "created_at": "2026-10-01T00:00:00Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return "ancienne"
+
+
+@pytest.mark.parametrize("online", [False, True])
+def test_atelier_projets_saved_remote_address_is_refused_in_both_modes(
+    client: TestClient, projets: FakeProjets, monkeypatch: pytest.MonkeyPatch, online: bool
+) -> None:
     import socket
 
-    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **k: [(None, None, None, "", ("93.184.216.34", 0))])
-    c = make(client, name="Distant", kind="atelier_projets", base_url="http://projets.example.com")
+    resolved: list[str] = []
+
+    def fake(host: str, *_: object, **__: object) -> list[tuple[Any, ...]]:
+        resolved.append(host)
+        return [(socket.AF_INET, 0, 0, "", ("10.0.0.7", 0))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake)
+    client.put("/api/settings", json={"online_mode": online})
+    cid = write_registry(client, "http://projets.corp:3000")
+    r = client.get(f"/api/connections/{cid}/tables")
+    assert r.status_code == 403 and "n'est pas une adresse locale" in r.json()["detail"]
+    assert client.post(f"/api/connections/{cid}/test").status_code == 403
+    imp = client.post(f"/api/connections/{cid}/import", json={"table": {"name": "w", "id": "work-items"}})
+    assert imp.status_code == 403
+    assert projets.requests == [] and resolved == []  # nom distant refusé sans même le résoudre
+
+
+def test_atelier_projets_localhost_must_resolve_to_loopback(
+    client: TestClient, projets: FakeProjets, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import socket
+
+    answers: dict[str, list[str]] = {"localhost": ["127.0.0.1", "::1"]}
+
+    def fake(host: str, *_: object, **__: object) -> list[tuple[Any, ...]]:
+        return [(socket.AF_INET, 0, 0, "", (a, 0)) for a in answers[host]]
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake)
+    c = make(client, name="Local", kind="atelier_projets", base_url="http://localhost:3900")
+    assert client.get(f"/api/connections/{c['id']}/tables").status_code == 200
+    # Fichier hosts détourné : localhost pointe ailleurs → refus, rien n'est envoyé.
+    answers["localhost"] = ["127.0.0.1", "192.168.1.9"]
+    sent = len(projets.requests)
     r = client.get(f"/api/connections/{c['id']}/tables")
-    assert r.status_code == 403 and "hors ligne" in r.json()["detail"]
-    assert projets.requests == []  # rien n'est parti
+    assert r.status_code == 403 and "n'est pas une adresse locale" in r.json()["detail"]
+    assert len(projets.requests) == sent
+
+
+def test_atelier_projets_redirects_are_not_followed(client: TestClient) -> None:
+    seen: list[str] = []
+
+    def redirect(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        if request.url.host == "127.0.0.1":
+            return httpx.Response(302, headers={"Location": "http://169.254.169.254/latest/meta-data"})
+        return httpx.Response(200, json=DATASETS)
+
+    # Même un client configuré pour suivre les redirections ne doit pas les suivre.
+    client.app.state.connections.projets_http_factory = lambda: httpx.Client(  # type: ignore[attr-defined]
+        transport=httpx.MockTransport(redirect), follow_redirects=True
+    )
+    c = make(client, name="Atelier Projets", kind="atelier_projets")
+    r = client.get(f"/api/connections/{c['id']}/tables")
+    assert r.status_code == 502 and "redirection" in r.json()["detail"] and "n'est pas suivie" in r.json()["detail"]
+    assert seen == ["http://127.0.0.1:3000/api/exports/datasets"]
+
+
+def test_default_projets_client_does_not_follow_redirects(client: TestClient) -> None:
+    http = client.app.state.connections.projets_http_factory()  # type: ignore[attr-defined]
+    with http:
+        assert http.follow_redirects is False and http._trust_env is False

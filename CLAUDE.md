@@ -66,7 +66,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 ## Connecteurs
 - `app/services/connectors/` : `ConnectionService` (registre `data/connections.json` sans secret, import, actualisation), `sql.py` (dialectes), `sharepoint.py` (Graph, code d'appareil), `secrets.py` (trousseau, sinon fichier 0600).
 - Jamais de secret dans `connections.json`, les journaux ou les réponses API. Tests : `secrets_backend="file"`.
-- Politique réseau : `check_server` (hors ligne = machine / réseau privé) ; SharePoint exige le mode en ligne (403).
+- Politique réseau : `check_server` (hors ligne = machine / réseau privé) ; SharePoint exige le mode en ligne (403) ; Atelier Projets : `check_loopback` (bouclage uniquement, quel que soit le mode, redirections jamais suivies).
 - Requête libre : `check_query` (une instruction SELECT / WITH) + lecture seule côté serveur. Les types de la base sont gardés (`rows_to_frame`, pas d'`infer_types`).
 - Un jeu importé garde `origin` ; `DatasetStore.replace_data` actualise en revalidant le modèle. Côté front, `refreshDataset` puis les visuels se rechargent (`invalidateQueries`).
 - Pilotes facultatifs (`requirements-connectors.txt`) : `Dialect.driver_installed` et message 501 si absent.

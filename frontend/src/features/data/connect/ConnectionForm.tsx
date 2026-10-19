@@ -163,7 +163,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
             <p className="rounded-md bg-surface-2 px-3 py-2 text-xs text-muted">
               Éléments de travail, temps passé et jalons, lus en lecture seule sur l'API locale d'Atelier Projets (sans mot de passe). Atelier Projets doit être lancé.
             </p>
-            <Field label="Adresse d'Atelier Projets" hint={`Vide : ${info?.default_location ?? ATELIER_PROJETS_DEFAULT_URL}. Hors ligne, seuls cette machine et le réseau local sont joignables.`}>
+            <Field label="Adresse d'Atelier Projets" hint={`Vide : ${info?.default_location ?? ATELIER_PROJETS_DEFAULT_URL}. Adresse de cette machine uniquement (127.0.0.1, localhost ou ::1).`}>
               <input
                 className={`${input} font-mono text-xs`}
                 value={value.base_url ?? ""}

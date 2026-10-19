@@ -71,9 +71,25 @@ export function toInput(form: ConnectionInput, editing: boolean): ConnectionInpu
 export function missingField(form: ConnectionInput): string | null {
   if (SERVER_KINDS.includes(form.kind) && !form.host?.trim()) return "Indiquez le serveur.";
   if ((form.kind === "sqlite" || form.kind === "file") && !form.path?.trim()) return "Indiquez le chemin du fichier.";
-  if (form.kind === "atelier_projets" && form.base_url?.trim() && !/^https?:\/\/[^/\s]+/i.test(form.base_url.trim()))
-    return "Adresse attendue : http://127.0.0.1:3000.";
+  if (form.kind === "atelier_projets" && form.base_url?.trim()) {
+    const url = form.base_url.trim();
+    if (!/^https?:\/\/[^/\s]+/i.test(url)) return "Adresse attendue : http://127.0.0.1:3000.";
+    if (!isLoopbackUrl(url)) return "Atelier Projets doit tourner sur cette machine : utilisez 127.0.0.1, localhost ou ::1 (par exemple http://127.0.0.1:3000).";
+  }
   return null;
+}
+
+/** Vrai si l'adresse désigne cette machine : `localhost`, 127.0.0.0/8 ou ::1 (docs/SUITE.md §4.3, vérifié aussi par l'API). */
+export function isLoopbackUrl(url: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  if (host === "localhost" || host === "[::1]") return true;
+  // L'analyseur d'URL normalise déjà les écritures exotiques (0x7f.1, 2130706433…) en IPv4 décimale.
+  return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
 }
 
 /** Nom proposé pour le jeu importé. */
