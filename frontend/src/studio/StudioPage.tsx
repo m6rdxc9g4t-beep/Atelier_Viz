@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ArrowLeft, Check, Eye, FilterX, Loader2, Palette, Pencil, Redo2, Sparkles, Undo2, X } from "lucide-react";
+import { ArrowLeft, Check, Eye, FilterX, Loader2, Palette, Pencil, Presentation, Redo2, Sparkles, Undo2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useDatasetProfiles } from "../hooks/useDatasetProfiles";
@@ -8,6 +8,7 @@ import { navigate } from "../lib/router";
 import type { DatasetSummary } from "../types/dataset";
 import { Canvas } from "./Canvas";
 import { StudioDataContext } from "./context";
+import { ExportDialog } from "./ExportDialog";
 import { PageTabs } from "./PageTabs";
 import { AIBuilderPane } from "./panes/AIBuilderPane";
 import { DataPane } from "./panes/DataPane";
@@ -36,6 +37,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
   // Volets de droite : édition classique, thème, ou création par l'IA.
   const [side, setSide] = useState<"default" | "theme" | "ai">("default");
   const toggleSide = (v: "theme" | "ai") => setSide((cur) => (cur === v ? "default" : v));
+  const [exporting, setExporting] = useState(false);
   const s = useStudio.getState;
 
   // Chargement
@@ -194,6 +196,14 @@ export function StudioPage({ reportId }: { reportId: string }) {
                 </button>
               </>
             )}
+            <button
+              type="button"
+              onClick={() => setExporting(true)}
+              title="Exporter le rapport en PowerPoint (.pptx)"
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-fg"
+            >
+              <Presentation className="size-3.5" aria-hidden /> <span className="hidden md:inline">PowerPoint</span>
+            </button>
             <div className="ml-1 flex rounded-md border border-border p-0.5 text-xs" role="group" aria-label="Mode">
               {(["edit", "view"] as const).map((m) => (
                 <button
@@ -241,6 +251,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
         </div>
         <PageTabs />
       </div>
+      {exporting && <ExportDialog onClose={() => setExporting(false)} />}
     </StudioDataContext.Provider>
   );
 }

@@ -6,33 +6,37 @@ import { first, numberFormat } from "../common";
 import { bindingKey, bindingLabel, dimension, measure } from "../fields";
 import { formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
+import type { Filter, QueryRequest } from "../../types/query";
+import type { Visual } from "../../types/report";
 import { useQueryResult } from "../useQueryResult";
+
+/** Requête de la mini-tendance (valeur par date), ou null sans champ « Tendance ». */
+export function kpiTrendRequest(visual: Visual, filters: Filter[]): QueryRequest | null {
+  const valueB = first(visual, "values");
+  const trendB = first(visual, "trend");
+  if (!valueB || !trendB || !visual.dataset_id) return null;
+  return { dataset_id: visual.dataset_id, dimensions: [dimension(trendB)], measures: [measure(valueB)], filters, limit: 500 };
+}
+
+/** Écart à la cible en % (null sans cible). */
+export function kpiGap(value: number, target: number | null): number | null {
+  return target ? ((value - target) / Math.abs(target)) * 100 : null;
+}
 
 /** Carte KPI : valeur héroïque, écart à la cible, mini-tendance optionnelle. */
 export function KpiVisual(props: VisualProps) {
   const { visual, def, result, filters } = props;
   const valueB = first(visual, "values");
   const targetB = first(visual, "target");
-  const trendB = first(visual, "trend");
 
-  const trend = useQueryResult(
-    valueB && trendB && visual.dataset_id
-      ? {
-          dataset_id: visual.dataset_id,
-          dimensions: [dimension(trendB)],
-          measures: [measure(valueB)],
-          filters,
-          limit: 500,
-        }
-      : null,
-  );
+  const trend = useQueryResult(kpiTrendRequest(visual, filters));
 
   const row = result?.rows[0];
   if (!valueB || !row) return null;
   const fmt = numberFormat(visual);
   const value = Number(row[bindingKey(valueB)] ?? 0);
   const target = targetB ? Number(row[bindingKey(targetB)] ?? 0) : null;
-  const gap = target ? ((value - target) / Math.abs(target)) * 100 : null;
+  const gap = kpiGap(value, target);
   const higherIsBetter = opt<boolean>(visual, def, "higherIsBetter");
   const good = gap === null ? null : higherIsBetter ? gap >= 0 : gap <= 0;
   const Arrow = gap !== null && gap >= 0 ? ArrowUpRight : ArrowDownRight;

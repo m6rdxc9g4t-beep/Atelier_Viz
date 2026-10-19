@@ -6,7 +6,7 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 - un interrupteur **« En ligne »** active Claude (via la CLI Claude Code et l'abonnement claude.ai) et les webhooks vers Internet ;
 - des rapports multi-pages avec plus de 20 types de visuels, segments, filtres, filtrage croisé, cartes ;
 - des **boutons d'automatisation** (URL paramétrées par les filtres, webhooks n8n / Make / Zapier, navigation) ;
-- export PowerPoint (diapositives modifiables) — à venir.
+- **export PowerPoint** : une page = une diapositive, graphiques et tableaux PowerPoint modifiables, généré sur la machine.
 
 ## 2. Architecture
 
@@ -119,6 +119,25 @@ Dans le Studio, bouton **Créer avec l'IA** : une phrase (« CA par région sur 
 
 Mesuré avec Claude (CLI, Sonnet) sur `ventes_2026.csv` : 5 à 6 s par demande ; « CA par région sur une carte » → carte choroplèthe des régions, « évolution mensuelle par produit » → courbes par mois avec légende, « top 3 des produits par marge moyenne » → barres triées, Top N = 3 ; aucune correction nécessaire.
 
+## 5 quater. Export PowerPoint
+
+Bouton **PowerPoint** du Studio (édition et lecture) → fichier `.pptx` 16:9 téléchargé. Tout est calculé **dans le navigateur** (pptxgenjs, chargé à la demande) : aucune donnée ne quitte la machine, hors ligne compris.
+
+| Élément | Règle |
+|---|---|
+| Options | Toutes les pages ou la page affichée ; visuels **Modifiables** (graphiques natifs) ou **Images** (copie fidèle) ; diapositive de titre ; nom de la page en titre ; répartition des pages très longues. Options mémorisées dans le navigateur |
+| Mise en page | Positions de la grille reproduites à l'identique (page de référence de 1 280 px) ; une page ≤ 1,3 diapositive est réduite, au-delà elle est répartie sur plusieurs diapositives en coupant **entre deux rangées** de visuels (« Page (1/2) ») |
+| Natifs (modifiables) | Histogramme, barres, courbes, aires (empilé, 100 %), combiné (un seul axe), secteurs, anneau, radar, nuage de points sans légende, bulles → graphiques PowerPoint ; table et matrice → tableaux PowerPoint ; KPI → textes + mini-tendance ; segment → sélection enregistrée ; texte riche ; boutons |
+| En image | Ce que PowerPoint ne trace pas nativement : cartes, treemap, entonnoir, cascade, jauge, carte de chaleur, nuage de points par groupe. Rendu hors écran du composant à sa taille réelle, PNG ×2 |
+| Données | Mêmes requêtes et filtres qu'à l'écran (filtres de page, segments, sélection de la page affichée), couleurs stables par valeur, « Autres » au-delà de 8 séries |
+| Thème | Couleurs du thème du rapport et des styles de visuels résolues en hexadécimal (fond de page, cadres, bordures, transparence, arrondis, ombre, palette, encre) |
+| Nombres | Codes de format Excel : décimales comme à l'écran, notation compacte (axe : une unité commune avec marge ; étiquettes : « 974 k », « 1,9 M »), préfixe / suffixe, 100 % ; séparateurs selon la langue de PowerPoint |
+| Tables | Colonnes dimensionnées pour ne jamais passer à la ligne ; lignes au-delà de la hauteur du visuel résumées (« … et 24 autres lignes ») ; matrice repliée = premier niveau, 12 colonnes de valeurs au plus + Total |
+| Boutons | « Ouvrir une URL » (gabarit résolu avec les filtres) et « Aller à une page » restent cliquables en diaporama ; webhooks non liés |
+| Structure | Disposition « page » avec titre et numéro, une section par page, notes du présentateur : filtres de page, segments, sélection, source, date, remarques |
+
+Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus contrôlés en clair et en sombre ; galerie de 24 visuels exportée en 4 s (modifiable) et 8 s (images).
+
 ## 6. Interactions
 
 - **Filtres** (dans l'ordre d'application) : page → segments de la page → sélection par clic dans un autre visuel (filtrage croisé) → filtres du visuel. Ils ne s'appliquent qu'aux visuels du même jeu de données (ou possédant le champ, pour les filtres de page).
@@ -159,7 +178,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (82) côté back, Vitest (37) côté front ; parcours vérifiés dans un vrai navigateur (Playwright).
+- Tests : pytest (82) côté back, Vitest (62) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -168,6 +187,6 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 2 — Studio** ✅ : DuckDB, rapports multi-pages, 22 visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons d'automatisation, mode hors ligne / en ligne.
 - **Jalon 2 bis — Thèmes** ✅ : thème de l'application (clair / sombre / système), thèmes de rapport, styles par visuel, couleurs hexadécimales, import de thèmes Power BI.
 - **Jalon 3 — IA qui construit** ✅ : « Crée un graphique du CA par région » → visuels validés ajoutés au Studio (Claude via `claude -p --json-schema`, Ollama en format JSON). Reste : résumé automatique d'une page.
-- **Jalon 4 — Export** : PowerPoint natif (python-pptx, graphiques modifiables), PDF, image.
+- **Jalon 4 — Export PowerPoint** ✅ : diapositives 16:9, graphiques et tableaux natifs modifiables, images pour les visuels sans équivalent, thème du rapport, notes avec les filtres. Reste : export PDF et image d'une page.
 - **Jalon 5 — Modélisation** : colonnes calculées et mesures (expressions SQL DuckDB validées), relations entre tables, hiérarchies et exploration (drill-down).
 - **Jalon 6 — Partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil (webhook), synchronisation des rapports avec un dépôt GitHub.

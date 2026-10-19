@@ -22,7 +22,8 @@ import {
   YAxis,
 } from "recharts";
 
-import type { Scalar } from "../../types/dataset";
+import type { DatasetProfile, Scalar } from "../../types/dataset";
+import type { Visual } from "../../types/report";
 import {
   AXIS,
   Legend,
@@ -41,10 +42,11 @@ import {
 import { bindingKey, bindingLabel } from "../fields";
 import { formatDimension, formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
+import type { QueryResult } from "../useQueryResult";
 import { type ColorMap, colorDomain, useStableColors } from "../useStableColors";
 import { columnType } from "./series";
 
-interface Slice {
+export interface Slice {
   value: number;
   label: string;
   raw: Scalar;
@@ -53,8 +55,13 @@ interface Slice {
 }
 
 /** Catégorie + 1 mesure → parts triées, 8 max (les suivantes regroupées en « Autres »). Couleurs stables par valeur. */
-function slices(props: VisualProps, fold = true, colors: ColorMap | null = null): Slice[] {
-  const { visual, result, dataset } = props;
+export function slices(
+  visual: Visual,
+  result: QueryResult | null,
+  dataset: DatasetProfile | undefined,
+  fold = true,
+  colors: ColorMap | null = null,
+): Slice[] {
   const cat = first(visual, "category");
   const m = first(visual, "values");
   if (!result || !cat || !m) return [];
@@ -104,7 +111,7 @@ function SliceLabel({ cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius
 export function PieVisual(props: VisualProps) {
   const { visual, def, selection, onSelect } = props;
   const colors = useStableColors(visual, first(visual, "category"), first(visual, "values"));
-  const data = slices(props, true, colors);
+  const data = slices(props.visual, props.result, props.dataset, true, colors);
   if (!data.length) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
   const fmt = numberFormat(visual);
   const total = data.reduce((t, s) => t + s.value, 0);
@@ -179,7 +186,7 @@ export function TreemapVisual(props: VisualProps) {
   const { visual, selection, onSelect } = props;
   const colors = useStableColors(visual, first(visual, "category"), first(visual, "values"));
   // Au-delà de 8 rectangles, la couleur n'identifie plus : rampe séquentielle (voir slices).
-  const data = slices(props, false, colors).map((s) => ({ ...s, name: s.label }));
+  const data = slices(props.visual, props.result, props.dataset, false, colors).map((s) => ({ ...s, name: s.label }));
   if (!data.length) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
   const fmt = numberFormat(visual);
   const cat = first(visual, "category");
@@ -231,7 +238,7 @@ export function TreemapVisual(props: VisualProps) {
 export function FunnelVisual(props: VisualProps) {
   const { visual } = props;
   const ramp = ["--seq-700", "--seq-600", "--seq-500", "--seq-400", "--seq-300"];
-  const data = slices(props, false).map((s, i) => ({ ...s, name: s.label, fill: `var(${ramp[Math.min(i, ramp.length - 1)]})` }));
+  const data = slices(props.visual, props.result, props.dataset, false).map((s, i) => ({ ...s, name: s.label, fill: `var(${ramp[Math.min(i, ramp.length - 1)]})` }));
   if (!data.length) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
   const fmt = numberFormat(visual);
   const top = data[0]?.value || 1;

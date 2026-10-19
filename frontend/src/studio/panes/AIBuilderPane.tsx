@@ -13,7 +13,7 @@ import { bindingLabel } from "../../visuals/fields";
 import { VISUALS } from "../../visuals/registry";
 import { useStudioData } from "../context";
 import { useStudio } from "../store";
-import { defaultTitle } from "../VisualContainer";
+import { defaultTitle } from "../../visuals/title";
 import { Pane, Section } from "./Pane";
 
 /** Suggestions de demandes adaptées aux colonnes du jeu de données. */
