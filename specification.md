@@ -13,7 +13,7 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 ```
 ┌────────────────────────────────────────┐   /api (JSON)   ┌──────────────────────────────────────────┐
 │ Frontend React 19 + TS (Vite)          │ ──────────────▶ │ Backend FastAPI                           │
-│ Studio : canvas (react-grid-layout),   │                 │  routes → services                        │
+│ Studio : canvas libre (px, repères),   │                 │  routes → services                        │
 │   volets Filtres / Visualisations /    │ ◀────────────── │  ├─ engine  : DuckDB (stockage + requêtes)│
 │   Données, pages, annuler/rétablir     │                 │  ├─ data    : import pandas, profilage    │
 │ Visuels : registre (Recharts, d3-geo)  │                 │  ├─ reports : fichiers JSON               │
@@ -28,7 +28,7 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 
 | Couche | Technologie | Rôle |
 |---|---|---|
-| Frontend | React 19, TypeScript strict, Vite, Tailwind v4, Recharts 3, d3-geo, react-grid-layout 2, zustand | Studio, visuels, cartes |
+| Frontend | React 19, TypeScript strict, Vite, Tailwind v4, Recharts 3, d3-geo, zustand | Studio, visuels, cartes |
 | Backend | FastAPI, Pydantic v2 | API, validation |
 | Moteur | **DuckDB** (fichier local) | Stockage des jeux importés, agrégations SQL générées, GROUPING SETS |
 | Import | pandas + openpyxl | CSV FR/EN, XLSX, JSON → typage → table DuckDB |
@@ -56,11 +56,11 @@ Le mode se change dans l'en-tête (pastille « Hors ligne / En ligne ») ou dans
 {
   "id": "4239a64d7eb5", "version": 1, "name": "Ventes 2026", "dataset_id": "1fc5713fc3f5",
   "pages": [{
-    "id": "p1", "name": "Vue d'ensemble",
+    "id": "p1", "name": "Vue d'ensemble", "size": { "width": 1280, "height": 720 },
     "filters": [{ "field": "region", "op": "in", "values": ["Occitanie"] }],
     "visuals": [{
       "id": "v1", "type": "column", "title": null,
-      "layout": { "x": 0, "y": 0, "w": 12, "h": 14 },
+      "layout": { "x": 16, "y": 16, "w": 620, "h": 328 },
       "dataset_id": "1fc5713fc3f5",
       "roles": { "category": [{ "field": "date", "bin": "month" }],
                  "series":   [{ "field": "produit" }],
@@ -71,7 +71,8 @@ Le mode se change dans l'en-tête (pastille « Hors ligne / En ligne ») ou dans
   }]
 }
 ```
-- Grille de **24 colonnes**, lignes de 16 px.
+- **Placement libre au pixel près** (comme Power BI) : `size` = taille de la page en px (1 280 × 720 par défaut, préréglages 16:9, 4:3, longue, A4 paysage, ou personnalisée) ; `layout` = position et taille du visuel en px de page. Les visuels peuvent se chevaucher ; l'ordre de la liste est l'ordre d'empilement (le dernier est au premier plan). La page s'allonge d'elle-même quand un visuel dépasse le bas.
+- Anciens rapports (sans `size`) : `layout` en cases d'une grille de 24 colonnes ; ils sont convertis en px à l'ouverture (`migratePage`, mêmes positions) puis réenregistrés, et l'export les convertit de la même façon.
 - `roles` = puits du volet Visualisations (Axe, Légende, Valeurs…). Une liaison sans `agg` est une dimension ; `bin` regroupe les dates (année, trimestre, mois, semaine, jour).
 - `options` est libre côté backend ; chaque type de visuel définit les siennes (registre frontend).
 
@@ -141,7 +142,7 @@ Bouton **PowerPoint** du Studio (édition et lecture) → fichier `.pptx` 16:9 t
 | Élément | Règle |
 |---|---|
 | Options | Toutes les pages ou la page affichée ; visuels **Modifiables** (graphiques natifs) ou **Images** (copie fidèle) ; diapositive de titre ; nom de la page en titre ; répartition des pages très longues. Options mémorisées dans le navigateur |
-| Mise en page | Positions de la grille reproduites à l'identique (page de référence de 1 280 px) ; une page ≤ 1,3 diapositive est réduite, au-delà elle est répartie sur plusieurs diapositives en coupant **entre deux rangées** de visuels (« Page (1/2) ») |
+| Mise en page | Positions en px reproduites à l'identique, la largeur de la page occupant celle de la diapositive ; une page ≤ 1,3 diapositive est réduite, au-delà elle est répartie sur plusieurs diapositives en coupant **entre deux rangées** de visuels (« Page (1/2) ») |
 | Natifs (modifiables) | Histogramme, barres, courbes, aires (empilé, 100 %), combiné (un seul axe), secteurs, anneau, radar, nuage de points sans légende, bulles → graphiques PowerPoint ; table et matrice → tableaux PowerPoint ; KPI → textes + mini-tendance ; segment → sélection enregistrée ; texte riche ; boutons |
 | En image | Ce que PowerPoint ne trace pas nativement : cartes, treemap, entonnoir, cascade, jauge, carte de chaleur, nuage de points par groupe. Rendu hors écran du composant à sa taille réelle, PNG ×2 |
 | Données | Mêmes requêtes et filtres qu'à l'écran (filtres de page, segments, sélection de la page affichée), couleurs stables par valeur, « Autres » au-delà de 8 séries |
@@ -179,7 +180,9 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 - **Filtres** (dans l'ordre d'application) : page → segments de la page → sélection par clic dans un autre visuel (filtrage croisé) → filtres du visuel. Ils ne s'appliquent qu'aux visuels du même jeu de données (ou possédant le champ, pour les filtres de page).
 - **Filtrage croisé** : clic sur une barre, une part, une case de treemap, une région ou une ligne de table ; nouveau clic ou Échap pour annuler.
 - **Édition** : glisser un champ sur un visuel ou dans un puits ; clic sur un champ = ajout au visuel sélectionné, ou création d'un visuel adapté ; clic sur une icône = ajout, ou changement de type en conservant les champs.
-- **Raccourcis** : Ctrl+Z / Ctrl+Y (annuler / rétablir, 60 niveaux), Ctrl+D (dupliquer), Suppr (supprimer), Échap.
+- **Placement** : déplacement par la poignée du haut du visuel, redimensionnement par 8 poignées (Maj : proportions conservées), repères d'alignement roses sur les bords et centres des autres visuels, les marges et le centre de la page (Alt : sans accroche), cote x/y ou L × H pendant le geste ; flèches du clavier pour 1 px (Maj : 10 px, un seul retour arrière pour une suite d'ajustements) ; X / Y / L / H au pixel près dans l'onglet Format ; premier plan / arrière-plan ; une copie (Ctrl+D) est décalée de 16 px. Un nouveau visuel prend le premier espace libre de la page.
+- **Zoom** : ajusté à la largeur par défaut, paliers de 25 % à 200 %, Ctrl + molette ; la page est mise à l'échelle d'un bloc (textes compris), info-bulles exactes à tout zoom.
+- **Raccourcis** : Ctrl+Z / Ctrl+Y (annuler / rétablir, 60 niveaux), Ctrl+D (dupliquer), Suppr (supprimer), flèches (ajuster), Échap.
 - **Modes** : Édition (volets, déplacement, redimensionnement) et Lecture.
 - **Sauvegarde** automatique 0,8 s après la dernière modification.
 - **Rapport de démarrage** : mise en page générée depuis le profil d'un jeu (KPI, évolution, répartition, carte si un champ région/département/pays est reconnu, segment, matrice, table, boutons).
@@ -229,4 +232,6 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 3 — IA qui construit** ✅ : « Crée un graphique du CA par région » → visuels validés ajoutés au Studio (Claude via `claude -p --json-schema`, Ollama en format JSON). Résumé de page vérifié chiffre par chiffre, insérable dans le rapport et dans les notes PowerPoint.
 - **Jalon 4 — Export PowerPoint** ✅ : diapositives 16:9, graphiques et tableaux natifs modifiables, images pour les visuels sans équivalent, thème du rapport, notes avec les filtres. Reste : export PDF et image d'une page.
 - **Jalon 5 — Modélisation** ✅ : mesures et colonnes calculées (langage analysé et compilé, jamais de SQL brut), hiérarchies et exploration (drill-down), hiérarchie de dates. Reste : relations entre tables (jointures entre jeux de données).
+- **Jalon 5 bis — Placement libre** ✅ : visuels au pixel près n'importe où sur la page (taille de page en px, repères d'alignement, poignées, clavier, saisie X/Y/L/H, superposition et ordre, zoom), conversion automatique des anciens rapports.
+- **Jalon 5 ter — Connecteurs** (en cours) : SQL Server, PostgreSQL, MySQL, SQLite, SharePoint / OneDrive, avec actualisation.
 - **Jalon 6 — Partage et automatisation** : signets, actualisation planifiée des sources, alertes sur seuil (webhook), synchronisation des rapports avec un dépôt GitHub.

@@ -92,9 +92,9 @@ export function SummaryPane() {
 
   const insert = () => {
     if (!result) return;
-    // Hauteur : une ligne de 20 px par point (+ titre), en rangées de 24 px, et une rangée de marge pour les retours à la ligne.
-    const rows = Math.ceil(((1 + result.points.length) * 20 + 16) / 24) + 1;
-    const id = useStudio.getState().insertTextAtTop(summaryText(result), rows);
+    // Hauteur (px) : une ligne de 20 px par point (+ titre), et une ligne de marge pour les retours à la ligne.
+    const height = (2 + result.points.length) * 20 + 32;
+    const id = useStudio.getState().insertTextAtTop(summaryText(result), height);
     useStudio.getState().notify("Synthèse insérée en haut de la page (Ctrl+Z pour annuler).");
     if (id) setTimeout(() => focusVisual(id), 50);
   };

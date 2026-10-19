@@ -17,7 +17,7 @@ cartes hors ligne, boutons d'automatisation, assistant IA (Ollama local ; Claude
 ## Stack
 | Couche | Choix |
 |---|---|
-| Frontend | React 19 + TypeScript strict + Vite, Tailwind v4, Recharts 3, d3-geo + topojson, react-grid-layout 2, zustand |
+| Frontend | React 19 + TypeScript strict + Vite, Tailwind v4, Recharts 3, d3-geo + topojson, zustand (canvas libre maison) |
 | Backend | FastAPI, Pydantic v2, pydantic-settings, httpx |
 | Moteur | DuckDB (fichier `backend/data/atelier.duckdb`) : une table `ds_<id>` par jeu + `__datasets` (profils) |
 | Import | pandas + openpyxl (CSV FR/EN, XLSX, JSON) |
@@ -56,6 +56,11 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 3. Ajouter l'entrée dans `VISUALS` (`registry.ts`) : rôles, options, `query` (souvent `genericQuery`).
 4. Mettre à jour le test du registre (`logic.test.ts`) et la spec §5.
 5. Export PowerPoint : entrée dans `BUILDERS` (natif) ou `IMAGE_ONLY` (`frontend/src/export/buildVisual.ts`).
+
+## Placement des visuels
+- Page en pixels (`Page.size`, 1280 × 720 par défaut) ; `Visual.layout` en px de page. Géométrie pure dans `studio/grid.ts` (migration des anciens rapports en grille, bornage, hauteur) et `studio/snap.ts` (déplacement, redimensionnement, repères), testée dans `studio/placement.test.ts`.
+- Toute lecture d'un rapport potentiellement ancien passe par `migratePage` (le Studio le fait dans `load`, l'export dans `planSlides`).
+- Le zoom met la page à l'échelle par `transform: scale` : une info-bulle maison positionnée à la souris utilise `localPoint` (`visuals/common.tsx`).
 
 ## Règles de code
 1. **Modularité** : routes minces, logique dans `services/` ; un visuel = un composant + une entrée de registre.

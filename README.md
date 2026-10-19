@@ -49,6 +49,7 @@ Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages)
 |---|---|
 | Ajouter un visuel | Icône du volet Visualisations, clic sur un champ du volet Données, ou **Créer avec l'IA** (« CA par région sur une carte ») |
 | Configurer | Glisser des champs dans les puits (Axe, Légende, Valeurs…) ou directement sur le visuel |
+| Placer au pixel près | Glisser la poignée du haut du visuel n'importe où sur la page (repères d'alignement roses, Alt pour s'en passer), 8 poignées pour la taille (Maj : proportions), flèches du clavier (1 px, Maj : 10 px), ou X / Y / L / H dans l'onglet Format ; superposer et choisir premier plan / arrière-plan ; taille de la page dans l'onglet Format sans sélection ; zoom en bas à droite (Ctrl + molette) |
 | Changer de type | Sélectionner le visuel puis cliquer une autre icône (les champs sont conservés) |
 | Filtrer | Segments, volet Filtres (page / visuel), clic sur un élément d'un graphique (filtrage croisé) |
 | Automatiser | Visuel « Bouton d'action » : URL avec `{champ}`, webhook (n8n, Make, Zapier), page, réinitialisation |
@@ -57,7 +58,7 @@ Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages)
 | Habiller | Bouton « Thème » : clair / sombre, préréglages (Verre, Papier, Minuit…), couleurs en hexadécimal, import de thèmes Power BI ; onglet Format d'un visuel : fond transparent, bordure, arrondi, ombre, titre, couleurs |
 | Résumer | Bouton **Résumer** : synthèse de la page par l'IA, chaque chiffre vérifié contre les données ; à insérer dans la page ou dans les notes PowerPoint |
 | Exporter | Bouton **PowerPoint** : une page = une diapositive, graphiques et tableaux modifiables dans PowerPoint (ou images fidèles), filtres listés dans les notes ; fichier créé sur la machine |
-| Raccourcis | Ctrl+Z / Ctrl+Y, Ctrl+D, Suppr, Échap |
+| Raccourcis | Ctrl+Z / Ctrl+Y, Ctrl+D, Suppr, flèches, Échap |
 
 ## Tests
 

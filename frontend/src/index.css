@@ -1,6 +1,4 @@
 @import "tailwindcss";
-@import "react-grid-layout/css/styles.css";
-@import "react-resizable/css/styles.css";
 
 /* Le mode sombre suit la classe .dark posée sur <html> (voir useTheme). */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -124,15 +122,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Grille du canvas : poignée de redimensionnement discrète, placeholder aux couleurs du thème. */
-.react-grid-item.react-grid-placeholder {
-  background: var(--accent);
-  opacity: 0.15;
-  border-radius: 8px;
-}
-.react-grid-item > .react-resizable-handle::after {
-  border-color: var(--muted);
-}
 /* Pas de cadre de focus après un clic souris dans un graphique (le clavier garde l'info-bulle). */
 .recharts-wrapper:focus,
 .recharts-wrapper *:focus {

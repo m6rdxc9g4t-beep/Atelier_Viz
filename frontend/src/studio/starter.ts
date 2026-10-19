@@ -6,6 +6,7 @@
 import type { ColumnProfile, DatasetProfile } from "../types/dataset";
 import type { Page, Visual, VisualType } from "../types/report";
 import { normalize } from "../visuals/maps/geo";
+import { migratePage } from "./grid";
 import { uid } from "./store";
 
 const GEO_HINTS: Record<string, string> = {
@@ -85,5 +86,6 @@ export function starterPages(ds: DatasetProfile): Page[] {
     v("button", "", { x: 5, y: 18, w: 5, h: 4 }, {}, { label: "Réinitialiser les filtres", action: "reset", variant: "ghost" }),
   );
   pages.push({ id: uid(), name: "Détail", visuals: detail, filters: [] });
-  return pages;
+  // Composé sur l'ancienne grille de 24 colonnes, converti en pixels (placement libre).
+  return pages.map(migratePage);
 }

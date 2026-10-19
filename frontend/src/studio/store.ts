@@ -9,7 +9,10 @@ import type { FieldBinding, Layout, Page, Report, ReportBody, Visual, VisualOpti
 import { defaultBinding } from "../visuals/fields";
 import { VISUALS } from "../visuals/registry";
 import type { RoleDef, Selection } from "../visuals/types";
-import { placeVisuals } from "./placement";
+import { DEFAULT_PAGE, GAP, clampToPage, fitHeight, migratePage, sizePx } from "./grid";
+
+const MIN_TEXT_H = 72;
+import { findFreeSpot, placeVisuals } from "./placement";
 
 export type SaveState = "saved" | "dirty" | "saving" | "error";
 export type Mode = "edit" | "view";
@@ -85,12 +88,12 @@ export function convertRoles(visual: Visual, type: VisualType): Record<string, F
 
 export function newVisual(type: VisualType, page: Page, datasetId: string | null): Visual {
   const def = VISUALS[type];
-  const bottom = page.visuals.reduce((m, v) => Math.max(m, v.layout.y + v.layout.h), 0);
+  const { w, h } = sizePx(def.size);
   return {
     id: uid(),
     type,
     title: null,
-    layout: { x: 0, y: bottom, ...def.size },
+    layout: findFreeSpot(page, w, h),
     dataset_id: def.roles.length ? datasetId : null,
     roles: {},
     options: {},
@@ -122,7 +125,8 @@ interface StudioState {
   /** Répercute le renommage d'une colonne ou mesure calculée dans les visuels du rapport. */
   renameField: (datasetId: string, from: string, to: string, measure: boolean) => void;
   /** Insère une zone de texte pleine largeur en haut de la page (les visuels descendent). */
-  insertTextAtTop: (text: string, rows: number) => string | null;
+  /** Insère un texte pleine largeur en haut de la page (hauteur en px) et descend le reste. */
+  insertTextAtTop: (text: string, height: number) => string | null;
   setVisualStyle: (id: string, patch: Record<string, unknown> | null) => void;
   applyStyleToPage: (id: string) => void;
   undo: () => void;
@@ -141,7 +145,13 @@ interface StudioState {
   removeVisual: (id: string) => void;
   duplicateVisual: (id: string) => void;
   changeType: (id: string, type: VisualType) => void;
-  setLayouts: (items: readonly { i: string; x: number; y: number; w: number; h: number }[]) => void;
+  /** Position et taille d'un visuel (px), gardées dans la largeur de la page. */
+  setLayout: (id: string, layout: Layout, coalesce?: string) => void;
+  /** Déplacement au clavier (flèches : 1 px, Maj : 10 px). */
+  nudge: (id: string, dx: number, dy: number) => void;
+  /** Ordre d'empilement : premier plan ou arrière-plan. */
+  reorder: (id: string, where: "front" | "back") => void;
+  setPageSize: (size: { width: number; height: number }) => void;
   dropField: (visualId: string, column: ColumnProfile, datasetId: string, roleId?: string) => void;
   setPageFilters: (filters: Filter[]) => void;
   addPage: () => void;
@@ -177,17 +187,22 @@ export const useStudio = create<StudioState>((set, get) => {
     future: [],
     notice: null,
 
-    load: (report) =>
+    load: (raw) => {
+      // Anciens rapports (grille de 24 colonnes) : convertis en pixels, puis réenregistrés.
+      const migrated = raw.pages.some((p) => !p.size);
+      const report = migrated ? { ...raw, pages: raw.pages.map(migratePage) } : raw;
       set({
         report,
         pageId: report.pages[0]?.id ?? "",
         selectedId: null,
         selection: null,
-        saveState: "saved",
+        // Converti : enregistré au prochain passage de l'enregistrement automatique.
+        saveState: migrated ? "dirty" : "saved",
         saveError: null,
         past: [],
         future: [],
-      }),
+      });
+    },
 
     mutate: (fn, opts) => {
       const current = get().report;
@@ -213,13 +228,16 @@ export const useStudio = create<StudioState>((set, get) => {
         id: uid(),
         type: spec.type,
         title: spec.title,
-        layout: layouts[i] ?? { x: 0, y: 0, ...VISUALS[spec.type].size },
+        layout: layouts[i] ?? { x: GAP, y: GAP, ...sizePx(VISUALS[spec.type].size) },
         dataset_id: datasetId,
         roles: spec.roles,
         options: spec.options,
         filters: [],
       }));
-      withPage((p) => p.visuals.push(...created));
+      withPage((p) => {
+        p.visuals.push(...created);
+        if (p.size) p.size.height = fitHeight(p);
+      });
       set({ selectedId: created[0]?.id ?? null });
       return created.map((v) => v.id);
     },
@@ -238,22 +256,26 @@ export const useStudio = create<StudioState>((set, get) => {
         }
       }),
 
-    insertTextAtTop: (text, rows) => {
-      if (!get().page()) return null;
-      const h = Math.max(3, Math.round(rows));
+    insertTextAtTop: (text, height) => {
+      const page = get().page();
+      if (!page) return null;
+      const h = Math.max(MIN_TEXT_H, Math.round(height));
+      const width = (page.size ?? DEFAULT_PAGE).width;
       const visual: Visual = {
         id: uid(),
         type: "text",
         title: null,
-        layout: { x: 0, y: 0, w: 24, h },
+        layout: { x: GAP, y: GAP, w: width - 2 * GAP, h },
         dataset_id: null,
         roles: {},
         options: { text, size: "sm" },
         filters: [],
       };
       withPage((p) => {
-        for (const v of p.visuals) v.layout = { ...v.layout, y: v.layout.y + h };
+        // Le reste de la page descend d'autant (texte + marge).
+        for (const v of p.visuals) v.layout = { ...v.layout, y: v.layout.y + h + GAP };
         p.visuals.unshift(visual);
+        if (p.size) p.size.height = fitHeight(p);
       });
       set({ selectedId: visual.id });
       return visual.id;
@@ -328,7 +350,10 @@ export const useStudio = create<StudioState>((set, get) => {
       const page = get().page();
       if (!page) return "";
       const v = newVisual(type, page, datasetId);
-      withPage((p) => p.visuals.push(v));
+      withPage((p) => {
+        p.visuals.push(v);
+        if (p.size) p.size.height = fitHeight(p);
+      });
       set({ selectedId: v.id });
       return v.id;
     },
@@ -363,8 +388,10 @@ export const useStudio = create<StudioState>((set, get) => {
         if (!hit) return;
         const copy = structuredClone(hit.v);
         copy.id = copyId;
-        copy.layout = { ...copy.layout, y: copy.layout.y + copy.layout.h };
+        // Décalé de 16 px, comme dans Power BI ; la page s'agrandit au besoin.
+        copy.layout = clampToPage({ ...copy.layout, x: copy.layout.x + GAP, y: copy.layout.y + GAP }, hit.p.size ?? DEFAULT_PAGE);
         hit.p.visuals.push(copy);
+        if (hit.p.size) hit.p.size.height = fitHeight(hit.p);
       });
       set({ selectedId: copyId });
     },
@@ -376,21 +403,46 @@ export const useStudio = create<StudioState>((set, get) => {
         if (!VISUALS[type].roles.length) v.dataset_id = null;
       }),
 
-    setLayouts: (items) => {
+    setLayout: (id, layout, coalesce) => {
       const page = get().page();
-      if (!page) return;
-      const changed = items.some((it) => {
-        const v = page.visuals.find((x) => x.id === it.i);
-        return v && (v.layout.x !== it.x || v.layout.y !== it.y || v.layout.w !== it.w || v.layout.h !== it.h);
-      });
-      if (!changed) return;
-      withPage((p) => {
-        for (const it of items) {
-          const v = p.visuals.find((x) => x.id === it.i);
-          if (v) v.layout = { x: it.x, y: it.y, w: it.w, h: it.h } satisfies Layout;
-        }
-      });
+      const v = page?.visuals.find((x) => x.id === id);
+      if (!page || !v) return;
+      const next = clampToPage(layout, page.size ?? DEFAULT_PAGE);
+      if (next.x === v.layout.x && next.y === v.layout.y && next.w === v.layout.w && next.h === v.layout.h) return;
+      get().mutate(
+        (r) => {
+          const p = r.pages.find((x) => x.id === get().pageId);
+          const target = p?.visuals.find((x) => x.id === id);
+          if (!p || !target) return;
+          target.layout = next satisfies Layout;
+          // La page s'allonge si un visuel dépasse le bas (jamais raccourcie automatiquement).
+          if (p.size) p.size.height = fitHeight(p);
+        },
+        coalesce ? { coalesce } : undefined,
+      );
     },
+
+    nudge: (id, dx, dy) => {
+      const v = get().page()?.visuals.find((x) => x.id === id);
+      if (v) get().setLayout(id, { ...v.layout, x: v.layout.x + dx, y: v.layout.y + dy }, `nudge:${id}`);
+    },
+
+    reorder: (id, where) =>
+      withPage((p) => {
+        const i = p.visuals.findIndex((v) => v.id === id);
+        if (i < 0) return;
+        const [v] = p.visuals.splice(i, 1);
+        if (!v) return;
+        if (where === "front") p.visuals.push(v);
+        else p.visuals.unshift(v);
+      }),
+
+    setPageSize: (size) =>
+      withPage((p) => {
+        p.size = { width: Math.round(size.width), height: Math.round(size.height) };
+        for (const v of p.visuals) v.layout = clampToPage(v.layout, p.size);
+        p.size.height = Math.max(p.size.height, fitHeight({ ...p, size: { ...p.size, height: 0 } }));
+      }),
 
     dropField: (visualId, column, datasetId, roleId) => {
       const report = get().report;
@@ -415,7 +467,7 @@ export const useStudio = create<StudioState>((set, get) => {
 
     addPage: () => {
       const id = uid();
-      get().mutate((r) => r.pages.push({ id, name: `Page ${r.pages.length + 1}`, visuals: [], filters: [] }));
+      get().mutate((r) => r.pages.push({ id, name: `Page ${r.pages.length + 1}`, visuals: [], filters: [], size: { ...(get().page()?.size ?? DEFAULT_PAGE) } }));
       set({ pageId: id, selectedId: null, selection: null });
     },
 

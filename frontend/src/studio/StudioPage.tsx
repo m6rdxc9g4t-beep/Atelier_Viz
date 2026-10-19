@@ -97,6 +97,12 @@ export function StudioPage({ reportId }: { reportId: string }) {
       } else if ((e.key === "Delete" || e.key === "Backspace") && st.selectedId && st.mode === "edit") {
         e.preventDefault();
         st.removeVisual(st.selectedId);
+      } else if (e.key.startsWith("Arrow") && st.selectedId && st.mode === "edit" && !mod) {
+        // Ajustement au pixel près (Maj : 10 px).
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        const [dx, dy] = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key] ?? [0, 0];
+        if (dx || dy) st.nudge(st.selectedId, dx ?? 0, dy ?? 0);
       } else if (e.key === "Escape") {
         if (st.selection) st.setSelection(null);
         else st.select(null);
@@ -233,7 +239,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
 
         <div className="relative flex min-h-0 flex-1">
           <section
-            className={clsx("min-w-0 flex-1 overflow-y-auto bg-canvas p-3", theme && (theme.mode === "dark" ? "theme-dark" : "theme-light"))}
+            className={clsx("relative min-w-0 flex-1 overflow-hidden bg-canvas", theme && (theme.mode === "dark" ? "theme-dark" : "theme-light"))}
             style={theme ? themeVars(theme) : undefined}
             aria-label={`Page ${page?.name ?? ""}`}
           >
