@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 
-from app.api.deps import SchedulerDep, SettingsDep, StoreDep
+from app.api.deps import AlertsDep, SchedulerDep, SettingsDep, StoreDep
 from app.schemas.dataset import (
     DatasetModel,
     DatasetProfile,
@@ -116,9 +116,10 @@ async def refresh_dataset(dataset_id: str, store: StoreDep, scheduler: Scheduler
 
 
 @router.delete("/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_dataset(dataset_id: str, store: StoreDep, scheduler: SchedulerDep) -> Response:
-    """Supprime définitivement un jeu de données (et sa planification d'actualisation)."""
+async def delete_dataset(dataset_id: str, store: StoreDep, scheduler: SchedulerDep, alerts: AlertsDep) -> Response:
+    """Supprime définitivement un jeu de données (et sa planification d'actualisation, ses alertes)."""
     if not await asyncio.to_thread(store.remove, dataset_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Jeu de données « {dataset_id} » introuvable.")
     await asyncio.to_thread(scheduler.forget, dataset_id)
+    await asyncio.to_thread(alerts.forget_dataset, dataset_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

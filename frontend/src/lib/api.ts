@@ -17,6 +17,7 @@ import type {
   TableList,
   TestResult,
 } from "../types/connection";
+import type { Alert, AlertInput, AlertNotification } from "../types/alert";
 import type { RefreshRun, RefreshSchedule, ScheduleState } from "../types/refresh";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
 
@@ -128,6 +129,19 @@ export const api = {
     run: (datasetId: string) => request<RefreshRun>(`/refresh/${datasetId}/run`, { method: "POST" }),
     /** Horodatage de la dernière actualisation de chaque jeu actualisable. */
     versions: () => request<Record<string, string>>("/refresh/versions"),
+  },
+
+  alerts: {
+    list: (datasetId?: string) => request<Alert[]>(`/alerts${datasetId ? `?dataset_id=${datasetId}` : ""}`),
+    /** Crée l'alerte et l'évalue une première fois. */
+    create: (body: AlertInput) => request<Alert>("/alerts", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: AlertInput) => request<Alert>(`/alerts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    remove: (id: string) => request<void>(`/alerts/${id}`, { method: "DELETE" }),
+    evaluate: (id: string) => request<Alert>(`/alerts/${id}/evaluate`, { method: "POST" }),
+    notifications: () => request<AlertNotification[]>("/alerts/notifications"),
+    /** Liste vide = toutes. */
+    markRead: (ids: string[] = []) =>
+      request<AlertNotification[]>("/alerts/notifications/read", { method: "POST", body: JSON.stringify({ ids }) }),
   },
 
   query: (body: QueryRequest, signal?: AbortSignal) =>

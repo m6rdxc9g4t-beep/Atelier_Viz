@@ -1,8 +1,12 @@
 import clsx from "clsx";
-import { ArrowDown, ArrowUp, BringToFront, ChevronsDown, Copy, GripHorizontal, Loader2, SendToBack, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BellPlus, BringToFront, ChevronsDown, Copy, GripHorizontal, Loader2, SendToBack, Trash2 } from "lucide-react";
 import { type DragEvent, memo, useMemo, useState } from "react";
 
+import { AlertEditor } from "../features/automation/AlertEditor";
+import { alertFromVisual } from "../features/automation/alerts";
 import type { Page, Report, Visual } from "../types/report";
+import { first } from "../visuals/common";
+import { bindingKey } from "../visuals/fields";
 import { VisualMessage, isReady } from "../visuals/common";
 import { type VisualStyle, readTheme, titleCss, visualCss } from "../theme/reportTheme";
 import { canDrill, drillCrumbs, drillDown, drillLevels, drillState, drillUp, drillView, nextLevel } from "../visuals/drill";
@@ -24,7 +28,8 @@ interface Props {
 /** Cadre d'un visuel sur le canvas : titre, requête, états vides / erreurs, sélection, dépôt de champs. */
 export const VisualContainer = memo(function VisualContainer({ visual, page, report }: Props) {
   const def = VISUALS[visual.type];
-  const { profiles } = useStudioData();
+  const { profiles, datasets } = useStudioData();
+  const [alerting, setAlerting] = useState(false);
   const mode = useStudio((s) => s.mode);
   const selectedId = useStudio((s) => s.selectedId);
   const selection = useStudio((s) => s.selection);
@@ -117,6 +122,18 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
     );
   }
 
+  // Alerte depuis un KPI ou une jauge : même mesure, mêmes filtres, seuil = cible ou valeur affichée.
+  const valueB = first(view, "values");
+  const targetB = first(view, "target");
+  const row = result?.rows[0];
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const alertDraft = editing
+    ? alertFromVisual(view, filters, {
+        value: valueB && row ? num(row[bindingKey(valueB)]) : null,
+        target: targetB && row ? num(row[bindingKey(targetB)]) : null,
+      })
+    : null;
+
   // Boutons et textes : pas de cadre ni de titre par défaut (comme dans Power BI).
   const bare = visual.type === "button" || visual.type === "text";
   const style = visual.options.style as VisualStyle | undefined;
@@ -162,6 +179,18 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
         >
           <GripHorizontal className="size-3.5" aria-hidden />
           <span className="flex gap-0.5">
+            {alertDraft && (
+              <button
+                type="button"
+                aria-label="Créer une alerte sur cette valeur"
+                title="Créer une alerte sur cette valeur (seuil, notification, webhook)"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => setAlerting(true)}
+                className="rounded bg-surface p-1 hover:text-fg"
+              >
+                <BellPlus className="size-3" aria-hidden />
+              </button>
+            )}
             <button
               type="button"
               aria-label="Premier plan"
@@ -214,6 +243,17 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
       )}
       {drillable && <DrillBar visual={visual} dataset={dataset} drillMode={drillMode} onToggle={() => setDrillMode((m) => !m)} onChange={setDrill} />}
       <div className="min-h-0 flex-1">{body}</div>
+      {alerting && alertDraft && (
+        <AlertEditor
+          initial={alertDraft}
+          datasets={datasets}
+          onClose={() => setAlerting(false)}
+          onSaved={(a) => {
+            setAlerting(false);
+            studio().notify(`Alerte « ${a.name} » créée : retrouvez-la dans Automatisation.`);
+          }}
+        />
+      )}
     </section>
   );
 });

@@ -8,6 +8,7 @@ from fastapi import Depends, Request
 from app.core.config import Settings
 from app.services.ai import AIService, AnthropicProvider, ClaudeCliProvider, OllamaProvider
 from app.services.ai.service import ClaudeProvider
+from app.services.alerts import AlertService
 from app.services.connectors import ConnectionService
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase
@@ -91,6 +92,12 @@ def get_scheduler(request: Request) -> RefreshScheduler:
     return scheduler
 
 
+def get_alerts(request: Request) -> AlertService:
+    """Alertes sur seuil."""
+    alerts: AlertService = request.app.state.alerts
+    return alerts
+
+
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 AIServiceDep = Annotated[AIService, Depends(get_ai_service)]
 DatabaseDep = Annotated[LocalDatabase, Depends(get_database)]
@@ -99,3 +106,4 @@ ReportsDep = Annotated[ReportRepository, Depends(get_report_repository)]
 PreferencesDep = Annotated[PreferencesStore, Depends(get_preferences)]
 ConnectionsDep = Annotated[ConnectionService, Depends(get_connections)]
 SchedulerDep = Annotated[RefreshScheduler, Depends(get_scheduler)]
+AlertsDep = Annotated[AlertService, Depends(get_alerts)]

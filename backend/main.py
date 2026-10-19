@@ -19,6 +19,7 @@ from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.services.actions import ActionError
 from app.services.ai import AIProviderError
+from app.services.alerts import AlertError, AlertService
 from app.services.connectors import ConnectionService, ConnectorError, build_secrets
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase, QueryError
@@ -53,6 +54,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.connections.refresh,
             is_online=lambda: app.state.preferences.get().online_mode,
         )
+        # Alertes sur seuil : évaluées après chaque actualisation réussie d'un jeu.
+        app.state.alerts = AlertService(
+            data_dir / "alerts.json",
+            app.state.dataset_store,
+            app.state.database,
+            is_online=lambda: app.state.preferences.get().online_mode,
+        )
+        app.state.scheduler.on_refreshed(app.state.alerts.evaluate_dataset)
         ticker = (
             asyncio.create_task(app.state.scheduler.run_forever(settings.scheduler_period_seconds))
             if settings.scheduler_enabled
@@ -88,6 +97,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(ActionError)
     async def action_error_handler(_: Request, exc: ActionError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
+
+    @app.exception_handler(AlertError)
+    async def alert_error_handler(_: Request, exc: AlertError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
     @app.exception_handler(ConnectorError)
     async def connector_error_handler(_: Request, exc: ConnectorError) -> JSONResponse:
