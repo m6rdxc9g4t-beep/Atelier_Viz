@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { BarChart3, Database, LayoutDashboard, type LucideIcon, Settings } from "lucide-react";
+import { BarChart3, Database, LayoutDashboard, type LucideIcon, Settings, Workflow } from "lucide-react";
 
 import type { Route } from "../../lib/router";
 import { navigate } from "../../lib/router";
@@ -14,6 +14,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { label: "Rapports", icon: LayoutDashboard, path: "/", match: ["reports", "studio"] },
   { label: "Données", icon: Database, path: "/donnees", match: ["data"] },
+  { label: "Automatisation", icon: Workflow, path: "/automatisation", match: ["automation"] },
   { label: "Réglages", icon: Settings, path: "/reglages", match: ["settings"] },
 ];
 

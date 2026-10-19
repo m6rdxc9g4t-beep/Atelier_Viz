@@ -4,8 +4,9 @@ Lancer depuis le dossier backend/ :  uvicorn main:app --reload
 Documentation interactive :          http://localhost:8000/docs
 """
 
+import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +23,7 @@ from app.services.connectors import ConnectionService, ConnectorError, build_sec
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase, QueryError
 from app.services.preferences import PreferencesStore
+from app.services.refresh import RefreshScheduler
 from app.services.reports import ReportRepository
 
 
@@ -44,7 +46,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             is_online=lambda: app.state.preferences.get().online_mode,
         )
         app.state.ai_service = build_ai_service(settings, is_online=lambda: app.state.preferences.get().online_mode)
+        # Actualisation planifiée des jeux importés (fichier à côté de connections.json).
+        app.state.scheduler = RefreshScheduler(
+            data_dir / "schedules.json",
+            app.state.dataset_store,
+            app.state.connections.refresh,
+            is_online=lambda: app.state.preferences.get().online_mode,
+        )
+        ticker = (
+            asyncio.create_task(app.state.scheduler.run_forever(settings.scheduler_period_seconds))
+            if settings.scheduler_enabled
+            else None
+        )
         yield
+        if ticker is not None:
+            ticker.cancel()
+            with suppress(asyncio.CancelledError):
+                await ticker
         await app.state.ai_service.aclose()
         app.state.database.close()
 

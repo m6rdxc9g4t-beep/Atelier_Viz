@@ -3,10 +3,12 @@ import { Suspense, lazy, useState } from "react";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
 import { AssistantPanel } from "./features/assistant/AssistantPanel";
+import { AutomationView } from "./features/automation/AutomationView";
 import { DataView } from "./features/data/DataView";
 import { ReportsHome } from "./features/reports/ReportsHome";
 import { SettingsView } from "./features/settings/SettingsView";
 import { useDatasets } from "./hooks/useDatasets";
+import { useDataVersions } from "./hooks/useDataVersions";
 import { useProviders } from "./hooks/useProviders";
 import { useTheme } from "./hooks/useTheme";
 import { useRoute } from "./lib/router";
@@ -15,13 +17,15 @@ import { useStudio } from "./studio/store";
 // Le Studio (graphiques, cartes, grille) est chargé à la demande : accueil et page Données s'ouvrent plus vite.
 const StudioPage = lazy(() => import("./studio/StudioPage").then((m) => ({ default: m.StudioPage })));
 
-const TITLES = { reports: "Rapports", data: "Données", settings: "Réglages" } as const;
+const TITLES = { reports: "Rapports", data: "Données", automation: "Automatisation", settings: "Réglages" } as const;
 
 export default function App() {
   const route = useRoute();
   const { theme, toggle } = useTheme();
   const providers = useProviders();
   const datasets = useDatasets();
+  // Actualisations planifiées : les visuels ouverts se rechargent quand un jeu change.
+  useDataVersions();
   const [assistantOpen, setAssistantOpen] = useState(false);
   const studioReport = useStudio((s) => s.report);
   const inStudio = route.name === "studio";
@@ -59,6 +63,7 @@ export default function App() {
               <DataView state={datasets} />
             </div>
           )}
+          {route.name === "automation" && <AutomationView />}
           {route.name === "settings" && <SettingsView />}
         </main>
       </div>

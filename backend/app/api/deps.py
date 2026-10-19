@@ -12,6 +12,7 @@ from app.services.connectors import ConnectionService
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase
 from app.services.preferences import PreferencesStore
+from app.services.refresh import RefreshScheduler
 from app.services.reports import ReportRepository
 
 
@@ -84,6 +85,12 @@ def get_connections(request: Request) -> ConnectionService:
     return service
 
 
+def get_scheduler(request: Request) -> RefreshScheduler:
+    """Ordonnanceur des actualisations planifiées."""
+    scheduler: RefreshScheduler = request.app.state.scheduler
+    return scheduler
+
+
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 AIServiceDep = Annotated[AIService, Depends(get_ai_service)]
 DatabaseDep = Annotated[LocalDatabase, Depends(get_database)]
@@ -91,3 +98,4 @@ StoreDep = Annotated[DatasetStore, Depends(get_dataset_store)]
 ReportsDep = Annotated[ReportRepository, Depends(get_report_repository)]
 PreferencesDep = Annotated[PreferencesStore, Depends(get_preferences)]
 ConnectionsDep = Annotated[ConnectionService, Depends(get_connections)]
+SchedulerDep = Annotated[RefreshScheduler, Depends(get_scheduler)]

@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     atelier_projets_url: str = "http://127.0.0.1:3000"
     atelier_projets_timeout_seconds: float = 30.0
 
+    # Actualisation planifiée et alertes (data/schedules.json, data/alerts.json)
+    scheduler_enabled: bool = True
+    scheduler_period_seconds: float = Field(default=15.0, ge=1.0)
+
     # GitHub (jalon 2)
     github_token: SecretStr | None = None
 

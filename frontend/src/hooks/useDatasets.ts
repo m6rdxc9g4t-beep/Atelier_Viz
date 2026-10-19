@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { invalidateQueries } from "../visuals/useQueryResult";
 import { forgetProfile, refreshDataset } from "./useDatasetProfiles";
+import { onDatasetRefreshed } from "./useDataVersions";
 import type { DatasetProfile, DatasetSummary } from "../types/dataset";
 
 export interface DatasetsState {
@@ -59,6 +60,16 @@ export function useDatasets(): DatasetsState {
         setLoading(false);
       });
   }, [select]);
+
+  // Actualisation planifiée en arrière-plan : la liste et le jeu affiché suivent.
+  useEffect(
+    () =>
+      onDatasetRefreshed((profile) => {
+        setDatasets((list) => list.map((d) => (d.id === profile.id ? profile : d)));
+        setSelected((cur) => (cur?.id === profile.id ? profile : cur));
+      }),
+    [],
+  );
 
   const upload = useCallback(async (file: File) => {
     setUploading(true);

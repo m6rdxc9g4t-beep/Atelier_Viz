@@ -1,10 +1,11 @@
 import clsx from "clsx";
-import { Cable, Cloud, Database, FileSpreadsheet, RefreshCw, Trash2, TriangleAlert, X } from "lucide-react";
+import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, RefreshCw, Trash2, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
 
 import type { DatasetsState } from "../../hooks/useDatasets";
 import { formatCount } from "../../lib/format";
 import type { DatasetSummary } from "../../types/dataset";
+import { DatasetSchedulePanel } from "../automation/DatasetSchedulePanel";
 import { ConnectDialog } from "./connect/ConnectDialog";
 import { KIND_META, sinceLabel } from "./connect/meta";
 import { DataPreview } from "./DataPreview";
@@ -16,6 +17,7 @@ export function DataView({ state }: { state: DatasetsState }) {
   const { datasets, selected, uploading, error } = state;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [planning, setPlanning] = useState(false);
   const connectButton = (
     <button
       type="button"
@@ -123,6 +125,17 @@ export function DataView({ state }: { state: DatasetsState }) {
                     {state.refreshing === selected.id ? "Actualisation…" : "Actualiser"}
                   </button>
                 )}
+                {selected.origin && (
+                  <button
+                    type="button"
+                    onClick={() => setPlanning((p) => !p)}
+                    aria-expanded={planning}
+                    title="Actualiser automatiquement (toutes les N minutes / heures, ou chaque jour)"
+                    className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2 aria-expanded:border-accent aria-expanded:text-accent"
+                  >
+                    <CalendarClock className="size-3.5" aria-hidden /> Planifier
+                  </button>
+                )}
                 {confirmDelete ? (
                   <span className="flex items-center gap-2 text-xs">
                     <span className="text-muted">Supprimer définitivement ?</span>
@@ -151,6 +164,8 @@ export function DataView({ state }: { state: DatasetsState }) {
                   </button>
                 )}
               </div>
+
+              {planning && selected.origin && <DatasetSchedulePanel datasetId={selected.id} refreshedAt={selected.origin.refreshed_at} />}
 
               <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:min-h-[24rem] lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
                 <div className="flex max-h-[28rem] min-w-0 flex-col lg:max-h-none lg:min-h-0">

@@ -17,6 +17,7 @@ import type {
   TableList,
   TestResult,
 } from "../types/connection";
+import type { RefreshRun, RefreshSchedule, ScheduleState } from "../types/refresh";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
 
 export interface Preferences {
@@ -116,6 +117,17 @@ export const api = {
     login: (id: string) => request<DeviceCodeStart>(`/connections/${id}/login`, { method: "POST" }),
     poll: (id: string) => request<AuthStatus>(`/connections/${id}/login/poll`, { method: "POST" }),
     logout: (id: string) => request<Connection>(`/connections/${id}/logout`, { method: "POST" }),
+  },
+
+  refresh: {
+    list: () => request<ScheduleState[]>("/refresh"),
+    get: (datasetId: string) => request<ScheduleState>(`/refresh/${datasetId}`),
+    set: (datasetId: string, schedule: RefreshSchedule) =>
+      request<ScheduleState>(`/refresh/${datasetId}`, { method: "PUT", body: JSON.stringify(schedule) }),
+    /** Actualise tout de suite ; le résultat est aussi inscrit au journal. */
+    run: (datasetId: string) => request<RefreshRun>(`/refresh/${datasetId}/run`, { method: "POST" }),
+    /** Horodatage de la dernière actualisation de chaque jeu actualisable. */
+    versions: () => request<Record<string, string>>("/refresh/versions"),
   },
 
   query: (body: QueryRequest, signal?: AbortSignal) =>
