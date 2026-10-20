@@ -176,7 +176,7 @@ export function AIBuilderPane() {
                 update(newRequest);
                 setNotice(null);
               }}
-              className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
+              className="flex items-center gap-1 text-[11px] font-medium text-accent-ink hover:underline"
             >
               <SquarePen className="size-3" aria-hidden /> Nouvelle demande
             </button>
@@ -195,7 +195,7 @@ export function AIBuilderPane() {
           rows={3}
           placeholder="Ex. : chiffre d'affaires par région sur une carte"
           aria-label="Décrivez le visuel à créer"
-          className="w-full resize-none rounded-md border border-border bg-bg px-2.5 py-2 text-sm outline-none focus:border-accent"
+          className="w-full resize-none rounded-md border border-border bg-field px-2.5 py-2 text-sm outline-none focus:border-focus"
         />
         <div className="mt-2 flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-[11px] text-muted">
@@ -206,7 +206,7 @@ export function AIBuilderPane() {
                 const count = Number(e.target.value);
                 update((s) => ({ ...s, count }));
               }}
-              className="rounded border border-border bg-bg px-1 py-0.5 text-xs text-fg"
+              className="rounded border border-border bg-field px-1 py-0.5 text-xs text-fg"
             >
               {[1, 2, 3, 4, 6].map((n) => (
                 <option key={n} value={n}>
@@ -229,7 +229,7 @@ export function AIBuilderPane() {
               type="button"
               disabled={!session.draft.trim() || !activeDatasetId}
               onClick={() => void generate()}
-              className="ml-auto flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
+              className="atelier-btn-primary ml-auto flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
             >
               <Sparkles className="size-3.5" aria-hidden /> Générer
             </button>
@@ -276,7 +276,7 @@ export function AIBuilderPane() {
                 type="button"
                 disabled={adding}
                 onClick={() => void add(current, addableIndexes(current, ids))}
-                className="text-[11px] font-medium text-accent hover:underline disabled:opacity-50"
+                className="text-[11px] font-medium text-accent-ink hover:underline disabled:opacity-50"
               >
                 Tout ajouter
               </button>
@@ -345,7 +345,7 @@ function ProposalCard({ visual, state, disabled, onAdd }: { visual: ProposedVisu
   return (
     <li className="rounded-md border border-border p-2.5">
       <div className="flex items-start gap-2">
-        <def.icon className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
+        <def.icon className="mt-0.5 size-4 shrink-0 text-accent-ink" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium" title={title}>
             {title}
@@ -360,7 +360,7 @@ function ProposalCard({ visual, state, disabled, onAdd }: { visual: ProposedVisu
           title={state === "removed" ? "Retiré de la page (Ctrl+Z ou suppression) : l'ajouter de nouveau" : undefined}
           className={clsx(
             "flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11px] font-medium",
-            placed ? "text-positive" : "bg-accent text-accent-fg hover:brightness-110 disabled:opacity-50",
+            placed ? "text-positive" : "atelier-btn-primary bg-accent text-accent-fg disabled:opacity-50",
           )}
         >
           {placed ? <Check className="size-3" aria-hidden /> : state === "removed" ? <RotateCcw className="size-3" aria-hidden /> : <Plus className="size-3" aria-hidden />}
@@ -419,11 +419,11 @@ function HistoryItem({
             ))}
           </ul>
           <div className="mt-2 flex items-center gap-3 text-[11px] font-medium">
-            <button type="button" onClick={onShow} className="text-accent hover:underline">
+            <button type="button" onClick={onShow} className="text-accent-ink hover:underline">
               Afficher en résultat
             </button>
             {n > 1 && addable.length > 0 && (
-              <button type="button" disabled={disabled} onClick={() => onAdd(addable)} className="text-accent hover:underline disabled:opacity-50">
+              <button type="button" disabled={disabled} onClick={() => onAdd(addable)} className="text-accent-ink hover:underline disabled:opacity-50">
                 Tout ajouter
               </button>
             )}

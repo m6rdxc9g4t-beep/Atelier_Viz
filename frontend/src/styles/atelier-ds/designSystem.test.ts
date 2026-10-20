@@ -9,6 +9,8 @@ const indexCss = read("../../index.css");
 const colors = read("./colors.css");
 const dark = read("./dark.css");
 const light = read("./light.css");
+const brand = read("../atelier-brand/atelier-brand.css");
+const indexHtml = read("../../../index.html");
 
 /** Variables déclarées dans une feuille (`--nom:`). */
 const declared = (css: string) => new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
@@ -53,24 +55,43 @@ describe("design system de la Suite Atelier (copies verbatim, docs/SUITE.md §1.
     for (const [name, hex] of Object.entries(OFFICIAL)) expect(colors).toMatch(new RegExp(`${name}:\\s*${hex};`));
   });
 
-  it("index.css importe les copies et dérive l'habillage des variables de fondation (§1.2)", () => {
+  it("index.css importe les copies ; l'habillage dérive des jetons --atelier-* de la marque (§1.2, §1.7)", () => {
     for (const f of ["colors.css", "light.css", "dark.css"]) expect(indexCss).toContain(`./styles/atelier-ds/${f}`);
     const map: [string, string][] = [
-      ["--bg", "var(--bg-main)"],
-      ["--surface", "var(--bg-surface)"],
-      ["--surface-2", "var(--bg-elevated)"],
-      ["--border", "var(--border-color)"],
-      ["--fg", "var(--text-primary)"],
-      ["--muted", "var(--text-muted)"],
-      ["--grid", "var(--border-color)"],
+      ["--bg", "var(--atelier-bg)"],
+      ["--sidebar", "var(--atelier-sidebar)"],
+      ["--surface", "var(--atelier-surface)"],
+      ["--surface-2", "var(--atelier-surface-2)"],
+      ["--surface-3", "var(--atelier-surface-3)"],
+      ["--field", "var(--atelier-field)"],
+      ["--border", "var(--atelier-border-soft)"],
+      ["--border-strong", "var(--atelier-border)"],
+      ["--line", "var(--atelier-line)"],
+      ["--fg", "var(--atelier-text)"],
+      ["--muted", "var(--atelier-muted)"],
+      ["--grid", "var(--atelier-line)"],
+      ["--accent", "var(--atelier-signature)"],
+      ["--accent-fg", "var(--atelier-signature-contrast)"],
+      ["--accent-ink", "var(--atelier-ink)"],
+      ["--accent-soft", "var(--atelier-signature-soft)"],
     ];
     for (const [token, value] of map) expect(indexCss).toContain(`${token}: ${value};`);
-    expect(indexCss).toMatch(/--accent: color-mix\(in oklab, var\(--type-epic\)/);
+    expect(indexCss).toContain("background: var(--atelier-backdrop), var(--bg);");
+    expect(indexCss).not.toMatch(/background-image:\s*var\(--atelier-backdrop\)/);
     expect(indexCss).toMatch(/--positive: color-mix\(in oklab, var\(--status-closed\)/);
     expect(indexCss).toMatch(/--negative: color-mix\(in oklab, var\(--status-rejected\)/);
     // Exception dataviz : la palette des données reste en hexadécimal validé.
     expect(indexCss).toMatch(/--series-1: #2a78d6;/);
     // Aucune police téléchargée.
     expect(indexCss).not.toMatch(/@font-face|fonts\.googleapis|Inter Variable/);
+  });
+
+  it("charte néon monochrome : Atelier Viz est tout en jaune, sans bleu nuit ni cyan (§1.7)", () => {
+    expect(indexHtml).toMatch(/<html[^>]*data-atelier-app="viz"/);
+    expect(brand).toMatch(/--atelier-sig-viz: #f2c811;/i);
+    expect(brand).toContain('[data-atelier-app="viz"] { --atelier-signature: var(--atelier-sig-viz);');
+    // Jetons de la v1 (base cyan, bleu nuit) : plus aucun usage dans l'habillage.
+    expect(indexCss).not.toMatch(/--atelier-(neon|night|glass|edge|signature-light)\b/);
+    expect(indexCss).not.toMatch(/#06111f|#0a1b2e|#10283f|#17405c|#3fd8ff/i);
   });
 });

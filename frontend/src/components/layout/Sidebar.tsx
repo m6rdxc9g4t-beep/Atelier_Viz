@@ -22,7 +22,7 @@ const NAV: NavItem[] = [
 /** Navigation principale ; icônes seules dans le Studio et sous 1024px. */
 export function Sidebar({ route, compact }: { route: Route; compact: boolean }) {
   return (
-    <aside className={clsx("flex shrink-0 flex-col border-r border-border bg-surface", compact ? "w-12" : "w-12 lg:w-52")}>
+    <aside className={clsx("flex shrink-0 flex-col border-r border-border bg-sidebar", compact ? "w-12" : "w-12 lg:w-52")}>
       <div className={clsx("flex h-12 items-center border-b border-border px-2", !compact && "lg:px-3")}>
         <AtelierBrand showName={!compact} nameClassName="hidden lg:inline" />
       </div>
@@ -37,8 +37,8 @@ export function Sidebar({ route, compact }: { route: Route; compact: boolean }) 
               onClick={() => navigate(path)}
               aria-current={current ? "page" : undefined}
               className={clsx(
-                "flex h-9 items-center gap-3 rounded-md px-2.5 text-sm transition-colors",
-                current ? "bg-surface-2 font-medium text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
+                "flex h-9 items-center gap-3 rounded-md px-2.5 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-focus",
+                current ? "atelier-nav-active font-medium [&>svg]:text-accent-ink" : "text-muted hover:bg-accent-faint hover:text-fg",
               )}
             >
               <Icon className="size-4 shrink-0" aria-hidden />

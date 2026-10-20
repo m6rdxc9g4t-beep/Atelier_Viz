@@ -10,7 +10,7 @@ Toute modification se fait dans les trois dépôts à la fois.
 | **Atelier Tab** | Tableur + base typée | React · Electron (bureau) |
 | **Atelier Projets** | Projets agiles, Git, temps passé | Fastify + Prisma/SQLite · React |
 
-Principes partagés : **local d'abord** (rien ne quitte la machine hors ligne), interface **en français**, IA locale par Ollama (`http://localhost:11434`), clair + sombre.
+Principes partagés : **local d'abord** (rien ne quitte la machine hors ligne), interface **en français**, IA locale par Ollama (`http://localhost:11434`), clair + sombre (« néon monochrome » dans la couleur de chaque app, §1.7).
 
 ---
 
@@ -40,7 +40,7 @@ Chaque application garde ses propres noms de jetons (les composants ne changent 
 | Texte | `--text-primary` | `--fg` | `--ink` |
 | Texte secondaire | `--text-muted` | `--muted` | `--muted`, `--faint` (mélange) |
 | Bordures | `--border-color` | `--border`, `--grid` | `--line`, `--line-strong` (mélange) |
-| Accent (onglet actif, focus, bouton principal) | `--accent` = `--type-epic` (#8250DF) | `--accent` | `--accent` |
+| Accent (onglet actif, bouton principal) | `--accent` = `--atelier-signature` (§1.7) | `--accent` | `--accent` |
 | Succès / danger / attention | `--status-closed` / `--status-rejected` / `--status-hold` | `--positive` / `--negative` | `--success` / `--danger` / `--warning` |
 
 Les dérivés (`--accent-soft`, mélanges) utilisent `color-mix(in oklab, …)` comme `design-system/tokens/ui.css`.
@@ -77,17 +77,46 @@ Sur `<html>`, chaque application pose **les deux marqueurs** :
 Choix proposés : Clair, Sombre, Système. Chaque application garde sa propre clé de préférence.
 
 ### 1.6 Marque (logo + nom)
-Les six applications Atelier (Projets, Viz, Tab, Ciné, Savoir, Trésorerie) affichent leur marque de la même façon,
-comme sur leurs logos : tuile au dégradé cyan avec icône Lucide blanche, puis `atelier_` atténué et le nom en gras.
+Les huit applications Atelier (Projets, Viz, Tab, Ciné, Savoir, Trésorerie, Nexus, Dates) affichent leur marque de la même façon,
+comme sur leurs logos : tuile en verre cerclée de la **couleur signature** de l'app (§1.7), icône Lucide dans cette couleur,
+puis `atelier_` atténué et le nom en gras.
 
 - Source : `Atelier_Projets/design-system/brand/` (`atelier-brand.css`, police Nunito variable embarquée, licence OFL).
   Copies verbatim : `frontend/src/styles/atelier-brand/` (Viz), `src/styles/atelier-brand/` (Tab),
-  `frontend/src/brand/` (Ciné), `static/brand/` (Savoir, Trésorerie).
+  `frontend/src/brand/` (Ciné), `static/brand/` (Savoir, Trésorerie), et dans Nexus et Dates.
 - Balisage : `button.atelier-brand` > `.atelier-brand__tile` (icône) + `.atelier-brand__name` > `.atelier-brand__prefix` (« atelier_ ») + nom.
 - Icônes : Projets `calendar-check`, Viz `chart-column`, Tab `table-2`, Ciné `play`, Savoir `graduation-cap`, Trésorerie `landmark`.
 - La police de marque ne sert qu'à la marque ; le reste de l'interface garde la pile système.
 - Clic sur la marque : fenêtre « À propos » (`<dialog class="atelier-about">`) avec le logo complet de l'application en grand, son nom et une phrase de présentation. Identique partout, toujours sombre.
 - Icônes : l'icône d'application (Dock, `.app`, Electron) est le logo complet ; le favicon (`favicon-64.png`, `apple-touch-icon.png`) est la tuile de l'étiquette du logo.
+
+### 1.7 Charte « néon monochrome » et couleurs signature
+Charte complète : document « Charte graphique : style néon holographique 3D » (piste C validée). Résumé pour le code :
+
+- **Chaque application est entièrement dans sa couleur signature** : fond, barre latérale, surfaces, bordures, textes,
+  halos et grille dérivent de `--atelier-signature` par mélange (`color-mix`) et transparence. Pas de couleur de structure commune.
+- Activation : `data-atelier-app="<app>"` sur `<html>` (ou sur un élément, ex. chaque entrée du sélecteur de la suite, qui prend SA couleur).
+
+| App | `data-atelier-app` | Signature |
+|---|---|---|
+| Dates | `dates` | `#E03131` rouge |
+| Nexus | `nexus` | `#E8590C` orange foncé |
+| Viz | `viz` | `#F2C811` jaune |
+| Projets | `projets` | `#94D82D` vert citron |
+| Tab | `tab` | `#21A366` vert |
+| Trésorerie | `tresorerie` | `#3B5BDB` bleu roi |
+| Savoir | `savoir` | `#9B5DE5` violet |
+| Ciné | `cine` | `#E64980` magenta |
+
+- `brand/atelier-brand.css` fournit, pour le thème clair et le thème sombre, les jetons que chaque application branche sur ses
+  propres variables (§1.2) : `--atelier-bg`, `--atelier-sidebar`, `--atelier-surface`, `--atelier-surface-2|3`, `--atelier-field`,
+  `--atelier-text`, `--atelier-muted`, `--atelier-ink` (signature lisible en texte), `--atelier-border`, `--atelier-border-soft`,
+  `--atelier-line`, `--atelier-signature-soft|faint`, `--atelier-glow`, `--atelier-glow-strong`, `--atelier-signature-glow`,
+  `--atelier-text-glow`, `--atelier-focus`, `--atelier-backdrop` (grille + lueur), `--atelier-chart-1..3`, `--atelier-chart-fill`.
+- **Sombre** : fond quasi noir teinté, fine grille, cartes cerclées d'un trait néon de la couleur avec halo, bouton principal en contour néon.
+- **Clair** : fond très clair teinté, même grille, cartes blanches cerclées de la couleur avec léger halo, bouton principal plein.
+- `themes/dark.css` reste une base neutre quasi noire (CSS pur, copiable) : la teinte vient des jetons `--atelier-*`.
+- Les couleurs de **données** (types, statuts, séries Viz, positif / négatif) ne changent pas.
 
 ---
 
@@ -107,7 +136,7 @@ comme sur leurs logos : tuile au dégradé cyan avec icône Lucide blanche, puis
 
 Chaque en-tête d'application porte un **sélecteur « Suite Atelier »** (icône grille, à gauche du nom de l'app) :
 - trois entrées, dans la marque commune (§1.6, variante compacte `atelier-brand__tile--sm` / `atelier-brand__name--sm`) :
-  tuile au dégradé cyan + icône, puis « atelier_Viz » (`BarChart3`), « atelier_Tab » (`Table2`), « atelier_Projets » (`CalendarCheck`),
+  tuile néon (chaque entrée porte son `data-atelier-app`, donc sa couleur signature) + icône, puis « atelier_Viz » (`BarChart3`), « atelier_Tab » (`Table2`), « atelier_Projets » (`CalendarCheck`),
   avec une ligne de description ; le nom accessible reste « Atelier Viz », « Atelier Tab », « Atelier Projets » ;
 - l'application courante est cochée ;
 - un clic ouvre l'adresse de l'application (colonne « Interface (aperçu / app) » ci-dessus) :

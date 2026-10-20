@@ -110,7 +110,7 @@ export function EnginePicker({ engine, note }: { engine: Engine; note: string })
               id={modelId}
               value={engine.claudeModel}
               onChange={(e) => engine.setClaudeModel(e.target.value as ClaudeModel)}
-              className="min-w-0 flex-1 rounded border border-border bg-bg px-1.5 py-0.5 text-xs text-fg"
+              className="min-w-0 flex-1 rounded border border-border bg-field px-1.5 py-0.5 text-xs text-fg"
             >
               {CLAUDE_MODELS.map((m) => (
                 <option key={m.value} value={m.value}>
@@ -129,7 +129,7 @@ export function EnginePicker({ engine, note }: { engine: Engine; note: string })
             value={ollamaSelected(engine.ollama, engine.ollamaModel)}
             disabled={!ollamaList.length}
             onChange={(e) => engine.setOllamaModel(e.target.value)}
-            className="min-w-0 flex-1 rounded border border-border bg-bg px-1.5 py-0.5 text-xs text-fg disabled:opacity-50"
+            className="min-w-0 flex-1 rounded border border-border bg-field px-1.5 py-0.5 text-xs text-fg disabled:opacity-50"
           >
             {ollamaList.length ? (
               ollamaList.map((m) => (

@@ -30,7 +30,7 @@ export function VisualStyleSection({ visual }: { visual: Visual }) {
           <button
             type="button"
             onClick={() => s().setVisualStyle(visual.id, null)}
-            className="flex items-center gap-1 text-[10px] text-accent hover:underline"
+            className="flex items-center gap-1 text-[10px] text-accent-ink hover:underline"
             title="Revenir au style du thème"
           >
             <RotateCcw className="size-3" aria-hidden /> Thème
@@ -59,7 +59,7 @@ export function VisualStyleSection({ visual }: { visual: Visual }) {
             <select
               value={style.border === undefined ? "" : style.border ? "on" : "off"}
               onChange={(e) => set({ border: e.target.value === "" ? undefined : e.target.value === "on" })}
-              className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg"
+              className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
             >
               <option value="">Thème</option>
               <option value="on">Afficher</option>
@@ -113,7 +113,7 @@ export function VisualStyleSection({ visual }: { visual: Visual }) {
                     <select
                       value={style.titleAlign ?? "left"}
                       onChange={(e) => set({ titleAlign: e.target.value as VisualStyle["titleAlign"] })}
-                      className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg"
+                      className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
                     >
                       <option value="left">Gauche</option>
                       <option value="center">Centré</option>
@@ -137,11 +137,11 @@ export function VisualStyleSection({ visual }: { visual: Visual }) {
           title="Couleurs des données"
           action={
             style.palette ? (
-              <button type="button" onClick={() => set({ palette: undefined })} className="flex items-center gap-1 text-[10px] text-accent hover:underline">
+              <button type="button" onClick={() => set({ palette: undefined })} className="flex items-center gap-1 text-[10px] text-accent-ink hover:underline">
                 <RotateCcw className="size-3" aria-hidden /> Thème
               </button>
             ) : (
-              <button type="button" onClick={() => set({ palette: [...basePalette] })} className="flex items-center gap-1 text-[10px] text-accent hover:underline">
+              <button type="button" onClick={() => set({ palette: [...basePalette] })} className="flex items-center gap-1 text-[10px] text-accent-ink hover:underline">
                 <Paintbrush className="size-3" aria-hidden /> Personnaliser
               </button>
             )

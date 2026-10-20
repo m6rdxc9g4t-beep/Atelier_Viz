@@ -129,7 +129,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
     return (
       <div className="p-8 text-sm text-negative">
         {loadError}{" "}
-        <button type="button" className="text-accent underline" onClick={() => navigate("/")}>
+        <button type="button" className="text-accent-ink underline" onClick={() => navigate("/")}>
           Retour aux rapports
         </button>
       </div>
@@ -161,12 +161,12 @@ export function StudioPage({ reportId }: { reportId: string }) {
             value={report.name}
             readOnly={!editing}
             onChange={(e) => s().mutate((r) => (r.name = e.target.value || "Sans titre"))}
-            className="min-w-0 max-w-72 flex-1 rounded px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-bg focus:outline-none focus:ring-1 focus:ring-accent"
+            className="min-w-0 max-w-72 flex-1 rounded px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field focus:outline-none focus:ring-1 focus:ring-focus"
           />
           <SaveBadge state={saveState} error={saveError} />
           <div className="ml-auto flex items-center gap-1">
             {selection && (
-              <button type="button" onClick={() => s().setSelection(null)} className="flex items-center gap-1 rounded-md bg-accent/10 px-2 py-1 text-xs text-accent hover:bg-accent/20">
+              <button type="button" onClick={() => s().setSelection(null)} className="flex items-center gap-1 rounded-md bg-accent-soft px-2 py-1 text-xs text-accent-ink hover:bg-accent/20">
                 <X className="size-3" aria-hidden /> Sélection
               </button>
             )}
@@ -180,7 +180,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
                 aria-pressed={side === "ai"}
                 className={clsx(
                   "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium",
-                  side === "ai" ? "bg-accent text-accent-fg" : "bg-accent/10 text-accent hover:bg-accent/20",
+                  side === "ai" ? "bg-accent-soft text-accent-ink ring-1 ring-inset ring-border-strong" : "bg-accent-soft text-accent-ink hover:bg-accent/20",
                 )}
               >
                 <Sparkles className="size-3.5" aria-hidden /> Créer avec l'IA
@@ -191,7 +191,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
                 type="button"
                 onClick={() => toggleSide("theme")}
                 aria-pressed={side === "theme"}
-                className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "theme" ? "text-accent" : "text-muted hover:text-fg")}
+                className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "theme" ? "text-accent-ink" : "text-muted hover:text-fg")}
               >
                 <Palette className="size-3.5" aria-hidden /> <span className="hidden md:inline">Thème</span>
               </button>
@@ -211,7 +211,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
               onClick={() => toggleSide("bookmarks")}
               aria-pressed={side === "bookmarks"}
               title="Signets : enregistrer et rappeler un état du rapport (page, filtres, segments)"
-              className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "bookmarks" ? "text-accent" : "text-muted hover:text-fg")}
+              className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "bookmarks" ? "text-accent-ink" : "text-muted hover:text-fg")}
             >
               <Bookmark className="size-3.5" aria-hidden /> <span className="hidden md:inline">Signets</span>
             </button>
@@ -220,7 +220,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
               onClick={() => toggleSide("summary")}
               aria-pressed={side === "summary"}
               title="Synthèse de la page par l'IA, chiffres vérifiés"
-              className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "summary" ? "text-accent" : "text-muted hover:text-fg")}
+              className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "summary" ? "text-accent-ink" : "text-muted hover:text-fg")}
             >
               <ScrollText className="size-3.5" aria-hidden /> <span className="hidden md:inline">Résumer</span>
             </button>

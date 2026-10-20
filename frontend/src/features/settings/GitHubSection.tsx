@@ -10,7 +10,7 @@ import { whenLabel } from "../automation/schedule";
 import { STATE_LABEL, configError, pendingCount, resultLines, sharedContent, visibilityWarning } from "./github";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-const input = "rounded-md border border-border bg-bg px-2 py-1.5 text-xs text-fg";
+const input = "rounded-md border border-border bg-field px-2 py-1.5 text-xs text-fg";
 const EMPTY: GitHubConfig = { repo: "", branch: "main", folder: "atelier-viz/rapports", strip_private: true };
 
 /**
@@ -90,9 +90,9 @@ export function GitHubSection() {
   const publicWarning = visibilityWarning(repoPrivate, state?.config?.strip_private ?? form.strip_private);
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-5" aria-labelledby={`${id}-title`}>
+    <section className="atelier-card rounded-xl border border-border bg-surface p-5" aria-labelledby={`${id}-title`}>
       <div className="flex items-center gap-2">
-        <GitBranch className="size-4 text-accent" aria-hidden />
+        <GitBranch className="size-4 text-accent-ink" aria-hidden />
         <h2 id={`${id}-title`} className="flex-1 text-base font-semibold">
           Synchronisation GitHub
         </h2>
@@ -148,12 +148,12 @@ export function GitHubSection() {
       </label>
       <p className="mt-1.5 text-[11px] text-muted">
         Jeton « fine-grained » limité à ce dépôt, permission <em>Contents : Read and write</em>.{" "}
-        <button type="button" onClick={() => openExternal("https://github.com/settings/personal-access-tokens/new")} className="inline-flex items-center gap-0.5 text-accent hover:underline">
+        <button type="button" onClick={() => openExternal("https://github.com/settings/personal-access-tokens/new")} className="inline-flex items-center gap-0.5 text-accent-ink hover:underline">
           Créer un jeton <ExternalLink className="size-3" aria-hidden />
         </button>
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" disabled={!!invalid || !dirty || busy !== null} onClick={() => void save()} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
+        <button type="button" disabled={!!invalid || !dirty || busy !== null} onClick={() => void save()} className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
           {busy === "save" ? "Enregistrement…" : "Enregistrer"}
         </button>
         <button
@@ -190,7 +190,7 @@ export function GitHubSection() {
               Message du commit (facultatif)
               <input value={commitMessage} onChange={(e) => setCommitMessage(e.target.value)} maxLength={500} placeholder="Atelier Viz : N rapport(s) mis à jour" className={input} />
             </label>
-            <button type="button" disabled={!online || busy !== null} onClick={() => void push()} className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
+            <button type="button" disabled={!online || busy !== null} onClick={() => void push()} className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
               {busy === "push" ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <CloudUpload className="size-3.5" aria-hidden />} Envoyer{pending ? ` (${pending})` : ""}
             </button>
             <button type="button" disabled={!online || busy !== null} onClick={() => void pull()} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2 disabled:opacity-40">
@@ -204,7 +204,7 @@ export function GitHubSection() {
                 {state.last_push.commit_url && (
                   <>
                     {" "}
-                    <button type="button" onClick={() => state.last_push?.commit_url && openExternal(state.last_push.commit_url)} className="text-accent hover:underline">
+                    <button type="button" onClick={() => state.last_push?.commit_url && openExternal(state.last_push.commit_url)} className="text-accent-ink hover:underline">
                       voir le commit
                     </button>
                   </>

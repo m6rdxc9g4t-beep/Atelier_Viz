@@ -78,7 +78,7 @@ function FilterList({ dataset, filters, onChange }: { dataset: DatasetProfile; f
             setAdding(false);
           }}
           onBlur={() => setAdding(false)}
-          className="w-full rounded-md border border-border bg-bg px-2 py-1 text-xs"
+          className="w-full rounded-md border border-border bg-field px-2 py-1 text-xs"
         >
           <option value="" disabled>
             Choisir un champ…
@@ -90,7 +90,7 @@ function FilterList({ dataset, filters, onChange }: { dataset: DatasetProfile; f
           ))}
         </select>
       ) : (
-        <button type="button" onClick={() => setAdding(true)} className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline">
+        <button type="button" onClick={() => setAdding(true)} className="flex items-center gap-1 text-[11px] font-medium text-accent-ink hover:underline">
           <Plus className="size-3" aria-hidden /> Ajouter un filtre
         </button>
       )}
@@ -145,7 +145,7 @@ function FilterCard({
                 next[i] = e.target.value === "" ? null : column.type === "date" ? e.target.value : Number(e.target.value);
                 onChange({ ...filter, values: next });
               }}
-              className="w-full rounded border border-border bg-bg px-1.5 py-0.5"
+              className="w-full rounded border border-border bg-field px-1.5 py-0.5"
             />
           ))}
         </div>

@@ -24,7 +24,7 @@ export function DataView({ state }: { state: DatasetsState }) {
       onClick={() => setConnecting(true)}
       className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2"
     >
-      <Cable className="size-3.5 text-accent" aria-hidden /> Se connecter à une source
+      <Cable className="size-3.5 text-accent-ink" aria-hidden /> Se connecter à une source
     </button>
   );
 
@@ -45,12 +45,12 @@ export function DataView({ state }: { state: DatasetsState }) {
             <UploadDropzone onFile={state.upload} uploading={uploading} />
             <p className="text-center text-xs text-muted">
               Pas de fichier sous la main ?{" "}
-              <button type="button" disabled={uploading} onClick={() => void state.loadSamples()} className="font-medium text-accent hover:underline disabled:opacity-50">
+              <button type="button" disabled={uploading} onClick={() => void state.loadSamples()} className="font-medium text-accent-ink hover:underline disabled:opacity-50">
                 Charger les données d'exemple
               </button>{" "}
               (ventes 2026 et magasins).
             </p>
-            <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-4 py-4 text-center">
+            <div className="atelier-card flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-4 py-4 text-center">
               <p className="text-sm font-medium">Ou connectez-vous à vos données</p>
               <p className="text-xs text-muted">SQL Server, PostgreSQL, MySQL, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online.</p>
               {connectButton}
@@ -86,7 +86,7 @@ export function DataView({ state }: { state: DatasetsState }) {
 
           {selected && (
             <>
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3">
+              <div className="atelier-card flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3">
                 <div className="mr-auto min-w-0">
                   <h2 className="truncate text-sm font-semibold">{selected.name}</h2>
                   {selected.origin && (
@@ -108,7 +108,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                   const { icon: Icon, label } = TYPE_META[t];
                   return (
                     <span key={t} className="flex items-center gap-1.5 text-xs text-muted" title={label}>
-                      <Icon className="size-3.5 text-accent" aria-hidden />
+                      <Icon className="size-3.5 text-accent-ink" aria-hidden />
                       {n} <span className="sr-only">{label}</span>
                     </span>
                   );
@@ -131,7 +131,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                     onClick={() => setPlanning((p) => !p)}
                     aria-expanded={planning}
                     title="Actualiser automatiquement (toutes les N minutes / heures, ou chaque jour)"
-                    className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2 aria-expanded:border-accent aria-expanded:text-accent"
+                    className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2 aria-expanded:border-accent-ink aria-expanded:text-accent-ink"
                   >
                     <CalendarClock className="size-3.5" aria-hidden /> Planifier
                   </button>

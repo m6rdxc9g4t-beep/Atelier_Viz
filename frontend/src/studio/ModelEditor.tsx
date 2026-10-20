@@ -162,9 +162,9 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="w-full max-w-2xl rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop w-full max-w-2xl rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Icon className="size-4 text-accent" aria-hidden />
+          <Icon className="size-4 text-accent-ink" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             {initial ? "Modifier" : "Nouvelle"} {kind === "measure" ? "mesure calculée" : "colonne calculée"} · {profile.name}
           </h2>
@@ -182,7 +182,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={kind === "measure" ? "ex. Marge" : "ex. Prix TTC"}
-                className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-accent"
+                className="w-full rounded-md border border-border bg-field px-2.5 py-1.5 text-sm outline-none focus:border-focus"
               />
             </label>
             <label className="block text-xs">
@@ -195,7 +195,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
                 spellCheck={false}
                 placeholder={EXAMPLES[kind]}
                 aria-describedby={`${titleId}-status`}
-                className="w-full resize-y rounded-md border border-border bg-bg px-2.5 py-2 font-mono text-[13px] outline-none focus:border-accent"
+                className="w-full resize-y rounded-md border border-border bg-field px-2.5 py-2 font-mono text-[13px] outline-none focus:border-focus"
               />
             </label>
             <div id={`${titleId}-status`} role="status" aria-live="polite" className="min-h-14 text-xs">
@@ -242,7 +242,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
                     key={f.name}
                     type="button"
                     onClick={() => insert(f.syntax, f.syntax.length - f.syntax.indexOf("(") - 1)}
-                    className="rounded border border-border px-1.5 py-0.5 font-mono text-[11px] hover:border-accent hover:text-accent"
+                    className="rounded border border-border px-1.5 py-0.5 font-mono text-[11px] hover:border-accent-ink hover:text-accent-ink"
                   >
                     {f.name}
                   </button>
@@ -260,7 +260,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
                       className="flex w-full items-center gap-1.5 truncate rounded px-1.5 py-0.5 text-left hover:bg-surface-2"
                       title={f.measure ? "Mesure calculée" : "Colonne"}
                     >
-                      {f.measure && <Calculator className="size-3 shrink-0 text-accent" aria-hidden />}
+                      {f.measure && <Calculator className="size-3 shrink-0 text-accent-ink" aria-hidden />}
                       <span className="truncate">{f.name}</span>
                     </button>
                   </li>
@@ -306,7 +306,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
             type="button"
             disabled={!canSave}
             onClick={() => void save()}
-            className={clsx("flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40")}
+            className={clsx("atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40")}
           >
             {saving && <Loader2 className="size-3.5 animate-spin" aria-hidden />} Enregistrer
           </button>

@@ -39,6 +39,8 @@ describe("sélecteur « Suite Atelier »", () => {
     ]);
     expect(items[0]).toHaveAttribute("aria-checked", "true");
     expect(items[0]).toHaveFocus();
+    // Chaque tuile porte la couleur signature de SON application (docs/SUITE.md §1.7).
+    expect(items.map((i) => i.querySelector(".atelier-brand__tile")?.getAttribute("data-atelier-app"))).toEqual(["viz", "tab", "projets"]);
     // fetch refusé (no-cors) : Projets et Tab sont « arrêtée », sans bloquer le menu ; Viz (la page) est en marche.
     expect(await screen.findByRole("menuitemradio", { name: "Atelier Projets (Arrêtée)" })).toBeInTheDocument();
     expect(await screen.findByRole("menuitemradio", { name: "Atelier Tab (Arrêtée)" })).toBeInTheDocument();

@@ -63,10 +63,10 @@ export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
   }
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col border-l border-border bg-surface shadow-xl lg:static lg:z-auto lg:w-80 lg:shadow-none">
+    <aside className="atelier-pop fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col border-l border-border bg-surface shadow-xl lg:static lg:z-auto lg:w-80 lg:shadow-none">
       <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4">
         <h2 className="mr-auto flex items-center gap-2 text-sm font-semibold">
-          <Sparkles className="size-4 text-accent" aria-hidden />
+          <Sparkles className="size-4 text-accent-ink" aria-hidden />
           Assistant
         </h2>
         {onClose && (
@@ -113,7 +113,7 @@ export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
             key={i}
             className={clsx(
               "max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm",
-              m.role === "user" && "self-end bg-accent text-accent-fg",
+              m.role === "user" && "self-end bg-accent-soft text-fg ring-1 ring-inset ring-border",
               m.role === "assistant" && !m.error && "self-start bg-surface-2",
               m.error && "self-start border border-negative/40 text-negative",
             )}
@@ -138,13 +138,13 @@ export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Demandez un graphique…"
-          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
+          className="min-w-0 flex-1 rounded-md border border-border bg-field px-3 py-2 text-sm outline-none focus:border-focus"
         />
         <button
           type="submit"
           disabled={pending || !draft.trim()}
           aria-label="Envoyer"
-          className="rounded-md bg-accent px-3 text-accent-fg disabled:opacity-40"
+          className="atelier-btn-primary rounded-md bg-accent px-3 text-accent-fg disabled:opacity-40"
         >
           <SendHorizontal className="size-4" aria-hidden />
         </button>
