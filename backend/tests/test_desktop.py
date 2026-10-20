@@ -193,6 +193,22 @@ def test_suite_addresses_map_to_desktop_apps() -> None:
     assert desktop.suite_bundle_for("http://127.0.0.1:notaport") is None
 
 
+def test_suite_online_address_maps_to_cuisine() -> None:
+    """Atelier Cuisine : adresse en ligne exacte (https, port par défaut) → app Mac (docs/SUITE.md §3)."""
+    cuisine = "fr.ateliercuisine.app"
+    assert desktop.suite_bundle_for("https://atelier-cuisine-iota.vercel.app") == cuisine
+    assert desktop.suite_bundle_for("https://atelier-cuisine-iota.vercel.app/stock?x=1") == cuisine
+    assert desktop.suite_bundle_for("https://atelier-cuisine-iota.vercel.app:443/") == cuisine
+    # Ni http, ni autre port, ni identifiants, ni hôte voisin.
+    assert desktop.suite_bundle_for("http://atelier-cuisine-iota.vercel.app") is None
+    assert desktop.suite_bundle_for("https://atelier-cuisine-iota.vercel.app:8443") is None
+    assert desktop.suite_bundle_for("https://u:p@atelier-cuisine-iota.vercel.app") is None
+    assert desktop.suite_bundle_for("https://evil.atelier-cuisine-iota.vercel.app") is None
+    assert desktop.suite_bundle_for("https://atelier-cuisine-iota.vercel.app.evil.com") is None
+    assert desktop.suite_bundle_for("https://vercel.app") is None
+    assert desktop.suite_bundle_for("http://u:p@127.0.0.1:4175") is None
+
+
 def test_open_external_opens_installed_suite_app_first() -> None:
     """Une app de la suite installée s'ouvre ; sinon, et pour tout autre lien, le navigateur."""
     opened: list[str] = []
@@ -208,3 +224,10 @@ def test_open_external_opens_installed_suite_app_first() -> None:
     api = desktop.DesktopApi(open_url=opened.append, open_app=lambda b: apps.append(b) or True)
     api.open_external("https://github.com")
     assert apps == ["fr.atelier.tab"] and opened[-1] == "https://github.com"
+
+    # Atelier Cuisine : app Mac installée, sinon sa PWA dans le navigateur par défaut.
+    assert api.open_external("https://atelier-cuisine-iota.vercel.app") is True
+    assert apps[-1] == "fr.ateliercuisine.app" and opened[-1] == "https://github.com"
+    api = desktop.DesktopApi(open_url=opened.append, open_app=lambda _b: False)
+    assert api.open_external("https://atelier-cuisine-iota.vercel.app") is True
+    assert opened[-1] == "https://atelier-cuisine-iota.vercel.app"

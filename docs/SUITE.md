@@ -77,15 +77,15 @@ Sur `<html>`, chaque application pose **les deux marqueurs** :
 Choix proposés : Clair, Sombre, Système. Chaque application garde sa propre clé de préférence.
 
 ### 1.6 Marque (logo + nom)
-Les huit applications Atelier (Projets, Viz, Tab, Ciné, Savoir, Trésorerie, Nexus, Dates) affichent leur marque de la même façon,
+Les neuf applications Atelier (Projets, Viz, Tab, Ciné, Savoir, Trésorerie, Nexus, Dates, Cuisine) affichent leur marque de la même façon,
 comme sur leurs logos : tuile en verre cerclée de la **couleur signature** de l'app (§1.7), icône Lucide dans cette couleur,
 puis `atelier_` atténué et le nom en gras.
 
 - Source : `Atelier_Projets/design-system/brand/` (`atelier-brand.css`, police Nunito variable embarquée, licence OFL).
   Copies verbatim : `frontend/src/styles/atelier-brand/` (Viz), `src/styles/atelier-brand/` (Tab),
-  `frontend/src/brand/` (Ciné), `static/brand/` (Savoir, Trésorerie), et dans Nexus et Dates.
+  `frontend/src/brand/` (Ciné), `static/brand/` (Savoir, Trésorerie), `frontend/src/styles/atelier-brand/` (Cuisine), et dans Nexus et Dates.
 - Balisage : `button.atelier-brand` > `.atelier-brand__tile` (icône) + `.atelier-brand__name` > `.atelier-brand__prefix` (« atelier_ ») + nom.
-- Icônes : Projets `calendar-check`, Viz `chart-column`, Tab `table-2`, Ciné `play`, Savoir `graduation-cap`, Trésorerie `landmark`.
+- Icônes : Projets `calendar-check`, Viz `chart-column`, Tab `table-2`, Ciné `play`, Savoir `graduation-cap`, Trésorerie `landmark`, Cuisine `cooking-pot`.
 - La police de marque ne sert qu'à la marque ; le reste de l'interface garde la pile système.
 - Clic sur la marque : fenêtre « À propos » (`<dialog class="atelier-about">`) avec le logo complet de l'application en grand, son nom et une phrase de présentation. Identique partout, toujours sombre.
 - Icônes : l'icône d'application (Dock, `.app`, Electron) est le logo complet ; le favicon (`favicon-64.png`, `apple-touch-icon.png`) est la tuile de l'étiquette du logo.
@@ -100,6 +100,7 @@ Charte complète : document « Charte graphique : style néon holographique 3D �
 | App | `data-atelier-app` | Signature |
 |---|---|---|
 | Dates | `dates` | `#E03131` rouge |
+| Cuisine | `cuisine` | `#E056E2` orchidée |
 | Nexus | `nexus` | `#E8590C` orange foncé |
 | Viz | `viz` | `#F2C811` jaune |
 | Projets | `projets` | `#94D82D` vert citron |
@@ -135,18 +136,21 @@ Charte complète : document « Charte graphique : style néon holographique 3D �
 ## 3. Navigation dans la suite
 
 Chaque en-tête d'application porte un **sélecteur « Suite Atelier »** (icône grille, à gauche du nom de l'app) :
-- trois entrées, dans la marque commune (§1.6, variante compacte `atelier-brand__tile--sm` / `atelier-brand__name--sm`) :
+- quatre entrées, dans la marque commune (§1.6, variante compacte `atelier-brand__tile--sm` / `atelier-brand__name--sm`) :
   tuile néon (chaque entrée porte son `data-atelier-app`, donc sa couleur signature) + icône, puis « atelier_Viz » (`BarChart3`), « atelier_Tab » (`Table2`), « atelier_Projets » (`CalendarCheck`),
-  avec une ligne de description ; le nom accessible reste « Atelier Viz », « Atelier Tab », « Atelier Projets » ;
+  « atelier_Cuisine » (`CookingPot`), avec une ligne de description ; le nom accessible reste « Atelier Viz », « Atelier Tab », « Atelier Projets », « Atelier Cuisine » ;
 - l'application courante est cochée ;
 - un clic ouvre l'adresse de l'application (colonne « Interface (aperçu / app) » ci-dessus) :
   - dans un navigateur : nouvel onglet ;
   - dans une app de bureau (macOS) : l'enveloppe de bureau reconnaît l'adresse d'une app de la suite et **ouvre l'application installée**
     (`/usr/bin/open -b <identifiant>`), sinon l'adresse part dans le navigateur par défaut.
-    Identifiants : Viz `fr.atelier-viz.app`, Tab `fr.atelier.tab`, Projets `local.atelier-projets.desktop`.
-    Reconnaissance par hôte (`127.0.0.1` ou `localhost`) et port : 8000 → Viz, 4175 → Tab, 4174 → Projets.
+    Identifiants : Viz `fr.atelier-viz.app`, Tab `fr.atelier.tab`, Projets `local.atelier-projets.desktop`, Cuisine `fr.ateliercuisine.app`.
+    Reconnaissance par hôte (`127.0.0.1` ou `localhost`) et port : 8000 → Viz, 4175 → Tab, 4174 → Projets ;
+    Cuisine par son adresse en ligne `https://atelier-cuisine-iota.vercel.app` (app Mac Tauri si installée, sinon la PWA dans le navigateur).
     Mécanisme : `DesktopApi.open_external` (Viz), `shell.openExternal` relayé par le processus principal (Tab), `setWindowOpenHandler` (Projets) ;
-- un indicateur « en marche / arrêtée » est affiché pour **les trois** applications (`GET …/api/health`, délai 1,5 s, `mode: 'no-cors'`, sans bloquer le menu) ;
+- Atelier Cuisine est une app en ligne (PWA + app Mac Tauri, données Supabase) : pas d'API locale, donc **pas d'indicateur**
+  « en marche / arrêtée » pour elle (mention « en ligne » à la place) ; son adresse se surcharge par `VITE_ATELIER_CUISINE_URL` ;
+- un indicateur « en marche / arrêtée » est affiché pour **les trois** applications locales (`GET …/api/health`, délai 1,5 s, `mode: 'no-cors'`, sans bloquer le menu) ;
   l'application courante est toujours « en marche ».
   Atelier Tab n'a pas d'API de données : il expose seulement une route de santé.
   - App de bureau : le processus principal écoute sur `127.0.0.1:4175` (jamais une autre interface réseau) et ne sert que
