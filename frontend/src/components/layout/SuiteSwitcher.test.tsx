@@ -40,9 +40,9 @@ describe("sélecteur « Suite Atelier »", () => {
     expect(items[0]).toHaveAttribute("aria-checked", "true");
     expect(items[0]).toHaveFocus();
     // fetch refusé (no-cors) : Projets et Tab sont « arrêtée », sans bloquer le menu ; Viz (la page) est en marche.
-    expect(await screen.findByRole("menuitemradio", { name: "Atelier Projets (arrêtée)" })).toBeInTheDocument();
-    expect(await screen.findByRole("menuitemradio", { name: "Atelier Tab (arrêtée)" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitemradio", { name: "Atelier Viz (en marche)" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitemradio", { name: "Atelier Projets (Arrêtée)" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitemradio", { name: "Atelier Tab (Arrêtée)" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: "Atelier Viz (En marche)" })).toBeInTheDocument();
     expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:3000/api/health", expect.objectContaining({ mode: "no-cors" }));
     expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:4175/api/health", expect.objectContaining({ mode: "no-cors" }));
     expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:5175/api/health", expect.objectContaining({ mode: "no-cors" }));
@@ -56,8 +56,8 @@ describe("sélecteur « Suite Atelier »", () => {
     );
     render(<SuiteSwitcher />);
     await userEvent.click(screen.getByRole("button", { name: "Suite Atelier" }));
-    expect(await screen.findByRole("menuitemradio", { name: "Atelier Tab (en marche)" })).toBeInTheDocument();
-    expect(await screen.findByRole("menuitemradio", { name: "Atelier Projets (arrêtée)" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitemradio", { name: "Atelier Tab (En marche)" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitemradio", { name: "Atelier Projets (Arrêtée)" })).toBeInTheDocument();
   });
 
   it("se pilote au clavier : flèches, Entrée ouvre l'application, Échap ferme", async () => {

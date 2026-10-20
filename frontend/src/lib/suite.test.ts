@@ -24,9 +24,9 @@ describe("Suite Atelier : applications", () => {
   });
 
   it("libellés d'état", () => {
-    expect(statusLabel("up")).toBe("en marche");
-    expect(statusLabel("down")).toBe("arrêtée");
-    expect(statusLabel("unknown")).toBe("vérification…");
+    expect(statusLabel("up")).toBe("En marche");
+    expect(statusLabel("down")).toBe("Arrêtée");
+    expect(statusLabel("unknown")).toBe("Vérification…");
   });
 });
 

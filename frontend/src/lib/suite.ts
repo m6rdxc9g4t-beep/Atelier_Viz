@@ -73,7 +73,7 @@ export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp
       id: "tab",
       name: "Atelier Tab",
       short: "Tab",
-      description: "Tableur et base typée",
+      description: "Tableur et base de données typée",
       url: clean(env.VITE_ATELIER_TAB_URL, DEFAULTS.tab),
       healthUrls: TAB_HEALTH_URLS,
     },
@@ -90,7 +90,7 @@ export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp
 
 /** Libellé d'état lisible (lecteurs d'écran et info-bulle). */
 export function statusLabel(status: SuiteStatus): string {
-  return status === "up" ? "en marche" : status === "down" ? "arrêtée" : "vérification…";
+  return status === "up" ? "En marche" : status === "down" ? "Arrêtée" : "Vérification…";
 }
 
 /**
