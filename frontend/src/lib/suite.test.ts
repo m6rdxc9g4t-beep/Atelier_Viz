@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { CURRENT_APP, HEALTH_TIMEOUT_MS, TAB_HEALTH_URLS, checkAnyHealth, checkHealth, statusLabel, suiteApps } from "./suite";
+import { CURRENT_APP, HEALTH_TIMEOUT_MS, TAB_HEALTH_URLS, checkAnyHealth, checkHealth, statusLabel, suiteApps, tabHealthUrls } from "./suite";
 
 describe("Suite Atelier : applications", () => {
   it("liste les trois applications avec les adresses du contrat", () => {
@@ -21,6 +21,13 @@ describe("Suite Atelier : applications", () => {
   it("applique les surcharges VITE_ATELIER_*_URL", () => {
     const apps = suiteApps({ VITE_ATELIER_TAB_URL: " http://localhost:5175/ ", VITE_ATELIER_PROJETS_URL: "", VITE_ATELIER_VIZ_URL: "http://127.0.0.1:9000" });
     expect(apps.map((a) => a.url)).toEqual(["http://127.0.0.1:9000", "http://localhost:5175", "http://127.0.0.1:4174"]);
+  });
+
+  it("dérive la santé d'Atelier Tab de VITE_ATELIER_TAB_URL (comme Projets), sans doublon", () => {
+    expect(tabHealthUrls({})).toEqual(["http://127.0.0.1:4175/api/health", "http://127.0.0.1:5175/api/health"]);
+    const custom = suiteApps({ VITE_ATELIER_TAB_URL: "http://127.0.0.1:4999/" });
+    expect(custom.find((a) => a.id === "tab")?.healthUrls).toEqual(["http://127.0.0.1:4999/api/health", "http://127.0.0.1:5175/api/health"]);
+    expect(tabHealthUrls({ VITE_ATELIER_TAB_URL: "http://127.0.0.1:5175" })).toEqual(["http://127.0.0.1:5175/api/health"]);
   });
 
   it("libellés d'état", () => {

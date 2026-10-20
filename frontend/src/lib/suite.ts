@@ -42,11 +42,8 @@ const DEFAULTS: Record<SuiteAppId, string> = {
 /** API d'Atelier Projets (docs/SUITE.md §2). */
 export const PROJETS_API = "http://127.0.0.1:3000";
 
-/**
- * Santé d'Atelier Tab (docs/SUITE.md §2 et §3) : app de bureau ou aperçu (4175), puis `npm run dev` (5175).
- * Tab n'a pas d'API de données, seulement cette route.
- */
-export const TAB_HEALTH_URLS = ["http://127.0.0.1:4175/api/health", "http://127.0.0.1:5175/api/health"];
+/** Santé d'Atelier Tab lancé par `npm run dev` (docs/SUITE.md §3), essayée en plus de l'adresse configurée. */
+export const TAB_DEV_HEALTH_URL = "http://127.0.0.1:5175/api/health";
 
 /** Variables d'environnement utiles (sous-ensemble de `import.meta.env`). */
 export interface SuiteEnv {
@@ -56,6 +53,17 @@ export interface SuiteEnv {
 }
 
 const clean = (url: string | undefined, fallback: string) => (url && url.trim() ? url.trim().replace(/\/+$/, "") : fallback);
+
+/**
+ * Santé d'Atelier Tab (docs/SUITE.md §2 et §3) : son adresse (`VITE_ATELIER_TAB_URL`, défaut 4175 : app de
+ * bureau ou aperçu), puis `npm run dev` (5175), sans doublon. Tab n'a pas d'API de données, seulement cette route.
+ */
+export function tabHealthUrls(env: SuiteEnv = import.meta.env as SuiteEnv): string[] {
+  return [...new Set([`${clean(env.VITE_ATELIER_TAB_URL, DEFAULTS.tab)}/api/health`, TAB_DEV_HEALTH_URL])];
+}
+
+/** Santé d'Atelier Tab avec les adresses de l'environnement courant. */
+export const TAB_HEALTH_URLS = tabHealthUrls();
 
 /** Les trois applications, dans l'ordre du menu, avec les surcharges d'environnement appliquées. */
 export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp[] {
@@ -75,7 +83,7 @@ export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp
       short: "Tab",
       description: "Tableur et base de données typée",
       url: clean(env.VITE_ATELIER_TAB_URL, DEFAULTS.tab),
-      healthUrls: TAB_HEALTH_URLS,
+      healthUrls: tabHealthUrls(env),
     },
     {
       id: "projets",
