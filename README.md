@@ -50,7 +50,8 @@ fenêtre (⌘Q) arrête tout.
 - Même dépôt, mêmes données (`backend/data`) que le mode développement ; un seul des deux à la fois (la base n'accepte qu'un programme). Si un `uvicorn` tourne déjà, l'application le réutilise.
 - Exports PowerPoint et thèmes : boîte « Enregistrer sous » ; liens externes (Microsoft 365, boutons URL) : navigateur par défaut.
 - Après un `git pull` : l'application recompile l'interface à son lancement si les sources sont plus récentes
-  (sinon la fenêtre afficherait l'ancienne interface) ; relancez `./scripts/macos/build_app.sh` si des dépendances Python ont changé.
+  (`npm run build`, sans réseau). Elle **n'installe jamais rien au lancement** : si les dépendances npm (ou Python)
+  ont changé, un message vous invite à relancer `./scripts/macos/build_app.sh` ; l'ancienne interface reste utilisée en attendant.
 - En cas de souci : `~/Library/Logs/Atelier Viz/atelier-viz.log`. Sans fenêtre native, `python desktop.py --browser` (dans `backend/`) ouvre l'application dans le navigateur.
 
 ### Activer Claude
@@ -58,9 +59,12 @@ fenêtre (⌘Q) arrête tout.
 1. Installez Claude Code : `curl -fsSL https://claude.ai/install.sh | bash` (ou `brew install --cask claude-code`),
    puis vérifiez dans un nouveau terminal : `claude --version`.
 2. Connectez-vous avec votre compte claude.ai : `claude auth login`.
-3. Rien d'autre à configurer : la commande `claude` est cherchée dans `CLAUDE_CLI` (chemin explicite, facultatif),
-   le `PATH`, puis `~/.local/bin`, `/opt/homebrew/bin` et `/usr/local/bin` — même quand l'application est lancée
-   depuis le Finder. Installée pendant que l'application tourne, elle est retrouvée au clic sur « Revérifier ».
+3. Rien d'autre à configurer : la commande `claude` est cherchée dans `CLAUDE_CLI` (chemin **absolu**, facultatif ;
+   un chemin relatif est refusé), le `PATH` (hors entrées relatives et `node_modules/.bin`), puis `~/.local/bin`,
+   `/opt/homebrew/bin` et `/usr/local/bin` — même quand l'application est lancée depuis le Finder. Installée pendant
+   que l'application tourne, elle est retrouvée en moins d'une minute, ou au clic sur « Revérifier ».
+   Chaque appel est isolé (docs/SUITE.md §5.3) : aucun outil, environnement réduit à une liste blanche (aucune clé ni
+   secret), aucune donnée en argument de ligne de commande (tout passe par l'entrée standard), sortie et durée bornées.
 4. Dans l'application, cliquez sur **Hors ligne** en haut à droite : il passe à **En ligne** et Claude devient
    sélectionnable (le voyant « Claude » passe au vert).
 5. Là où l'on utilise l'IA : **Moteur Auto · Ollama · Claude** et le modèle (Claude : Sonnet, Opus ou Haiku ;
@@ -68,6 +72,13 @@ fenêtre (⌘Q) arrête tout.
 
 Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages, connexions, planifications
 `schedules.json`, alertes `alerts.json`, dépôt GitHub `github.json`) : sauvegardez ce dossier.
+
+### API locale seulement
+
+L'API n'accepte que les requêtes de la machine : en-tête `Host` `127.0.0.1`, `localhost` ou `[::1]` (sinon 403), et
+pour toute écriture une `Origin` absente ou locale — un site web ouvert dans le navigateur ne peut ni lire l'API (même
+par DNS rebinding), ni passer Atelier Viz en ligne, ni appeler Claude. Pour joindre l'API sous un autre nom
+(ex. `viz.local`), ajoutez-le à `ALLOWED_HOSTS=viz.local` dans `backend/.env`.
 
 ## Partage et automatisation
 
@@ -147,8 +158,8 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 ## Tests
 
 ```bash
-cd backend && pytest && ruff check .          # 249 tests
-cd frontend && npm test && npm run build      # 147 tests
+cd backend && pytest && ruff check .          # 320 tests
+cd frontend && npm test && npm run build      # 170 tests
 ```
 
 ## Arborescence
