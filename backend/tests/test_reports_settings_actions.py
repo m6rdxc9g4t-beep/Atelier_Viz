@@ -101,6 +101,40 @@ def test_settings_file_from_older_version_is_read(settings) -> None:
     assert prefs.online_mode is True and prefs.claude_model == "sonnet" and prefs.ai_provider == "auto"
 
 
+def test_concurrent_updates_do_not_overwrite_each_other(settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fusion et écriture sous le même verrou : deux modifications simultanées sont toutes deux gardées."""
+    import threading
+    import time
+
+    from app.services.preferences import Preferences, PreferencesStore
+
+    store = PreferencesStore(settings.data_dir / "settings.json")
+    validate = Preferences.model_validate
+
+    def slow_validate(data: object) -> Preferences:
+        time.sleep(0.05)  # fusion lente : sans verrou commun, les deux fusions partiraient de la même valeur
+        return validate(data)
+
+    monkeypatch.setattr(Preferences, "model_validate", slow_validate)
+    start = threading.Barrier(2)
+
+    def change(field: str, value: object) -> None:
+        start.wait()
+        store.update({field: value})
+
+    threads = [
+        threading.Thread(target=change, args=("online_mode", True)),
+        threading.Thread(target=change, args=("claude_model", "opus")),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    monkeypatch.undo()
+    for prefs in (store.get(), PreferencesStore(settings.data_dir / "settings.json").get()):
+        assert prefs.online_mode is True and prefs.claude_model == "opus"
+
+
 def test_query_endpoint(client: TestClient) -> None:
     csv = b"region;ca\nNord;10\nSud;5\nNord;1\n"
     dataset_id = client.post("/api/datasets", files={"file": ("v.csv", csv, "text/csv")}).json()["id"]

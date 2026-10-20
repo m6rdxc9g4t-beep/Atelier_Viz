@@ -1,5 +1,6 @@
 """Préférences modifiables depuis l'interface (data/settings.json)."""
 
+import os
 import threading
 from pathlib import Path
 from typing import Any, Literal
@@ -29,6 +30,8 @@ class Preferences(BaseModel):
 
 
 class PreferencesStore:
+    """Préférences en mémoire et sur disque ; toute modification (fusion comprise) se fait sous un même verrou."""
+
     def __init__(self, path: Path) -> None:
         self.path = path
         self._lock = threading.Lock()
@@ -46,14 +49,26 @@ class PreferencesStore:
         return self._value
 
     def set(self, value: Preferences) -> Preferences:
+        """Remplace toutes les préférences."""
         with self._lock:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(value.model_dump_json(indent=2), encoding="utf-8")
-            self._value = value
+            self._write(value)
         return value
 
     def update(self, changes: dict[str, Any]) -> Preferences:
-        """Modifie seulement les champs fournis (les autres préférences sont gardées)."""
+        """Modifie seulement les champs fournis (les autres préférences sont gardées).
+
+        Lecture, fusion et écriture sous le même verrou : deux modifications simultanées
+        (mode en ligne et modèle, par exemple) ne s'écrasent pas.
+        """
         with self._lock:
             merged = Preferences.model_validate({**self._value.model_dump(), **changes})
-        return self.set(merged)
+            self._write(merged)
+        return merged
+
+    def _write(self, value: Preferences) -> None:
+        """Écriture atomique (fichier temporaire puis remplacement), à appeler sous le verrou."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_name(f".{self.path.name}.tmp")
+        tmp.write_text(value.model_dump_json(indent=2), encoding="utf-8")
+        os.replace(tmp, self.path)
+        self._value = value
