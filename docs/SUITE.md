@@ -106,17 +106,24 @@ comme sur leurs logos : tuile au dégradé cyan avec icône Lucide blanche, puis
 ## 3. Navigation dans la suite
 
 Chaque en-tête d'application porte un **sélecteur « Suite Atelier »** (icône grille, à gauche du nom de l'app) :
-- trois entrées : Atelier Viz (icône `BarChart3`), Atelier Tab (`Table2`), Atelier Projets (`KanbanSquare`), avec une ligne de description ;
+- trois entrées, dans la marque commune (§1.6, variante compacte `atelier-brand__tile--sm` / `atelier-brand__name--sm`) :
+  tuile au dégradé cyan + icône, puis « atelier_Viz » (`BarChart3`), « atelier_Tab » (`Table2`), « atelier_Projets » (`CalendarCheck`),
+  avec une ligne de description ; le nom accessible reste « Atelier Viz », « Atelier Tab », « Atelier Projets » ;
 - l'application courante est cochée ;
-- un clic ouvre l'adresse de l'application (colonne « Interface (aperçu / app) » ci-dessus) dans le navigateur
-  (dans une app de bureau : par le mécanisme d'ouverture externe de l'app — `openExternal` dans Viz, `shell.openExternal` dans Tab) ;
+- un clic ouvre l'adresse de l'application (colonne « Interface (aperçu / app) » ci-dessus) :
+  - dans un navigateur : nouvel onglet ;
+  - dans une app de bureau (macOS) : l'enveloppe de bureau reconnaît l'adresse d'une app de la suite et **ouvre l'application installée**
+    (`/usr/bin/open -b <identifiant>`), sinon l'adresse part dans le navigateur par défaut.
+    Identifiants : Viz `fr.atelier-viz.app`, Tab `fr.atelier.tab`, Projets `local.atelier-projets.desktop`.
+    Reconnaissance par hôte (`127.0.0.1` ou `localhost`) et port : 8000 → Viz, 4175 → Tab, 4174 → Projets.
+    Mécanisme : `DesktopApi.open_external` (Viz), `shell.openExternal` relayé par le processus principal (Tab), `setWindowOpenHandler` (Projets) ;
 - un indicateur « en marche / arrêtée » est affiché pour les apps qui ont une API (`GET /api/health`, délai 1,5 s, sans bloquer le menu).
 
 Les adresses sont des constantes dans un module dédié (`suite.ts`), surchargeables par variables d'environnement Vite
 (`VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`, et, dans Tab, `VITE_ATELIER_PROJETS_API_URL` pour l'adresse de santé de Projets).
 Dans une app, l'état de l'app courante se vérifie sur sa propre origine (`/api/health`), pas à l'adresse fixe.
 
-Nom affiché : **Atelier Viz**, **Atelier Tab**, **Atelier Projets** (avec une espace) dans les titres et en-têtes.
+Nom affiché : **Atelier Viz**, **Atelier Tab**, **Atelier Projets** (avec une espace) dans les titres de fenêtre et noms accessibles ; « atelier_Nom » dans la marque (§1.6).
 Les noms techniques (dépôts, dossier `~/Atelier_Tab`, paquets) ne changent pas.
 
 ---

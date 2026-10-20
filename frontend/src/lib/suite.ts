@@ -10,7 +10,10 @@ export type SuiteAppId = "viz" | "tab" | "projets";
 /** Une application de la suite, telle que le sélecteur l'affiche. */
 export interface SuiteApp {
   id: SuiteAppId;
+  /** Nom accessible (« Atelier Viz »). */
   name: string;
+  /** Nom affiché après « atelier_ » dans la marque (docs/SUITE.md §1.6). */
+  short: string;
   description: string;
   /** Adresse ouverte au clic (interface servie, ou app de bureau). */
   url: string;
@@ -51,6 +54,7 @@ export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp
     {
       id: "viz",
       name: "Atelier Viz",
+      short: "Viz",
       description: "BI locale : rapports, visuels, IA",
       url: clean(env.VITE_ATELIER_VIZ_URL, DEFAULTS.viz),
       // Application courante : sa propre API, sur la même origine (proxy Vite en développement, port libre dans l'app).
@@ -59,6 +63,7 @@ export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp
     {
       id: "tab",
       name: "Atelier Tab",
+      short: "Tab",
       description: "Tableur et base typée",
       url: clean(env.VITE_ATELIER_TAB_URL, DEFAULTS.tab),
       healthUrl: null,
@@ -66,6 +71,7 @@ export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp
     {
       id: "projets",
       name: "Atelier Projets",
+      short: "Projets",
       description: "Projets agiles, Git, temps passé",
       url: clean(env.VITE_ATELIER_PROJETS_URL, DEFAULTS.projets),
       healthUrl: `${PROJETS_API}/api/health`,

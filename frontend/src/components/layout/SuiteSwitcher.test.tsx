@@ -26,7 +26,13 @@ describe("sélecteur « Suite Atelier »", () => {
     await userEvent.click(button);
     expect(button).toHaveAttribute("aria-expanded", "true");
     const items = screen.getAllByRole("menuitemradio");
+    // Affichage dans la marque commune (« atelier_Viz »), noms accessibles inchangés (docs/SUITE.md §3).
     expect(items.map((i) => i.textContent)).toEqual([
+      expect.stringContaining("atelier_Viz"),
+      expect.stringContaining("atelier_Tab"),
+      expect.stringContaining("atelier_Projets"),
+    ]);
+    expect(items.map((i) => i.getAttribute("aria-label"))).toEqual([
       expect.stringContaining("Atelier Viz"),
       expect.stringContaining("Atelier Tab"),
       expect.stringContaining("Atelier Projets"),
