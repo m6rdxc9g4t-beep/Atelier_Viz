@@ -1,17 +1,22 @@
 import clsx from "clsx";
-import { BarChart3, CalendarCheck, Check, LayoutGrid, type LucideIcon, Table2 } from "lucide-react";
+import { BarChart3, CalendarCheck, Check, CookingPot, LayoutGrid, type LucideIcon, Table2 } from "lucide-react";
 import { type KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { openExternal } from "../../lib/desktop";
 import { CURRENT_APP, type SuiteAppId, type SuiteStatus, checkAnyHealth, statusLabel, suiteApps } from "../../lib/suite";
 
+/** Mention des apps en ligne de la suite, jamais sondées (docs/SUITE.md §3). */
+const ONLINE_LABEL = "En ligne";
+
 /** Icônes de la marque commune (docs/SUITE.md §1.6). */
-const ICONS: Record<SuiteAppId, LucideIcon> = { viz: BarChart3, tab: Table2, projets: CalendarCheck };
+const ICONS: Record<SuiteAppId, LucideIcon> = { viz: BarChart3, tab: Table2, projets: CalendarCheck, cuisine: CookingPot };
 
 /**
- * Sélecteur « Suite Atelier » (docs/SUITE.md §3) : les trois applications, la courante cochée,
- * un état « en marche / arrêtée » pour les trois (vérifié à l'ouverture, sans bloquer le menu) :
- * Viz sur sa propre origine, Tab sur 4175 puis 5175, Projets sur son API.
+ * Sélecteur « Suite Atelier » (docs/SUITE.md §3) : les applications de la suite, la courante cochée,
+ * un état « en marche / arrêtée » pour les trois apps locales (vérifié à l'ouverture, sans bloquer le menu) :
+ * Viz sur sa propre origine, Tab sur 4175 puis 5175, Projets sur son API. Atelier Cuisine (app en ligne)
+ * n'est jamais sondée : mention « En ligne ».
+ *
  * Clavier : flèches, Début / Fin, Entrée ; Échap, Tab ou un clic à l'extérieur ferment le menu.
  */
 export function SuiteSwitcher() {
@@ -97,7 +102,7 @@ export function SuiteSwitcher() {
           role="menu"
           aria-label="Suite Atelier"
           onKeyDown={onMenuKey}
-          className="atelier-pop absolute top-full left-0 z-50 mt-1.5 w-72 rounded-lg border border-border bg-surface p-1.5 text-fg shadow-xl"
+          className="atelier-pop absolute top-full left-0 z-50 mt-1.5 w-80 rounded-lg border border-border bg-surface p-1.5 text-fg shadow-xl"
         >
           <p className="px-2 pt-1 pb-1.5 text-[10px] font-medium tracking-wide text-muted uppercase" aria-hidden>
             Suite Atelier
@@ -107,6 +112,7 @@ export function SuiteSwitcher() {
             const current = app.id === CURRENT_APP;
             // L'application courante est toujours « en marche » (docs/SUITE.md §3) : la page tourne.
             const st = current ? "up" : app.healthUrls.length ? (status[app.id] ?? "unknown") : null;
+            const online = !current && !st && app.online === true;
             return (
               <button
                 key={app.id}
@@ -116,7 +122,7 @@ export function SuiteSwitcher() {
                 type="button"
                 role="menuitemradio"
                 aria-checked={current}
-                aria-label={`${app.name}${st ? ` (${statusLabel(st)})` : ""}`}
+                aria-label={`${app.name}${st ? ` (${statusLabel(st)})` : online ? ` (${ONLINE_LABEL})` : ""}`}
                 title={app.url}
                 tabIndex={-1}
                 onClick={() => {
@@ -138,6 +144,11 @@ export function SuiteSwitcher() {
                       {app.short}
                     </span>
                     {st && <StatusDot status={st} />}
+                    {online && (
+                      <span className="text-[11px] font-normal text-muted" aria-hidden>
+                        {ONLINE_LABEL}
+                      </span>
+                    )}
                   </span>
                   <span className="block truncate text-xs text-muted">{app.description}</span>
                 </span>

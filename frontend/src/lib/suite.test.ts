@@ -3,14 +3,18 @@ import { describe, expect, it, vi } from "vitest";
 import { CURRENT_APP, HEALTH_TIMEOUT_MS, TAB_HEALTH_URLS, checkAnyHealth, checkHealth, statusLabel, suiteApps, tabHealthUrls } from "./suite";
 
 describe("Suite Atelier : applications", () => {
-  it("liste les trois applications avec les adresses du contrat", () => {
+  it("liste les quatre applications avec les adresses du contrat", () => {
     const apps = suiteApps({});
     expect(apps.map((a) => [a.id, a.name, a.url])).toEqual([
       ["viz", "Atelier Viz", "http://127.0.0.1:8000"],
       ["tab", "Atelier Tab", "http://127.0.0.1:4175"],
       ["projets", "Atelier Projets", "http://127.0.0.1:4174"],
+      ["cuisine", "Atelier Cuisine", "https://atelier-cuisine-iota.vercel.app"],
     ]);
     expect(CURRENT_APP).toBe("viz");
+    // Atelier Cuisine : app en ligne, jamais sondée (docs/SUITE.md §3).
+    expect(apps.find((a) => a.id === "cuisine")).toMatchObject({ healthUrls: [], online: true, short: "Cuisine" });
+    expect(apps.filter((a) => a.online).map((a) => a.id)).toEqual(["cuisine"]);
     // Les trois ont un état « en marche / arrêtée » ; Tab expose seulement sa route de santé (docs/SUITE.md §3).
     expect(apps.find((a) => a.id === "tab")?.healthUrls).toEqual(["http://127.0.0.1:4175/api/health", "http://127.0.0.1:5175/api/health"]);
     expect(apps.find((a) => a.id === "projets")?.healthUrls).toEqual(["http://127.0.0.1:3000/api/health"]);
@@ -19,8 +23,13 @@ describe("Suite Atelier : applications", () => {
   });
 
   it("applique les surcharges VITE_ATELIER_*_URL", () => {
-    const apps = suiteApps({ VITE_ATELIER_TAB_URL: " http://localhost:5175/ ", VITE_ATELIER_PROJETS_URL: "", VITE_ATELIER_VIZ_URL: "http://127.0.0.1:9000" });
-    expect(apps.map((a) => a.url)).toEqual(["http://127.0.0.1:9000", "http://localhost:5175", "http://127.0.0.1:4174"]);
+    const apps = suiteApps({
+      VITE_ATELIER_TAB_URL: " http://localhost:5175/ ",
+      VITE_ATELIER_PROJETS_URL: "",
+      VITE_ATELIER_VIZ_URL: "http://127.0.0.1:9000",
+      VITE_ATELIER_CUISINE_URL: "https://cuisine.example.org/",
+    });
+    expect(apps.map((a) => a.url)).toEqual(["http://127.0.0.1:9000", "http://localhost:5175", "http://127.0.0.1:4174", "https://cuisine.example.org"]);
   });
 
   it("dérive la santé d'Atelier Tab de VITE_ATELIER_TAB_URL (comme Projets), sans doublon", () => {

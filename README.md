@@ -93,7 +93,10 @@ par DNS rebinding), ni passer Atelier Viz en ligne, ni appeler Claude. Pour join
 
 Atelier Viz, **Atelier Tab** (tableur et base typée) et **Atelier Projets** (projets agiles, temps passé) partagent
 le même design system, le même thème clair / sombre et se rejoignent par le sélecteur **Suite Atelier** (icône
-grille, en haut à gauche) : il ouvre chaque application et indique si Atelier Projets est en marche.
+grille, en haut à gauche) : il ouvre chaque application et indique si Atelier Tab et Atelier Projets sont en marche.
+Il ouvre aussi **Atelier Cuisine** (stock, repas, courses et budget du foyer), app en ligne
+(`https://atelier-cuisine-iota.vercel.app`) : jamais sondée, marquée « En ligne » ; depuis l'application de bureau,
+son app Mac (`fr.ateliercuisine.app`) si elle est installée, sinon le navigateur par défaut.
 Contrat commun : [`docs/SUITE.md`](docs/SUITE.md).
 
 | Source | Comment |
@@ -101,8 +104,8 @@ Contrat commun : [`docs/SUITE.md`](docs/SUITE.md).
 | Atelier Tab | **Données → Se connecter à une source → Atelier Tab**. L'application de bureau Atelier Tab publie chaque table à son enregistrement dans `~/Atelier_Tab/exports` (dossier modifiable dans la connexion, ou `ATELIER_TAB_EXPORTS_DIR`). Choisir une table, **Importer** ; **Actualiser** relit la dernière version publiée. Instantané limité à 50 Mo (`ATELIER_TAB_MAX_SNAPSHOT_MB`). Un fichier `.json` exporté d'Atelier Tab (enveloppe DataFlow) peut aussi être importé directement : colonnes `_ligne`, `_id` puis une par champ, valeurs calculées, types gardés. |
 | Atelier Projets | **Atelier Projets** dans la même liste : adresse `http://127.0.0.1:3000` par défaut (`ATELIER_PROJETS_URL`). Choisir un jeu (éléments de travail, temps passé, jalons) et, si besoin, un projet ; **Importer**, puis **Actualiser**. Atelier Projets doit être lancé sur cette machine (adresse `127.0.0.1`, `localhost` ou `::1` uniquement, même en mode « En ligne ») ; aucun mot de passe. |
 
-Adresses des applications dans le sélecteur : `VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`
-(fichier `frontend/.env.local`), par défaut celles de `docs/SUITE.md` §2.
+Adresses des applications dans le sélecteur : `VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`,
+`VITE_ATELIER_CUISINE_URL` (fichier `frontend/.env.local`), par défaut celles de `docs/SUITE.md` §2.
 
 ## Connecteurs (SQL Server, PostgreSQL, MySQL, SQLite, OneDrive, SharePoint)
 

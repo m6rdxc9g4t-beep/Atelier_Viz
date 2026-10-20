@@ -163,19 +163,30 @@ class SaveWindow(Protocol):
 
 # Applications de la Suite Atelier (docs/SUITE.md §3) : port de l'interface → identifiant de l'app macOS.
 SUITE_BUNDLES = {8000: "fr.atelier-viz.app", 4175: "fr.atelier.tab", 4174: "local.atelier-projets.desktop"}
+# Applications en ligne de la suite : hôte exact (https, port par défaut) → identifiant de l'app macOS.
+# Atelier Cuisine : PWA sur Vercel, app Mac (Tauri) si installée. Jamais sondée ni contactée par Viz.
+SUITE_ONLINE_BUNDLES = {"atelier-cuisine-iota.vercel.app": "fr.ateliercuisine.app"}
 _LOCAL_HOSTS = {"127.0.0.1", "localhost"}
 
 
 def suite_bundle_for(url: str) -> str | None:
-    """Identifiant de l'application de bureau à ouvrir pour une adresse de la suite, sinon None."""
+    """Identifiant de l'application de bureau à ouvrir pour une adresse de la suite, sinon None.
+
+    Apps locales : hôte de bouclage et port connu. Apps en ligne (Atelier Cuisine) : https, hôte exact,
+    port par défaut, sans identifiants.
+    """
     try:
         parts = urlsplit(str(url))
         port = parts.port
     except ValueError:
         return None
-    if parts.scheme not in {"http", "https"} or parts.hostname not in _LOCAL_HOSTS or port is None:
+    if parts.scheme not in {"http", "https"} or parts.username is not None or parts.password is not None:
         return None
-    return SUITE_BUNDLES.get(port)
+    if parts.hostname in _LOCAL_HOSTS:
+        return SUITE_BUNDLES.get(port) if port is not None else None
+    if parts.scheme != "https" or port not in {None, 443} or parts.hostname is None:
+        return None
+    return SUITE_ONLINE_BUNDLES.get(parts.hostname)
 
 
 def open_macos_app(bundle_id: str) -> bool:

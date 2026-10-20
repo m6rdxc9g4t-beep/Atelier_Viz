@@ -1,6 +1,8 @@
 /// <reference types="node" />
 // Lecture directe des fichiers : Vitest neutralise le CSS importé (même en `?raw`).
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -11,6 +13,8 @@ const dark = read("./dark.css");
 const light = read("./light.css");
 const brand = read("../atelier-brand/atelier-brand.css");
 const indexHtml = read("../../../index.html");
+/** Source de la marque commune (dépôt voisin `atelier_projets`), comparée quand elle est présente. */
+const BRAND_REFERENCE = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../../atelier_projets/design-system/brand/atelier-brand.css");
 
 /** Variables déclarées dans une feuille (`--nom:`). */
 const declared = (css: string) => new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
@@ -93,5 +97,17 @@ describe("design system de la Suite Atelier (copies verbatim, docs/SUITE.md §1.
     // Jetons de la v1 (base cyan, bleu nuit) : plus aucun usage dans l'habillage.
     expect(indexCss).not.toMatch(/--atelier-(neon|night|glass|edge|signature-light)\b/);
     expect(indexCss).not.toMatch(/#06111f|#0a1b2e|#10283f|#17405c|#3fd8ff/i);
+  });
+
+  it("la marque commune définit la signature de chaque app du sélecteur de la suite (§1.7, §3)", () => {
+    const signatures = { viz: "#f2c811", tab: "#21a366", projets: "#94d82d", cuisine: "#e056e2" };
+    for (const [app, hex] of Object.entries(signatures)) {
+      expect(brand).toMatch(new RegExp(`--atelier-sig-${app}: ${hex};`, "i"));
+      expect(brand).toContain(`[data-atelier-app="${app}"] { --atelier-signature: var(--atelier-sig-${app});`);
+    }
+  });
+
+  it.skipIf(!existsSync(BRAND_REFERENCE))("atelier-brand.css est une copie à l'octet près de celle d'Atelier Projets", () => {
+    expect(brand).toBe(readFileSync(BRAND_REFERENCE, "utf8"));
   });
 });

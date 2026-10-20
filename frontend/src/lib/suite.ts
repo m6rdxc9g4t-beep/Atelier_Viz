@@ -1,11 +1,12 @@
 /**
- * Suite Atelier : adresses des trois applications et état de leurs API (docs/SUITE.md §2 et §3).
+ * Suite Atelier : adresses des applications du sélecteur et état des API locales (docs/SUITE.md §2 et §3).
  *
  * Les adresses sont celles de l'interface « aperçu / app » ; chacune se surcharge par une variable
- * d'environnement Vite (`VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`).
+ * d'environnement Vite (`VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`,
+ * `VITE_ATELIER_CUISINE_URL`). Atelier Cuisine est une app en ligne : jamais sondée.
  */
 
-export type SuiteAppId = "viz" | "tab" | "projets";
+export type SuiteAppId = "viz" | "tab" | "projets" | "cuisine";
 
 /** Une application de la suite, telle que le sélecteur l'affiche. */
 export interface SuiteApp {
@@ -22,6 +23,8 @@ export interface SuiteApp {
    * l'une d'elles répond. Vide = pas d'indicateur.
    */
   healthUrls: string[];
+  /** App en ligne, sans API locale (Atelier Cuisine) : mention « En ligne » à la place de l'indicateur. */
+  online?: boolean;
 }
 
 /** État affiché à côté d'une application : en marche, arrêtée, ou pas encore connu. */
@@ -37,6 +40,7 @@ const DEFAULTS: Record<SuiteAppId, string> = {
   viz: "http://127.0.0.1:8000",
   tab: "http://127.0.0.1:4175",
   projets: "http://127.0.0.1:4174",
+  cuisine: "https://atelier-cuisine-iota.vercel.app",
 };
 
 /** API d'Atelier Projets (docs/SUITE.md §2). */
@@ -50,6 +54,7 @@ export interface SuiteEnv {
   VITE_ATELIER_VIZ_URL?: string;
   VITE_ATELIER_TAB_URL?: string;
   VITE_ATELIER_PROJETS_URL?: string;
+  VITE_ATELIER_CUISINE_URL?: string;
 }
 
 const clean = (url: string | undefined, fallback: string) => (url && url.trim() ? url.trim().replace(/\/+$/, "") : fallback);
@@ -65,7 +70,7 @@ export function tabHealthUrls(env: SuiteEnv = import.meta.env as SuiteEnv): stri
 /** Santé d'Atelier Tab avec les adresses de l'environnement courant. */
 export const TAB_HEALTH_URLS = tabHealthUrls();
 
-/** Les trois applications, dans l'ordre du menu, avec les surcharges d'environnement appliquées. */
+/** Les applications du sélecteur, dans l'ordre du menu, avec les surcharges d'environnement appliquées. */
 export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp[] {
   return [
     {
@@ -92,6 +97,16 @@ export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp
       description: "Projets agiles, Git, temps passé",
       url: clean(env.VITE_ATELIER_PROJETS_URL, DEFAULTS.projets),
       healthUrls: [`${PROJETS_API}/api/health`],
+    },
+    {
+      id: "cuisine",
+      name: "Atelier Cuisine",
+      short: "Cuisine",
+      description: "Stock, repas, courses et budget du foyer",
+      url: clean(env.VITE_ATELIER_CUISINE_URL, DEFAULTS.cuisine),
+      // App en ligne (PWA + app Mac, données Supabase) : aucune API locale, donc jamais sondée (docs/SUITE.md §3).
+      healthUrls: [],
+      online: true,
     },
   ];
 }
