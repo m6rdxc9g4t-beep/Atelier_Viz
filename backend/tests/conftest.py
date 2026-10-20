@@ -52,6 +52,7 @@ def settings(tmp_path: Path) -> Settings:
         secrets_backend="file",  # jamais le trousseau réel du développeur
         github_token=None,  # jamais le GITHUB_TOKEN de l'environnement
         scheduler_enabled=False,  # l'ordonnanceur est piloté à la main dans les tests (horloge injectée)
+        allowed_hosts=["testserver"],  # Host envoyé par TestClient ; le garde local reste actif (test_local_only.py)
         _env_file=None,
     )
 
