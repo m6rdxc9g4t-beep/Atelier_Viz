@@ -4,6 +4,8 @@ import { Cloud, HardDrive, Monitor, Moon, RefreshCw, Sun } from "lucide-react";
 import { usePreferences } from "../../hooks/usePreferences";
 import { useProviders } from "../../hooks/useProviders";
 import { type ThemePreference, useTheme } from "../../hooks/useTheme";
+import { CLAUDE_MODELS, claudeModelLabel, ollamaChoices, ollamaSelected } from "../../lib/engine";
+import type { ClaudeModel, ProviderStatus } from "../../types/ai";
 import { GitHubSection } from "./GitHubSection";
 
 /** Réglages : bascule hors ligne / en ligne et état des moteurs d'IA. */
@@ -96,7 +98,7 @@ export function SettingsView() {
       <section className="rounded-xl border border-border bg-surface p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Moteurs d'IA</h2>
-          <button type="button" onClick={providers.refresh} aria-label="Revérifier" className="rounded p-1.5 text-muted hover:bg-surface-2 hover:text-fg">
+          <button type="button" onClick={() => providers.refresh(true)} aria-label="Revérifier" className="rounded p-1.5 text-muted hover:bg-surface-2 hover:text-fg">
             <RefreshCw className={clsx("size-4", providers.loading && "animate-spin")} aria-hidden />
           </button>
         </div>
@@ -104,20 +106,74 @@ export function SettingsView() {
           {providers.providers.map((p) => (
             <li key={p.name} className="flex items-start gap-3 py-3 text-sm">
               <span className={clsx("mt-1.5 size-2 shrink-0 rounded-full", p.available ? "bg-positive" : "bg-muted/50")} aria-hidden />
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 <span className="font-medium">{p.name === "ollama" ? "Ollama (local)" : "Claude"}</span>{" "}
-                <span className="text-xs text-muted">— {p.model}</span>
-                <span className="block text-xs text-muted">{p.available ? "Disponible" : p.detail}</span>
-                {p.name === "ollama" && p.models.length > 0 && <span className="block text-[11px] text-muted">Modèles installés : {p.models.join(", ")}</span>}
+                <span className="text-xs text-muted">— {p.name === "anthropic" ? claudeModelLabel(p.model) : p.model}</span>
+                {p.version && <span className="ml-1 text-xs text-muted">· CLI {p.version}</span>}
+                <span className="block text-xs text-muted">{p.available ? (p.detail ?? "Disponible") : p.detail}</span>
+                {p.executable && <span className="block truncate font-mono text-[11px] text-muted" title={p.executable}>{p.executable}</span>}
+                <ModelChoice provider={p} />
               </span>
             </li>
           ))}
         </ul>
         <p className="mt-2 text-[11px] text-muted">
-          Claude passe par la CLI Claude Code connectée à votre abonnement (CLAUDE_MODE=cli dans backend/.env), ou par l'API avec une clé (CLAUDE_MODE=api).
+          Claude passe par la CLI Claude Code connectée à votre abonnement (CLAUDE_MODE=cli dans backend/.env ; exécutable cherché dans CLAUDE_CLI, le PATH, ~/.local/bin,
+          /opt/homebrew/bin et /usr/local/bin), ou par l'API avec une clé (CLAUDE_MODE=api). Le moteur (Auto · Ollama · Claude) se choisit là où l'on utilise l'IA ; « Auto »
+          prend Claude en ligne quand il est disponible, sinon Ollama.
         </p>
       </section>
       <GitHubSection />
     </div>
+  );
+}
+
+/** Modèle mémorisé pour un moteur : Sonnet / Opus / Haiku (CLI Claude) ou modèle Ollama installé. */
+function ModelChoice({ provider }: { provider: ProviderStatus }) {
+  const { prefs, update } = usePreferences();
+  const { refresh } = useProviders();
+  const id = `model-${provider.name}`;
+  if (provider.name === "anthropic") {
+    if (!provider.models.length) return null; // mode API : modèle fixé par ANTHROPIC_MODEL
+    return (
+      <span className="mt-1.5 flex items-center gap-2 text-xs">
+        <label htmlFor={id} className="text-muted">
+          Modèle
+        </label>
+        <select
+          id={id}
+          value={prefs?.claude_model ?? "sonnet"}
+          onChange={(e) => void update({ claude_model: e.target.value as ClaudeModel }).then(() => refresh())}
+          className="rounded border border-border bg-bg px-1.5 py-0.5 text-xs"
+        >
+          {CLAUDE_MODELS.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </span>
+    );
+  }
+  const list = ollamaChoices(provider, prefs?.ollama_model ?? null);
+  if (!list.length) return null;
+  return (
+    <span className="mt-1.5 flex items-center gap-2 text-xs">
+      <label htmlFor={id} className="text-muted">
+        Modèle
+      </label>
+      <select
+        id={id}
+        value={ollamaSelected(provider, prefs?.ollama_model ?? null)}
+        onChange={(e) => void update({ ollama_model: e.target.value }).then(() => refresh())}
+        className="min-w-0 rounded border border-border bg-bg px-1.5 py-0.5 text-xs"
+      >
+        {list.map((m) => (
+          <option key={m.value} value={m.value}>
+            {m.label}
+          </option>
+        ))}
+      </select>
+    </span>
   );
 }

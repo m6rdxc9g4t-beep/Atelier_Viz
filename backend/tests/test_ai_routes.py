@@ -58,10 +58,35 @@ def test_claude_blocked_when_offline(client: TestClient) -> None:
 
 def test_anthropic_without_key_returns_400(client: TestClient) -> None:
     # Application réelle (pas d'override), mode en ligne, mais sans clé API.
-    assert client.put("/api/settings", json={"online_mode": True}).json() == {"online_mode": True}
+    assert client.put("/api/settings", json={"online_mode": True}).json()["online_mode"] is True
     response = client.post(
         "/api/ai/chat",
         json={"messages": [{"role": "user", "content": "Bonjour"}], "provider": "anthropic"},
     )
     assert response.status_code == 400
     assert "ANTHROPIC_API_KEY" in response.json()["detail"]
+
+
+def test_providers_refresh_forgets_cached_claude_state(client: TestClient, override_ai) -> None:
+    claude = FakeProvider("anthropic")
+    claude.invalidated = 0  # type: ignore[attr-defined]
+
+    def invalidate() -> None:
+        claude.invalidated += 1  # type: ignore[attr-defined]
+
+    claude.invalidate = invalidate  # type: ignore[attr-defined]
+    override_ai(AIService(FakeProvider("ollama"), claude))  # type: ignore[arg-type]
+    assert client.get("/api/ai/providers").status_code == 200
+    assert claude.invalidated == 0  # type: ignore[attr-defined]
+    assert client.get("/api/ai/providers?refresh=true").status_code == 200
+    assert claude.invalidated == 1  # type: ignore[attr-defined]
+
+
+def test_models_follow_preferences(client: TestClient) -> None:
+    """Le modèle choisi dans l'interface est celui des appels (application réelle, mode API en test)."""
+    service = client.app.state.ai_service  # type: ignore[attr-defined]
+    assert service.ollama.model == "llama3.2"
+    client.put("/api/settings", json={"ollama_model": "qwen3:8b"})
+    assert service.ollama.model == "qwen3:8b"
+    client.put("/api/settings", json={"ollama_model": None})
+    assert service.ollama.model == "llama3.2"

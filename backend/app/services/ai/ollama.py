@@ -1,5 +1,6 @@
 """Fournisseur Ollama (modèles locaux) via son API HTTP."""
 
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -16,6 +17,7 @@ class OllamaProvider:
         model: modèle utilisé pour le chat (doit être installé : `ollama pull <model>`).
         timeout: délai maximal d'une génération, en secondes.
         client: client httpx injectable (tests).
+        model_choice: modèle choisi par l'utilisateur (préférences), lu à chaque appel ; None = `model`.
     """
 
     name: ProviderName = "ollama"
@@ -26,10 +28,18 @@ class OllamaProvider:
         model: str,
         timeout: float = 120.0,
         client: httpx.AsyncClient | None = None,
+        model_choice: Callable[[], str | None] | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        self.model = model
+        self.default_model = model
+        self._model_choice = model_choice
         self._client = client or httpx.AsyncClient(base_url=self.base_url, timeout=timeout)
+
+    @property
+    def model(self) -> str:
+        """Modèle utilisé pour le prochain appel : choix de l'utilisateur, sinon la configuration."""
+        chosen = self._model_choice() if self._model_choice else None
+        return chosen or self.default_model
 
     async def list_models(self) -> list[str]:
         """Retourne les noms des modèles installés localement."""
@@ -51,9 +61,10 @@ class OllamaProvider:
         except AIProviderError as exc:
             return ProviderStatus(name="ollama", available=False, model=self.model, detail=exc.message)
 
+        model = self.model
         installed = self._is_installed(models)
-        detail = None if installed else f"Modèle « {self.model} » absent : `ollama pull {self.model}`"
-        return ProviderStatus(name="ollama", available=installed, model=self.model, detail=detail, models=models)
+        detail = None if installed else f"Modèle « {model} » absent : `ollama pull {model}`"
+        return ProviderStatus(name="ollama", available=installed, model=model, detail=detail, models=models)
 
     async def chat(self, messages: list[ChatMessage], system: str | None = None) -> str:
         """Appelle `/api/chat` en mode non streamé."""
@@ -94,5 +105,6 @@ class OllamaProvider:
 
     def _is_installed(self, models: list[str]) -> bool:
         """`llama3.2` correspond à `llama3.2:latest` ; un tag explicite doit correspondre exactement."""
-        wanted = self.model if ":" in self.model else f"{self.model}:latest"
-        return wanted in models or self.model in models
+        model = self.model
+        wanted = model if ":" in model else f"{model}:latest"
+        return wanted in models or model in models

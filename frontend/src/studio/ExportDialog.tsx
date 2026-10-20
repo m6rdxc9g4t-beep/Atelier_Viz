@@ -13,7 +13,7 @@ import {
 import type { SaveOutcome } from "../lib/desktop";
 import { useTheme } from "../hooks/useTheme";
 import { useStudioData } from "./context";
-import { useEngine } from "./panes/EnginePicker";
+import { useEngine } from "../components/ai/EnginePicker";
 import { useStudio } from "./store";
 
 const STORAGE_KEY = "atelier.export.options";

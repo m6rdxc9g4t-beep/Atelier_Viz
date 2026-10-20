@@ -243,3 +243,29 @@ def test_route_validates_and_requires_dataset(client: TestClient, override_ai) -
     assert res.json()["visuals"][0]["roles"]["values"][0] == {"field": "ca", "agg": "sum", "bin": None, "label": None}
     assert client.post("/api/ai/visuals", json={**body, "dataset_id": "000000000000"}).status_code == 404
     assert client.post("/api/ai/visuals", json={**body, "catalog": []}).status_code == 422
+
+
+def test_repair_route_revalidates_history_against_current_profile(client: TestClient) -> None:
+    """Réajout depuis l'historique du volet : même `repair`, un résultat par visuel, aucun appel à l'IA."""
+    dataset_id = client.post("/api/datasets", files={"file": ("v.csv", CSV, "text/csv")}).json()["id"]
+    good = {"type": "column", "title": "CA", "roles": {"category": [{"field": "region"}], "values": [{"field": "ca"}]}}
+    gone = {"type": "kpi", "title": "Marge", "roles": {"values": [{"field": "marge", "agg": "sum"}]}}
+    fixable = {
+        "type": "column",
+        "roles": {"category": [{"field": "date"}], "values": [{"field": "region", "agg": "sum"}]},
+    }
+    res = client.post(
+        "/api/ai/visuals/repair", json={"dataset_id": dataset_id, "catalog": CATALOG, "visuals": [good, gone, fixable]}
+    )
+    assert res.status_code == 200, res.text
+    first, second, third = res.json()["results"]
+    assert first["visual"]["roles"]["values"][0]["agg"] == "sum" and first["errors"] == []
+    # Colonne disparue : écarté avec la raison, jamais de visuel cassé dans le Studio.
+    assert second["visual"] is None and "manquant" in second["errors"][0]
+    assert third["visual"]["roles"]["category"][0]["bin"] == "month"
+    assert third["visual"]["roles"]["values"][0]["agg"] == "count" and third["warnings"]
+    base = {"dataset_id": dataset_id, "catalog": CATALOG}
+    assert client.post("/api/ai/visuals/repair", json={**base, "visuals": []}).status_code == 422
+    assert client.post("/api/ai/visuals/repair", json={**base, "visuals": [good] * 7}).status_code == 422
+    other = {**base, "dataset_id": "000000000000", "visuals": [good]}
+    assert client.post("/api/ai/visuals/repair", json=other).status_code == 404

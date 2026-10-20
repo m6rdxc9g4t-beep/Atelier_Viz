@@ -16,15 +16,19 @@ from main import create_app
 class FakeProvider:
     """Fournisseur simulé : renvoie une réponse fixe ou lève une erreur."""
 
-    def __init__(self, name: ProviderName, *, configured: bool = True, fail: bool = False) -> None:
+    def __init__(
+        self, name: ProviderName, *, configured: bool = True, fail: bool = False, available: bool = True
+    ) -> None:
         self.name: ProviderName = name
         self.model = f"{name}-test"
         self.configured = configured
         self.fail = fail
+        self.available = available
         self.calls: list[list[ChatMessage]] = []
 
     async def status(self) -> ProviderStatus:
-        return ProviderStatus(name=self.name, available=self.configured and not self.fail, model=self.model)
+        ok = self.configured and self.available and not self.fail
+        return ProviderStatus(name=self.name, available=ok, model=self.model)
 
     async def chat(self, messages: list[ChatMessage], system: str | None = None) -> str:
         self.calls.append(messages)

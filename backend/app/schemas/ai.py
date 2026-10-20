@@ -24,7 +24,8 @@ class ChatRequest(BaseModel):
     provider: ProviderChoice = "auto"
     task: TaskComplexity = Field(
         default="simple",
-        description="Utilisé en mode 'auto' : 'complex' privilégie Claude.",
+        description="Conservé pour compatibilité : « Auto » choisit Claude dès qu'il est en ligne et disponible "
+        "(docs/SUITE.md §5.2), quelle que soit la tâche.",
     )
     dataset_id: str | None = Field(
         default=None, description="Jeu de données dont le schéma et un échantillon sont fournis à l'IA."
@@ -47,7 +48,12 @@ class ProviderStatus(BaseModel):
     available: bool
     model: str
     detail: str | None = None
-    models: list[str] = Field(default_factory=list, description="Modèles installés (Ollama).")
+    models: list[str] = Field(
+        default_factory=list,
+        description="Modèles au choix : installés (Ollama) ou alias sonnet / opus / haiku (CLI Claude).",
+    )
+    version: str | None = Field(default=None, description="Version de la CLI Claude (`claude --version`).")
+    executable: str | None = Field(default=None, description="Chemin de l'exécutable `claude` trouvé.")
 
 
 class ProvidersResponse(BaseModel):

@@ -3,6 +3,8 @@
 export type ProviderName = "ollama" | "anthropic";
 export type ProviderChoice = "auto" | ProviderName;
 export type TaskComplexity = "simple" | "complex";
+/** Modèles Claude proposés (alias de la CLI, docs/SUITE.md §5.2). */
+export type ClaudeModel = "sonnet" | "opus" | "haiku";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -30,7 +32,12 @@ export interface ProviderStatus {
   available: boolean;
   model: string;
   detail: string | null;
+  /** Modèles au choix : installés (Ollama) ou sonnet / opus / haiku (CLI Claude). */
   models: string[];
+  /** Version de la CLI Claude. */
+  version?: string | null;
+  /** Chemin de l'exécutable `claude` trouvé. */
+  executable?: string | null;
 }
 
 export interface ProvidersResponse {

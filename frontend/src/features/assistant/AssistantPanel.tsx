@@ -2,9 +2,9 @@ import clsx from "clsx";
 import { Database, SendHorizontal, Sparkles, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
-import { usePreferences } from "../../hooks/usePreferences";
 import { api } from "../../lib/api";
-import type { ChatMessage, ProviderChoice, ProviderName } from "../../types/ai";
+import { EnginePicker, useEngine } from "../../components/ai/EnginePicker";
+import type { ChatMessage, ProviderName } from "../../types/ai";
 import type { DatasetSummary } from "../../types/dataset";
 import { RichText } from "./RichText";
 
@@ -12,12 +12,6 @@ interface DisplayedMessage extends ChatMessage {
   provider?: ProviderName;
   error?: boolean;
 }
-
-const CHOICES: { value: ProviderChoice; label: string }[] = [
-  { value: "auto", label: "Auto" },
-  { value: "ollama", label: "Ollama (local)" },
-  { value: "anthropic", label: "Claude" },
-];
 
 const SYSTEM_PROMPT =
   "Tu es l'assistant d'une application de BI. Réponds en français, de façon concise, " +
@@ -29,13 +23,11 @@ interface AssistantPanelProps {
   onClose?: () => void;
 }
 
-/** Chat latéral : envoie la conversation à /api/ai/chat avec le fournisseur choisi. */
+/** Chat latéral : envoie la conversation à /api/ai/chat avec le moteur choisi (docs/SUITE.md §5.2). */
 export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
-  const { prefs } = usePreferences();
-  const online = prefs?.online_mode ?? false;
-  const [chosen, setProvider] = useState<ProviderChoice>("auto");
-  // Hors ligne, Claude n'est pas proposé : on retombe sur Auto (= Ollama).
-  const provider: ProviderChoice = !online && chosen === "anthropic" ? "auto" : chosen;
+  // Moteur commun à tous les écrans d'IA (mémorisé) ; hors ligne, Claude retombe sur Auto (= Ollama).
+  const engine = useEngine();
+  const provider = engine.provider;
   const [messages, setMessages] = useState<DisplayedMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
@@ -77,28 +69,23 @@ export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
           <Sparkles className="size-4 text-accent" aria-hidden />
           Assistant
         </h2>
-        <label className="sr-only" htmlFor="provider-select">
-          Fournisseur IA
-        </label>
-        <select
-          id="provider-select"
-          value={provider}
-          onChange={(e) => setProvider(e.target.value as ProviderChoice)}
-          className="rounded-md border border-border bg-surface px-2 py-1 text-xs"
-        >
-          {CHOICES.map((c) => (
-            <option key={c.value} value={c.value} disabled={c.value === "anthropic" && !online}>
-              {c.label}
-              {c.value === "anthropic" && !online ? " (hors ligne)" : ""}
-            </option>
-          ))}
-        </select>
         {onClose && (
           <button type="button" onClick={onClose} aria-label="Fermer l'assistant" className="rounded p-1 text-muted hover:bg-surface-2 hover:text-fg">
             <X className="size-4" aria-hidden />
           </button>
         )}
       </header>
+
+      <div className="border-b border-border px-4 py-3">
+        <EnginePicker
+          engine={engine}
+          note={
+            useDataset && dataset
+              ? `Envoyé : votre conversation, les noms de colonnes, leurs statistiques et 5 lignes d'exemple de « ${dataset.name} ».`
+              : "Seule votre conversation est envoyée (aucune donnée du jeu)."
+          }
+        />
+      </div>
 
       {dataset && (
         <label className="flex cursor-pointer items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted">

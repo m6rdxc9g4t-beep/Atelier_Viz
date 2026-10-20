@@ -178,7 +178,7 @@ async def summarize(service: AIService, req: SummaryRequest) -> SummaryResponse:
     messages = [ChatMessage(role="user", content=f"Faits de la page :\n{facts_text(req)}")]
     schema = summary_schema(req)
 
-    provider, raw = await service.chat_json(req.provider, "complex", messages, system, schema)
+    provider, raw = await service.chat_json(req.provider, messages, system, schema)
     draft = check(raw, req, pool)
     if draft.errors:
         retry = messages + [
@@ -191,7 +191,7 @@ async def summarize(service: AIService, req: SummaryRequest) -> SummaryResponse:
             ),
         ]
         try:
-            provider, raw2 = await service.chat_json(req.provider, "complex", retry, system, schema)
+            provider, raw2 = await service.chat_json(req.provider, retry, system, schema)
             second = check(raw2, req, pool)
             if len(second.errors) <= len(draft.errors):
                 draft = second

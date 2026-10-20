@@ -48,7 +48,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.dataset_store,
             is_online=lambda: app.state.preferences.get().online_mode,
         )
-        app.state.ai_service = build_ai_service(settings, is_online=lambda: app.state.preferences.get().online_mode)
+        app.state.ai_service = build_ai_service(
+            settings,
+            is_online=lambda: app.state.preferences.get().online_mode,
+            preferences=app.state.preferences.get,
+        )
         # Actualisation planifiée des jeux importés (fichier à côté de connections.json).
         app.state.scheduler = RefreshScheduler(
             data_dir / "schedules.json",

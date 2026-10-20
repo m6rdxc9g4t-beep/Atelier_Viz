@@ -2,8 +2,14 @@
 
 import threading
 from pathlib import Path
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.schemas.ai import ProviderChoice
+
+ClaudeModel = Literal["sonnet", "opus", "haiku"]
+"""Modèles Claude proposés à l'utilisateur (alias de la CLI, docs/SUITE.md §5.2)."""
 
 
 class Preferences(BaseModel):
@@ -11,9 +17,15 @@ class Preferences(BaseModel):
 
     online_mode : False = tout reste sur la machine (Ollama seulement, webhooks locaux seulement).
                   True  = Claude (CLI ou API) et webhooks vers Internet autorisés.
+    ai_provider : moteur choisi (« Auto · Ollama · Claude »), partagé par tous les écrans d'IA.
+    claude_model : modèle Claude de la CLI (Sonnet par défaut).
+    ollama_model : modèle Ollama choisi ; None = `OLLAMA_MODEL` de la configuration.
     """
 
     online_mode: bool = False
+    ai_provider: ProviderChoice = "auto"
+    claude_model: ClaudeModel = "sonnet"
+    ollama_model: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class PreferencesStore:
@@ -39,3 +51,9 @@ class PreferencesStore:
             self.path.write_text(value.model_dump_json(indent=2), encoding="utf-8")
             self._value = value
         return value
+
+    def update(self, changes: dict[str, Any]) -> Preferences:
+        """Modifie seulement les champs fournis (les autres préférences sont gardées)."""
+        with self._lock:
+            merged = Preferences.model_validate({**self._value.model_dump(), **changes})
+        return self.set(merged)

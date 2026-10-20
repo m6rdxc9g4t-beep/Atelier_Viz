@@ -98,7 +98,8 @@ def test_status_reads_auth_status(auth: dict[str, object], available: bool, deta
 
 
 def test_status_when_cli_missing() -> None:
-    missing = ClaudeCliProvider(executable="claude-introuvable-xyz")
+    # Recherche simulée : la machine de test peut avoir une vraie CLI dans le PATH ou ~/.local/bin.
+    missing = ClaudeCliProvider(executable="claude-introuvable-xyz", finder=lambda: None)
     assert missing.configured is False
     status = asyncio.run(missing.status())
     assert status.available is False
@@ -126,3 +127,101 @@ def test_claude_mode_selects_provider() -> None:
     api = build_claude_provider(Settings(claude_mode="api", _env_file=None))  # type: ignore[call-arg]
     assert isinstance(cli, ClaudeCliProvider)
     assert isinstance(api, AnthropicProvider)
+
+
+# --- Recherche de l'exécutable, cache d'état, version, modèle choisi (docs/SUITE.md §5) ---
+
+
+def test_find_claude_cli_order(tmp_path) -> None:
+    """CLAUDE_CLI, puis l'exécutable configuré, puis le PATH, puis les dossiers d'installation."""
+    from app.services.ai.claude_cli import FALLBACK_DIRS, find_claude_cli
+
+    assert FALLBACK_DIRS == ("~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin")
+    seen: list[str] = []
+
+    def which(name: str) -> str | None:
+        seen.append(name)
+        return {"/opt/claude-env": "/opt/claude-env", "claude": "/usr/bin/claude"}.get(name)
+
+    env = {"CLAUDE_CLI": "/opt/claude-env"}
+    assert find_claude_cli("claude", env=env, which=which, fallback_dirs=()) == "/opt/claude-env"
+    seen.clear()
+    assert find_claude_cli("/introuvable/claude", env={}, which=which, fallback_dirs=()) == "/usr/bin/claude"
+    assert seen == ["/introuvable/claude", "claude"]
+
+
+def test_find_claude_cli_falls_back_to_install_dirs(tmp_path) -> None:
+    """Application lancée depuis le Finder : PATH minimal, la CLI est dans ~/.local/bin ou Homebrew."""
+    from app.services.ai.claude_cli import find_claude_cli
+
+    empty, local, brew = tmp_path / "vide", tmp_path / "local-bin", tmp_path / "homebrew-bin"
+    for folder in (empty, local, brew):
+        folder.mkdir()
+    (local / "claude").write_text("#!/bin/sh\n")  # pas exécutable : ignoré
+    exe = brew / "claude"
+    exe.write_text("#!/bin/sh\n")
+    exe.chmod(0o755)
+    dirs = (str(empty), str(local), str(brew))
+    assert find_claude_cli("claude", env={}, which=lambda _: None, fallback_dirs=dirs) == str(exe)
+    assert find_claude_cli("claude", env={}, which=lambda _: None, fallback_dirs=dirs[:2]) is None
+
+
+def test_claude_cli_env_variable_is_read_by_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLAUDE_CLI", "/Users/moi/.local/bin/claude")
+    assert Settings(_env_file=None).claude_cli_path == "/Users/moi/.local/bin/claude"  # type: ignore[call-arg]
+    monkeypatch.delenv("CLAUDE_CLI")
+    monkeypatch.setenv("CLAUDE_CLI_PATH", "/opt/homebrew/bin/claude")
+    assert Settings(_env_file=None).claude_cli_path == "/opt/homebrew/bin/claude"  # type: ignore[call-arg]
+    assert Settings(claude_cli_path="x", _env_file=None).claude_cli_path == "x"  # type: ignore[call-arg]
+
+
+class AuthRunner(FakeRunner):
+    """`claude --version` puis `claude auth status`."""
+
+    def __call__(self, cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        self.calls.append({"cmd": cmd, **kwargs})
+        if cmd[1:] == ["--version"]:
+            return subprocess.CompletedProcess(cmd, 0, "2.1.303 (Claude Code)\n", "")
+        return subprocess.CompletedProcess(cmd, 0, json.dumps({"loggedIn": True, "authMethod": "claude.ai"}), "")
+
+
+def test_status_is_cached_60s_and_reports_version_models_and_path() -> None:
+    now = [1000.0]
+    runner = AuthRunner()
+    cli = ClaudeCliProvider(executable="/x/claude", runner=runner, clock=lambda: now[0])
+    first = asyncio.run(cli.status())
+    assert first.available is True
+    assert first.version == "2.1.303 (Claude Code)"
+    assert first.executable == "/x/claude"
+    assert first.models == ["sonnet", "opus", "haiku"]
+    assert len(runner.calls) == 2
+    now[0] += 59
+    asyncio.run(cli.status())
+    assert len(runner.calls) == 2  # en cache
+    now[0] += 2
+    asyncio.run(cli.status())
+    assert len(runner.calls) == 4  # revérifié après 60 s
+    cli.invalidate()
+    asyncio.run(cli.status())
+    assert len(runner.calls) == 6
+
+
+def test_cli_found_after_launch_is_picked_up() -> None:
+    """Claude Code installé pendant que l'application tourne : retrouvé à la vérification suivante."""
+    found: list[str | None] = [None]
+    cli = ClaudeCliProvider(runner=AuthRunner(), finder=lambda: found[0], clock=lambda: 0.0)
+    assert asyncio.run(cli.status()).available is False
+    found[0] = "/Users/moi/.local/bin/claude"
+    cli.invalidate()
+    assert asyncio.run(cli.status()).available is True
+
+
+def test_model_follows_user_choice() -> None:
+    choice: list[str | None] = ["opus"]
+    runner = FakeRunner(stdout=result_json("ok"))
+    cli = ClaudeCliProvider(executable="claude", model="sonnet", runner=runner, model_choice=lambda: choice[0])
+    asyncio.run(cli.chat(MSG))
+    cmd = runner.calls[0]["cmd"]
+    assert cmd[cmd.index("--model") + 1] == "opus"
+    choice[0] = None
+    assert cli.model == "sonnet"

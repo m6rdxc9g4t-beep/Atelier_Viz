@@ -13,7 +13,16 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.schemas.ai import ChatMessage
-from app.schemas.builder import BuildRequest, BuildResponse, OptionSpec, ProposedVisual, VisualTypeSpec
+from app.schemas.builder import (
+    BuildRequest,
+    BuildResponse,
+    OptionSpec,
+    ProposedVisual,
+    RepairedVisual,
+    RepairRequest,
+    RepairResponse,
+    VisualTypeSpec,
+)
 from app.schemas.dataset import ColumnType, DatasetProfile
 from app.schemas.query import Agg, DateBin
 from app.schemas.report import FieldBinding
@@ -129,7 +138,27 @@ def repair(
     raw: dict[str, Any], req: BuildRequest, profile: DatasetProfile
 ) -> tuple[list[ProposedVisual], list[str], list[str]]:
     """Valide et corrige la proposition. Retourne (visuels valides, corrections, erreurs bloquantes)."""
-    specs = {s.type: s for s in req.catalog}
+    return repair_items(raw, req.catalog, req.max_visuals, profile)
+
+
+def repair_existing(req: RepairRequest, profile: DatasetProfile) -> RepairResponse:
+    """Revalide des visuels déjà proposés (historique du volet) contre le profil **actuel** du jeu.
+
+    Même `repair` que pour une génération : un visuel réajouté plus tard ne peut pas référencer
+    une colonne disparue ni une agrégation devenue impossible. Un résultat par visuel, dans l'ordre.
+    """
+    results: list[RepairedVisual] = []
+    for item in req.visuals:
+        visuals, warnings, errors = repair_items({"visuals": [item]}, req.catalog, 1, profile)
+        results.append(RepairedVisual(visual=visuals[0] if visuals else None, warnings=warnings, errors=errors))
+    return RepairResponse(results=results)
+
+
+def repair_items(
+    raw: dict[str, Any], catalog: list[VisualTypeSpec], max_visuals: int, profile: DatasetProfile
+) -> tuple[list[ProposedVisual], list[str], list[str]]:
+    """Cœur de `repair` : catalogue et nombre maximal de visuels explicites."""
+    specs = {s.type: s for s in catalog}
     columns = {c.name: c for c in profile.columns}
     visuals: list[ProposedVisual] = []
     warnings: list[str] = []
@@ -138,7 +167,7 @@ def repair(
     if not isinstance(items, list) or not items:
         return [], [], ["« visuals » doit être une liste non vide."]
 
-    for n, item in enumerate(items[: req.max_visuals], start=1):
+    for n, item in enumerate(items[:max_visuals], start=1):
         if not isinstance(item, dict):
             errors.append(f"Visuel {n} : objet attendu.")
             continue
@@ -225,7 +254,7 @@ async def build_visuals(service: AIService, req: BuildRequest, profile: DatasetP
     system = system_prompt(req, profile)
     messages = [ChatMessage(role="user", content=req.prompt)]
 
-    provider, raw = await service.chat_json(req.provider, "complex", messages, system, schema)
+    provider, raw = await service.chat_json(req.provider, messages, system, schema)
     visuals, warnings, errors = repair(raw, req, profile)
 
     if errors:
@@ -239,7 +268,7 @@ async def build_visuals(service: AIService, req: BuildRequest, profile: DatasetP
             ),
         ]
         try:
-            provider, raw2 = await service.chat_json(req.provider, "complex", retry, system, schema)
+            provider, raw2 = await service.chat_json(req.provider, retry, system, schema)
             visuals2, warnings2, errors2 = repair(raw2, req, profile)
             if len(visuals2) >= len(visuals):
                 raw, visuals, warnings, errors = raw2, visuals2, warnings2, errors2

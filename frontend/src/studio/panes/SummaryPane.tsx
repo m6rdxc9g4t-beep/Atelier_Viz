@@ -6,7 +6,7 @@ import { loadPageFacts, summaryRequest, summaryText } from "../../summary/pageSu
 import type { SummaryResponse, VisualFacts } from "../../types/summary";
 import { useStudioData } from "../context";
 import { useStudio } from "../store";
-import { EnginePicker, useEngine } from "./EnginePicker";
+import { EnginePicker, useEngine } from "../../components/ai/EnginePicker";
 import { Pane, Section } from "./Pane";
 
 /** Fait défiler jusqu'au visuel et le sélectionne (mode édition). */

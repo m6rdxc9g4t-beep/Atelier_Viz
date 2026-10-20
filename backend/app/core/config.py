@@ -4,14 +4,16 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Paramètres globaux. Chaque champ correspond à une variable d'environnement en MAJUSCULES."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True
+    )
 
     app_name: str = "Atelier Viz API"
     app_env: Literal["development", "test", "production"] = "development"
@@ -24,7 +26,12 @@ class Settings(BaseSettings):
 
     # Claude : "cli" = CLI Claude Code (abonnement claude.ai), "api" = API Anthropic (clé Console)
     claude_mode: Literal["cli", "api"] = "cli"
-    claude_cli_path: str = "claude"
+    # Exécutable : CLAUDE_CLI (docs/SUITE.md §5.3) ou CLAUDE_CLI_PATH ;
+    # sinon PATH, ~/.local/bin, /opt/homebrew/bin, /usr/local/bin
+    claude_cli_path: str = Field(
+        default="claude", validation_alias=AliasChoices("claude_cli", "claude_cli_path")
+    )
+    # Modèle par défaut ; l'utilisateur choisit Sonnet / Opus / Haiku dans l'interface (préférences)
     claude_cli_model: str = "sonnet"
     claude_cli_timeout_seconds: float = 180.0
 
