@@ -97,7 +97,7 @@ export function SuiteSwitcher() {
           role="menu"
           aria-label="Suite Atelier"
           onKeyDown={onMenuKey}
-          className="absolute top-full left-0 z-50 mt-1.5 w-72 rounded-lg border border-border bg-surface p-1.5 text-fg shadow-xl"
+          className="atelier-pop absolute top-full left-0 z-50 mt-1.5 w-72 rounded-lg border border-border bg-surface p-1.5 text-fg shadow-xl"
         >
           <p className="px-2 pt-1 pb-1.5 text-[10px] font-medium tracking-wide text-muted uppercase" aria-hidden>
             Suite Atelier
@@ -124,11 +124,11 @@ export function SuiteSwitcher() {
                   if (!current) openExternal(app.url);
                 }}
                 className={clsx(
-                  "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left outline-none hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent",
-                  current && "bg-accent/10",
+                  "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left outline-none hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-focus",
+                  current && "bg-accent-soft",
                 )}
               >
-                <span className="atelier-brand__tile atelier-brand__tile--sm" aria-hidden>
+                <span className="atelier-brand__tile atelier-brand__tile--sm" data-atelier-app={app.id} aria-hidden>
                   <Icon />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -141,7 +141,7 @@ export function SuiteSwitcher() {
                   </span>
                   <span className="block truncate text-xs text-muted">{app.description}</span>
                 </span>
-                {current && <Check className="size-4 shrink-0 text-accent" aria-hidden />}
+                {current && <Check className="size-4 shrink-0 text-accent-ink" aria-hidden />}
               </button>
             );
           })}

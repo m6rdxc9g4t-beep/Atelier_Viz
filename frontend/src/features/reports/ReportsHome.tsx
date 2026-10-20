@@ -80,21 +80,21 @@ export function ReportsHome() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
       {reports !== null && (reports.length === 0 || !datasets.length) && (
-        <section className="flex flex-col gap-4 rounded-xl border border-accent/30 bg-accent/5 p-5 sm:flex-row sm:items-center">
-          <Wand2 className="size-6 shrink-0 text-accent" aria-hidden />
+        <section className="flex flex-col gap-4 rounded-xl border border-accent-ink/30 bg-accent/5 p-5 sm:flex-row sm:items-center">
+          <Wand2 className="size-6 shrink-0 text-accent-ink" aria-hidden />
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold">Découvrir avec un exemple</h2>
             <p className="mt-1 text-xs text-muted">
               Importe les données d'exemple du dépôt (573 ventes 2026 et 30 magasins) et ouvre un rapport prêt à explorer : filtres, carte, export PowerPoint, IA.
             </p>
           </div>
-          <button type="button" disabled={busy} onClick={() => void openExample()} className="flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => void openExample()} className="btn-signature flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-50">
             {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Wand2 className="size-4" aria-hidden />}
             Ouvrir l'exemple
           </button>
         </section>
       )}
-      <section className="rounded-xl border border-border bg-surface p-5">
+      <section className="atelier-glass rounded-xl border border-border bg-surface p-5">
         <h2 className="text-base font-semibold">Nouveau rapport</h2>
         <p className="mt-1 text-xs text-muted">Partez d'une page vide, ou laissez l'application proposer une première mise en page à partir de vos données.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto]">
@@ -110,7 +110,7 @@ export function ReportsHome() {
           <button type="button" disabled={busy} onClick={() => void create(false)} className="flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-surface-2 disabled:opacity-50">
             <Plus className="size-4" aria-hidden /> Page vide
           </button>
-          <button type="button" disabled={busy || !datasetId} onClick={() => void create(true)} className="flex items-center justify-center gap-2 rounded-md bg-fg px-3 py-2 text-sm font-medium text-bg disabled:opacity-50">
+          <button type="button" disabled={busy || !datasetId} onClick={() => void create(true)} className="btn-signature flex items-center justify-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg disabled:opacity-50">
             {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
             Rapport de démarrage
           </button>
@@ -118,7 +118,7 @@ export function ReportsHome() {
         {datasets.length > 0 && reports !== null && reports.length > 0 && (
           <p className="mt-3 text-xs text-muted">
             Ou{" "}
-            <button type="button" disabled={busy} onClick={() => void openExample()} className="text-accent underline disabled:opacity-50">
+            <button type="button" disabled={busy} onClick={() => void openExample()} className="text-accent-ink underline disabled:opacity-50">
               ouvrir le rapport d'exemple
             </button>{" "}
             (données du dossier samples/ du dépôt).
@@ -127,7 +127,7 @@ export function ReportsHome() {
         {!datasets.length && (
           <p className="mt-3 text-xs text-muted">
             Importez d'abord un fichier dans{" "}
-            <button type="button" onClick={() => navigate("/donnees")} className="text-accent underline">
+            <button type="button" onClick={() => navigate("/donnees")} className="text-accent-ink underline">
               Données
             </button>
             .
@@ -145,9 +145,9 @@ export function ReportsHome() {
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {reports.map((r) => (
-              <li key={r.id} className="group relative rounded-lg border border-border bg-surface p-4 hover:border-fg/20">
+              <li key={r.id} className="atelier-glass group relative rounded-lg border border-border bg-surface p-4 hover:border-fg/20">
                 <button type="button" onClick={() => navigate(`/rapports/${r.id}`)} className="flex w-full items-start gap-3 text-left">
-                  <FileBarChart2 className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden />
+                  <FileBarChart2 className="mt-0.5 size-5 shrink-0 text-accent-ink" aria-hidden />
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{r.name}</span>
                     <span className="block text-xs text-muted">

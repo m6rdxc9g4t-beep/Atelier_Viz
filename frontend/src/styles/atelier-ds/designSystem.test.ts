@@ -9,6 +9,8 @@ const indexCss = read("../../index.css");
 const colors = read("./colors.css");
 const dark = read("./dark.css");
 const light = read("./light.css");
+const brand = read("../atelier-brand/atelier-brand.css");
+const indexHtml = read("../../../index.html");
 
 /** Variables déclarées dans une feuille (`--nom:`). */
 const declared = (css: string) => new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
@@ -65,12 +67,24 @@ describe("design system de la Suite Atelier (copies verbatim, docs/SUITE.md §1.
       ["--grid", "var(--border-color)"],
     ];
     for (const [token, value] of map) expect(indexCss).toContain(`${token}: ${value};`);
-    expect(indexCss).toMatch(/--accent: color-mix\(in oklab, var\(--type-epic\)/);
+    // Accent = couleur signature de l'app (§1.7) ; texte d'accent mélangé à l'encre en clair, éclairci en sombre.
+    expect(indexCss).toContain("--accent: var(--atelier-signature);");
+    expect(indexCss).toContain("--accent-fg: var(--atelier-signature-contrast);");
+    expect(indexCss).toMatch(/--accent-ink: color-mix\(in oklab, var\(--atelier-signature\) \d+%, var\(--text-primary\)\);/);
+    expect(indexCss).toContain("--accent-ink: var(--atelier-signature-light);");
     expect(indexCss).toMatch(/--positive: color-mix\(in oklab, var\(--status-closed\)/);
     expect(indexCss).toMatch(/--negative: color-mix\(in oklab, var\(--status-rejected\)/);
     // Exception dataviz : la palette des données reste en hexadécimal validé.
     expect(indexCss).toMatch(/--series-1: #2a78d6;/);
     // Aucune police téléchargée.
     expect(indexCss).not.toMatch(/@font-face|fonts\.googleapis|Inter Variable/);
+  });
+
+  it("charte néon : Atelier Viz porte sa couleur signature jaune (§1.7)", () => {
+    expect(indexHtml).toMatch(/<html[^>]*data-atelier-app="viz"/);
+    expect(brand).toMatch(/--atelier-sig-viz: #f2c811;/i);
+    expect(brand).toContain('[data-atelier-app="viz"] { --atelier-signature: var(--atelier-sig-viz);');
+    // Fond nuit des logos en thème sombre.
+    expect(dark).toMatch(/--bg-main: #06111F;/);
   });
 });

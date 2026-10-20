@@ -66,7 +66,7 @@ export function ThemePane() {
                   onClick={() => set(p.theme)}
                   aria-pressed={theme.preset === p.id}
                   title={p.description}
-                  className={clsx("rounded-md border p-1.5 text-left text-[11px]", theme.preset === p.id ? "border-accent ring-1 ring-accent" : "border-border hover:bg-surface-2")}
+                  className={clsx("rounded-md border p-1.5 text-left text-[11px]", theme.preset === p.id ? "border-accent-ink ring-1 ring-accent-ink" : "border-border hover:bg-surface-2")}
                 >
                   <PresetPreview t={p.theme} />
                   <span className="mt-1 block font-medium">{p.label}</span>
@@ -125,7 +125,7 @@ export function ThemePane() {
               <button
                 type="button"
                 onClick={() => patch({ palette: theme.mode === "dark" ? DARK_PALETTE : LIGHT_PALETTE })}
-                className="flex items-center gap-1 text-[10px] text-accent hover:underline"
+                className="flex items-center gap-1 text-[10px] text-accent-ink hover:underline"
                 title="Palette validée : lisible par les daltoniens"
               >
                 <RotateCcw className="size-3" aria-hidden /> Palette validée

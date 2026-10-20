@@ -64,7 +64,7 @@ export function DataPane() {
             isUsed && "font-semibold",
           )}
         >
-          <Icon className="size-3.5 shrink-0 text-accent" aria-hidden />
+          <Icon className="size-3.5 shrink-0 text-accent-ink" aria-hidden />
           <span className="min-w-0 flex-1 truncate">{field.name}</span>
           {isUsed && <span className="size-1.5 rounded-full bg-accent" aria-label="utilisé" />}
         </button>
@@ -119,7 +119,7 @@ export function DataPane() {
                   .catch((e: unknown) => useStudio.getState().notify(`Actualisation impossible : ${e instanceof Error ? e.message : String(e)}`))
                   .finally(() => setRefreshing(false));
               }}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-accent hover:bg-accent/10 disabled:opacity-60"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-accent-ink hover:bg-accent-soft disabled:opacity-60"
               title="Relire la source : tous les visuels se mettent à jour"
             >
               <RefreshCw className={clsx("size-3", refreshing && "animate-spin")} aria-hidden /> Actualiser
@@ -135,14 +135,14 @@ export function DataPane() {
             <button
               type="button"
               onClick={() => setEditor({ kind: "measure" })}
-              className="flex items-center justify-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted hover:border-accent hover:text-accent"
+              className="flex items-center justify-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted hover:border-accent-ink hover:text-accent-ink"
             >
               <Plus className="size-3" aria-hidden /> Mesure
             </button>
             <button
               type="button"
               onClick={() => setEditor({ kind: "column" })}
-              className="flex items-center justify-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted hover:border-accent hover:text-accent"
+              className="flex items-center justify-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted hover:border-accent-ink hover:text-accent-ink"
             >
               <Plus className="size-3" aria-hidden /> Colonne
             </button>

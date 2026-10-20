@@ -26,10 +26,10 @@ export function Topbar(props: TopbarProps) {
   const online = prefs?.online_mode ?? false;
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4">
+    <header className="atelier-glass flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4">
       <div className="flex min-w-0 items-center gap-2">
         <SuiteSwitcher />
-        <h1 className="min-w-0 truncate text-sm font-semibold">{title}</h1>
+        <h1 className="atelier-title min-w-0 truncate text-sm font-semibold">{title}</h1>
       </div>
       <div className="flex items-center gap-2">
         <button
@@ -42,7 +42,7 @@ export function Topbar(props: TopbarProps) {
           title={online ? "En ligne : Claude et webhooks Internet autorisés. Cliquer pour repasser en local." : "Hors ligne : tout reste sur la machine. Cliquer pour activer Claude."}
           className={clsx(
             "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-            online ? "border-accent/40 bg-accent/10 text-accent" : "border-border text-muted hover:text-fg",
+            online ? "border-accent-ink/40 bg-accent-soft text-accent-ink" : "border-border text-muted hover:text-fg",
           )}
         >
           {online ? <Cloud className="size-3.5" aria-hidden /> : <HardDrive className="size-3.5" aria-hidden />}
@@ -58,7 +58,7 @@ export function Topbar(props: TopbarProps) {
           aria-pressed={assistantOpen}
           aria-label="Assistant IA"
           title="Assistant IA"
-          className={clsx("rounded-md p-2 hover:bg-surface-2 hover:text-fg", assistantOpen ? "text-accent" : "text-muted")}
+          className={clsx("rounded-md p-2 hover:bg-surface-2 hover:text-fg", assistantOpen ? "text-accent-ink" : "text-muted")}
         >
           <Sparkles className="size-4" aria-hidden />
         </button>

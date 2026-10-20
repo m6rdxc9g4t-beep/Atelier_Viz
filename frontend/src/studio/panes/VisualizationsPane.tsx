@@ -142,7 +142,7 @@ function RoleWell({ visual, role }: { visual: Visual; role: RoleDef }) {
           const column = findField(profiles.get(d.datasetId), d.field, d.measure);
           if (column) s().dropField(visual.id, column, d.datasetId, role.id);
         }}
-        className={clsx("min-h-8 space-y-1 rounded-md border border-dashed p-1", over ? "border-accent bg-accent/5" : "border-border")}
+        className={clsx("min-h-8 space-y-1 rounded-md border border-dashed p-1", over ? "border-accent-ink bg-accent/5" : "border-border")}
       >
         {!bindings.length && <p className="px-1.5 py-1 text-[11px] text-muted/70">Glissez un champ</p>}
         {bindings.map((b, i) => {
@@ -212,7 +212,7 @@ function HierarchyHint({ visual, bindings, dateField }: { visual: Visual; bindin
           v.options = { ...v.options, drill: { level: 0, path: [] } };
         })
       }
-      className="mt-1 text-[10px] font-medium text-accent hover:underline"
+      className="mt-1 text-[10px] font-medium text-accent-ink hover:underline"
     >
       Hiérarchie de dates (année › trimestre › mois)
     </button>

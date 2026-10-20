@@ -119,9 +119,9 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && !running && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="w-full max-w-md rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop w-full max-w-md rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Presentation className="size-4 text-accent" aria-hidden />
+          <Presentation className="size-4 text-accent-ink" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             Exporter en PowerPoint
           </h2>
@@ -230,7 +230,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                   <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
                     Fermer
                   </button>
-                  <button type="button" onClick={() => void run()} className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
+                  <button type="button" onClick={() => void run()} className="btn-signature flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
                     <Download className="size-3.5" aria-hidden /> Exporter
                   </button>
                 </>
@@ -303,7 +303,7 @@ function Summary({
         <button type="button" onClick={onDownload} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
           <Download className="size-3.5" aria-hidden /> {saved?.kind === "downloaded" || !saved ? "Télécharger à nouveau" : "Enregistrer à nouveau"}
         </button>
-        <button type="button" onClick={onClose} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
+        <button type="button" onClick={onClose} className="btn-signature rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
           Terminé
         </button>
       </footer>
@@ -369,10 +369,10 @@ function Choice({ checked, onSelect, icon, title, text }: { checked: boolean; on
       onClick={onSelect}
       className={clsx(
         "flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left",
-        checked ? "border-accent bg-accent/5" : "border-border hover:bg-surface-2",
+        checked ? "border-accent-ink bg-accent/5" : "border-border hover:bg-surface-2",
       )}
     >
-      <span className={clsx("flex items-center gap-1.5 text-xs font-medium", checked ? "text-accent" : "text-fg")}>
+      <span className={clsx("flex items-center gap-1.5 text-xs font-medium", checked ? "text-accent-ink" : "text-fg")}>
         {icon}
         {title}
       </span>

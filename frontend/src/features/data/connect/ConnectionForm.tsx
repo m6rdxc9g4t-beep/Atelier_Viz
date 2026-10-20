@@ -6,7 +6,7 @@ import type { Connection, ConnectionInput, ConnectorInfo, TestResult } from "../
 import { SERVER_KINDS } from "../../../types/connection";
 import { ATELIER_PROJETS_DEFAULT_URL, KIND_META, missingField, toInput } from "./meta";
 
-const input = "w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-accent";
+const input = "w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-focus";
 
 interface Props {
   info: ConnectorInfo | undefined;
@@ -75,7 +75,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
     >
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         <div className="flex items-center gap-2">
-          <meta.icon className="size-5 text-accent" aria-hidden />
+          <meta.icon className="size-5 text-accent-ink" aria-hidden />
           <h3 className="text-sm font-semibold">{editing ? `Modifier « ${editing.name} »` : `Nouvelle connexion ${meta.label}`}</h3>
         </div>
 
@@ -124,7 +124,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
               </label>
             )}
             <p className="flex items-start gap-1.5 rounded-md bg-surface-2 px-3 py-2 text-[11px] text-muted">
-              <ShieldCheck className="mt-px size-3.5 shrink-0 text-accent" aria-hidden />
+              <ShieldCheck className="mt-px size-3.5 shrink-0 text-accent-ink" aria-hidden />
               <span>
                 Le mot de passe est rangé dans le trousseau de votre système, jamais dans les fichiers de l'application. Les données sont lues en lecture seule ; un compte
                 limité à la lecture reste conseillé.
@@ -249,7 +249,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
             {testing && <Loader2 className="size-3.5 animate-spin" aria-hidden />} Tester
           </button>
         )}
-        <button type="submit" disabled={saving} className="flex items-center gap-1.5 rounded-md bg-fg px-3 py-1.5 text-xs font-medium text-bg disabled:opacity-50">
+        <button type="submit" disabled={saving} className="btn-signature flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-50">
           {saving && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
           {editing ? "Enregistrer" : "Enregistrer et parcourir"}
         </button>

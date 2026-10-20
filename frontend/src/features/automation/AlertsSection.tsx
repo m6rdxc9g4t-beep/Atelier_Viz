@@ -65,9 +65,9 @@ export function AlertsSection() {
 
   const first = datasets[0];
   return (
-    <section className="rounded-xl border border-border bg-surface" aria-labelledby="alerts-title">
+    <section className="atelier-glass rounded-xl border border-border bg-surface" aria-labelledby="alerts-title">
       <header className="flex items-center gap-2 border-b border-border px-5 py-3">
-        <BellRing className="size-4 text-accent" aria-hidden />
+        <BellRing className="size-4 text-accent-ink" aria-hidden />
         <h2 id="alerts-title" className="flex-1 text-sm font-semibold">
           Alertes sur seuil
         </h2>
@@ -81,7 +81,7 @@ export function AlertsSection() {
               editing: null,
             })
           }
-          className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
+          className="btn-signature flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
         >
           <Plus className="size-3.5" aria-hidden /> Nouvelle alerte
         </button>
@@ -183,7 +183,7 @@ function IconButton({ label, onClick, children, disabled, pressed, danger }: { l
       aria-pressed={pressed}
       disabled={disabled}
       onClick={onClick}
-      className={clsx("rounded p-1.5 text-muted hover:bg-surface-2 disabled:opacity-40", danger ? "hover:text-negative" : "hover:text-fg", pressed && "text-accent")}
+      className={clsx("rounded p-1.5 text-muted hover:bg-surface-2 disabled:opacity-40", danger ? "hover:text-negative" : "hover:text-fg", pressed && "text-accent-ink")}
     >
       {children}
     </button>

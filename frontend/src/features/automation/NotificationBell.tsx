@@ -69,7 +69,7 @@ export function NotificationBell() {
         )}
       </button>
       {open && (
-        <div role="dialog" aria-label="Notifications" className="absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden rounded-lg border border-border bg-surface shadow-xl">
+        <div role="dialog" aria-label="Notifications" className="atelier-pop absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden rounded-lg border border-border bg-surface shadow-xl">
           <header className="flex items-center justify-between border-b border-border px-3 py-2">
             <h2 className="text-xs font-semibold">Alertes déclenchées</h2>
             {unread > 0 && (
@@ -81,7 +81,7 @@ export function NotificationBell() {
                     .then(setNotes)
                     .catch(() => undefined)
                 }
-                className="text-[11px] text-accent hover:underline"
+                className="text-[11px] text-accent-ink hover:underline"
               >
                 Tout marquer comme lu
               </button>
@@ -109,7 +109,7 @@ export function NotificationBell() {
                 setOpen(false);
                 navigate("/automatisation");
               }}
-              className="text-[11px] text-accent hover:underline"
+              className="text-[11px] text-accent-ink hover:underline"
             >
               Gérer les alertes
             </button>

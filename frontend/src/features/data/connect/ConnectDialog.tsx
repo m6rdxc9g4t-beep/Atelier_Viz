@@ -54,13 +54,13 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex h-[min(46rem,92vh)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex h-[min(46rem,92vh)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Cable className="size-4 text-accent" aria-hidden />
+          <Cable className="size-4 text-accent-ink" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             Se connecter à une source
           </h2>
-          <span className={clsx("rounded-full px-2 py-0.5 text-[11px]", online ? "bg-accent/10 text-accent" : "bg-surface-2 text-muted")}>
+          <span className={clsx("rounded-full px-2 py-0.5 text-[11px]", online ? "bg-accent-soft text-accent-ink" : "bg-surface-2 text-muted")}>
             {online ? "En ligne" : "Hors ligne : réseau local et VPN uniquement"}
           </span>
           <button type="button" onClick={onClose} aria-label="Fermer" className="rounded p-1 text-muted hover:bg-surface-2 hover:text-fg">
@@ -85,7 +85,7 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
                     aria-current={active}
                     className={clsx("mb-0.5 flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left", active ? "bg-surface-2" : "hover:bg-surface-2/60")}
                   >
-                    <Icon className={clsx("mt-0.5 size-4 shrink-0", active ? "text-accent" : "text-muted")} aria-hidden />
+                    <Icon className={clsx("mt-0.5 size-4 shrink-0", active ? "text-accent-ink" : "text-muted")} aria-hidden />
                     <span className="min-w-0">
                       <span className="block truncate text-xs font-medium">{c.name}</span>
                       <span className="block truncate text-[11px] text-muted">{describeConnection(c) || KIND_META[c.kind].label}</span>
@@ -99,7 +99,7 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
                 type="button"
                 onClick={() => setView({ kind: "pick" })}
                 aria-pressed={view.kind === "pick"}
-                className={clsx("flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium", view.kind === "pick" ? "bg-accent text-accent-fg" : "text-accent hover:bg-accent/10")}
+                className={clsx("flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium", view.kind === "pick" ? "bg-accent text-accent-fg" : "text-accent-ink hover:bg-accent-soft")}
               >
                 <Plus className="size-3.5" aria-hidden /> Nouvelle connexion
               </button>
@@ -190,10 +190,10 @@ function ConnectorGrid({ connectors, online, onPick }: { connectors: ConnectorIn
               key={info.kind}
               type="button"
               onClick={() => onPick(info.kind)}
-              className="flex items-start gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-accent/60 hover:bg-accent/5"
+              className="flex items-start gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-accent-ink/60 hover:bg-accent/5"
             >
               <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-2">
-                <Icon className="size-4.5 text-accent" aria-hidden />
+                <Icon className="size-4.5 text-accent-ink" aria-hidden />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-medium">{info.label}</span>

@@ -22,7 +22,7 @@ export function SettingsView() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 lg:p-8">
-      <section className="rounded-xl border border-border bg-surface p-5">
+      <section className="atelier-glass rounded-xl border border-border bg-surface p-5">
         <h2 className="text-base font-semibold">Mode de fonctionnement</h2>
         <p className="mt-1 text-xs text-muted">Choisissez ce qui a le droit de quitter votre machine. Le changement est immédiat.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Mode de fonctionnement">
@@ -48,7 +48,7 @@ export function SettingsView() {
               onClick={() => void toggle(o.value)}
               className={clsx(
                 "rounded-lg border p-4 text-left transition-colors",
-                online === o.value ? "border-accent bg-accent/5 ring-1 ring-accent" : "border-border hover:bg-surface-2",
+                online === o.value ? "border-accent-ink bg-accent/5 ring-1 ring-accent-ink" : "border-border hover:bg-surface-2",
               )}
             >
               <span className="flex items-center gap-2 text-sm font-medium">
@@ -65,7 +65,7 @@ export function SettingsView() {
         {error && <p className="mt-3 text-xs text-negative">{error}</p>}
       </section>
 
-      <section className="rounded-xl border border-border bg-surface p-5">
+      <section className="atelier-glass rounded-xl border border-border bg-surface p-5">
         <h2 className="text-base font-semibold">Apparence</h2>
         <p className="mt-1 text-xs text-muted">
           Thème de l'application. Chaque rapport peut aussi avoir son propre thème (bouton « Thème » du Studio) : couleurs en hexadécimal, fonds transparents, bordures.
@@ -86,7 +86,7 @@ export function SettingsView() {
               onClick={() => setPreference(o.value)}
               className={clsx(
                 "flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm",
-                preference === o.value ? "border-accent bg-accent/5 font-medium ring-1 ring-accent" : "border-border hover:bg-surface-2",
+                preference === o.value ? "border-accent-ink bg-accent/5 font-medium ring-1 ring-accent-ink" : "border-border hover:bg-surface-2",
               )}
             >
               <o.icon className="size-4" aria-hidden /> {o.label}
@@ -95,7 +95,7 @@ export function SettingsView() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-surface p-5">
+      <section className="atelier-glass rounded-xl border border-border bg-surface p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Moteurs d'IA</h2>
           <button type="button" onClick={() => providers.refresh(true)} aria-label="Revérifier" className="rounded p-1.5 text-muted hover:bg-surface-2 hover:text-fg">

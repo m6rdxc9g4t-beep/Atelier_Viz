@@ -150,7 +150,7 @@ export function SummaryPane() {
               type="button"
               disabled={!facts?.length}
               onClick={() => void run()}
-              className="ml-auto flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
+              className="btn-signature ml-auto flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
             >
               {result ? <RotateCcw className="size-3.5" aria-hidden /> : <ScrollText className="size-3.5" aria-hidden />}
               {result ? "Regénérer" : "Résumer la page"}
@@ -185,7 +185,7 @@ export function SummaryPane() {
                           key={id}
                           type="button"
                           onClick={() => focusVisual(id)}
-                          className="max-w-full truncate rounded border border-border px-1.5 py-0.5 text-[10px] text-muted hover:border-accent hover:text-accent"
+                          className="max-w-full truncate rounded border border-border px-1.5 py-0.5 text-[10px] text-muted hover:border-accent-ink hover:text-accent-ink"
                           title="Afficher le visuel"
                         >
                           {titleOf(id)}
@@ -217,7 +217,7 @@ export function SummaryPane() {
               onClick={insert}
               disabled={!editing}
               title={editing ? "Ajoute une zone de texte modifiable en haut de la page" : "Passez en mode Édition pour insérer"}
-              className="flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
+              className="btn-signature flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
             >
               <FileText className="size-3.5" aria-hidden /> Insérer dans la page
             </button>

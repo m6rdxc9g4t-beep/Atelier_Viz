@@ -90,7 +90,7 @@ function FilterList({ dataset, filters, onChange }: { dataset: DatasetProfile; f
           ))}
         </select>
       ) : (
-        <button type="button" onClick={() => setAdding(true)} className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline">
+        <button type="button" onClick={() => setAdding(true)} className="flex items-center gap-1 text-[11px] font-medium text-accent-ink hover:underline">
           <Plus className="size-3" aria-hidden /> Ajouter un filtre
         </button>
       )}

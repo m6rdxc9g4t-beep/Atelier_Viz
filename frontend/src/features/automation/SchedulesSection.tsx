@@ -38,9 +38,9 @@ export function SchedulesSection() {
   const replace = (s: ScheduleState) => setStates((list) => list?.map((x) => (x.dataset_id === s.dataset_id ? s : x)) ?? null);
 
   return (
-    <section className="rounded-xl border border-border bg-surface" aria-labelledby="schedules-title">
+    <section className="atelier-glass rounded-xl border border-border bg-surface" aria-labelledby="schedules-title">
       <header className="flex items-center gap-2 border-b border-border px-5 py-3">
-        <CalendarClock className="size-4 text-accent" aria-hidden />
+        <CalendarClock className="size-4 text-accent-ink" aria-hidden />
         <h2 id="schedules-title" className="flex-1 text-sm font-semibold">
           Actualisations planifiées
         </h2>
@@ -84,7 +84,7 @@ export function SchedulesSection() {
                   </span>
                   <span className="hidden text-xs sm:block">
                     {s.running ? (
-                      <span className="flex items-center gap-1 text-accent">
+                      <span className="flex items-center gap-1 text-accent-ink">
                         <Loader2 className="size-3.5 animate-spin" aria-hidden /> En cours
                       </span>
                     ) : last && Icon ? (

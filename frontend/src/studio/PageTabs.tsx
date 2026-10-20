@@ -16,7 +16,7 @@ export function PageTabs() {
   const editing = mode === "edit";
 
   return (
-    <nav className="flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-t border-border bg-surface px-2" aria-label="Pages du rapport">
+    <nav className="atelier-glass flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-t border-border bg-surface px-2" aria-label="Pages du rapport">
       {report.pages.map((p) =>
         renaming === p.id ? (
           <input
@@ -32,7 +32,7 @@ export function PageTabs() {
               if (e.key === "Enter") e.currentTarget.blur();
               if (e.key === "Escape") setRenaming(null);
             }}
-            className="w-32 rounded border border-accent bg-bg px-2 py-1 text-xs"
+            className="w-32 rounded border border-accent-ink bg-bg px-2 py-1 text-xs"
           />
         ) : (
           <div key={p.id} className="group flex shrink-0 items-center">
@@ -44,7 +44,7 @@ export function PageTabs() {
               title={editing ? "Double-cliquez pour renommer" : p.name}
               className={clsx(
                 "rounded-md px-3 py-1.5 text-xs",
-                p.id === pageId ? "bg-surface-2 font-medium text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
+                p.id === pageId ? "bg-accent-soft font-medium text-fg shadow-[inset_0_-2px_0_var(--accent)]" : "text-muted hover:bg-surface-2 hover:text-fg",
               )}
             >
               {p.name}

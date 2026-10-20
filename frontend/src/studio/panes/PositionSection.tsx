@@ -15,7 +15,7 @@ function NumberField({ label, value, min, onCommit }: { label: string; value: nu
     else setDraft(String(value));
   };
   return (
-    <label className="flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1 text-[11px] text-muted focus-within:ring-1 focus-within:ring-accent">
+    <label className="flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1 text-[11px] text-muted focus-within:ring-1 focus-within:ring-focus">
       <span className="w-3 shrink-0 font-medium">{label}</span>
       <input
         inputMode="numeric"

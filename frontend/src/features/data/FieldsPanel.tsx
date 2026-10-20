@@ -15,7 +15,7 @@ export const TYPE_META: Record<ColumnType, { icon: LucideIcon; label: string }> 
 /** Panneau « Champs » à la Power BI : colonnes typées, statistiques au dépliage. */
 export function FieldsPanel({ columns }: { columns: ColumnProfile[] }) {
   return (
-    <section aria-labelledby="fields-title" className="flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-surface">
+    <section aria-labelledby="fields-title" className="atelier-glass flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-surface">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 id="fields-title" className="text-sm font-medium">
           Champs
@@ -44,7 +44,7 @@ function FieldItem({ column }: { column: ColumnProfile }) {
         className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-surface-2"
       >
         <ChevronRight className={clsx("size-3.5 shrink-0 text-muted transition-transform", open && "rotate-90")} aria-hidden />
-        <Icon className="size-3.5 shrink-0 text-accent" aria-label={label} />
+        <Icon className="size-3.5 shrink-0 text-accent-ink" aria-label={label} />
         <span className="min-w-0 flex-1 truncate">{column.name}</span>
         {column.nulls > 0 && (
           <span className="text-[10px] text-muted" title={`${column.nulls} valeurs manquantes`}>

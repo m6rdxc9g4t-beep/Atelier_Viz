@@ -47,7 +47,7 @@ export function UploadDropzone({ onFile, uploading, variant = "large" }: UploadD
           type="button"
           onClick={open}
           disabled={uploading}
-          className="flex h-8 items-center gap-2 rounded-md bg-fg px-3 text-xs font-medium text-bg disabled:opacity-50"
+          className="btn-signature flex h-8 items-center gap-2 rounded-md bg-accent px-3 text-xs font-medium text-accent-fg disabled:opacity-50"
         >
           {uploading ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <FileUp className="size-3.5" aria-hidden />}
           Importer
@@ -66,7 +66,7 @@ export function UploadDropzone({ onFile, uploading, variant = "large" }: UploadD
       onDrop={onDrop}
       className={clsx(
         "flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-6 py-16 text-center transition-colors",
-        over ? "border-accent bg-accent/5" : "border-border bg-surface",
+        over ? "border-accent-ink bg-accent/5" : "border-border bg-surface",
       )}
     >
       {hiddenInput}

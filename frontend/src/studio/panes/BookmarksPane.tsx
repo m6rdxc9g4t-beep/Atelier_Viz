@@ -37,7 +37,7 @@ export function BookmarksPane() {
         <button
           type="button"
           onClick={add}
-          className="flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110"
+          className="btn-signature flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110"
         >
           <BookmarkPlus className="size-3.5" aria-hidden /> Ajouter un signet
         </button>
@@ -64,7 +64,7 @@ export function BookmarksPane() {
                 <div
                   className={clsx(
                     "group flex items-start gap-2 rounded-md px-2 py-1.5",
-                    active === b.id ? "bg-accent/10" : "hover:bg-surface-2",
+                    active === b.id ? "bg-accent-soft" : "hover:bg-surface-2",
                   )}
                 >
                   <button
@@ -76,7 +76,7 @@ export function BookmarksPane() {
                     title="Appliquer ce signet (double-clic : renommer)"
                     className="flex min-w-0 flex-1 items-start gap-2 text-left"
                   >
-                    <BookmarkIcon className={clsx("mt-0.5 size-3.5 shrink-0", active === b.id ? "fill-current text-accent" : "text-muted")} aria-hidden />
+                    <BookmarkIcon className={clsx("mt-0.5 size-3.5 shrink-0", active === b.id ? "fill-current text-accent-ink" : "text-muted")} aria-hidden />
                     <span className="min-w-0">
                       <span className="block truncate text-xs font-medium">{b.name}</span>
                       <span className="block truncate text-[11px] text-muted">{describeBookmark(report, b)}</span>
@@ -177,9 +177,9 @@ function RenameField({ bookmark, onDone }: { bookmark: Bookmark; onDone: (name: 
         onFocus={(e) => e.currentTarget.select()}
         onBlur={() => onDone(value)}
         onKeyDown={(e) => e.key === "Escape" && onDone(null)}
-        className="min-w-0 flex-1 rounded border border-accent bg-bg px-2 py-1 text-xs"
+        className="min-w-0 flex-1 rounded border border-accent-ink bg-bg px-2 py-1 text-xs"
       />
-      <button type="submit" aria-label="Valider le nom" className="rounded p-1 text-accent hover:bg-surface-2">
+      <button type="submit" aria-label="Valider le nom" className="rounded p-1 text-accent-ink hover:bg-surface-2">
         <Check className="size-3.5" aria-hidden />
       </button>
     </form>

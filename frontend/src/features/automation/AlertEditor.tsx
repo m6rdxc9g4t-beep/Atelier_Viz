@@ -132,9 +132,9 @@ export function AlertEditor({
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <BellPlus className="size-4 text-accent" aria-hidden />
+          <BellPlus className="size-4 text-accent-ink" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             {editing ? "Modifier l'alerte" : "Nouvelle alerte"}
           </h2>
@@ -243,7 +243,7 @@ export function AlertEditor({
                   </button>
                 </div>
               ) : (
-                <button type="button" onClick={() => setFilterDraft({ field: "", op: "in", raw: "" })} className="flex items-center gap-1 text-xs text-accent hover:underline">
+                <button type="button" onClick={() => setFilterDraft({ field: "", op: "in", raw: "" })} className="flex items-center gap-1 text-xs text-accent-ink hover:underline">
                   <Plus className="size-3.5" aria-hidden /> Ajouter un filtre
                 </button>
               )}
@@ -324,7 +324,7 @@ export function AlertEditor({
           <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
             Annuler
           </button>
-          <button type="button" disabled={!!invalid || saving} onClick={() => void save()} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
+          <button type="button" disabled={!!invalid || saving} onClick={() => void save()} className="btn-signature rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
             {saving ? "Enregistrement…" : editing ? "Enregistrer" : "Créer l'alerte"}
           </button>
         </footer>

@@ -102,7 +102,7 @@ export function ScheduleEditor({ state, onChange, compact = false }: { state: Sc
           type="button"
           disabled={!dirty || !!invalid || saving}
           onClick={() => void save()}
-          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
+          className="btn-signature rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
         >
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
@@ -126,7 +126,7 @@ export function ScheduleEditor({ state, onChange, compact = false }: { state: Sc
             {describeSchedule(state.schedule)} · prochaine : <span className="font-medium text-fg">{state.next_run ? whenLabel(state.next_run) : "—"}</span>
           </>
         )}
-        {dirty && <span className="text-accent"> (modification non enregistrée)</span>}
+        {dirty && <span className="text-accent-ink"> (modification non enregistrée)</span>}
       </p>
       {invalid && <p className="text-[11px] text-negative">{invalid}</p>}
       {warning && (

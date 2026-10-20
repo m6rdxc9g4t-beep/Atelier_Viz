@@ -33,21 +33,32 @@
 }
 
 /*
- * Accent = violet EPIC (--type-epic), rapproché de l'encre pour rester lisible en texte (≥ 4,5:1 sur les
- * surfaces et les fonds teintés) ; --accent-fg = encre des boutons pleins (≥ 4,5:1 sur l'accent).
+ * Accent = couleur signature d'Atelier Viz (jaune #F2C811, docs/SUITE.md §1.7, posée par
+ * data-atelier-app="viz" sur <html>) : fonds pleins (bouton principal, sélection), --accent-fg = encre
+ * posée dessus (nuit, 11,8:1). Le jaune pur est illisible en texte sur fond clair (1,6:1) : le texte,
+ * les icônes fines et les bordures de sélection utilisent --accent-ink, mélangé à l'encre en clair
+ * (≥ 4,5:1 sur les surfaces et le fond --accent-soft), éclairci en sombre. Anneau de focus : cyan commun
+ * (--focus), approfondi en clair pour rester ≥ 3:1.
+ * Dans le Studio, le thème du rapport redéfinit --accent sur sa racine : le contenu du rapport garde sa couleur.
  */
 :root,
 .theme-light,
 [data-theme="light"] {
-  --accent: color-mix(in oklab, var(--type-epic) 85%, var(--text-primary));
-  --accent-fg: var(--bg-surface);
+  --accent: var(--atelier-signature);
+  --accent-fg: var(--atelier-signature-contrast);
+  --accent-ink: color-mix(in oklab, var(--atelier-signature) 50%, var(--text-primary));
+  --accent-soft: var(--atelier-signature-soft);
+  --focus: color-mix(in oklab, var(--atelier-neon) 40%, var(--atelier-neon-deep));
 }
 
 .dark,
 .theme-dark,
 [data-theme="dark"] {
-  --accent: color-mix(in oklab, var(--type-epic) 75%, var(--text-primary));
-  --accent-fg: var(--bg-main);
+  --accent: var(--atelier-signature);
+  --accent-fg: var(--atelier-signature-contrast);
+  --accent-ink: var(--atelier-signature-light);
+  --accent-soft: var(--atelier-signature-soft);
+  --focus: var(--atelier-neon);
 }
 
 /*
@@ -138,6 +149,9 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-focus: var(--focus);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
   --color-canvas: var(--canvas);
@@ -153,6 +167,34 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Charte « néon holographique » (docs/SUITE.md §1.7) : les jetons --atelier-glow / -glass / -text-glow
+ * valent `none` en thème clair, ces règles s'appliquent donc sans condition ; le néon ne s'allume qu'en sombre.
+ * Cartes et panneaux : classe `atelier-glass` (atelier-brand.css). Menus, popovers et modales : `atelier-pop`
+ * (halo fort en sombre, ombre Tailwind conservée en clair).
+ */
+:root[data-theme="dark"] body {
+  background-image: radial-gradient(120% 60% at 50% -10%, color-mix(in oklab, var(--atelier-neon) 10%, transparent), transparent 60%);
+}
+
+.atelier-pop {
+  background-image: var(--atelier-glass);
+}
+
+:root[data-theme="dark"] .atelier-pop {
+  box-shadow: var(--atelier-glow-strong);
+}
+
+/* Titre de page : halo cyan en sombre (aucun effet en clair). */
+.atelier-title {
+  text-shadow: var(--atelier-text-glow);
+}
+
+/* Bouton principal : fond signature, halo signature au survol et au focus clavier. */
+.btn-signature:is(:hover, :focus-visible):not(:disabled) {
+  box-shadow: var(--atelier-signature-glow);
 }
 
 /* Pas de cadre de focus après un clic souris dans un graphique (le clavier garde l'info-bulle). */
