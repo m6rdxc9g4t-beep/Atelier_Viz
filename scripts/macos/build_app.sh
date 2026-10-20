@@ -87,6 +87,20 @@ if [[ ! -f "$ROOT/backend/desktop.py" || ! -x "$PY" ]]; then
   alert "Le dépôt ($ROOT) ou son environnement Python a changé de place. Relancez scripts/macos/build_app.sh."
   exit 1
 fi
+# Interface compilée plus ancienne que ses sources (git pull sans relancer ce script) : la fenêtre
+# afficherait l'ancienne interface (ancien habillage, fonctions absentes). On recompile avant le lancement.
+FRONT="$ROOT/frontend"
+DIST="$FRONT/dist/index.html"
+if command -v npm >/dev/null && [[ -d "$FRONT/src" ]] && { [[ ! -f "$DIST" ]] || [[ -n "$(find "$FRONT/src" "$FRONT/index.html" "$FRONT/package.json" "$FRONT/package-lock.json" "$FRONT/vite.config.ts" -newer "$DIST" -print -quit 2>/dev/null)" ]]; }; then
+  /usr/bin/osascript -e 'display notification "Mise à jour de l’interface…" with title "Atelier Viz"' >/dev/null 2>&1 || true
+  echo "--- $(date '+%F %T') : interface plus ancienne que ses sources, recompilation" >>"$LOG"
+  if [[ ! -d "$FRONT/node_modules" || "$FRONT/package-lock.json" -nt "$FRONT/node_modules/.package-lock.json" ]]; then
+    (cd "$FRONT" && npm install --no-audit --no-fund --loglevel=error) >>"$LOG" 2>&1
+  fi
+  if ! (cd "$FRONT" && npm run build --silent) >>"$LOG" 2>&1; then
+    alert "La mise à jour de l'interface a échoué (voir ~/Library/Logs/Atelier Viz/atelier-viz.log). L'ancienne interface est utilisée ; relancez scripts/macos/build_app.sh."
+  fi
+fi
 if ! "$PY" -c 'import importlib.util as u, sys; sys.exit(0 if all(u.find_spec(m) for m in ("fastapi", "uvicorn", "duckdb", "webview")) else 1)'; then
   alert "Des modules Python manquent dans $PY. Relancez scripts/macos/build_app.sh."
   exit 1
@@ -124,6 +138,7 @@ cat <<EOF
     ou lancez-la avec Spotlight (⌘ Espace, « Atelier Viz »).
   • Pour la garder dans le Dock : clic droit sur son icône pendant qu'elle tourne → Options → Garder dans le Dock.
   • Journal en cas de souci : ~/Library/Logs/Atelier Viz/atelier-viz.log
-  • Après une mise à jour du code (git pull) : relancez ce script.
+  • Après une mise à jour du code (git pull) : l’interface est recompilée au lancement si besoin ;
+    relancez ce script si des dépendances Python ont changé.
 EOF
 if [[ "$(uname)" == "Darwin" ]]; then open -R "$APP" || true; fi

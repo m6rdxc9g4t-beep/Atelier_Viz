@@ -144,7 +144,9 @@ export function StudioPage({ reportId }: { reportId: string }) {
   }
   const page = report.pages.find((p) => p.id === pageId) ?? report.pages[0];
   const editing = mode === "edit";
-  // Thème du rapport : classe de base (clair / sombre) + variables CSS ; absent = suit l'application.
+  // Thème du rapport : classe de base (clair / sombre) + variables CSS, posés sur la page seulement
+  // (les volets restent au design system). `text-fg` : l'encre héritée part du thème du rapport,
+  // pas de celle de <body> (sinon un texte sans couleur explicite garde l'encre de l'application).
   const theme = readTheme(report.theme);
 
   return (
@@ -249,7 +251,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
 
         <div className="relative flex min-h-0 flex-1">
           <section
-            className={clsx("relative min-w-0 flex-1 overflow-hidden bg-canvas", theme && (theme.mode === "dark" ? "theme-dark" : "theme-light"))}
+            className={clsx("relative min-w-0 flex-1 overflow-hidden bg-canvas text-fg", theme && (theme.mode === "dark" ? "theme-dark" : "theme-light"))}
             data-theme={theme?.mode}
             style={theme ? themeVars(theme) : undefined}
             aria-label={`Page ${page?.name ?? ""}`}
