@@ -5,41 +5,53 @@ Pourquoi la CLI : l'API Anthropic est facturée à part des forfaits claude.ai, 
 Usage prévu : application personnelle, en local. Pour une application partagée ou hébergée,
 utiliser `CLAUDE_MODE=api` avec une clé de la Console Claude.
 
-Isolation de chaque appel :
+Isolation de chaque appel (docs/SUITE.md §5.3) :
 - `--safe-mode`        : ignore CLAUDE.md, mémoire, hooks, plugins, MCP de l'utilisateur ;
 - `--tools ""`         : aucun outil (pas de shell, pas de fichiers) — Claude ne fait que répondre ;
-- `--system-prompt`    : remplace entièrement le prompt système de Claude Code ;
+- `--system-prompt`    : remplace entièrement le prompt système de Claude Code ; il ne contient que des
+  consignes : **aucune donnée en argument** (visible par `ps`), la conversation et les données passent
+  par l'entrée standard ; les énumérations tirées des données sont retirées de `--json-schema` ;
 - `--no-session-persistence` : rien n'est écrit dans l'historique des sessions ;
-- répertoire de travail temporaire vide, et `ANTHROPIC_API_KEY` retirée de l'environnement
-  pour que la facturation passe bien par l'abonnement ;
-- `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` : ni télémétrie, ni rapport d'erreur, ni mise à jour automatique.
+- répertoire de travail temporaire vide ;
+- environnement en **liste blanche** (`cli_environment`) : `HOME`, `USER`, `LOGNAME`, `PATH` (dossier de
+  l'exécutable en tête), `SHELL`, `LANG`, `LC_*`, `TMPDIR`, `TZ`, `CLAUDE_CONFIG_DIR`, plus
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` — ni clé API, ni `CLAUDE_CODE_USE_BEDROCK/VERTEX`, ni secret ;
+- délai maximal, puis arrêt forcé (SIGTERM puis SIGKILL du groupe de processus) ; sortie lue avec une
+  taille maximale (`MAX_OUTPUT_BYTES`), jamais entièrement en mémoire sans limite (`run_bounded`).
 
-Recherche de l'exécutable (docs/SUITE.md §5.3) : `CLAUDE_CLI` (ou `CLAUDE_CLI_PATH`), sinon le `PATH`,
-puis `~/.local/bin`, `/opt/homebrew/bin` et `/usr/local/bin` — une application lancée depuis le Finder
+Recherche de l'exécutable : `CLAUDE_CLI` (ou `CLAUDE_CLI_PATH`) en chemin absolu — un chemin relatif est
+refusé —, sinon le `PATH` (entrées absolues seulement, dossiers `node_modules/.bin` ignorés), puis
+`~/.local/bin`, `/opt/homebrew/bin` et `/usr/local/bin` — une application lancée depuis le Finder
 n'hérite pas du `PATH` du terminal. Disponibilité = exécutable trouvé et `claude auth status` réussi,
-mise en cache 60 s (avec la version).
+mise en cache 60 s (avec la version) ; revérification forcée au plus toutes les 10 s. Une CLI introuvable
+est recherchée de nouveau au plus toutes les 60 s (installée après le lancement).
 
-Le sous-processus est lancé dans un thread (`subprocess.run`) plutôt qu'avec
-`asyncio.create_subprocess_exec` : sous Windows, `uvicorn --reload` utilise une boucle
-d'événements qui ne gère pas les sous-processus asynchrones.
+Le sous-processus est lancé dans un thread plutôt qu'avec `asyncio.create_subprocess_exec` :
+sous Windows, `uvicorn --reload` utilise une boucle d'événements qui ne gère pas les sous-processus asynchrones.
 """
 
 import asyncio
+import contextlib
 import json
+import logging
 import os
 import shutil
+import signal
 import subprocess
 import tempfile
+import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
-from app.services.ai.base import AIProviderError, extract_json
+from app.services.ai.base import AIProviderError, extract_json, schema_for_model
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
+
+log = logging.getLogger(__name__)
 
 DEFAULT_SYSTEM_PROMPT = "Tu es l'assistant d'une application de Business Intelligence. Réponds en français."
 API_KEY_AUTH_METHODS = {"api_key", "api_key_helper"}
@@ -48,31 +60,196 @@ CLAUDE_MODELS = ["sonnet", "opus", "haiku"]
 """Alias proposés à l'utilisateur (docs/SUITE.md §5.2), Sonnet par défaut."""
 FALLBACK_DIRS = ("~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin")
 STATUS_TTL_SECONDS = 60.0
+"""Durée de vie de l'état en cache (`claude auth status`) et de l'absence d'exécutable."""
+FORCED_REFRESH_SECONDS = 10.0
+"""Intervalle minimal entre deux revérifications forcées (`?refresh=true`)."""
+MAX_OUTPUT_BYTES = 4 * 1024 * 1024
+"""Taille maximale lue sur les sorties de la CLI (stdout + stderr)."""
+KILL_GRACE_SECONDS = 3.0
+"""Délai laissé au processus après SIGTERM avant SIGKILL."""
+
+ENV_ALLOWED = frozenset({"HOME", "USER", "LOGNAME", "PATH", "SHELL", "LANG", "TMPDIR", "TZ", "CLAUDE_CONFIG_DIR"})
+"""Variables transmises à la CLI (docs/SUITE.md §5.3), avec les `LC_*` ; rien d'autre."""
+
+
+def _is_node_bin(folder: str) -> bool:
+    """Vrai pour un dossier `…/node_modules/.bin` (exécutables d'un projet, pas de la machine)."""
+    parts = Path(folder).parts
+    return any(a == "node_modules" and b == ".bin" for a, b in zip(parts, parts[1:], strict=False))
+
+
+def _has_separator(value: str) -> bool:
+    return value.startswith("~") or os.sep in value or bool(os.altsep and os.altsep in value)
+
+
+def _executable_file(path: Path) -> bool:
+    return path.is_file() and os.access(path, os.X_OK)
 
 
 def find_claude_cli(
     executable: str = "claude",
     *,
     env: Mapping[str, str] | None = None,
-    which: Callable[[str], str | None] = shutil.which,
+    which: Callable[..., str | None] = shutil.which,
     fallback_dirs: Sequence[str] = FALLBACK_DIRS,
 ) -> str | None:
-    """Chemin de la CLI `claude`, ou None.
+    """Chemin **absolu** de la CLI `claude`, ou None (docs/SUITE.md §5.3).
 
-    Ordre : variable `CLAUDE_CLI`, exécutable configuré (`CLAUDE_CLI_PATH`), `PATH`, puis les dossiers
-    d'installation habituels (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`).
+    Ordre : variable `CLAUDE_CLI`, exécutable configuré (`CLAUDE_CLI` / `CLAUDE_CLI_PATH`) s'il s'agit d'un
+    chemin absolu (un chemin relatif est refusé ; un simple nom, comme `claude`, est cherché dans le `PATH`),
+    puis le `PATH` — entrées absolues seulement, hors `node_modules/.bin` —, puis les dossiers d'installation
+    habituels (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`).
     """
     env = os.environ if env is None else env
-    candidates = [env.get("CLAUDE_CLI", "").strip(), executable.strip(), "claude"]
-    for candidate in dict.fromkeys(c for c in candidates if c):
-        found = which(os.path.expanduser(candidate))
-        if found:
-            return found
+    configured = [v for v in dict.fromkeys((env.get("CLAUDE_CLI", "").strip(), executable.strip())) if v]
+    names: list[str] = []
+    for value in configured:
+        if not _has_separator(value):
+            names.append(value)
+            continue
+        path = Path(value).expanduser()
+        if not path.is_absolute():
+            log.warning("CLAUDE_CLI « %s » ignoré : un chemin absolu est exigé.", value)
+            continue
+        if _executable_file(path):
+            return str(path)
+    names = list(dict.fromkeys([*names, "claude"]))
+    for folder in env.get("PATH", "").split(os.pathsep):
+        if not folder or not os.path.isabs(folder) or _is_node_bin(folder):
+            continue
+        for name in names:
+            found = which(name, path=folder)
+            if found and os.path.isabs(found):
+                return found
     for folder in fallback_dirs:
         path = Path(folder).expanduser() / "claude"
-        if path.is_file() and os.access(path, os.X_OK):
+        if path.is_absolute() and _executable_file(path):
             return str(path)
     return None
+
+
+def cli_environment(executable: str, source: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Environnement de la CLI, en liste blanche ; le dossier de l'exécutable en tête du `PATH`.
+
+    Une CLI installée par npm (`#!/usr/bin/env node`) doit trouver `node` depuis le Finder : il est
+    d'ordinaire à côté d'elle. Les entrées relatives et `node_modules/.bin` du `PATH` sont écartées.
+    """
+    source = os.environ if source is None else source
+    env = {k: v for k, v in source.items() if k in ENV_ALLOWED or k.startswith("LC_")}
+    folder = str(Path(executable).parent)
+    rest = [p for p in source.get("PATH", "").split(os.pathsep) if p and os.path.isabs(p) and not _is_node_bin(p)]
+    env["PATH"] = os.pathsep.join(dict.fromkeys([folder, *rest]))
+    env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+    return env
+
+
+class OutputTooLarge(Exception):
+    """La CLI a écrit plus que `MAX_OUTPUT_BYTES` : processus arrêté, sortie abandonnée."""
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(f"sortie supérieure à {limit} octets")
+        self.limit = limit
+
+
+def _signal_group(proc: subprocess.Popen[bytes], sig: int) -> None:
+    """Signal au groupe du processus (enfants compris, ex. `node`) ; à défaut au processus seul."""
+    if os.name == "posix":
+        with contextlib.suppress(OSError):
+            os.killpg(proc.pid, sig)
+            return
+    with contextlib.suppress(OSError):
+        if sig == getattr(signal, "SIGKILL", None):
+            proc.kill()
+        else:
+            proc.terminate()
+
+
+def _stop(proc: subprocess.Popen[bytes], grace: float) -> None:
+    """Arrêt demandé (SIGTERM), puis forcé (SIGKILL) si le processus ne s'arrête pas dans `grace` secondes."""
+    _signal_group(proc, signal.SIGTERM)
+    try:
+        proc.wait(grace)
+    except subprocess.TimeoutExpired:
+        _signal_group(proc, getattr(signal, "SIGKILL", signal.SIGTERM))
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            proc.wait(grace)
+
+
+def run_bounded(
+    cmd: Sequence[str],
+    *,
+    input: str | None = None,  # noqa: A002 — même nom que subprocess.run
+    timeout: float,
+    cwd: str | None = None,
+    env: Mapping[str, str] | None = None,
+    max_output: int = MAX_OUTPUT_BYTES,
+    grace: float = KILL_GRACE_SECONDS,
+) -> subprocess.CompletedProcess[str]:
+    """Comme `subprocess.run(capture_output=True, text=True)`, avec une sortie bornée et un arrêt forcé.
+
+    - au-delà de `max_output` octets (stdout + stderr) : processus tué, `OutputTooLarge` ;
+    - après `timeout` secondes : SIGTERM, puis SIGKILL après `grace` secondes, `subprocess.TimeoutExpired`.
+    Le processus a son propre groupe (POSIX) : ses enfants sont arrêtés avec lui.
+    """
+    posix = os.name == "posix"
+    proc = subprocess.Popen(  # noqa: S603 — exécutable absolu trouvé par find_claude_cli
+        list(cmd),
+        stdin=subprocess.PIPE if input is not None else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=cwd,
+        env=dict(env) if env is not None else None,
+        start_new_session=posix,
+    )
+    out, err = bytearray(), bytearray()
+    size = [0]
+    lock = threading.Lock()
+    overflow = threading.Event()
+
+    def pump(stream: IO[bytes], sink: bytearray) -> None:
+        with stream:
+            while chunk := stream.read1(65536):  # type: ignore[attr-defined]
+                if overflow.is_set():
+                    continue  # vidange sans conserver, jusqu'à la fermeture du tube
+                with lock:
+                    if size[0] + len(chunk) <= max_output:
+                        size[0] += len(chunk)
+                        sink.extend(chunk)
+                        continue
+                    overflow.set()
+                _signal_group(proc, getattr(signal, "SIGKILL", signal.SIGTERM))
+
+    def feed(stream: IO[bytes], data: bytes) -> None:
+        with contextlib.suppress(OSError), stream:
+            stream.write(data)
+
+    threads = [
+        threading.Thread(target=pump, args=(proc.stdout, out), daemon=True),
+        threading.Thread(target=pump, args=(proc.stderr, err), daemon=True),
+    ]
+    if input is not None and proc.stdin is not None:
+        threads.append(threading.Thread(target=feed, args=(proc.stdin, input.encode("utf-8")), daemon=True))
+    for t in threads:
+        t.start()
+    deadline = time.monotonic() + timeout
+    try:
+        proc.wait(timeout)
+    except subprocess.TimeoutExpired:
+        _stop(proc, grace)
+        for t in threads:
+            t.join(grace)
+        raise subprocess.TimeoutExpired(list(cmd), timeout, bytes(out), bytes(err)) from None
+    for t in threads:
+        t.join(max(0.0, deadline - time.monotonic()))
+    if any(t.is_alive() for t in threads):  # un enfant garde les tubes ouverts : arrêt du groupe
+        _signal_group(proc, getattr(signal, "SIGKILL", signal.SIGTERM))
+        for t in threads:
+            t.join(grace)
+    if overflow.is_set():
+        raise OutputTooLarge(max_output)
+    return subprocess.CompletedProcess(
+        list(cmd), proc.returncode, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+    )
 
 
 @dataclass(frozen=True)
@@ -92,10 +269,11 @@ class ClaudeCliProvider:
         executable: commande ou chemin de la CLI (`claude` par défaut ; voir `find_claude_cli`).
         model: alias (`sonnet`, `opus`, `haiku`) ou identifiant complet du modèle, par défaut.
         timeout: délai maximal d'une réponse, en secondes.
-        runner: remplaçant de `subprocess.run` (tests) ; l'exécutable est alors pris tel quel.
+        runner: remplaçant de `run_bounded` (tests) ; l'exécutable est alors pris tel quel.
         model_choice: modèle choisi par l'utilisateur (préférences), lu à chaque appel ; None = `model`.
         finder: recherche de l'exécutable (tests) ; par défaut `find_claude_cli(executable)`.
         clock: horloge du cache d'état (tests).
+        max_output: taille maximale lue sur les sorties de la CLI, en octets.
     """
 
     name: ProviderName = "anthropic"
@@ -109,17 +287,21 @@ class ClaudeCliProvider:
         model_choice: Callable[[], str | None] | None = None,
         finder: Callable[[], str | None] | None = None,
         clock: Callable[[], float] = time.monotonic,
+        max_output: int = MAX_OUTPUT_BYTES,
     ) -> None:
         self.default_model = model
         self.timeout = timeout
-        self._runner: Runner = runner or subprocess.run
+        self.max_output = max_output
+        self._runner: Runner = runner or run_bounded
         self._model_choice = model_choice
         if finder is None:
             finder = (lambda: executable) if runner is not None else (lambda: find_claude_cli(executable))
         self._finder = finder
         self._clock = clock
         self._path = finder()
+        self._found_at = clock()
         self._auth: _AuthState | None = None
+        self._forced_at: float | None = None
 
     @property
     def model(self) -> str:
@@ -129,8 +311,17 @@ class ClaudeCliProvider:
 
     @property
     def configured(self) -> bool:
-        """Vrai si l'exécutable `claude` a été trouvé."""
-        return self._path is not None
+        """Vrai si l'exécutable `claude` est trouvé (recherché de nouveau au plus toutes les 60 s s'il manquait)."""
+        return self._locate() is not None
+
+    def _locate(self, force: bool = False) -> str | None:
+        """Chemin de la CLI ; si elle manquait, nouvelle recherche (forcée, ou après `STATUS_TTL_SECONDS`)."""
+        if self._path is None:
+            now = self._clock()
+            if force or now - self._found_at >= STATUS_TTL_SECONDS:
+                self._path = self._finder()
+                self._found_at = now
+        return self._path
 
     @property
     def models(self) -> list[str]:
@@ -149,14 +340,22 @@ class ClaudeCliProvider:
             self._auth = await self._check(now)
         return self._status(self._auth.available, self._auth.detail, self._auth.version)
 
-    def invalidate(self) -> None:
-        """Oublie l'état en cache (bouton « Revérifier »)."""
+    def invalidate(self) -> bool:
+        """Oublie l'état en cache (bouton « Revérifier »), au plus une fois toutes les 10 s.
+
+        Retourne False si la demande est ignorée (revérification forcée trop récente) : sans cette limite,
+        `?refresh=true` en boucle lancerait `claude auth status` sans fin.
+        """
+        now = self._clock()
+        if self._forced_at is not None and now - self._forced_at < FORCED_REFRESH_SECONDS:
+            return False
+        self._forced_at = now
         self._auth = None
+        self._found_at = float("-inf")  # CLI absente : nouvelle recherche à la prochaine vérification
+        return True
 
     async def _check(self, now: float) -> _AuthState:
-        if self._path is None:
-            self._path = self._finder()  # installée depuis le lancement ?
-        if self._path is None:
+        if self._locate(force=True) is None:  # installée depuis le lancement ?
             return _AuthState(
                 False, "CLI `claude` introuvable : installez Claude Code puis `claude auth login`", None, now
             )
@@ -196,7 +395,9 @@ class ClaudeCliProvider:
         self, messages: list[ChatMessage], system: str | None, schema: dict[str, Any]
     ) -> dict[str, Any]:
         """Sortie structurée native de la CLI (`--json-schema`) : le JSON est validé par Claude Code."""
-        payload = await self._ask(messages, system, ["--json-schema", json.dumps(schema, ensure_ascii=False)], turns=2)
+        # Le schéma part en argument (visible par `ps`) : sans les énumérations tirées des données.
+        public = schema_for_model(schema, keep_data=False)
+        payload = await self._ask(messages, system, ["--json-schema", json.dumps(public, ensure_ascii=False)], turns=2)
         structured = payload.get("structured_output")
         if isinstance(structured, dict):
             return structured
@@ -205,10 +406,12 @@ class ClaudeCliProvider:
     async def _ask(
         self, messages: list[ChatMessage], system: str | None, extra: Sequence[str] = (), turns: int = 1
     ) -> dict[str, Any]:
-        """Lance `claude -p` isolé et retourne l'objet JSON final (`type: result`)."""
-        if self._path is None:
-            self._path = self._finder()
-        if self._path is None:
+        """Lance `claude -p` isolé et retourne l'objet JSON final (`type: result`).
+
+        `system` ne contient que des consignes (argument visible par `ps`) ; la conversation, avec ses
+        données, passe par l'entrée standard.
+        """
+        if self._locate(force=True) is None:
             raise AIProviderError("anthropic", "CLI `claude` introuvable sur cette machine.", 400)
 
         args = [
@@ -244,25 +447,25 @@ class ClaudeCliProvider:
         return None
 
     async def _run(self, args: Sequence[str], *, stdin: str | None, timeout: float) -> subprocess.CompletedProcess[str]:
-        """Exécute la CLI dans un dossier vide, sans clé API dans l'environnement."""
-        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
-        # Seul l'appel au modèle sort de la machine : pas de télémétrie, de rapport d'erreur ni de mise à jour auto.
-        env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+        """Exécute la CLI dans un dossier vide, avec l'environnement en liste blanche et une sortie bornée."""
+        path = str(self._path)
         with tempfile.TemporaryDirectory(prefix="atelier-viz-claude-") as cwd:
             try:
                 return await asyncio.to_thread(
                     self._runner,
-                    [str(self._path), *args],
+                    [path, *args],
                     input=stdin,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
                     timeout=timeout,
                     cwd=cwd,
-                    env=env,
+                    env=cli_environment(path),
+                    max_output=self.max_output,
                 )
             except subprocess.TimeoutExpired as exc:
                 raise AIProviderError("anthropic", f"Claude (CLI) n'a pas répondu en {timeout:.0f} s.", 504) from exc
+            except OutputTooLarge as exc:
+                size = f"{exc.limit // (1024 * 1024)} Mo"
+                detail = f"Claude (CLI) : réponse trop volumineuse (plus de {size}), abandonnée."
+                raise AIProviderError("anthropic", detail, 502) from exc
             except OSError as exc:
                 raise AIProviderError("anthropic", f"Impossible de lancer la CLI Claude : {exc}") from exc
 

@@ -51,6 +51,7 @@ class AIService:
 
     @property
     def claude_usable(self) -> bool:
+        """En ligne et Claude configuré (CLI : recherchée de nouveau au plus toutes les 60 s si elle manquait)."""
         return self.is_online() and self.anthropic.configured
 
     async def claude_available(self) -> bool:
@@ -109,7 +110,7 @@ class AIService:
     async def providers_status(self, refresh: bool = False) -> ProvidersResponse:
         """État de tous les fournisseurs, vérifiés en parallèle (Claude non sollicité hors ligne).
 
-        `refresh` oublie l'état de Claude mis en cache (bouton « Revérifier »).
+        `refresh` oublie l'état de Claude mis en cache (bouton « Revérifier »), au plus toutes les 10 s.
         """
         invalidate = getattr(self.anthropic, "invalidate", None)
         if refresh and callable(invalidate):

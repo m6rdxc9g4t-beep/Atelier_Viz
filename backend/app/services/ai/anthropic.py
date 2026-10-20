@@ -6,7 +6,7 @@ from typing import Any
 from anthropic import APIError, AsyncAnthropic
 
 from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
-from app.services.ai.base import AIProviderError, extract_json
+from app.services.ai.base import AIProviderError, extract_json, schema_for_model
 
 
 class AnthropicProvider:
@@ -62,7 +62,7 @@ class AnthropicProvider:
         """L'API reçoit le schéma dans la consigne système ; la réponse est extraite puis validée en aval."""
         instruction = (
             "Réponds UNIQUEMENT par un objet JSON valide (sans texte autour, sans bloc de code) "
-            f"conforme à ce schéma JSON :\n{json.dumps(schema, ensure_ascii=False)}"
+            f"conforme à ce schéma JSON :\n{json.dumps(schema_for_model(schema), ensure_ascii=False)}"
         )
         text = await self.chat(messages, f"{system}\n\n{instruction}" if system else instruction)
         return extract_json("anthropic", text)
