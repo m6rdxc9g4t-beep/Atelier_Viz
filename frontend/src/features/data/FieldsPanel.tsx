@@ -15,7 +15,7 @@ export const TYPE_META: Record<ColumnType, { icon: LucideIcon; label: string }> 
 /** Panneau « Champs » à la Power BI : colonnes typées, statistiques au dépliage. */
 export function FieldsPanel({ columns }: { columns: ColumnProfile[] }) {
   return (
-    <section aria-labelledby="fields-title" className="atelier-glass flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-surface">
+    <section aria-labelledby="fields-title" className="atelier-card flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-surface">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 id="fields-title" className="text-sm font-medium">
           Champs

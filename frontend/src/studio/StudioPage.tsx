@@ -152,7 +152,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
   return (
     <StudioDataContext.Provider value={{ datasets, profiles, activeDatasetId, setActiveDatasetId }}>
       <div className="flex h-full flex-col">
-        <div className="atelier-glass flex h-11 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
           <button type="button" onClick={() => navigate("/")} aria-label="Retour aux rapports" className="rounded p-1.5 text-muted hover:bg-surface-2 hover:text-fg">
             <ArrowLeft className="size-4" aria-hidden />
           </button>
@@ -161,7 +161,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
             value={report.name}
             readOnly={!editing}
             onChange={(e) => s().mutate((r) => (r.name = e.target.value || "Sans titre"))}
-            className="min-w-0 max-w-72 flex-1 rounded px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-bg focus:outline-none focus:ring-1 focus:ring-focus"
+            className="min-w-0 max-w-72 flex-1 rounded px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field focus:outline-none focus:ring-1 focus:ring-focus"
           />
           <SaveBadge state={saveState} error={saveError} />
           <div className="ml-auto flex items-center gap-1">
@@ -180,7 +180,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
                 aria-pressed={side === "ai"}
                 className={clsx(
                   "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium",
-                  side === "ai" ? "bg-accent text-accent-fg" : "bg-accent-soft text-accent-ink hover:bg-accent/20",
+                  side === "ai" ? "bg-accent-soft text-accent-ink ring-1 ring-inset ring-border-strong" : "bg-accent-soft text-accent-ink hover:bg-accent/20",
                 )}
               >
                 <Sparkles className="size-3.5" aria-hidden /> Créer avec l'IA

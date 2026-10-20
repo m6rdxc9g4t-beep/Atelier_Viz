@@ -10,7 +10,7 @@ Toute modification se fait dans les trois dépôts à la fois.
 | **Atelier Tab** | Tableur + base typée | React · Electron (bureau) |
 | **Atelier Projets** | Projets agiles, Git, temps passé | Fastify + Prisma/SQLite · React |
 
-Principes partagés : **local d'abord** (rien ne quitte la machine hors ligne), interface **en français**, IA locale par Ollama (`http://localhost:11434`), clair + sombre (sombre « néon holographique », §1.7).
+Principes partagés : **local d'abord** (rien ne quitte la machine hors ligne), interface **en français**, IA locale par Ollama (`http://localhost:11434`), clair + sombre (« néon monochrome » dans la couleur de chaque app, §1.7).
 
 ---
 
@@ -78,8 +78,8 @@ Choix proposés : Clair, Sombre, Système. Chaque application garde sa propre cl
 
 ### 1.6 Marque (logo + nom)
 Les huit applications Atelier (Projets, Viz, Tab, Ciné, Savoir, Trésorerie, Nexus, Dates) affichent leur marque de la même façon,
-comme sur leurs logos : tuile en verre bleu nuit cerclée de cyan, icône Lucide dans la **couleur signature** de l'app (§1.7),
-puis `atelier_` atténué et le nom en gras (cyan lumineux en thème sombre).
+comme sur leurs logos : tuile en verre cerclée de la **couleur signature** de l'app (§1.7), icône Lucide dans cette couleur,
+puis `atelier_` atténué et le nom en gras.
 
 - Source : `Atelier_Projets/design-system/brand/` (`atelier-brand.css`, police Nunito variable embarquée, licence OFL).
   Copies verbatim : `frontend/src/styles/atelier-brand/` (Viz), `src/styles/atelier-brand/` (Tab),
@@ -90,14 +90,12 @@ puis `atelier_` atténué et le nom en gras (cyan lumineux en thème sombre).
 - Clic sur la marque : fenêtre « À propos » (`<dialog class="atelier-about">`) avec le logo complet de l'application en grand, son nom et une phrase de présentation. Identique partout, toujours sombre.
 - Icônes : l'icône d'application (Dock, `.app`, Electron) est le logo complet ; le favicon (`favicon-64.png`, `apple-touch-icon.png`) est la tuile de l'étiquette du logo.
 
-### 1.7 Charte « néon holographique » et couleurs signature
-Charte complète : document « Charte graphique : style néon holographique 3D ». Résumé pour le code :
+### 1.7 Charte « néon monochrome » et couleurs signature
+Charte complète : document « Charte graphique : style néon holographique 3D » (piste C validée). Résumé pour le code :
 
-- **Base commune cyan** (`--atelier-neon` #3FD8FF) : bords chromés, halos, texte de la marque, anneau de focus.
-- **Une couleur signature par app** (10 à 15 % de l'écran) : icône de la tuile, bouton principal, onglet actif, données clés.
-  Activée par `data-atelier-app="<app>"` sur `<html>` (ou sur un élément, ex. chaque entrée du sélecteur de la suite),
-  qui pose `--atelier-signature`, `--atelier-signature-contrast` (texte sur la signature), `--atelier-signature-soft`,
-  `--atelier-signature-light` et `--atelier-signature-glow`.
+- **Chaque application est entièrement dans sa couleur signature** : fond, barre latérale, surfaces, bordures, textes,
+  halos et grille dérivent de `--atelier-signature` par mélange (`color-mix`) et transparence. Pas de couleur de structure commune.
+- Activation : `data-atelier-app="<app>"` sur `<html>` (ou sur un élément, ex. chaque entrée du sélecteur de la suite, qui prend SA couleur).
 
 | App | `data-atelier-app` | Signature |
 |---|---|---|
@@ -110,12 +108,15 @@ Charte complète : document « Charte graphique : style néon holographique 3D �
 | Savoir | `savoir` | `#9B5DE5` violet |
 | Ciné | `cine` | `#E64980` magenta |
 
-- **Thème sombre** = bleu nuit des logos (`themes/dark.css`) + effets néon de `atelier-brand.css` : `--atelier-glow` (cartes, panneaux),
-  `--atelier-glow-strong` (modales, élément actif), `--atelier-glass` (reflet de verre), `--atelier-text-glow` (titres).
-  Ces jetons valent `none` / `transparent` en thème clair : on les utilise sans condition.
-- **Thème clair** : sobre, sans halo ; la signature y sert en fond (bouton) ou en mélange avec le texte pour rester lisible
-  (`color-mix(in oklab, var(--atelier-signature) 62%, var(--text-primary))`).
-- Les couleurs de **données** (types, statuts, séries Viz) ne changent pas : la signature habille l'application, elle ne remplace pas une couleur qui porte un sens.
+- `brand/atelier-brand.css` fournit, pour le thème clair et le thème sombre, les jetons que chaque application branche sur ses
+  propres variables (§1.2) : `--atelier-bg`, `--atelier-sidebar`, `--atelier-surface`, `--atelier-surface-2|3`, `--atelier-field`,
+  `--atelier-text`, `--atelier-muted`, `--atelier-ink` (signature lisible en texte), `--atelier-border`, `--atelier-border-soft`,
+  `--atelier-line`, `--atelier-signature-soft|faint`, `--atelier-glow`, `--atelier-glow-strong`, `--atelier-signature-glow`,
+  `--atelier-text-glow`, `--atelier-focus`, `--atelier-backdrop` (grille + lueur), `--atelier-chart-1..3`, `--atelier-chart-fill`.
+- **Sombre** : fond quasi noir teinté, fine grille, cartes cerclées d'un trait néon de la couleur avec halo, bouton principal en contour néon.
+- **Clair** : fond très clair teinté, même grille, cartes blanches cerclées de la couleur avec léger halo, bouton principal plein.
+- `themes/dark.css` reste une base neutre quasi noire (CSS pur, copiable) : la teinte vient des jetons `--atelier-*`.
+- Les couleurs de **données** (types, statuts, séries Viz, positif / négatif) ne changent pas.
 
 ---
 

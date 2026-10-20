@@ -65,7 +65,7 @@ export function AlertsSection() {
 
   const first = datasets[0];
   return (
-    <section className="atelier-glass rounded-xl border border-border bg-surface" aria-labelledby="alerts-title">
+    <section className="atelier-card rounded-xl border border-border bg-surface" aria-labelledby="alerts-title">
       <header className="flex items-center gap-2 border-b border-border px-5 py-3">
         <BellRing className="size-4 text-accent-ink" aria-hidden />
         <h2 id="alerts-title" className="flex-1 text-sm font-semibold">
@@ -81,7 +81,7 @@ export function AlertsSection() {
               editing: null,
             })
           }
-          className="btn-signature flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
+          className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
         >
           <Plus className="size-3.5" aria-hidden /> Nouvelle alerte
         </button>

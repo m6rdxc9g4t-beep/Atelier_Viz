@@ -12,7 +12,7 @@ import { AGG_LABELS, aggsFor } from "../../visuals/fields";
 import { COMPARISONS, alertError, filterLabel, formatAlertNumber, parseFilterValues } from "./alerts";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-const field = "rounded-md border border-border bg-bg px-2 py-1.5 text-xs text-fg";
+const field = "rounded-md border border-border bg-field px-2 py-1.5 text-xs text-fg";
 const FILTER_OPS: { value: FilterOp; label: string }[] = [
   { value: "in", label: "est parmi (séparés par ;)" },
   { value: "eq", label: "=" },
@@ -324,7 +324,7 @@ export function AlertEditor({
           <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
             Annuler
           </button>
-          <button type="button" disabled={!!invalid || saving} onClick={() => void save()} className="btn-signature rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
+          <button type="button" disabled={!!invalid || saving} onClick={() => void save()} className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
             {saving ? "Enregistrement…" : editing ? "Enregistrer" : "Créer l'alerte"}
           </button>
         </footer>

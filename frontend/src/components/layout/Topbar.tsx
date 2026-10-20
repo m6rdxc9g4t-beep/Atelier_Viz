@@ -26,7 +26,7 @@ export function Topbar(props: TopbarProps) {
   const online = prefs?.online_mode ?? false;
 
   return (
-    <header className="atelier-glass flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface px-4">
+    <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-sidebar px-4">
       <div className="flex min-w-0 items-center gap-2">
         <SuiteSwitcher />
         <h1 className="atelier-title min-w-0 truncate text-sm font-semibold">{title}</h1>

@@ -15,7 +15,7 @@ function NumberField({ label, value, min, onCommit }: { label: string; value: nu
     else setDraft(String(value));
   };
   return (
-    <label className="flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1 text-[11px] text-muted focus-within:ring-1 focus-within:ring-focus">
+    <label className="flex items-center gap-1.5 rounded-md border border-border bg-field px-2 py-1 text-[11px] text-muted focus-within:ring-1 focus-within:ring-focus">
       <span className="w-3 shrink-0 font-medium">{label}</span>
       <input
         inputMode="numeric"
@@ -73,7 +73,7 @@ export function PageSizeSection() {
           const p = PAGE_PRESETS.find((x) => x.id === e.target.value);
           if (p) set(p.size);
         }}
-        className="mb-1.5 w-full rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg"
+        className="mb-1.5 w-full rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
       >
         {PAGE_PRESETS.map((p) => (
           <option key={p.id} value={p.id}>

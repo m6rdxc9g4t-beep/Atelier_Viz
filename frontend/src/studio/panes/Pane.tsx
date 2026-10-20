@@ -19,7 +19,7 @@ export function Pane({ title, width, children, defaultOpen = true }: { title: st
     );
   }
   return (
-    <aside className={clsx("atelier-glass flex shrink-0 flex-col border-l border-border bg-surface", width)} aria-label={title}>
+    <aside className={clsx("flex shrink-0 flex-col border-l border-border bg-surface", width)} aria-label={title}>
       <header className="flex h-10 shrink-0 items-center justify-between border-b border-border px-3">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h2>
         <button type="button" onClick={() => setOpen(false)} aria-label={`Replier le volet ${title}`} className="rounded p-1 text-muted hover:bg-surface-2 hover:text-fg">

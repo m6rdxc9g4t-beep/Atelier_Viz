@@ -22,7 +22,7 @@ export function SettingsView() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 lg:p-8">
-      <section className="atelier-glass rounded-xl border border-border bg-surface p-5">
+      <section className="atelier-card rounded-xl border border-border bg-surface p-5">
         <h2 className="text-base font-semibold">Mode de fonctionnement</h2>
         <p className="mt-1 text-xs text-muted">Choisissez ce qui a le droit de quitter votre machine. Le changement est immédiat.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Mode de fonctionnement">
@@ -65,7 +65,7 @@ export function SettingsView() {
         {error && <p className="mt-3 text-xs text-negative">{error}</p>}
       </section>
 
-      <section className="atelier-glass rounded-xl border border-border bg-surface p-5">
+      <section className="atelier-card rounded-xl border border-border bg-surface p-5">
         <h2 className="text-base font-semibold">Apparence</h2>
         <p className="mt-1 text-xs text-muted">
           Thème de l'application. Chaque rapport peut aussi avoir son propre thème (bouton « Thème » du Studio) : couleurs en hexadécimal, fonds transparents, bordures.
@@ -95,7 +95,7 @@ export function SettingsView() {
         </div>
       </section>
 
-      <section className="atelier-glass rounded-xl border border-border bg-surface p-5">
+      <section className="atelier-card rounded-xl border border-border bg-surface p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Moteurs d'IA</h2>
           <button type="button" onClick={() => providers.refresh(true)} aria-label="Revérifier" className="rounded p-1.5 text-muted hover:bg-surface-2 hover:text-fg">
@@ -144,7 +144,7 @@ function ModelChoice({ provider }: { provider: ProviderStatus }) {
           id={id}
           value={prefs?.claude_model ?? "sonnet"}
           onChange={(e) => void update({ claude_model: e.target.value as ClaudeModel }).then(() => refresh())}
-          className="rounded border border-border bg-bg px-1.5 py-0.5 text-xs"
+          className="rounded border border-border bg-field px-1.5 py-0.5 text-xs"
         >
           {CLAUDE_MODELS.map((m) => (
             <option key={m.value} value={m.value}>
@@ -166,7 +166,7 @@ function ModelChoice({ provider }: { provider: ProviderStatus }) {
         id={id}
         value={ollamaSelected(provider, prefs?.ollama_model ?? null)}
         onChange={(e) => void update({ ollama_model: e.target.value }).then(() => refresh())}
-        className="min-w-0 rounded border border-border bg-bg px-1.5 py-0.5 text-xs"
+        className="min-w-0 rounded border border-border bg-field px-1.5 py-0.5 text-xs"
       >
         {list.map((m) => (
           <option key={m.value} value={m.value}>

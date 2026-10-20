@@ -50,7 +50,7 @@ export function DataView({ state }: { state: DatasetsState }) {
               </button>{" "}
               (ventes 2026 et magasins).
             </p>
-            <div className="atelier-glass flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-4 py-4 text-center">
+            <div className="atelier-card flex flex-col items-center gap-2 rounded-lg border border-border bg-surface px-4 py-4 text-center">
               <p className="text-sm font-medium">Ou connectez-vous à vos données</p>
               <p className="text-xs text-muted">SQL Server, PostgreSQL, MySQL, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online.</p>
               {connectButton}
@@ -86,7 +86,7 @@ export function DataView({ state }: { state: DatasetsState }) {
 
           {selected && (
             <>
-              <div className="atelier-glass flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3">
+              <div className="atelier-card flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3">
                 <div className="mr-auto min-w-0">
                   <h2 className="truncate text-sm font-semibold">{selected.name}</h2>
                   {selected.origin && (

@@ -183,7 +183,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
 
           {sql && mode === "tables" && (
             <>
-              <label className="m-2 flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1 text-xs focus-within:ring-1 focus-within:ring-focus">
+              <label className="m-2 flex items-center gap-1.5 rounded-md border border-border bg-field px-2 py-1 text-xs focus-within:ring-1 focus-within:ring-focus">
                 <Search className="size-3.5 text-muted" aria-hidden />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher une table" aria-label="Rechercher une table" className="min-w-0 flex-1 bg-transparent outline-none" />
               </label>
@@ -229,7 +229,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                 }}
                 spellCheck={false}
                 aria-label="Requête SQL"
-                className="min-h-0 flex-1 resize-none rounded-md border border-border bg-bg p-2 font-mono text-xs leading-relaxed outline-none focus:ring-1 focus:ring-focus"
+                className="min-h-0 flex-1 resize-none rounded-md border border-border bg-field p-2 font-mono text-xs leading-relaxed outline-none focus:ring-1 focus:ring-focus"
               />
               <p className="text-[11px] text-muted">Une seule requête SELECT ou WITH, en lecture seule. Ctrl + Entrée : aperçu.</p>
               <button type="button" onClick={() => void show({ query })} className="rounded-md border border-border py-1.5 text-xs font-medium hover:bg-surface-2">
@@ -257,7 +257,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
 
           {c.kind === "atelier_tab" && (
             <>
-              <label className="m-2 flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1 text-xs focus-within:ring-1 focus-within:ring-focus">
+              <label className="m-2 flex items-center gap-1.5 rounded-md border border-border bg-field px-2 py-1 text-xs focus-within:ring-1 focus-within:ring-focus">
                 <Search className="size-3.5 text-muted" aria-hidden />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher une table" aria-label="Rechercher une table" className="min-w-0 flex-1 bg-transparent outline-none" />
               </label>
@@ -296,7 +296,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                     setProjectId(e.target.value);
                     if (source?.table) void show({ table: source.table, project_id: e.target.value || null });
                   }}
-                  className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-focus"
+                  className="w-full rounded-md border border-border bg-field px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-focus"
                 >
                   <option value="">Tous les projets</option>
                   {projects.map((p) => (
@@ -333,7 +333,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                       onChange={(e) => setUrl(e.target.value)}
                       rows={4}
                       placeholder="https://entreprise.sharepoint.com/sites/Ventes/Documents/objectifs.xlsx"
-                      className="w-full resize-none rounded-md border border-border bg-bg p-2 font-mono text-[11px] outline-none focus:ring-1 focus:ring-focus"
+                      className="w-full resize-none rounded-md border border-border bg-field p-2 font-mono text-[11px] outline-none focus:ring-1 focus:ring-focus"
                       spellCheck={false}
                     />
                     <span className="block text-[11px] text-muted">Dans SharePoint : « Copier le lien » d'un fichier (CSV, Excel, JSON), ou l'adresse d'une liste.</span>
@@ -393,7 +393,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
             <footer className="flex flex-wrap items-end gap-3 border-t border-border px-4 py-3">
               <label className="min-w-48 flex-1 space-y-1">
                 <span className="text-[11px] text-muted">Nom du jeu de données</span>
-                <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:ring-1 focus:ring-focus" />
+                <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-md border border-border bg-field px-2.5 py-1.5 text-sm outline-none focus:ring-1 focus:ring-focus" />
               </label>
               <label className="w-36 space-y-1">
                 <span className="text-[11px] text-muted">Lignes max. (facultatif)</span>
@@ -402,14 +402,14 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                   onChange={(e) => setMaxRows(e.target.value.replace(/[^\d\s]/g, ""))}
                   inputMode="numeric"
                   placeholder="toutes"
-                  className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm tabular-nums outline-none focus:ring-1 focus:ring-focus"
+                  className="w-full rounded-md border border-border bg-field px-2.5 py-1.5 text-sm tabular-nums outline-none focus:ring-1 focus:ring-focus"
                 />
               </label>
               <button
                 type="button"
                 onClick={() => void runImport()}
                 disabled={loading === "import"}
-                className="btn-signature flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-50"
+                className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-50"
               >
                 {loading === "import" && <Loader2 className="size-4 animate-spin" aria-hidden />}
                 Importer
@@ -579,7 +579,7 @@ function MicrosoftLogin({ connection: c, online, onChanged }: { connection: Conn
             .then(setStart, (e: unknown) => setStatus(errorText(e)))
             .finally(() => setBusy(false));
         }}
-        className="btn-signature flex w-full items-center justify-center gap-1.5 rounded-md bg-accent py-2 text-xs font-medium text-accent-fg disabled:opacity-50"
+        className="atelier-btn-primary flex w-full items-center justify-center gap-1.5 rounded-md bg-accent py-2 text-xs font-medium text-accent-fg disabled:opacity-50"
       >
         {busy && <Loader2 className="size-3.5 animate-spin" aria-hidden />} Se connecter à Microsoft 365
       </button>

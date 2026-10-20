@@ -92,7 +92,7 @@ export function DataPane() {
           id="dataset-select"
           value={activeDatasetId ?? ""}
           onChange={(e) => setActiveDatasetId(e.target.value)}
-          className="w-full rounded-md border border-border bg-bg px-2 py-1.5 text-xs"
+          className="w-full rounded-md border border-border bg-field px-2 py-1.5 text-xs"
         >
           {!datasets.length && <option value="">Aucun jeu — importez des données</option>}
           {datasets.map((d) => (
@@ -126,7 +126,7 @@ export function DataPane() {
             </button>
           </div>
         )}
-        <label className="flex items-center gap-1.5 rounded-md border border-border bg-bg px-2 py-1 text-xs">
+        <label className="flex items-center gap-1.5 rounded-md border border-border bg-field px-2 py-1 text-xs">
           <Search className="size-3 text-muted" aria-hidden />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un champ" className="min-w-0 flex-1 bg-transparent outline-none" />
         </label>

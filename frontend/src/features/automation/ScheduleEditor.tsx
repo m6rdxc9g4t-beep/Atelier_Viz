@@ -53,7 +53,7 @@ export function ScheduleEditor({ state, onChange, compact = false }: { state: Sc
     }
   };
 
-  const field = "rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg";
+  const field = "rounded-md border border-border bg-field px-2 py-1 text-xs text-fg";
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
@@ -102,7 +102,7 @@ export function ScheduleEditor({ state, onChange, compact = false }: { state: Sc
           type="button"
           disabled={!dirty || !!invalid || saving}
           onClick={() => void save()}
-          className="btn-signature rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
+          className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
         >
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>

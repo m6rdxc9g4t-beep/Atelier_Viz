@@ -8,57 +8,48 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Habillage de l'application (docs/SUITE.md §1.2) : les noms de jetons d'Atelier Viz ne changent pas,
- * leurs valeurs dérivent des 6 variables de fondation du design system (thème actif) et des couleurs officielles.
- * Redéclaré sur chaque racine de thème ([data-theme], .theme-light / .theme-dark du Studio) pour que
- * var(--bg-main)… se résolve avec la fondation de cette racine.
+ * Habillage de l'application (docs/SUITE.md §1.2 et §1.7, charte « néon monochrome ») : les noms de jetons
+ * d'Atelier Viz ne changent pas ; leurs valeurs viennent des jetons --atelier-* d'atelier-brand.css, tous dérivés
+ * de la signature jaune (#F2C811, data-atelier-app="viz" sur <html>), dans les deux thèmes. Les fondations du design
+ * system (light.css, dark.css) restent des bases neutres ; seules les couleurs de statut (succès / danger) en dérivent.
+ * Redéclaré sur chaque racine de thème ([data-theme], .theme-light / .theme-dark du Studio) ; dans le Studio, le thème
+ * du rapport redéfinit ces variables en ligne sur sa racine : le contenu du rapport garde ses couleurs.
  */
 :root,
 .theme-light,
 .dark,
 .theme-dark,
 [data-theme] {
-  --bg: var(--bg-main);
-  --surface: var(--bg-surface);
-  --surface-2: var(--bg-elevated);
-  --border: var(--border-color);
-  --fg: var(--text-primary);
-  --muted: var(--text-muted);
-  --grid: var(--border-color);
+  --bg: var(--atelier-bg);
+  --sidebar: var(--atelier-sidebar);
+  --surface: var(--atelier-surface);
+  --surface-2: var(--atelier-surface-2);
+  --surface-3: var(--atelier-surface-3);
+  --field: var(--atelier-field);
+  /* Trait par défaut (champs, boutons secondaires, panneaux) ; contour des cartes : --border-strong ; séparateurs : --line. */
+  --border: var(--atelier-border-soft);
+  --border-strong: var(--atelier-border);
+  --line: var(--atelier-line);
+  --fg: var(--atelier-text);
+  --muted: var(--atelier-muted);
+  --grid: var(--atelier-line);
   /* Fond autour de la page du Studio : fond de l'application, légèrement teinté pour détacher la page. */
-  --canvas: color-mix(in oklab, var(--bg-main) 65%, var(--border-color));
+  --canvas: color-mix(in oklab, var(--atelier-bg) 60%, var(--atelier-surface-3));
   /* Succès / danger : couleurs de statut rapprochées de l'encre (comme le bouton « danger » du design system), ≥ 4,5:1. */
   --positive: color-mix(in oklab, var(--status-closed) 72%, var(--text-primary));
   --negative: color-mix(in oklab, var(--status-rejected) 72%, var(--text-primary));
-}
 
-/*
- * Accent = couleur signature d'Atelier Viz (jaune #F2C811, docs/SUITE.md §1.7, posée par
- * data-atelier-app="viz" sur <html>) : fonds pleins (bouton principal, sélection), --accent-fg = encre
- * posée dessus (nuit, 11,8:1). Le jaune pur est illisible en texte sur fond clair (1,6:1) : le texte,
- * les icônes fines et les bordures de sélection utilisent --accent-ink, mélangé à l'encre en clair
- * (≥ 4,5:1 sur les surfaces et le fond --accent-soft), éclairci en sombre. Anneau de focus : cyan commun
- * (--focus), approfondi en clair pour rester ≥ 3:1.
- * Dans le Studio, le thème du rapport redéfinit --accent sur sa racine : le contenu du rapport garde sa couleur.
- */
-:root,
-.theme-light,
-[data-theme="light"] {
+  /*
+   * Accent = signature : fonds pleins (sélection, barre de progression), --accent-fg = encre posée dessus (quasi noir).
+   * Texte, icônes fines et bordures de sélection : --accent-ink (assombri en clair, ≥ 4,5:1 ; éclairci en sombre).
+   * Fond actif : --accent-soft ; survol : --accent-faint ; focus : trait signature (+ halo --atelier-focus sur les champs).
+   */
   --accent: var(--atelier-signature);
   --accent-fg: var(--atelier-signature-contrast);
-  --accent-ink: color-mix(in oklab, var(--atelier-signature) 50%, var(--text-primary));
+  --accent-ink: var(--atelier-ink);
   --accent-soft: var(--atelier-signature-soft);
-  --focus: color-mix(in oklab, var(--atelier-neon) 40%, var(--atelier-neon-deep));
-}
-
-.dark,
-.theme-dark,
-[data-theme="dark"] {
-  --accent: var(--atelier-signature);
-  --accent-fg: var(--atelier-signature-contrast);
-  --accent-ink: var(--atelier-signature-light);
-  --accent-soft: var(--atelier-signature-soft);
-  --focus: var(--atelier-neon);
+  --accent-faint: var(--atelier-signature-faint);
+  --focus: var(--atelier-signature);
 }
 
 /*
@@ -143,14 +134,20 @@
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-sidebar: var(--sidebar);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-field: var(--field);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-line: var(--line);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-faint: var(--accent-faint);
   --color-focus: var(--focus);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
@@ -163,38 +160,41 @@
 }
 
 body {
-  background: var(--bg);
+  /* Fine grille + lueur en haut, dans la couleur de l'app (les deux thèmes). --atelier-backdrop contient des
+     tailles de motif : il ne s'utilise que dans le raccourci `background`, jamais dans `background-image`. */
+  background: var(--atelier-backdrop), var(--bg);
+  background-attachment: fixed;
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
 /*
- * Charte « néon holographique » (docs/SUITE.md §1.7) : les jetons --atelier-glow / -glass / -text-glow
- * valent `none` en thème clair, ces règles s'appliquent donc sans condition ; le néon ne s'allume qu'en sombre.
- * Cartes et panneaux : classe `atelier-glass` (atelier-brand.css). Menus, popovers et modales : `atelier-pop`
- * (halo fort en sombre, ombre Tailwind conservée en clair).
+ * Charte « néon monochrome » (docs/SUITE.md §1.7), classes d'habillage :
+ * - cartes et panneaux flottants : `atelier-card` (atelier-brand.css : surface, trait néon, halo) ;
+ * - menus, popovers, modales : `atelier-pop` (trait néon, halo fort) ;
+ * - bouton principal : `atelier-btn-primary` (atelier-brand.css : plein en clair, contour néon en sombre) ;
+ * - navigation active : `atelier-nav-active` (atelier-brand.css) ; titre de page : `atelier-title`.
+ * Ces règles hors couche l'emportent sur les utilitaires Tailwind (ombres, bordures) des mêmes éléments.
  */
-:root[data-theme="dark"] body {
-  background-image: radial-gradient(120% 60% at 50% -10%, color-mix(in oklab, var(--atelier-neon) 10%, transparent), transparent 60%);
-}
-
 .atelier-pop {
-  background-image: var(--atelier-glass);
-}
-
-:root[data-theme="dark"] .atelier-pop {
+  border-color: var(--atelier-border);
   box-shadow: var(--atelier-glow-strong);
 }
 
-/* Titre de page : halo cyan en sombre (aucun effet en clair). */
 .atelier-title {
   text-shadow: var(--atelier-text-glow);
 }
 
-/* Bouton principal : fond signature, halo signature au survol et au focus clavier. */
-.btn-signature:is(:hover, :focus-visible):not(:disabled) {
-  box-shadow: var(--atelier-signature-glow);
+.atelier-btn-primary:is(:hover, :focus-visible):not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* Champs de l'interface : trait signature et halo au focus (hors contenu du rapport, qui garde son thème). */
+:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), textarea, select):focus-visible:not(.bg-canvas *) {
+  outline: none;
+  border-color: var(--atelier-signature);
+  box-shadow: var(--atelier-focus);
 }
 
 /* Pas de cadre de focus après un clic souris dans un graphique (le clavier garde l'info-bulle). */

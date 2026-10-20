@@ -37,7 +37,7 @@ export function BookmarksPane() {
         <button
           type="button"
           onClick={add}
-          className="btn-signature flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110"
+          className="atelier-btn-primary flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110"
         >
           <BookmarkPlus className="size-3.5" aria-hidden /> Ajouter un signet
         </button>
@@ -177,7 +177,7 @@ function RenameField({ bookmark, onDone }: { bookmark: Bookmark; onDone: (name: 
         onFocus={(e) => e.currentTarget.select()}
         onBlur={() => onDone(value)}
         onKeyDown={(e) => e.key === "Escape" && onDone(null)}
-        className="min-w-0 flex-1 rounded border border-accent-ink bg-bg px-2 py-1 text-xs"
+        className="min-w-0 flex-1 rounded border border-accent-ink bg-field px-2 py-1 text-xs"
       />
       <button type="submit" aria-label="Valider le nom" className="rounded p-1 text-accent-ink hover:bg-surface-2">
         <Check className="size-3.5" aria-hidden />

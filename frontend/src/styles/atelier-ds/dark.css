@@ -1,10 +1,12 @@
 /* ==========================================================================
-   Atelier_Projets · Design System — Thème SOMBRE 🌙 « néon holographique »
+   Atelier_Projets · Design System — Thème SOMBRE 🌙
    CSS natif pur (Custom Properties), sans aucune dépendance métier :
    ce fichier se copie tel quel dans n'importe quelle autre application.
 
-   Fond bleu nuit des logos Atelier, texte bleuté, bordures teintées de cyan.
-   Les halos et reflets néon viennent de brand/atelier-brand.css (--atelier-glow…).
+   Base neutre quasi noire. Dans les applications de la suite Atelier, ces valeurs
+   sont teintées de la couleur signature de l'app par brand/atelier-brand.css
+   (jetons --atelier-bg, --atelier-surface…, branchés par chaque application) :
+   elles ne servent telles quelles qu'en dehors de la suite.
 
    Activation : data-theme="dark" sur <html> (toute la page) ou sur un conteneur.
    Le sélecteur :root[data-theme="dark"] l'emporte sur le :root du thème clair,
@@ -15,10 +17,10 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg-main: #06111F;       /* Fond principal de l'application      */
-  --bg-surface: #0A1B2E;    /* Cartes, tableaux, panneaux latéraux  */
-  --bg-elevated: #10283F;   /* Modales, menus déroulants, survols   */
-  --text-primary: #E6F7FF;  /* Texte principal                      */
-  --text-muted: #8DB4CC;    /* Texte secondaire, métadonnées        */
-  --border-color: #17405C;  /* Bordures fines et séparateurs        */
+  --bg-main: #0A0A0D;       /* Fond principal de l'application      */
+  --bg-surface: #111116;    /* Cartes, tableaux, panneaux latéraux  */
+  --bg-elevated: #191A21;   /* Modales, menus déroulants, survols   */
+  --text-primary: #F4F5F7;  /* Texte principal                      */
+  --text-muted: #A1A6B2;    /* Texte secondaire, métadonnées        */
+  --border-color: #262833;  /* Bordures fines et séparateurs        */
 }

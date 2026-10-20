@@ -99,7 +99,7 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
                 type="button"
                 onClick={() => setView({ kind: "pick" })}
                 aria-pressed={view.kind === "pick"}
-                className={clsx("flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium", view.kind === "pick" ? "bg-accent text-accent-fg" : "text-accent-ink hover:bg-accent-soft")}
+                className={clsx("flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium", view.kind === "pick" ? "bg-accent-soft text-accent-ink ring-1 ring-inset ring-border-strong" : "text-accent-ink hover:bg-accent-soft")}
               >
                 <Plus className="size-3.5" aria-hidden /> Nouvelle connexion
               </button>

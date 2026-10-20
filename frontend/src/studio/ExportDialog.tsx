@@ -230,7 +230,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                   <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
                     Fermer
                   </button>
-                  <button type="button" onClick={() => void run()} className="btn-signature flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
+                  <button type="button" onClick={() => void run()} className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
                     <Download className="size-3.5" aria-hidden /> Exporter
                   </button>
                 </>
@@ -303,7 +303,7 @@ function Summary({
         <button type="button" onClick={onDownload} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
           <Download className="size-3.5" aria-hidden /> {saved?.kind === "downloaded" || !saved ? "Télécharger à nouveau" : "Enregistrer à nouveau"}
         </button>
-        <button type="button" onClick={onClose} className="btn-signature rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
+        <button type="button" onClick={onClose} className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
           Terminé
         </button>
       </footer>

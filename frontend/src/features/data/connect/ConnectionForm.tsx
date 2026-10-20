@@ -6,7 +6,7 @@ import type { Connection, ConnectionInput, ConnectorInfo, TestResult } from "../
 import { SERVER_KINDS } from "../../../types/connection";
 import { ATELIER_PROJETS_DEFAULT_URL, KIND_META, missingField, toInput } from "./meta";
 
-const input = "w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-focus";
+const input = "w-full rounded-md border border-border bg-field px-2.5 py-1.5 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-focus";
 
 interface Props {
   info: ConnectorInfo | undefined;
@@ -249,7 +249,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
             {testing && <Loader2 className="size-3.5 animate-spin" aria-hidden />} Tester
           </button>
         )}
-        <button type="submit" disabled={saving} className="btn-signature flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-50">
+        <button type="submit" disabled={saving} className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-50">
           {saving && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
           {editing ? "Enregistrer" : "Enregistrer et parcourir"}
         </button>

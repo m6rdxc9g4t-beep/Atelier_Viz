@@ -132,7 +132,7 @@ export function SummaryPane() {
       <Section title={`Page « ${page.name} »`}>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-[11px] text-muted">
-            <select value={points} onChange={(e) => setPoints(Number(e.target.value))} className="rounded border border-border bg-bg px-1 py-0.5 text-xs text-fg">
+            <select value={points} onChange={(e) => setPoints(Number(e.target.value))} className="rounded border border-border bg-field px-1 py-0.5 text-xs text-fg">
               {[3, 4, 5].map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -150,7 +150,7 @@ export function SummaryPane() {
               type="button"
               disabled={!facts?.length}
               onClick={() => void run()}
-              className="btn-signature ml-auto flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
+              className="atelier-btn-primary ml-auto flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
             >
               {result ? <RotateCcw className="size-3.5" aria-hidden /> : <ScrollText className="size-3.5" aria-hidden />}
               {result ? "Regénérer" : "Résumer la page"}
@@ -217,7 +217,7 @@ export function SummaryPane() {
               onClick={insert}
               disabled={!editing}
               title={editing ? "Ajoute une zone de texte modifiable en haut de la page" : "Passez en mode Édition pour insérer"}
-              className="btn-signature flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
+              className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
             >
               <FileText className="size-3.5" aria-hidden /> Insérer dans la page
             </button>

@@ -47,7 +47,7 @@ export function UploadDropzone({ onFile, uploading, variant = "large" }: UploadD
           type="button"
           onClick={open}
           disabled={uploading}
-          className="btn-signature flex h-8 items-center gap-2 rounded-md bg-accent px-3 text-xs font-medium text-accent-fg disabled:opacity-50"
+          className="atelier-btn-primary flex h-8 items-center gap-2 rounded-md bg-accent px-3 text-xs font-medium text-accent-fg disabled:opacity-50"
         >
           {uploading ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <FileUp className="size-3.5" aria-hidden />}
           Importer

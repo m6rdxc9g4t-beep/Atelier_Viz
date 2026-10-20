@@ -253,7 +253,7 @@ export function ShadowSelect({ value, onChange, allowInherit }: { value: Shadow 
       <select
         value={value ?? ""}
         onChange={(e) => onChange((e.target.value || undefined) as Shadow | undefined)}
-        className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg"
+        className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
       >
         {allowInherit && <option value="">Thème</option>}
         <option value="none">Aucune</option>

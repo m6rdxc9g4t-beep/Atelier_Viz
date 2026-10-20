@@ -45,7 +45,7 @@ export function VisualizationsPane() {
                   aria-pressed={visual?.type === d.type}
                   className={clsx(
                     "flex aspect-square items-center justify-center rounded-md transition-colors",
-                    visual?.type === d.type ? "bg-accent text-accent-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
+                    visual?.type === d.type ? "bg-accent-soft text-accent-ink ring-1 ring-inset ring-border-strong" : "text-muted hover:bg-surface-2 hover:text-fg",
                   )}
                 >
                   <d.icon className="size-4" aria-hidden />
@@ -238,7 +238,7 @@ function FormatTab({ visual }: { visual: Visual }) {
           <input
             value={visual.title ?? ""}
             onChange={(e) => s().updateVisual(visual.id, (v) => (v.title = e.target.value || null))}
-            className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg"
+            className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
           />
         </label>
       </Section>
@@ -268,7 +268,7 @@ function FormatTab({ visual }: { visual: Visual }) {
                 <label key={o.key} htmlFor={id} className="flex flex-col gap-1 text-[11px] text-muted">
                   {o.label}
                   {o.type === "select" ? (
-                    <select id={id} value={String(v ?? "")} onChange={(e) => set(o.key, e.target.value)} className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg">
+                    <select id={id} value={String(v ?? "")} onChange={(e) => set(o.key, e.target.value)} className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg">
                       {(o.key === "targetPage" || o.key === "targetBookmark") && <option value="">—</option>}
                       {choices?.map((c) => (
                         <option key={c.value} value={c.value}>
@@ -277,7 +277,7 @@ function FormatTab({ visual }: { visual: Visual }) {
                       ))}
                     </select>
                   ) : o.type === "textarea" ? (
-                    <textarea id={id} rows={5} value={String(v ?? "")} onChange={(e) => set(o.key, e.target.value)} className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg" />
+                    <textarea id={id} rows={5} value={String(v ?? "")} onChange={(e) => set(o.key, e.target.value)} className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg" />
                   ) : (
                     <input
                       id={id}
@@ -288,7 +288,7 @@ function FormatTab({ visual }: { visual: Visual }) {
                       step={o.step}
                       placeholder={o.placeholder}
                       onChange={(e) => set(o.key, o.type === "number" ? (e.target.value === "" ? undefined : Number(e.target.value)) : e.target.value)}
-                      className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg"
+                      className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
                     />
                   )}
                 </label>

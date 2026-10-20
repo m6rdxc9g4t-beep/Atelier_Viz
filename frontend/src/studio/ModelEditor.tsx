@@ -182,7 +182,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={kind === "measure" ? "ex. Marge" : "ex. Prix TTC"}
-                className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm outline-none focus:border-focus"
+                className="w-full rounded-md border border-border bg-field px-2.5 py-1.5 text-sm outline-none focus:border-focus"
               />
             </label>
             <label className="block text-xs">
@@ -195,7 +195,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
                 spellCheck={false}
                 placeholder={EXAMPLES[kind]}
                 aria-describedby={`${titleId}-status`}
-                className="w-full resize-y rounded-md border border-border bg-bg px-2.5 py-2 font-mono text-[13px] outline-none focus:border-focus"
+                className="w-full resize-y rounded-md border border-border bg-field px-2.5 py-2 font-mono text-[13px] outline-none focus:border-focus"
               />
             </label>
             <div id={`${titleId}-status`} role="status" aria-live="polite" className="min-h-14 text-xs">
@@ -306,7 +306,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
             type="button"
             disabled={!canSave}
             onClick={() => void save()}
-            className={clsx("btn-signature flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40")}
+            className={clsx("atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40")}
           >
             {saving && <Loader2 className="size-3.5 animate-spin" aria-hidden />} Enregistrer
           </button>

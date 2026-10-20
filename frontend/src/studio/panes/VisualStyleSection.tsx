@@ -59,7 +59,7 @@ export function VisualStyleSection({ visual }: { visual: Visual }) {
             <select
               value={style.border === undefined ? "" : style.border ? "on" : "off"}
               onChange={(e) => set({ border: e.target.value === "" ? undefined : e.target.value === "on" })}
-              className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg"
+              className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
             >
               <option value="">Thème</option>
               <option value="on">Afficher</option>
@@ -113,7 +113,7 @@ export function VisualStyleSection({ visual }: { visual: Visual }) {
                     <select
                       value={style.titleAlign ?? "left"}
                       onChange={(e) => set({ titleAlign: e.target.value as VisualStyle["titleAlign"] })}
-                      className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg"
+                      className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
                     >
                       <option value="left">Gauche</option>
                       <option value="center">Centré</option>

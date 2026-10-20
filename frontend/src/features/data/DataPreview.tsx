@@ -36,7 +36,7 @@ export function DataPreview({ datasetId, columns, total }: DataPreviewProps) {
   }, [datasetId]);
 
   return (
-    <section aria-labelledby="preview-title" className="atelier-glass flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-surface">
+    <section aria-labelledby="preview-title" className="atelier-card flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-surface">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 id="preview-title" className="text-sm font-medium">
           Aperçu
