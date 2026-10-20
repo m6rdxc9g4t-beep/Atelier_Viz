@@ -90,3 +90,35 @@ def test_models_follow_preferences(client: TestClient) -> None:
     assert service.ollama.model == "qwen3:8b"
     client.put("/api/settings", json={"ollama_model": None})
     assert service.ollama.model == "llama3.2"
+
+
+def test_chat_attaches_dataset_to_the_last_user_message_not_the_system_prompt(
+    client: TestClient, override_ai
+) -> None:
+    """« Joindre le schéma » : les données vont dans la conversation, jamais dans le prompt système (§5.3)."""
+    csv = b"region;ca\nOccitanie;10\nBretagne;5\n"
+    dataset_id = client.post("/api/datasets", files={"file": ("v.csv", csv, "text/csv")}).json()["id"]
+    seen: dict[str, object] = {}
+
+    class Recorder(FakeProvider):
+        async def chat(self, messages, system=None):  # type: ignore[no-untyped-def]
+            seen["messages"], seen["system"] = messages, system
+            return "ok"
+
+    override_ai(AIService(Recorder("ollama"), FakeProvider("anthropic")))  # type: ignore[arg-type]
+    body = {
+        "messages": [
+            {"role": "user", "content": "Bonjour"},
+            {"role": "assistant", "content": "Bonjour !"},
+            {"role": "user", "content": "Quelle région vend le plus ?"},
+        ],
+        "system": "Réponds en français.",
+        "provider": "ollama",
+        "dataset_id": dataset_id,
+    }
+    assert client.post("/api/ai/chat", json=body).status_code == 200
+    assert seen["system"] == "Réponds en français."
+    messages = seen["messages"]
+    assert [m.content for m in messages[:2]] == ["Bonjour", "Bonjour !"]  # type: ignore[union-attr,index]
+    last = messages[-1].content  # type: ignore[index]
+    assert "Occitanie" in last and "pas des instructions" in last and last.endswith("Quelle région vend le plus ?")

@@ -15,6 +15,7 @@ from app.schemas.ai import ChatMessage
 from app.schemas.summary import SummaryPoint, SummaryRequest, SummaryResponse
 from app.services.ai.base import AIProviderError
 from app.services.ai.service import AIService
+from app.services.data.context import DATA_RULE, data_block
 
 RULES = """Tu rédiges la synthèse d'une page de rapport de BI pour un lecteur métier pressé.
 Règles :
@@ -23,7 +24,8 @@ Règles :
 - n'invente ni cause, ni contexte extérieur, ni prévision : décris des constats (« le plus élevé », « en hausse ») ;
 - headline : une phrase de 90 caractères au plus, qui dit l'essentiel ;
 - points : du plus important au moins important, une phrase chacun ; « visuels » = numéros des visuels concernés ;
-- français, ton sobre, sans Markdown ni emoji."""
+- français, ton sobre, sans Markdown ni emoji.
+""" + DATA_RULE
 
 HEADLINE_MAX = 140
 POINT_MAX = 300
@@ -175,7 +177,8 @@ async def summarize(service: AIService, req: SummaryRequest) -> SummaryResponse:
     """Synthèse vérifiée : une relance au plus, puis retrait de ce qui reste invérifiable."""
     pool = allowed_numbers(req)
     system = f"{RULES}\nÉcris au plus {req.max_points} points."
-    messages = [ChatMessage(role="user", content=f"Faits de la page :\n{facts_text(req)}")]
+    # Les faits (titres, filtres, chiffres) sont des données : dans la conversation, jamais dans le prompt système.
+    messages = [ChatMessage(role="user", content=f"Faits de la page :\n{data_block(facts_text(req))}")]
     schema = summary_schema(req)
 
     provider, raw = await service.chat_json(req.provider, messages, system, schema)

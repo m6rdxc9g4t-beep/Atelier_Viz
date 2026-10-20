@@ -26,9 +26,9 @@ from app.schemas.builder import (
 from app.schemas.dataset import ColumnType, DatasetProfile
 from app.schemas.query import Agg, DateBin
 from app.schemas.report import FieldBinding
-from app.services.ai.base import AIProviderError
+from app.services.ai.base import DATA_ENUM, AIProviderError
 from app.services.ai.service import AIService
-from app.services.data.context import dataset_context
+from app.services.data.context import DATA_RULE, data_block, dataset_context
 
 AGGS: list[Agg] = ["sum", "avg", "median", "min", "max", "count", "count_distinct"]
 BINS: list[DateBin] = ["year", "quarter", "month", "week", "day"]
@@ -87,7 +87,8 @@ def build_schema(catalog: list[VisualTypeSpec], profile: DatasetProfile, max_vis
     binding = {
         "type": "object",
         "properties": {
-            "field": {"type": "string", "enum": [c.name for c in profile.columns]},
+            # Noms de colonnes = données : marqués pour ne jamais partir en argument de la CLI Claude.
+            "field": {"type": "string", "enum": [c.name for c in profile.columns], DATA_ENUM: True},
             "agg": {"type": "string", "enum": AGGS},
             "bin": {"type": "string", "enum": BINS},
         },
@@ -113,15 +114,31 @@ def build_schema(catalog: list[VisualTypeSpec], profile: DatasetProfile, max_vis
     }
 
 
-def system_prompt(req: BuildRequest, profile: DatasetProfile) -> str:
-    existing = f"\nVisuels déjà présents sur la page : {', '.join(req.existing)}." if req.existing else ""
+DATA_NOTICE = (
+    "Le message de l'utilisateur contient la description du jeu de données (colonnes, statistiques, "
+    "lignes d'exemple) et les visuels déjà présents, puis la demande. " + DATA_RULE
+)
+
+
+def system_prompt(req: BuildRequest) -> str:
+    """Consignes seulement (catalogue de l'application, règles) : aucune donnée de l'utilisateur.
+
+    Le prompt système part en argument de la CLI Claude (visible par `ps`, docs/SUITE.md §5.3) ;
+    le jeu de données et la demande sont dans le message de l'utilisateur (`user_message`).
+    """
     return (
         "Tu es l'assistant de création de visuels d'un outil de BI (équivalent de Power BI). "
         f"Propose entre 1 et {req.max_visuals} visuels qui répondent à la demande de l'utilisateur, "
         "et uniquement des visuels utiles (souvent un seul suffit).\n\n"
         f"Types de visuels disponibles :\n{catalog_text(req.catalog)}\n\n{RULES}\n\n"
-        f"{dataset_context(profile)}{existing}"
+        f"{DATA_NOTICE}"
     )
+
+
+def user_message(req: BuildRequest, profile: DatasetProfile) -> str:
+    """Message de l'utilisateur : bloc `<donnees>` (schéma, 5 lignes, visuels présents) puis la demande."""
+    existing = f"\nVisuels déjà présents sur la page : {', '.join(req.existing)}." if req.existing else ""
+    return f"{data_block(dataset_context(profile) + existing)}\n\nDemande : {req.prompt}"
 
 
 def _clean_option(spec: OptionSpec, value: Any) -> Any:
@@ -251,8 +268,8 @@ def repair_items(
 async def build_visuals(service: AIService, req: BuildRequest, profile: DatasetProfile) -> BuildResponse:
     """Interroge l'IA (une relance au plus si des visuels sont invalides) et retourne des visuels sûrs."""
     schema = build_schema(req.catalog, profile, req.max_visuals)
-    system = system_prompt(req, profile)
-    messages = [ChatMessage(role="user", content=req.prompt)]
+    system = system_prompt(req)
+    messages = [ChatMessage(role="user", content=user_message(req, profile))]
 
     provider, raw = await service.chat_json(req.provider, messages, system, schema)
     visuals, warnings, errors = repair(raw, req, profile)

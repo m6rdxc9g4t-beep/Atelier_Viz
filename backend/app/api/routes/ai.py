@@ -9,7 +9,7 @@ from app.schemas.builder import BuildRequest, BuildResponse, RepairRequest, Repa
 from app.schemas.summary import SummaryRequest, SummaryResponse
 from app.services.ai.builder import build_visuals, repair_existing
 from app.services.ai.summary import summarize
-from app.services.data.context import dataset_context
+from app.services.data.context import with_dataset
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 async def providers(service: AIServiceDep, refresh: bool = False) -> ProvidersResponse:
     """Disponibilité d'Ollama (serveur + modèle installé) et de Claude (mode en ligne + CLI connectée ou clé API).
 
-    L'état de la CLI Claude est gardé 60 s ; `?refresh=true` le revérifie tout de suite.
+    L'état de la CLI Claude est gardé 60 s ; `?refresh=true` le revérifie tout de suite (au plus toutes les 10 s).
     """
     return await service.providers_status(refresh)
 
@@ -27,14 +27,13 @@ async def providers(service: AIServiceDep, refresh: bool = False) -> ProvidersRe
 async def chat(payload: ChatRequest, service: AIServiceDep, store: StoreDep) -> ChatResponse:
     """Envoie une conversation au fournisseur choisi (ou routé automatiquement).
 
-    Si `dataset_id` est fourni, le schéma et un échantillon du jeu de données
-    sont ajoutés au prompt système (jamais les données complètes).
+    Si `dataset_id` est fourni, le schéma et un échantillon du jeu de données (jamais les données complètes)
+    sont joints au **dernier message de l'utilisateur**, jamais au prompt système : celui-ci part en argument
+    de la CLI Claude, visible par `ps` (docs/SUITE.md §5.3).
     """
     if payload.dataset_id:
         dataset = await get_or_404(store, payload.dataset_id)
-        context = dataset_context(dataset.profile())
-        system = f"{payload.system}\n\n{context}" if payload.system else context
-        payload = payload.model_copy(update={"system": system})
+        payload = payload.model_copy(update={"messages": with_dataset(payload.messages, dataset.profile())})
     return await service.chat(payload)
 
 

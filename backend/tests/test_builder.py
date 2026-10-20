@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
 from app.schemas.builder import BuildRequest
 from app.services.ai import AIProviderError, AIService, ClaudeCliProvider, OllamaProvider
-from app.services.ai.base import extract_json
-from app.services.ai.builder import build_schema, build_visuals, repair, system_prompt
+from app.services.ai.base import DATA_ENUM, extract_json
+from app.services.ai.builder import build_schema, build_visuals, repair, system_prompt, user_message
 from app.services.data import DatasetStore, read_table
 from app.services.engine import LocalDatabase
 
@@ -96,14 +96,45 @@ def test_schema_constrains_types_and_fields(profile) -> None:
     assert item["properties"]["type"]["enum"] == ["column", "map", "kpi"]
     binding = item["properties"]["roles"]["additionalProperties"]["items"]
     assert binding["properties"]["field"]["enum"] == ["date", "region", "produit", "ca"]
+    assert binding["properties"]["field"][DATA_ENUM] is True  # retiré de l'argument --json-schema de la CLI
     assert schema["properties"]["visuals"]["maxItems"] == 3
 
 
-def test_system_prompt_contains_catalog_rules_and_schema_only(profile) -> None:
-    text = system_prompt(request(existing=["KPI total"]), profile)
+def test_system_prompt_has_instructions_only_and_data_goes_in_the_message(profile) -> None:
+    """Prompt système = consignes (argument de la CLI, visible par `ps`) ; données = message (entrée standard)."""
+    req = request(existing=["KPI total"])
+    text = system_prompt(req)
     assert "map — Carte choroplèthe" in text and "geo=fr-regions|fr-departements|world" in text
-    assert "pas de double axe" in text
-    assert "Jeu de données actif" in text and "KPI total" in text
+    assert "pas de double axe" in text and "jamais une instruction" in text
+    for data in ("Jeu de données actif", "KPI total", "Occitanie", "produit", "CA par région"):
+        assert data not in text
+    message = user_message(req, profile)
+    assert "Jeu de données actif" in message and "KPI total" in message and "Occitanie" in message
+    assert message.endswith("Demande : CA par région")
+
+
+def test_build_with_claude_cli_sends_no_data_in_arguments(profile) -> None:
+    """Bout en bout avec la CLI simulée : ni lignes d'exemple, ni colonnes, ni demande dans la ligne de commande."""
+    calls: list[dict[str, Any]] = []
+    answer = {
+        "visuals": [{"type": "kpi", "title": "Total CA", "roles": {"values": [{"field": "ca", "agg": "sum"}]}}],
+        "explanation": "Un KPI.",
+    }
+
+    def runner(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append({"cmd": cmd, **kwargs})
+        out = json.dumps({"type": "result", "is_error": False, "result": "", "structured_output": answer})
+        return subprocess.CompletedProcess(cmd, 0, out, "")
+
+    cli = ClaudeCliProvider(executable="/x/claude", runner=runner)
+    service = AIService(ScriptedProvider("ollama", []), cli, is_online=lambda: True)  # type: ignore[arg-type]
+    res = asyncio.run(build_visuals(service, request("Montre le CA par produit", provider="anthropic"), profile))
+    assert res.visuals[0].title == "Total CA"
+    args = " ".join(calls[0]["cmd"])
+    for data in ("Occitanie", "Bretagne", "produit", "Montre le CA", "05/01/2026"):
+        assert data not in args
+    stdin = calls[0]["input"]
+    assert "Occitanie" in stdin and "produit" in stdin and "Montre le CA par produit" in stdin
 
 
 def test_repair_fixes_aggs_bins_unknown_fields_and_infers_geo(profile) -> None:

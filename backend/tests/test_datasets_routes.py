@@ -62,9 +62,11 @@ def test_chat_with_dataset_sends_schema_not_full_data(client: TestClient, overri
     dataset_id = upload(client).json()["id"]
     ollama = FakeProvider("ollama")
     systems: list[str | None] = []
+    sent: list[str] = []
 
     async def spy_chat(messages, system=None):  # type: ignore[no-untyped-def]
         systems.append(system)
+        sent.append(messages[-1].content)
         return "ok"
 
     ollama.chat = spy_chat  # type: ignore[method-assign]
@@ -80,9 +82,11 @@ def test_chat_with_dataset_sends_schema_not_full_data(client: TestClient, overri
         },
     )
     assert response.status_code == 200
-    system = systems[0] or ""
-    assert system.startswith("Consigne")
-    assert "montant (type number" in system and "3 lignes" in system
+    # Le prompt système garde la consigne seule ; le schéma et l'échantillon sont dans la question (§5.3).
+    assert systems[0] == "Consigne"
+    question = sent[0]
+    assert "montant (type number" in question and "3 lignes" in question
+    assert question.endswith("Quel graphique ?")
 
 
 def test_chat_with_unknown_dataset_is_404(client: TestClient) -> None:
