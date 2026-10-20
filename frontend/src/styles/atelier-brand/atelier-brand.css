@@ -185,3 +185,19 @@ button.atelier-brand {
 .atelier-about__close:hover {
   background: rgb(255 255 255 / 0.16);
 }
+
+/* Variante compacte (menus, listes) : tuile 1,75 rem, nom 0,9375 rem. */
+.atelier-brand__tile--sm {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+}
+
+.atelier-brand__tile--sm svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.atelier-brand__name--sm {
+  font-size: 0.9375rem;
+}

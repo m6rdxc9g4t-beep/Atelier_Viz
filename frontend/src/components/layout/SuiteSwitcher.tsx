@@ -1,11 +1,12 @@
 import clsx from "clsx";
-import { BarChart3, Check, KanbanSquare, LayoutGrid, type LucideIcon, Table2 } from "lucide-react";
+import { BarChart3, CalendarCheck, Check, LayoutGrid, type LucideIcon, Table2 } from "lucide-react";
 import { type KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { openExternal } from "../../lib/desktop";
 import { CURRENT_APP, type SuiteAppId, type SuiteStatus, checkHealth, statusLabel, suiteApps } from "../../lib/suite";
 
-const ICONS: Record<SuiteAppId, LucideIcon> = { viz: BarChart3, tab: Table2, projets: KanbanSquare };
+/** Icônes de la marque commune (docs/SUITE.md §1.6). */
+const ICONS: Record<SuiteAppId, LucideIcon> = { viz: BarChart3, tab: Table2, projets: CalendarCheck };
 
 /**
  * Sélecteur « Suite Atelier » (docs/SUITE.md §3) : les trois applications, la courante cochée,
@@ -121,21 +122,24 @@ export function SuiteSwitcher() {
                   if (!current) openExternal(app.url);
                 }}
                 className={clsx(
-                  "flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left outline-none hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent",
+                  "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left outline-none hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent",
                   current && "bg-accent/10",
                 )}
               >
-                <span className={clsx("mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md", current ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted")}>
-                  <Icon className="size-4" aria-hidden />
+                <span className="atelier-brand__tile atelier-brand__tile--sm" aria-hidden>
+                  <Icon />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 text-sm font-medium">
-                    {app.name}
+                  <span className="flex items-center gap-1.5">
+                    <span className="atelier-brand__name atelier-brand__name--sm">
+                      <span className="atelier-brand__prefix">atelier_</span>
+                      {app.short}
+                    </span>
                     {st && <StatusDot status={st} />}
                   </span>
                   <span className="block truncate text-xs text-muted">{app.description}</span>
                 </span>
-                {current && <Check className="mt-1 size-4 shrink-0 text-accent" aria-hidden />}
+                {current && <Check className="size-4 shrink-0 text-accent" aria-hidden />}
               </button>
             );
           })}

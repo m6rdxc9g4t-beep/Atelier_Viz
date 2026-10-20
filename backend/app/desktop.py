@@ -21,6 +21,7 @@ import json
 import logging
 import signal
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -160,13 +161,45 @@ class SaveWindow(Protocol):
     ) -> Any: ...
 
 
+# Applications de la Suite Atelier (docs/SUITE.md §3) : port de l'interface → identifiant de l'app macOS.
+SUITE_BUNDLES = {8000: "fr.atelier-viz.app", 4175: "fr.atelier.tab", 4174: "local.atelier-projets.desktop"}
+_LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+
+
+def suite_bundle_for(url: str) -> str | None:
+    """Identifiant de l'application de bureau à ouvrir pour une adresse de la suite, sinon None."""
+    try:
+        parts = urlsplit(str(url))
+        port = parts.port
+    except ValueError:
+        return None
+    if parts.scheme not in {"http", "https"} or parts.hostname not in _LOCAL_HOSTS or port is None:
+        return None
+    return SUITE_BUNDLES.get(port)
+
+
+def open_macos_app(bundle_id: str) -> bool:
+    """Ouvre une application installée par son identifiant (`open -b`) ; False si absente ou hors macOS."""
+    if sys.platform != "darwin":
+        return False
+    try:
+        return subprocess.run(["/usr/bin/open", "-b", bundle_id], capture_output=True, timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 class DesktopApi:
     """Fonctions appelables depuis la page : `window.pywebview.api.<nom>(...)` (promesses)."""
 
-    def __init__(self, open_url: Callable[[str], Any] = webbrowser.open) -> None:
+    def __init__(
+        self,
+        open_url: Callable[[str], Any] = webbrowser.open,
+        open_app: Callable[[str], bool] = open_macos_app,
+    ) -> None:
         self.window: SaveWindow | None = None
         self.save_dialog: Any = None  # webview.FileDialog.SAVE, renseigné au lancement
         self._open_url = open_url
+        self._open_app = open_app
 
     def save_file(self, name: str, data_base64: str) -> dict[str, Any]:
         """Boîte « Enregistrer sous » puis écriture du fichier ; {"saved": chemin | None}."""
@@ -190,9 +223,16 @@ class DesktopApi:
         return {"saved": str(target)}
 
     def open_external(self, url: str) -> bool:
-        """Ouvre un lien http(s) ou mailto dans le navigateur par défaut (jamais un fichier local)."""
+        """Ouvre un lien http(s) ou mailto dans le navigateur par défaut (jamais un fichier local).
+
+        L'adresse d'une autre app de la Suite Atelier ouvre son application de bureau quand elle est
+        installée (docs/SUITE.md §3), sinon le navigateur.
+        """
         if urlsplit(str(url)).scheme not in {"http", "https", "mailto"}:
             return False
+        bundle = suite_bundle_for(url)
+        if bundle and self._open_app(bundle):
+            return True
         self._open_url(str(url))
         return True
 
@@ -260,6 +300,19 @@ def prepare(settings: Settings) -> tuple[str, ServerThread | None, str | None]:
     return server.url, server, None
 
 
+def versioned_url(url: str, dist: Path) -> str:
+    """Adresse de l'interface marquée de la version compilée (date de frontend/dist/index.html).
+
+    La fenêtre garde un cache persistant : une adresse qui change à chaque compilation garantit
+    qu'une mise à jour s'affiche, même si une ancienne page est restée en cache.
+    """
+    try:
+        version = int((dist / "index.html").stat().st_mtime)
+    except OSError:
+        return url
+    return f"{url.rstrip('/')}/?v={version}"
+
+
 def _interrupt(*_: object) -> None:
     raise KeyboardInterrupt
 
@@ -303,7 +356,7 @@ def run(argv: list[str] | None = None) -> int:
         webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = True
         window = webview.create_window(
             APP_NAME,
-            url=None if error else url,
+            url=None if error else versioned_url(url, settings.frontend_dist),
             html=error_page(error) if error else None,
             js_api=api,
             width=WINDOW_SIZE[0],

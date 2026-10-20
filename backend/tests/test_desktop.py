@@ -162,3 +162,49 @@ def test_browser_mode_without_server_errors(
     settings.frontend_dist = tmp_path / "absent"
     monkeypatch.setattr(desktop, "get_settings", lambda: settings)
     assert desktop.run(["--browser"]) == 1
+
+
+def test_interface_is_never_kept_stale_in_cache(settings: Settings, dist: Path) -> None:
+    """index.html revalidé à chaque ouverture ; fichiers hachés gardés longtemps."""
+    settings.frontend_dist = dist
+    (dist / "assets" / "index-abc123.js").write_text("console.log(1)", encoding="utf-8")
+    client = TestClient(create_app(settings))
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    assert client.get("/index.html").headers["cache-control"] == "no-cache"
+    assert "immutable" in client.get("/assets/index-abc123.js").headers["cache-control"]
+
+
+def test_window_url_carries_the_build_version(dist: Path, tmp_path: Path) -> None:
+    """La fenêtre ouvre une adresse qui change à chaque compilation de l'interface."""
+    url = desktop.versioned_url("http://127.0.0.1:8000", dist)
+    assert url.startswith("http://127.0.0.1:8000/?v=")
+    assert url.split("=")[1] == str(int((dist / "index.html").stat().st_mtime))
+    assert desktop.versioned_url("http://127.0.0.1:8000", tmp_path / "absent") == "http://127.0.0.1:8000"
+
+
+def test_suite_addresses_map_to_desktop_apps() -> None:
+    """Adresses de la suite → identifiant de l'app macOS (docs/SUITE.md §3)."""
+    assert desktop.suite_bundle_for("http://127.0.0.1:8000/") == "fr.atelier-viz.app"
+    assert desktop.suite_bundle_for("http://localhost:4175") == "fr.atelier.tab"
+    assert desktop.suite_bundle_for("http://127.0.0.1:4174/#/gantt") == "local.atelier-projets.desktop"
+    assert desktop.suite_bundle_for("http://127.0.0.1:5173") is None
+    assert desktop.suite_bundle_for("http://example.com:4175") is None
+    assert desktop.suite_bundle_for("https://github.com") is None
+    assert desktop.suite_bundle_for("http://127.0.0.1:notaport") is None
+
+
+def test_open_external_opens_installed_suite_app_first() -> None:
+    """Une app de la suite installée s'ouvre ; sinon, et pour tout autre lien, le navigateur."""
+    opened: list[str] = []
+    apps: list[str] = []
+    api = desktop.DesktopApi(open_url=opened.append, open_app=lambda b: apps.append(b) or True)
+    assert api.open_external("http://127.0.0.1:4175") is True
+    assert apps == ["fr.atelier.tab"] and opened == []
+
+    api = desktop.DesktopApi(open_url=opened.append, open_app=lambda _b: False)
+    assert api.open_external("http://127.0.0.1:4174") is True
+    assert opened == ["http://127.0.0.1:4174"]
+
+    api = desktop.DesktopApi(open_url=opened.append, open_app=lambda b: apps.append(b) or True)
+    api.open_external("https://github.com")
+    assert apps == ["fr.atelier.tab"] and opened[-1] == "https://github.com"
