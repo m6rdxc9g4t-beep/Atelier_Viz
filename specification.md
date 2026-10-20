@@ -63,6 +63,18 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 
 Le mode se change dans l'en-tête (pastille « Hors ligne / En ligne ») ou dans Réglages ; il est stocké dans `backend/data/settings.json` et pris en compte immédiatement.
 
+### Choix du moteur d'IA (docs/SUITE.md §5)
+
+| Élément | Dans Atelier Viz |
+|---|---|
+| Commande | « Moteur : Auto · Ollama · Claude » dans chaque écran d'IA (Créer avec l'IA, Résumer, Assistant ; l'export PowerPoint suit le même choix) ; Claude grisé hors ligne, avec l'explication |
+| Règle « Auto » | Claude si l'application est en ligne **et** Claude disponible (CLI trouvée et connectée), sinon Ollama — quelle que soit la tâche. Claude demandé hors ligne → 403 |
+| Modèles | Claude : Sonnet (défaut), Opus, Haiku (`--model sonnet|opus|haiku`) ; Ollama : liste des modèles installés. Choix, moteur compris, mémorisés dans `settings.json` (`ai_provider`, `claude_model`, `ollama_model`) ; aussi dans Réglages |
+| Moteur affiché | « Réponse par Claude (Sonnet) » avant l'envoi ; « 1 proposition · Claude », « Synthèse · Claude », « via Claude » après |
+| Pastilles | « Ollama » et « Claude » dans l'en-tête (vert = disponible, gris = indisponible ou hors ligne), info-bulle avec le détail ; bouton « Revérifier » (sans le cache) |
+| Ligne bouclier | Sous le choix du moteur : ce qui part vers l'IA (noms de colonnes, statistiques et 5 lignes du jeu ; dans l'assistant, seulement si « Joindre le schéma » est coché, sinon la conversation seule) |
+| CLI Claude | `CLAUDE_CLI` (ou `CLAUDE_CLI_PATH`), sinon `PATH`, puis `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` (application lancée depuis le Finder) ; recherchée de nouveau si elle est installée après le lancement. Disponibilité = exécutable trouvé et `claude auth status` réussi, en cache 60 s ; version et chemin affichés dans Réglages |
+
 ## 3 bis. Suite Atelier
 
 Atelier Viz fait partie d'une suite de trois applications locales — **Atelier Viz** (BI), **Atelier Tab** (tableur et base typée), **Atelier Projets** (projets agiles, Git, temps passé) — dont le contrat commun est `docs/SUITE.md` (identique dans les trois dépôts).
@@ -71,7 +83,7 @@ Atelier Viz fait partie d'une suite de trois applications locales — **Atelier 
 |---|---|
 | Identité visuelle | Copies verbatim du design system d'Atelier Projets (`frontend/src/styles/atelier-ds/` : `light.css`, `dark.css`, `colors.css`). Les jetons d'habillage (`--bg`, `--surface`, `--surface-2`, `--border`, `--fg`, `--muted`, `--grid`, `--canvas`, `--accent`, `--accent-fg`, `--positive`, `--negative`) dérivent des variables de fondation ; accent = violet EPIC (`--type-epic`) rapproché de l'encre, texte des boutons pleins ≥ 4,5:1 (6,2:1 en clair, 6,0:1 en sombre). Rayons 6 / 10 / 16 px, pile de polices système (aucune police téléchargée). **Inchangés** : palette de données (`--series-*`, `--seq-*`, `--div-*`) et thèmes de rapport |
 | Thème | `<html class="dark" data-theme="dark">` en sombre, `data-theme="light"` sans classe en clair (Clair / Sombre / Système) |
-| Navigation | Sélecteur « Suite Atelier » (icône grille, à gauche du titre) : les trois applications, la courante cochée, état « en marche / arrêtée » des API (`GET /api/health`, `no-cors`, 1,5 s, sans bloquer) ; ouverture par `openExternal`. Adresses dans `lib/suite.ts`, surchargeables par `VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL` |
+| Navigation | Sélecteur « Suite Atelier » (icône grille, à gauche du titre) : les trois applications, la courante cochée et toujours « en marche », état « en marche / arrêtée » des deux autres (`GET /api/health`, `no-cors`, 1,5 s, sans bloquer) — Atelier Tab sondé sur `127.0.0.1:4175` puis `127.0.0.1:5175` (en parallèle : l'un répond → en marche), Atelier Projets sur son API ; ouverture par `openExternal`. Adresses dans `lib/suite.ts`, surchargeables par `VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL` |
 | Données | Import des enveloppes DataFlow d'Atelier Tab (fichier JSON) ; connecteurs « Atelier Tab » et « Atelier Projets » (§5 sexies) |
 | API | `GET /api/health` interrogée par les deux autres applications |
 
@@ -142,7 +154,13 @@ Dans le Studio, bouton **Créer avec l'IA** : une phrase (« CA par région sur 
 | Validation / réparation | Types et rôles du catalogue, champs existants, agrégation compatible (sinon `count`), période par défaut `month` sur les dates, maximum par rôle, options filtrées, fond de carte déduit du nom du champ |
 | Relance | Si un visuel reste invalide, une seconde demande avec la liste des erreurs ; ce qui ne peut être réparé est écarté (HTTP 422 si rien n'est valide) |
 | Studio | Cartes de proposition (type, titre, champs par rôle), « Ajouter » / « Tout ajouter », placement automatique en rangées, une seule entrée d'historique (Ctrl+Z) |
-| Confidentialité | Moteur affiché ; hors ligne, Claude n'est pas sélectionnable et « Auto » utilise Ollama. Appels CLI sans télémétrie (`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`) |
+| Suggestions | 4 demandes déduites des colonnes du jeu (carte si champ géographique, évolution mensuelle, top 5, tableau croisé), **juste sous la demande** : dépliées au départ, repliées (« Suggestions (4) ») dès qu'un résultat est affiché, toujours un clic plus loin ; un clic lance la demande comme au départ. Placées près de la zone qu'elles remplissent, elles ne repoussent pas le résultat |
+| Nouvelle demande | Bouton dans l'en-tête « Votre demande » : vide la zone et retire le résultat affiché (il reste dans l'historique), rouvre les suggestions |
+| Historique de la session | « Demandes précédentes (n) », repliable : texte de la demande, heure, nombre de propositions, moteur, nombre de visuels sur la page ; dépliée, ses cartes de proposition (« Ajouter », « Réajouter », « Tout ajouter ») et « Afficher en résultat » (la demande revient dans la zone). Une session par rapport, en mémoire tant que l'application est ouverte (volet fermé / rouvert sans perte, génération en cours comprise) ; 20 demandes au plus (`studio/aiBuilder.ts`) |
+| Ajouté / réajout | L'état d'une proposition se **déduit du rapport** (identifiants des visuels créés encore présents, toutes pages) : « Ajouté », sinon « Ajouter », ou « Réajouter » après un Ctrl+Z ou une suppression ; Ctrl+Y la remet « Ajouté ». Tout ajout — courant ou depuis l'historique — repasse par `repair` (`POST /api/ai/visuals/repair`, sans IA) contre le profil **actuel** du jeu : un visuel dont une colonne a disparu est écarté avec la raison, jamais ajouté cassé |
+| Moteur | Commande « Auto · Ollama · Claude » + modèle (Sonnet / Opus / Haiku, ou modèle Ollama installé), mémorisés dans les préférences et communs à tous les écrans d'IA (création, résumé, assistant, notes PowerPoint) — voir §3 |
+| Confidentialité | Moteur et modèle affichés (« Réponse par Claude (Sonnet) ») ; hors ligne, Claude n'est pas sélectionnable et « Auto » utilise Ollama. Appels CLI sans télémétrie (`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`) |
+| Habillage | Le volet suit toujours le design system de l'application ; le thème du rapport (variables, `data-theme`, encre) n'est posé que sur la page (test `StudioPage.theme.test.tsx`) |
 
 Mesuré avec Claude (CLI, Sonnet) sur `ventes_2026.csv` : 5 à 6 s par demande ; « CA par région sur une carte » → carte choroplèthe des régions, « évolution mensuelle par produit » → courbes par mois avec légende, « top 3 des produits par marge moyenne » → barres triées, Top N = 3 ; aucune correction nécessaire.
 
@@ -309,10 +327,11 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | Méthode | Route | Description |
 |---|---|---|
 | GET | `/api/health` | État |
-| GET / PUT | `/api/settings` | Mode en ligne (`online_mode`) |
-| GET | `/api/ai/providers` | État d'Ollama et de Claude (désactivé hors ligne) |
+| GET / PUT | `/api/settings` | Mode en ligne (`online_mode`), moteur (`ai_provider`), modèles (`claude_model`, `ollama_model`) ; PUT partiel (champs absents gardés) |
+| GET | `/api/ai/providers` | État d'Ollama et de Claude (désactivé hors ligne ; modèles au choix, version et chemin de la CLI) ; `?refresh=true` revérifie Claude sans le cache de 60 s |
 | POST | `/api/ai/chat` | Assistant ; `dataset_id` optionnel joint le schéma |
 | POST | `/api/ai/visuals` | Phrase + catalogue → visuels validés (`BuildResponse` : visuels, explication, moteur, corrections) |
+| POST | `/api/ai/visuals/repair` | Visuels de l'historique « Créer avec l'IA » revalidés contre le profil actuel (un résultat par visuel : réparé ou écarté avec la raison), sans appel à l'IA |
 | POST | `/api/ai/summary` | Faits d'une page → synthèse vérifiée (`SummaryResponse` : titre, points reliés aux visuels, moteur, éléments écartés) |
 | POST | `/api/datasets` | Import multipart (CSV/XLSX/JSON, 50 Mo) → profil ; persisté dans DuckDB |
 | GET | `/api/datasets` · `/api/datasets/{id}` · `/api/datasets/{id}/rows` | Liste, profil, lignes paginées |
@@ -363,3 +382,4 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 5 quater — Application Mac** ✅ : « Atelier Viz.app » à double-cliquer (fenêtre native, icône, Dock), interface servie par l'API, enregistrement natif des fichiers.
 - **Jalon 5 quinquies — Suite Atelier** ✅ : design system commun (copies verbatim, jetons dérivés, accent violet), thème `data-theme` + `dark`, sélecteur « Suite Atelier » avec état des API, import des enveloppes DataFlow, connecteurs Atelier Tab (instantanés) et Atelier Projets (API locale), actualisables (`docs/SUITE.md`).
 - **Jalon 6 — Partage et automatisation** ✅ : signets (volet, bouton d'action), actualisation planifiée des sources (ordonnanceur, journal, rechargement des visuels), alertes sur seuil (anti-rebond, notifications, webhook), synchronisation des rapports avec un dépôt GitHub (un commit par envoi, conflits jamais écrasés). Reste : signets personnels / groupes de signets et diaporama de signets ; notifications système (macOS) et e-mail ; alertes par dimension (« pour chaque région ») et sur variation (%) ; historique Git d'un rapport et restauration d'une version ; GitHub Enterprise (URL d'API configurable) ; actualisation planifiée quand l'application est fermée (service système).
+- **Jalon 6 bis — IA de la suite** ✅ : choix du moteur commun à la Suite Atelier (Auto · Ollama · Claude, modèles Sonnet / Opus / Haiku et Ollama mémorisés, CLI trouvée hors du `PATH`), volet « Créer avec l'IA » avec suggestions toujours accessibles, nouvelle demande, historique de la session et réajout revalidé ; indicateur « en marche » d'Atelier Tab.
