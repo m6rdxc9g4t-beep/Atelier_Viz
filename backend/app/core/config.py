@@ -1,21 +1,27 @@
 """Configuration de l'application, lue depuis les variables d'environnement et `.env`."""
 
+import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import AliasChoices, Field, SecretStr, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Paramètres globaux. Chaque champ correspond à une variable d'environnement en MAJUSCULES."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True
+    )
 
     app_name: str = "Atelier Viz API"
     app_env: Literal["development", "test", "production"] = "development"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # Garde « requêtes locales » (docs/SUITE.md §5.1, app/core/local_only.py) : hôtes acceptés en plus de
+    # 127.0.0.1, localhost et [::1]. Liste séparée par des virgules : ALLOWED_HOSTS=viz.local,autre.local
+    allowed_hosts: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
     # Ollama (local)
     ollama_base_url: str = "http://localhost:11434"
@@ -24,7 +30,12 @@ class Settings(BaseSettings):
 
     # Claude : "cli" = CLI Claude Code (abonnement claude.ai), "api" = API Anthropic (clé Console)
     claude_mode: Literal["cli", "api"] = "cli"
-    claude_cli_path: str = "claude"
+    # Exécutable : CLAUDE_CLI (docs/SUITE.md §5.3) ou CLAUDE_CLI_PATH ;
+    # sinon PATH, ~/.local/bin, /opt/homebrew/bin, /usr/local/bin
+    claude_cli_path: str = Field(
+        default="claude", validation_alias=AliasChoices("claude_cli", "claude_cli_path")
+    )
+    # Modèle par défaut ; l'utilisateur choisit Sonnet / Opus / Haiku dans l'interface (préférences)
     claude_cli_model: str = "sonnet"
     claude_cli_timeout_seconds: float = 180.0
 
@@ -69,6 +80,17 @@ class Settings(BaseSettings):
 
     # GitHub : synchronisation des rapports (jeton de repli ; d'ordinaire saisi dans l'interface → trousseau)
     github_token: SecretStr | None = None
+
+    @field_validator("allowed_hosts", mode="before")
+    @classmethod
+    def _split_hosts(cls, value: Any) -> Any:
+        """`ALLOWED_HOSTS` : « a,b » ou liste JSON « ["a","b"] »."""
+        if isinstance(value, str):
+            text = value.strip()
+            if text.startswith("["):
+                return json.loads(text)
+            return [h.strip() for h in text.split(",") if h.strip()]
+        return value
 
     @property
     def anthropic_configured(self) -> bool:

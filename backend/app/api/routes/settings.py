@@ -1,4 +1,4 @@
-"""Préférences utilisateur (mode hors ligne / en ligne)."""
+"""Préférences utilisateur (mode hors ligne / en ligne, moteur et modèles d'IA)."""
 
 import asyncio
 
@@ -17,5 +17,9 @@ async def get_preferences(prefs: PreferencesDep) -> Preferences:
 
 @router.put("", response_model=Preferences)
 async def set_preferences(value: Preferences, prefs: PreferencesDep) -> Preferences:
-    """Active ou désactive le mode en ligne (Claude, webhooks Internet). Pris en compte immédiatement."""
-    return await asyncio.to_thread(prefs.set, value)
+    """Modifie les préférences envoyées (les champs absents sont gardés). Pris en compte immédiatement.
+
+    `online_mode` active ou désactive Claude et les webhooks Internet ; `ai_provider`, `claude_model`
+    et `ollama_model` mémorisent le choix du moteur d'IA (docs/SUITE.md §5).
+    """
+    return await asyncio.to_thread(prefs.update, value.model_dump(exclude_unset=True))

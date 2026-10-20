@@ -59,3 +59,25 @@ class BuildResponse(BaseModel):
     provider: ProviderName
     model: str
     warnings: list[str] = Field(default_factory=list, description="Corrections appliquées à la proposition de l'IA.")
+
+
+class RepairRequest(BaseModel):
+    """Visuels proposés plus tôt (historique du volet), revalidés avant d'être ajoutés de nouveau."""
+
+    dataset_id: str
+    catalog: list[VisualTypeSpec] = Field(min_length=1)
+    visuals: list[dict[str, Any]] = Field(min_length=1, max_length=6)
+
+
+class RepairedVisual(BaseModel):
+    """Résultat pour un visuel : réparé (`visual`) ou écarté (`errors`)."""
+
+    visual: ProposedVisual | None = None
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+
+
+class RepairResponse(BaseModel):
+    """Un résultat par visuel envoyé, dans le même ordre."""
+
+    results: list[RepairedVisual]

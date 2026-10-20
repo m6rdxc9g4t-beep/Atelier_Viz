@@ -19,7 +19,7 @@ describe("sélecteur « Suite Atelier »", () => {
     open.mockReset();
   });
 
-  it("ouvre un menu accessible, coche Atelier Viz et indique l'état de Projets", async () => {
+  it("ouvre un menu accessible, coche Atelier Viz et indique l'état des trois applications", async () => {
     render(<SuiteSwitcher />);
     const button = screen.getByRole("button", { name: "Suite Atelier" });
     expect(button).toHaveAttribute("aria-expanded", "false");
@@ -39,9 +39,25 @@ describe("sélecteur « Suite Atelier »", () => {
     ]);
     expect(items[0]).toHaveAttribute("aria-checked", "true");
     expect(items[0]).toHaveFocus();
-    // fetch refusé (no-cors) : Projets est « arrêtée », sans bloquer le menu.
-    expect(await screen.findByRole("menuitemradio", { name: "Atelier Projets (arrêtée)" })).toBeInTheDocument();
+    // fetch refusé (no-cors) : Projets et Tab sont « arrêtée », sans bloquer le menu ; Viz (la page) est en marche.
+    expect(await screen.findByRole("menuitemradio", { name: "Atelier Projets (Arrêtée)" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitemradio", { name: "Atelier Tab (Arrêtée)" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: "Atelier Viz (En marche)" })).toBeInTheDocument();
     expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:3000/api/health", expect.objectContaining({ mode: "no-cors" }));
+    expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:4175/api/health", expect.objectContaining({ mode: "no-cors" }));
+    expect(fetch).toHaveBeenCalledWith("http://127.0.0.1:5175/api/health", expect.objectContaining({ mode: "no-cors" }));
+    expect(fetch).not.toHaveBeenCalledWith("/api/health", expect.anything());
+  });
+
+  it("Atelier Tab « en marche » quand sa route de santé répond (app de bureau sur 4175)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => (url === "http://127.0.0.1:4175/api/health" ? Promise.resolve(new Response(null, { status: 200 })) : Promise.reject(new TypeError("Failed to fetch")))),
+    );
+    render(<SuiteSwitcher />);
+    await userEvent.click(screen.getByRole("button", { name: "Suite Atelier" }));
+    expect(await screen.findByRole("menuitemradio", { name: "Atelier Tab (En marche)" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitemradio", { name: "Atelier Projets (Arrêtée)" })).toBeInTheDocument();
   });
 
   it("se pilote au clavier : flèches, Entrée ouvre l'application, Échap ferme", async () => {
@@ -51,7 +67,7 @@ describe("sélecteur « Suite Atelier »", () => {
     await userEvent.keyboard("{ArrowDown}");
     expect(screen.getByRole("menu")).toBeInTheDocument();
     await userEvent.keyboard("{ArrowDown}");
-    expect(screen.getByRole("menuitemradio", { name: "Atelier Tab" })).toHaveFocus();
+    expect(screen.getByRole("menuitemradio", { name: /^Atelier Tab/ })).toHaveFocus();
     await userEvent.keyboard("{End}");
     expect(screen.getAllByRole("menuitemradio")[2]).toHaveFocus();
     await userEvent.keyboard("{ArrowDown}");

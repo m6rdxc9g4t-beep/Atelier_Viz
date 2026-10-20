@@ -97,7 +97,7 @@ comme sur leurs logos : tuile au dégradé cyan avec icône Lucide blanche, puis
 |---|---|---|---|
 | Atelier Viz | `http://127.0.0.1:5173` | `http://127.0.0.1:8000` (servie par FastAPI) | `http://127.0.0.1:8000/api` |
 | Atelier Projets | `http://127.0.0.1:5174` | `http://127.0.0.1:4174` | `http://127.0.0.1:3000/api` |
-| Atelier Tab | `http://127.0.0.1:5175` | `http://127.0.0.1:4175` · app Electron | — |
+| Atelier Tab | `http://127.0.0.1:5175` | `http://127.0.0.1:4175` · app Electron | santé seulement : `http://127.0.0.1:4175/api/health` (app de bureau ou aperçu), `http://127.0.0.1:5175/api/health` (dev) |
 
 `strictPort: true` sur chaque serveur Vite : en cas de conflit, échec explicite plutôt qu'un port au hasard.
 
@@ -117,7 +117,14 @@ Chaque en-tête d'application porte un **sélecteur « Suite Atelier »** (icôn
     Identifiants : Viz `fr.atelier-viz.app`, Tab `fr.atelier.tab`, Projets `local.atelier-projets.desktop`.
     Reconnaissance par hôte (`127.0.0.1` ou `localhost`) et port : 8000 → Viz, 4175 → Tab, 4174 → Projets.
     Mécanisme : `DesktopApi.open_external` (Viz), `shell.openExternal` relayé par le processus principal (Tab), `setWindowOpenHandler` (Projets) ;
-- un indicateur « en marche / arrêtée » est affiché pour les apps qui ont une API (`GET /api/health`, délai 1,5 s, sans bloquer le menu).
+- un indicateur « en marche / arrêtée » est affiché pour **les trois** applications (`GET …/api/health`, délai 1,5 s, `mode: 'no-cors'`, sans bloquer le menu) ;
+  l'application courante est toujours « en marche ».
+  Atelier Tab n'a pas d'API de données : il expose seulement une route de santé.
+  - App de bureau : le processus principal écoute sur `127.0.0.1:4175` (jamais une autre interface réseau) et ne sert que
+    `GET /api/health` → `{"status":"ok","app":"atelier-tab"}` et `GET /` → page minimale « Atelier Tab est ouvert » qui ramène la fenêtre au premier plan.
+    Aucune donnée, aucune autre route (404). Si le port est pris, l'app fonctionne normalement sans indicateur (journalisé).
+  - `npm run dev` / `npm run preview` : même réponse sur `/api/health` (petit greffon Vite).
+  - Les autres apps sondent `http://127.0.0.1:4175/api/health` puis `http://127.0.0.1:5175/api/health` : l'un des deux répond → « en marche ».
 
 Les adresses sont des constantes dans un module dédié (`suite.ts`), surchargeables par variables d'environnement Vite
 (`VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`, et, dans Tab, `VITE_ATELIER_PROJETS_API_URL` pour l'adresse de santé de Projets).
@@ -200,5 +207,60 @@ Adresse **locale uniquement**, quel que soit le mode : `127.0.0.1`, `localhost` 
 
 ---
 
-## 5. Vérification
+## 5. Intelligence artificielle
+
+Les trois applications proposent le **même choix de moteur**, avec la même interface et les mêmes règles.
+
+### 5.1 Mode hors ligne / en ligne
+- Chaque application a un interrupteur **« Hors ligne / En ligne »** dans son en-tête (comme Atelier Viz), **hors ligne par défaut**,
+  mémorisé par application (Viz : `PreferencesStore` ; Projets : réglage du backend ; Tab : fichier de préférences **hors du dossier de données**,
+  à côté du fichier de secrets — le dossier `~/Atelier_Tab` est modifiable par les IA, le mode en ligne ne doit pas l'être).
+- Aucune IA (outil de l'assistant, serveur MCP) ne peut passer une application en ligne ; seul l'utilisateur le fait.
+- Les routes qui changent le mode (Viz, Projets) n'acceptent que des requêtes locales : `Host` de bouclage et, pour toute écriture, `Origin` absente ou de bouclage (protection contre le DNS rebinding et les requêtes d'un autre site).
+- Hors ligne, **rien ne part vers Claude** : le choix « Claude » est grisé avec l'explication, et une requête explicite est refusée
+  (HTTP 403 ou erreur, message en français).
+
+### 5.2 Choix du moteur
+Commande segmentée **« Moteur : Auto · Ollama · Claude »** à l'endroit où l'on utilise l'IA, plus :
+- **Ollama** : liste des modèles locaux (`http://localhost:11434`), modèle choisi mémorisé ;
+- **Claude** : modèle `Sonnet` (défaut), `Opus` ou `Haiku` (alias `sonnet` / `opus` / `haiku`), mémorisé ;
+- **Auto** : Claude si l'application est en ligne **et** Claude disponible, sinon Ollama.
+  La réponse affiche toujours le moteur effectivement utilisé (« 1 proposition · Claude »).
+- Pastilles d'état dans l'en-tête : « Ollama » et « Claude » (vert = disponible, gris = indisponible ou hors ligne), info-bulle avec le détail.
+- Sous le choix du moteur, une ligne bouclier dit **exactement ce qui est envoyé** quand Claude répond :
+  - Viz : noms de colonnes, statistiques et 5 lignes d'exemple du jeu (si « Joindre le schéma ») ;
+  - Tab : la demande, et les cellules que l'assistant lit avec ses outils (contenu des tables) ;
+  - Projets : le texte de la story ou de l'élément, et pour le journal les messages et diffs des commits liés (tronqués à `AI_MAX_DIFF_CHARS`).
+
+### 5.3 Appel de Claude
+- Par la **CLI Claude Code** de la machine (abonnement de l'utilisateur), lancée **isolée**, comme dans Viz :
+  `claude -p --safe-mode --output-format json --tools "" --strict-mcp-config --disable-slash-commands --no-session-persistence --max-turns <n> --model <alias> --system-prompt <prompt>`
+  (+ `--json-schema <schéma>` pour une sortie structurée), conversation sur l'entrée standard, dossier de travail temporaire vide,
+  délai maximal (180 s par défaut ; arrêt forcé si le processus ne s'arrête pas), sortie lue avec une taille maximale.
+- **Aucune donnée en argument** de ligne de commande (visible par `ps`) : le prompt système ne contient que des consignes ;
+  les données (lignes d'exemple, contenu de tables, diffs) passent par l'entrée standard.
+- **Environnement en liste blanche** : `HOME`, `USER`, `LOGNAME`, `PATH`, `SHELL`, `LANG`, `LC_*`, `TMPDIR`, `TZ`, `CLAUDE_CONFIG_DIR`,
+  plus `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`. Rien d'autre (ni `ANTHROPIC_*`, ni `CLAUDE_CODE_USE_BEDROCK/VERTEX`, ni secret de l'application).
+  Le dossier de l'exécutable est placé en tête du `PATH` (une CLI installée par npm doit trouver `node` depuis le Finder).
+- **Jamais d'outil de la CLI** (ni shell, ni fichiers, ni MCP). Quand une application a besoin d'actions (outils de l'assistant de Tab),
+  c'est l'application qui les exécute : Claude répond en JSON contraint par `--json-schema`
+  (`{"action":"tool","name":…,"arguments":{…}}` ou `{"action":"answer","text":…}`), l'application exécute l'outil par ses actions habituelles
+  et renvoie le résultat au tour suivant (8 tours maximum par demande).
+- Recherche de l'exécutable : variable `CLAUDE_CLI` (chemin absolu), sinon `PATH` — en ignorant les entrées relatives et les dossiers `node_modules/.bin` —,
+  puis `~/.local/bin/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude` (une app lancée depuis le Finder n'hérite pas du `PATH` du terminal).
+  Le chemin retenu est absolu.
+- Disponibilité : exécutable trouvé **et** `claude auth status` réussi (mis en cache 60 s ; une revérification forcée au plus toutes les 10 s). Version affichée dans les réglages.
+
+### 5.4 Outils pilotés par une IA
+Ce que lisent les outils (cellules, titres, commits) est une **donnée, jamais une instruction** :
+- le prompt système le dit explicitement, et chaque résultat d'outil est transmis comme un bloc délimité « Résultat d'outil (données) », jamais comme un message de l'utilisateur ;
+- un outil appelé par l'assistant **ne peut pas envoyer de données hors de la machine** sans confirmation de l'utilisateur dans l'interface
+  (Tab : `configure_export` / `export_table` limités aux adresses de bouclage, toute autre adresse demande confirmation ; un jeton d'accès n'est envoyé qu'à l'adresse d'import d'Atelier Projets) ;
+- hors ligne, aucun envoi vers une adresse extérieure, par aucun chemin ;
+- les outils destructeurs (suppression de lignes, de colonnes, de tables) appelés par l'assistant demandent une confirmation.
+- Le lancement d'une **session interactive** Claude Code dans un terminal (Projets : « Claude CLI sur … ») reste une fonction distincte, indépendante du moteur.
+
+---
+
+## 6. Vérification
 Chaque dépôt garde ses contrôles (tests, typage, build). Toute évolution de ce contrat ajoute un test côté producteur **et** côté consommateur.

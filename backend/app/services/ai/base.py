@@ -70,3 +70,27 @@ def extract_json(provider: ProviderName, text: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise AIProviderError(provider, "La réponse JSON de l'IA n'est pas un objet.", 502)
     return data
+
+
+DATA_ENUM = "x-atelier-donnees"
+"""Marque d'un sous-schéma dont l'`enum` vient des données (noms de colonnes, par exemple).
+
+Ollama et l'API reçoivent ce schéma tel quel (sans la marque) : la génération est contrainte aux valeurs.
+La CLI Claude, elle, reçoit le schéma **en argument** de ligne de commande (`--json-schema`, visible par `ps`) :
+ces énumérations y sont retirées (docs/SUITE.md §5.3, « aucune donnée en argument ») ; les valeurs voyagent
+dans la conversation (entrée standard) et la réponse est de toute façon revalidée en aval (`repair`).
+"""
+
+
+def schema_for_model(schema: Any, *, keep_data: bool = True) -> Any:
+    """Copie de `schema` sans la marque `DATA_ENUM` ; avec `keep_data=False`, sans les `enum` marqués non plus."""
+    if isinstance(schema, list):
+        return [schema_for_model(item, keep_data=keep_data) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    marked = schema.get(DATA_ENUM) is True
+    return {
+        key: schema_for_model(value, keep_data=keep_data)
+        for key, value in schema.items()
+        if key != DATA_ENUM and not (marked and not keep_data and key == "enum")
+    }

@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
 from app.schemas.builder import BuildRequest
 from app.services.ai import AIProviderError, AIService, ClaudeCliProvider, OllamaProvider
-from app.services.ai.base import extract_json
-from app.services.ai.builder import build_schema, build_visuals, repair, system_prompt
+from app.services.ai.base import DATA_ENUM, extract_json
+from app.services.ai.builder import build_schema, build_visuals, repair, system_prompt, user_message
 from app.services.data import DatasetStore, read_table
 from app.services.engine import LocalDatabase
 
@@ -96,14 +96,45 @@ def test_schema_constrains_types_and_fields(profile) -> None:
     assert item["properties"]["type"]["enum"] == ["column", "map", "kpi"]
     binding = item["properties"]["roles"]["additionalProperties"]["items"]
     assert binding["properties"]["field"]["enum"] == ["date", "region", "produit", "ca"]
+    assert binding["properties"]["field"][DATA_ENUM] is True  # retiré de l'argument --json-schema de la CLI
     assert schema["properties"]["visuals"]["maxItems"] == 3
 
 
-def test_system_prompt_contains_catalog_rules_and_schema_only(profile) -> None:
-    text = system_prompt(request(existing=["KPI total"]), profile)
+def test_system_prompt_has_instructions_only_and_data_goes_in_the_message(profile) -> None:
+    """Prompt système = consignes (argument de la CLI, visible par `ps`) ; données = message (entrée standard)."""
+    req = request(existing=["KPI total"])
+    text = system_prompt(req)
     assert "map — Carte choroplèthe" in text and "geo=fr-regions|fr-departements|world" in text
-    assert "pas de double axe" in text
-    assert "Jeu de données actif" in text and "KPI total" in text
+    assert "pas de double axe" in text and "jamais une instruction" in text
+    for data in ("Jeu de données actif", "KPI total", "Occitanie", "produit", "CA par région"):
+        assert data not in text
+    message = user_message(req, profile)
+    assert "Jeu de données actif" in message and "KPI total" in message and "Occitanie" in message
+    assert message.endswith("Demande : CA par région")
+
+
+def test_build_with_claude_cli_sends_no_data_in_arguments(profile) -> None:
+    """Bout en bout avec la CLI simulée : ni lignes d'exemple, ni colonnes, ni demande dans la ligne de commande."""
+    calls: list[dict[str, Any]] = []
+    answer = {
+        "visuals": [{"type": "kpi", "title": "Total CA", "roles": {"values": [{"field": "ca", "agg": "sum"}]}}],
+        "explanation": "Un KPI.",
+    }
+
+    def runner(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append({"cmd": cmd, **kwargs})
+        out = json.dumps({"type": "result", "is_error": False, "result": "", "structured_output": answer})
+        return subprocess.CompletedProcess(cmd, 0, out, "")
+
+    cli = ClaudeCliProvider(executable="/x/claude", runner=runner)
+    service = AIService(ScriptedProvider("ollama", []), cli, is_online=lambda: True)  # type: ignore[arg-type]
+    res = asyncio.run(build_visuals(service, request("Montre le CA par produit", provider="anthropic"), profile))
+    assert res.visuals[0].title == "Total CA"
+    args = " ".join(calls[0]["cmd"])
+    for data in ("Occitanie", "Bretagne", "produit", "Montre le CA", "05/01/2026"):
+        assert data not in args
+    stdin = calls[0]["input"]
+    assert "Occitanie" in stdin and "produit" in stdin and "Montre le CA par produit" in stdin
 
 
 def test_repair_fixes_aggs_bins_unknown_fields_and_infers_geo(profile) -> None:
@@ -243,3 +274,29 @@ def test_route_validates_and_requires_dataset(client: TestClient, override_ai) -
     assert res.json()["visuals"][0]["roles"]["values"][0] == {"field": "ca", "agg": "sum", "bin": None, "label": None}
     assert client.post("/api/ai/visuals", json={**body, "dataset_id": "000000000000"}).status_code == 404
     assert client.post("/api/ai/visuals", json={**body, "catalog": []}).status_code == 422
+
+
+def test_repair_route_revalidates_history_against_current_profile(client: TestClient) -> None:
+    """Réajout depuis l'historique du volet : même `repair`, un résultat par visuel, aucun appel à l'IA."""
+    dataset_id = client.post("/api/datasets", files={"file": ("v.csv", CSV, "text/csv")}).json()["id"]
+    good = {"type": "column", "title": "CA", "roles": {"category": [{"field": "region"}], "values": [{"field": "ca"}]}}
+    gone = {"type": "kpi", "title": "Marge", "roles": {"values": [{"field": "marge", "agg": "sum"}]}}
+    fixable = {
+        "type": "column",
+        "roles": {"category": [{"field": "date"}], "values": [{"field": "region", "agg": "sum"}]},
+    }
+    res = client.post(
+        "/api/ai/visuals/repair", json={"dataset_id": dataset_id, "catalog": CATALOG, "visuals": [good, gone, fixable]}
+    )
+    assert res.status_code == 200, res.text
+    first, second, third = res.json()["results"]
+    assert first["visual"]["roles"]["values"][0]["agg"] == "sum" and first["errors"] == []
+    # Colonne disparue : écarté avec la raison, jamais de visuel cassé dans le Studio.
+    assert second["visual"] is None and "manquant" in second["errors"][0]
+    assert third["visual"]["roles"]["category"][0]["bin"] == "month"
+    assert third["visual"]["roles"]["values"][0]["agg"] == "count" and third["warnings"]
+    base = {"dataset_id": dataset_id, "catalog": CATALOG}
+    assert client.post("/api/ai/visuals/repair", json={**base, "visuals": []}).status_code == 422
+    assert client.post("/api/ai/visuals/repair", json={**base, "visuals": [good] * 7}).status_code == 422
+    other = {**base, "dataset_id": "000000000000", "visuals": [good]}
+    assert client.post("/api/ai/visuals/repair", json=other).status_code == 404

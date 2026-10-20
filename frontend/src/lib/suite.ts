@@ -17,8 +17,11 @@ export interface SuiteApp {
   description: string;
   /** Adresse ouverte au clic (interface servie, ou app de bureau). */
   url: string;
-  /** Adresse de `GET /api/health`, pour les applications qui ont une API ; sinon null. */
-  healthUrl: string | null;
+  /**
+   * Adresses de `GET /api/health` à sonder (docs/SUITE.md §3) : l'application est « en marche » si
+   * l'une d'elles répond. Vide = pas d'indicateur.
+   */
+  healthUrls: string[];
 }
 
 /** État affiché à côté d'une application : en marche, arrêtée, ou pas encore connu. */
@@ -39,6 +42,9 @@ const DEFAULTS: Record<SuiteAppId, string> = {
 /** API d'Atelier Projets (docs/SUITE.md §2). */
 export const PROJETS_API = "http://127.0.0.1:3000";
 
+/** Santé d'Atelier Tab lancé par `npm run dev` (docs/SUITE.md §3), essayée en plus de l'adresse configurée. */
+export const TAB_DEV_HEALTH_URL = "http://127.0.0.1:5175/api/health";
+
 /** Variables d'environnement utiles (sous-ensemble de `import.meta.env`). */
 export interface SuiteEnv {
   VITE_ATELIER_VIZ_URL?: string;
@@ -47,6 +53,17 @@ export interface SuiteEnv {
 }
 
 const clean = (url: string | undefined, fallback: string) => (url && url.trim() ? url.trim().replace(/\/+$/, "") : fallback);
+
+/**
+ * Santé d'Atelier Tab (docs/SUITE.md §2 et §3) : son adresse (`VITE_ATELIER_TAB_URL`, défaut 4175 : app de
+ * bureau ou aperçu), puis `npm run dev` (5175), sans doublon. Tab n'a pas d'API de données, seulement cette route.
+ */
+export function tabHealthUrls(env: SuiteEnv = import.meta.env as SuiteEnv): string[] {
+  return [...new Set([`${clean(env.VITE_ATELIER_TAB_URL, DEFAULTS.tab)}/api/health`, TAB_DEV_HEALTH_URL])];
+}
+
+/** Santé d'Atelier Tab avec les adresses de l'environnement courant. */
+export const TAB_HEALTH_URLS = tabHealthUrls();
 
 /** Les trois applications, dans l'ordre du menu, avec les surcharges d'environnement appliquées. */
 export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp[] {
@@ -58,15 +75,15 @@ export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp
       description: "BI locale : rapports, visuels, IA",
       url: clean(env.VITE_ATELIER_VIZ_URL, DEFAULTS.viz),
       // Application courante : sa propre API, sur la même origine (proxy Vite en développement, port libre dans l'app).
-      healthUrl: "/api/health",
+      healthUrls: ["/api/health"],
     },
     {
       id: "tab",
       name: "Atelier Tab",
       short: "Tab",
-      description: "Tableur et base typée",
+      description: "Tableur et base de données typée",
       url: clean(env.VITE_ATELIER_TAB_URL, DEFAULTS.tab),
-      healthUrl: null,
+      healthUrls: tabHealthUrls(env),
     },
     {
       id: "projets",
@@ -74,14 +91,14 @@ export function suiteApps(env: SuiteEnv = import.meta.env as SuiteEnv): SuiteApp
       short: "Projets",
       description: "Projets agiles, Git, temps passé",
       url: clean(env.VITE_ATELIER_PROJETS_URL, DEFAULTS.projets),
-      healthUrl: `${PROJETS_API}/api/health`,
+      healthUrls: [`${PROJETS_API}/api/health`],
     },
   ];
 }
 
 /** Libellé d'état lisible (lecteurs d'écran et info-bulle). */
 export function statusLabel(status: SuiteStatus): string {
-  return status === "up" ? "en marche" : status === "down" ? "arrêtée" : "vérification…";
+  return status === "up" ? "En marche" : status === "down" ? "Arrêtée" : "Vérification…";
 }
 
 /**
@@ -98,5 +115,19 @@ export async function checkHealth(url: string, timeoutMs = HEALTH_TIMEOUT_MS, fe
     return "down";
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/**
+ * Sonde plusieurs adresses de santé (dans l'ordre, en parallèle) : « en marche » dès que l'une répond,
+ * « arrêtée » si aucune ne répond dans le délai. Le temps total ne dépasse donc pas `timeoutMs`.
+ */
+export async function checkAnyHealth(urls: string[], timeoutMs = HEALTH_TIMEOUT_MS, fetcher: typeof fetch = fetch): Promise<Exclude<SuiteStatus, "unknown">> {
+  if (!urls.length) return "down";
+  const results = urls.map((url) => checkHealth(url, timeoutMs, fetcher).then((st) => (st === "up" ? Promise.resolve("up" as const) : Promise.reject(new Error(url)))));
+  try {
+    return await Promise.any(results);
+  } catch {
+    return "down";
   }
 }

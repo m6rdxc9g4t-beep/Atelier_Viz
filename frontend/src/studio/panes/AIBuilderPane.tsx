@@ -1,17 +1,37 @@
 import clsx from "clsx";
-import { Check, Loader2, Plus, Sparkles, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronRight, History, Lightbulb, Loader2, Plus, RotateCcw, SquarePen, Sparkles, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { api } from "../../lib/api";
-import type { BuildResponse, ProposedVisual } from "../../types/builder";
+import type { ProposedVisual } from "../../types/builder";
 import type { DatasetProfile } from "../../types/dataset";
 import { aiCatalog } from "../../visuals/catalog";
 import { bindingLabel } from "../../visuals/fields";
 import { VISUALS } from "../../visuals/registry";
+import { defaultTitle } from "../../visuals/title";
+import {
+  type BuildEntry,
+  type BuilderSession,
+  type Placement,
+  addableIndexes,
+  createdByIndex,
+  currentEntry,
+  entryId,
+  mapRepaired,
+  newRequest,
+  placedCount,
+  placement,
+  previousEntries,
+  recordAdded,
+  recordResult,
+  showEntry,
+  useAIBuilder,
+  useBuilderSession,
+  visualIds,
+} from "../aiBuilder";
 import { useStudioData } from "../context";
 import { useStudio } from "../store";
-import { defaultTitle } from "../../visuals/title";
-import { EnginePicker, useEngine } from "./EnginePicker";
+import { EnginePicker, useEngine } from "../../components/ai/EnginePicker";
 import { Pane, Section } from "./Pane";
 
 /** Suggestions de demandes adaptées aux colonnes du jeu de données. */
@@ -32,69 +52,110 @@ export function suggestPrompts(profile: DatasetProfile | undefined): string[] {
   return out.slice(0, 4);
 }
 
-/** Volet « Créer avec l'IA » : une phrase → des visuels validés, à ajouter à la page. */
+// Générations en cours, par rapport : le volet peut être fermé et rouvert pendant l'attente.
+const controllers = new Map<string, AbortController>();
+
+const engineName = (p: string) => (p === "anthropic" ? "Claude" : "Ollama");
+const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? "s" : ""}`;
+const clock = (at: number) => new Date(at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+/**
+ * Volet « Créer avec l'IA » : une phrase → des visuels validés, à ajouter à la page.
+ *
+ * Disposition : moteur, puis la demande (avec ses suggestions juste dessous, repliées dès qu'un
+ * résultat est affiché), le résultat courant, et les demandes précédentes de la session.
+ * Les suggestions restent ainsi à côté de la zone qu'elles remplissent, sans repousser le résultat.
+ */
 export function AIBuilderPane() {
   const { activeDatasetId, profiles } = useStudioData();
   const report = useStudio((s) => s.report);
   const pageId = useStudio((s) => s.pageId);
+  const reportId = report?.id;
+  const session = useBuilderSession(reportId);
   const engine = useEngine();
-  const [prompt, setPrompt] = useState("");
-  const [count, setCount] = useState(3);
-  const [pending, setPending] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<BuildResponse | null>(null);
-  const [added, setAdded] = useState<Set<number>>(new Set());
-  const abort = useRef<AbortController | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const profile = activeDatasetId ? profiles.get(activeDatasetId) : undefined;
   const suggestions = useMemo(() => suggestPrompts(profile), [profile]);
   const page = report?.pages.find((p) => p.id === pageId);
+  const ids = useMemo(() => visualIds(report), [report]);
+  const current = currentEntry(session);
+  const previous = previousEntries(session);
+  const pending = session.pending;
+  const [suggestOpen, setSuggestOpen] = useState(!current);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
-  const provider = engine.provider;
+  const update = (fn: (s: BuilderSession) => BuilderSession) => {
+    if (reportId) useAIBuilder.getState().update(reportId, fn);
+  };
+
+  // Suggestions ouvertes quand aucun résultat n'est affiché, repliées dès qu'il y en a un.
+  const currentId = current?.id ?? null;
+  useEffect(() => setSuggestOpen(!currentId), [currentId]);
 
   useEffect(() => {
     if (!pending) return;
-    const started = Date.now();
-    const t = setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 500);
+    const tick = () => setElapsed(Math.round((Date.now() - pending.startedAt) / 1000));
+    tick();
+    const t = setInterval(tick, 500);
     return () => clearInterval(t);
   }, [pending]);
 
-  const generate = async (text = prompt) => {
-    if (!activeDatasetId || !text.trim() || pending) return;
-    setPrompt(text);
-    setPending(true);
-    setElapsed(0);
-    setError(null);
-    setResult(null);
-    setAdded(new Set());
-    abort.current = new AbortController();
+  const generate = async (text = session.draft) => {
+    const prompt = text.trim();
+    if (!reportId || !activeDatasetId || !prompt || pending) return;
+    const id = reportId;
+    const datasetId = activeDatasetId;
+    const set = (fn: (s: BuilderSession) => BuilderSession) => useAIBuilder.getState().update(id, fn);
+    set((s) => ({ ...s, draft: text, pending: { prompt, startedAt: Date.now() }, error: null }));
+    setNotice(null);
+    const ctrl = new AbortController();
+    controllers.set(id, ctrl);
     try {
-      const res = await api.buildVisuals(
+      const result = await api.buildVisuals(
         {
-          prompt: text.trim(),
-          dataset_id: activeDatasetId,
-          provider,
+          prompt,
+          dataset_id: datasetId,
+          provider: engine.provider,
           catalog: aiCatalog(),
-          max_visuals: count,
+          max_visuals: session.count,
           existing: page?.visuals.map((v) => v.title || defaultTitle(v)).slice(0, 40) ?? [],
         },
-        abort.current.signal,
+        ctrl.signal,
       );
-      setResult(res);
+      set((s) => recordResult(s, { id: entryId(), prompt, at: Date.now(), datasetId, result, added: {} }));
     } catch (err) {
-      if ((err as Error).name !== "AbortError") setError(err instanceof Error ? err.message : String(err));
+      const aborted = (err as Error).name === "AbortError";
+      set((s) => ({ ...s, pending: null, error: aborted ? null : err instanceof Error ? err.message : String(err) }));
     } finally {
-      setPending(false);
+      controllers.delete(id);
     }
   };
 
-  const add = (indexes: number[]) => {
-    if (!result || !activeDatasetId) return;
-    const todo = indexes.filter((i) => !added.has(i));
-    const specs = todo.map((i) => result.visuals[i]).filter((v): v is ProposedVisual => !!v);
-    useStudio.getState().addGenerated(specs, activeDatasetId);
-    setAdded((s) => new Set([...s, ...todo]));
+  /** Ajoute des propositions d'une entrée (courante ou passée) : toujours revalidées par `repair`. */
+  const add = async (entry: BuildEntry, indexes: number[]) => {
+    if (!reportId || !indexes.length || adding) return;
+    setAdding(true);
+    setNotice(null);
+    try {
+      const specs = indexes.map((i) => entry.result.visuals[i]).filter((v): v is ProposedVisual => !!v);
+      const res = await api.repairVisuals({ dataset_id: entry.datasetId, catalog: aiCatalog(), visuals: specs });
+      const repaired = mapRepaired(indexes, res);
+      const created = useStudio.getState().addGenerated(repaired.specs, entry.datasetId);
+      update((s) => recordAdded(s, entry.id, createdByIndex(repaired.indexes, created)));
+      if (repaired.dropped.length) {
+        const titles = repaired.dropped.map((d) => `« ${entry.result.visuals[d.index]?.title ?? "visuel"} » (${d.reason})`);
+        setNotice(`Non ajouté, les données ont changé : ${titles.join(", ")}`);
+      }
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAdding(false);
+    }
   };
+
+  const canReset = !pending && (!!session.draft || !!current || !!session.error);
 
   return (
     <Pane title="Créer avec l'IA" width="w-80">
@@ -105,10 +166,29 @@ export function AIBuilderPane() {
         />
       </Section>
 
-      <Section title="Votre demande">
+      <Section
+        title="Votre demande"
+        action={
+          canReset ? (
+            <button
+              type="button"
+              onClick={() => {
+                update(newRequest);
+                setNotice(null);
+              }}
+              className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
+            >
+              <SquarePen className="size-3" aria-hidden /> Nouvelle demande
+            </button>
+          ) : null
+        }
+      >
         <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          value={session.draft}
+          onChange={(e) => {
+            const draft = e.target.value;
+            update((s) => ({ ...s, draft }));
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void generate();
           }}
@@ -120,23 +200,34 @@ export function AIBuilderPane() {
         <div className="mt-2 flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-[11px] text-muted">
             Jusqu'à
-            <select value={count} onChange={(e) => setCount(Number(e.target.value))} className="rounded border border-border bg-bg px-1 py-0.5 text-xs text-fg">
+            <select
+              value={session.count}
+              onChange={(e) => {
+                const count = Number(e.target.value);
+                update((s) => ({ ...s, count }));
+              }}
+              className="rounded border border-border bg-bg px-1 py-0.5 text-xs text-fg"
+            >
               {[1, 2, 3, 4, 6].map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
               ))}
             </select>
-            visuel{count > 1 ? "s" : ""}
+            visuel{session.count > 1 ? "s" : ""}
           </label>
           {pending ? (
-            <button type="button" onClick={() => abort.current?.abort()} className="ml-auto flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs">
+            <button
+              type="button"
+              onClick={() => reportId && controllers.get(reportId)?.abort()}
+              className="ml-auto flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs"
+            >
               <Loader2 className="size-3.5 animate-spin" aria-hidden /> {elapsed} s · Annuler
             </button>
           ) : (
             <button
               type="button"
-              disabled={!prompt.trim() || !activeDatasetId}
+              disabled={!session.draft.trim() || !activeDatasetId}
               onClick={() => void generate()}
               className="ml-auto flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
             >
@@ -144,79 +235,65 @@ export function AIBuilderPane() {
             </button>
           )}
         </div>
-        {!result && !pending && suggestions.length > 0 && (
-          <div className="mt-3 flex flex-col gap-1">
-            <p className="text-[10px] uppercase tracking-wide text-muted">Suggestions</p>
-            {suggestions.map((s) => (
-              <button key={s} type="button" onClick={() => void generate(s)} className="rounded-md border border-border px-2 py-1.5 text-left text-xs hover:bg-surface-2">
-                {s}
-              </button>
-            ))}
+        {suggestions.length > 0 && (
+          <div className="mt-3">
+            <Disclosure open={suggestOpen} onToggle={() => setSuggestOpen((o) => !o)} icon={Lightbulb} label={`Suggestions (${suggestions.length})`} />
+            {suggestOpen && (
+              <div className="mt-1.5 flex flex-col gap-1">
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    disabled={!!pending}
+                    onClick={() => void generate(s)}
+                    className="rounded-md border border-border px-2 py-1.5 text-left text-xs hover:bg-surface-2 disabled:opacity-50"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
-        {error && (
+        {session.error && (
           <p role="alert" className="mt-3 flex items-start gap-1.5 text-xs text-negative">
-            <X className="mt-0.5 size-3 shrink-0" aria-hidden /> {error}
+            <X className="mt-0.5 size-3 shrink-0" aria-hidden /> {session.error}
+          </p>
+        )}
+        {notice && (
+          <p role="status" className="mt-3 text-xs text-negative">
+            {notice}
           </p>
         )}
       </Section>
 
-      {result && (
+      {current && (
         <Section
-          title={`${result.visuals.length} proposition${result.visuals.length > 1 ? "s" : ""} · ${result.provider === "anthropic" ? "Claude" : "Ollama"}`}
+          title={`${plural(current.result.visuals.length, "proposition")} · ${engineName(current.result.provider)}`}
           action={
-            result.visuals.length > 1 && added.size < result.visuals.length ? (
-              <button type="button" onClick={() => add(result.visuals.map((_, i) => i))} className="text-[11px] font-medium text-accent hover:underline">
+            current.result.visuals.length > 1 && addableIndexes(current, ids).length > 0 ? (
+              <button
+                type="button"
+                disabled={adding}
+                onClick={() => void add(current, addableIndexes(current, ids))}
+                className="text-[11px] font-medium text-accent hover:underline disabled:opacity-50"
+              >
                 Tout ajouter
               </button>
             ) : null
           }
         >
-          {result.explanation && <p className="mb-3 text-xs leading-relaxed text-muted">{result.explanation}</p>}
+          {current.result.explanation && <p className="mb-3 text-xs leading-relaxed text-muted">{current.result.explanation}</p>}
           <ul className="space-y-2">
-            {result.visuals.map((v, i) => {
-              const def = VISUALS[v.type];
-              const done = added.has(i);
-              return (
-                <li key={i} className="rounded-md border border-border p-2.5">
-                  <div className="flex items-start gap-2">
-                    <def.icon className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium">{v.title ?? def.label}</p>
-                      <p className="text-[10px] text-muted">{def.label}</p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={done}
-                      onClick={() => add([i])}
-                      className={clsx(
-                        "flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11px] font-medium",
-                        done ? "text-positive" : "bg-accent text-accent-fg hover:brightness-110",
-                      )}
-                    >
-                      {done ? <Check className="size-3" aria-hidden /> : <Plus className="size-3" aria-hidden />}
-                      {done ? "Ajouté" : "Ajouter"}
-                    </button>
-                  </div>
-                  <dl className="mt-2 space-y-0.5 text-[10px]">
-                    {def.roles
-                      .filter((r) => v.roles[r.id]?.length)
-                      .map((r) => (
-                        <div key={r.id} className="flex gap-1.5">
-                          <dt className="shrink-0 text-muted">{r.label} :</dt>
-                          <dd className="truncate">{v.roles[r.id]?.map(bindingLabel).join(", ")}</dd>
-                        </div>
-                      ))}
-                  </dl>
-                </li>
-              );
-            })}
+            {current.result.visuals.map((v, i) => (
+              <ProposalCard key={i} visual={v} state={placement(current, i, ids)} disabled={adding} onAdd={() => void add(current, [i])} />
+            ))}
           </ul>
-          {result.warnings.length > 0 && (
+          {current.result.warnings.length > 0 && (
             <details className="mt-3 text-[10px] text-muted">
-              <summary className="cursor-pointer">{result.warnings.length} correction(s) appliquée(s) automatiquement</summary>
+              <summary className="cursor-pointer">{current.result.warnings.length} correction(s) appliquée(s) automatiquement</summary>
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                {result.warnings.map((w) => (
+                {current.result.warnings.map((w) => (
                   <li key={w}>{w}</li>
                 ))}
               </ul>
@@ -225,6 +302,134 @@ export function AIBuilderPane() {
           <p className="mt-3 text-[10px] text-muted">Ctrl+Z annule l'ajout. Les visuels restent modifiables comme les autres.</p>
         </Section>
       )}
+
+      {previous.length > 0 && (
+        <section className="border-b border-border px-3 py-3">
+          <Disclosure open={historyOpen} onToggle={() => setHistoryOpen((o) => !o)} icon={History} label={`Demandes précédentes (${previous.length})`} />
+          {historyOpen && (
+            <ul className="mt-2 space-y-1.5">
+              {previous.map((entry) => (
+                <HistoryItem
+                  key={entry.id}
+                  entry={entry}
+                  ids={ids}
+                  disabled={adding || !!pending}
+                  onAdd={(indexes) => void add(entry, indexes)}
+                  onShow={() => update((s) => showEntry(s, entry.id))}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </Pane>
+  );
+}
+
+/** En-tête repliable (bouton + chevron), accessible au clavier. */
+function Disclosure({ open, onToggle, icon: Icon, label }: { open: boolean; onToggle: () => void; icon: typeof History; label: string }) {
+  return (
+    <button type="button" aria-expanded={open} onClick={onToggle} className="flex w-full items-center gap-1.5 text-[11px] font-semibold text-muted hover:text-fg">
+      <ChevronRight className={clsx("size-3 transition-transform", open && "rotate-90")} aria-hidden />
+      <Icon className="size-3" aria-hidden />
+      {label}
+    </button>
+  );
+}
+
+/** Carte d'une proposition : type, titre, champs par rôle, bouton Ajouter / Ajouté / Ajouter de nouveau. */
+function ProposalCard({ visual, state, disabled, onAdd }: { visual: ProposedVisual; state: Placement; disabled: boolean; onAdd: () => void }) {
+  const def = VISUALS[visual.type];
+  const placed = state === "placed";
+  const title = visual.title ?? def.label;
+  return (
+    <li className="rounded-md border border-border p-2.5">
+      <div className="flex items-start gap-2">
+        <def.icon className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium" title={title}>
+            {title}
+          </p>
+          <p className="text-[10px] text-muted">{def.label}</p>
+        </div>
+        <button
+          type="button"
+          disabled={placed || disabled}
+          onClick={onAdd}
+          aria-label={placed ? `${title} : ajouté` : `Ajouter ${title}${state === "removed" ? " de nouveau" : ""}`}
+          title={state === "removed" ? "Retiré de la page (Ctrl+Z ou suppression) : l'ajouter de nouveau" : undefined}
+          className={clsx(
+            "flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11px] font-medium",
+            placed ? "text-positive" : "bg-accent text-accent-fg hover:brightness-110 disabled:opacity-50",
+          )}
+        >
+          {placed ? <Check className="size-3" aria-hidden /> : state === "removed" ? <RotateCcw className="size-3" aria-hidden /> : <Plus className="size-3" aria-hidden />}
+          {placed ? "Ajouté" : state === "removed" ? "Réajouter" : "Ajouter"}
+        </button>
+      </div>
+      <dl className="mt-2 space-y-0.5 text-[10px]">
+        {def.roles
+          .filter((r) => visual.roles[r.id]?.length)
+          .map((r) => (
+            <div key={r.id} className="flex gap-1.5">
+              <dt className="shrink-0 text-muted">{r.label} :</dt>
+              <dd className="truncate">{visual.roles[r.id]?.map(bindingLabel).join(", ")}</dd>
+            </div>
+          ))}
+      </dl>
+    </li>
+  );
+}
+
+/** Demande passée : repliée sur une ligne (texte, heure, moteur), dépliée avec ses propositions. */
+function HistoryItem({
+  entry,
+  ids,
+  disabled,
+  onAdd,
+  onShow,
+}: {
+  entry: BuildEntry;
+  ids: Set<string>;
+  disabled: boolean;
+  onAdd: (indexes: number[]) => void;
+  onShow: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const n = entry.result.visuals.length;
+  const placed = placedCount(entry, ids);
+  const addable = addableIndexes(entry, ids);
+  return (
+    <li className="rounded-md border border-border">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="flex w-full items-start gap-1.5 px-2 py-1.5 text-left hover:bg-surface-2">
+        <ChevronRight className={clsx("mt-0.5 size-3 shrink-0 text-muted transition-transform", open && "rotate-90")} aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-2 text-xs">{entry.prompt}</span>
+          <span className="block text-[10px] text-muted">
+            {clock(entry.at)} · {plural(n, "proposition")} · {engineName(entry.result.provider)}
+            {placed > 0 ? ` · ${placed} sur la page` : ""}
+          </span>
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-border p-2">
+          <ul className="space-y-2">
+            {entry.result.visuals.map((v, i) => (
+              <ProposalCard key={i} visual={v} state={placement(entry, i, ids)} disabled={disabled} onAdd={() => onAdd([i])} />
+            ))}
+          </ul>
+          <div className="mt-2 flex items-center gap-3 text-[11px] font-medium">
+            <button type="button" onClick={onShow} className="text-accent hover:underline">
+              Afficher en résultat
+            </button>
+            {n > 1 && addable.length > 0 && (
+              <button type="button" disabled={disabled} onClick={() => onAdd(addable)} className="text-accent hover:underline disabled:opacity-50">
+                Tout ajouter
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </li>
   );
 }

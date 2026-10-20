@@ -13,18 +13,24 @@ from app.services.connectors import ConnectionService
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase
 from app.services.github import GitHubSync
-from app.services.preferences import PreferencesStore
+from app.services.preferences import Preferences, PreferencesStore
 from app.services.refresh import RefreshScheduler
 from app.services.reports import ReportRepository
 
 
-def build_claude_provider(settings: Settings) -> ClaudeProvider:
-    """CLI Claude Code (abonnement) ou API Anthropic (clé Console), selon `CLAUDE_MODE`."""
+def build_claude_provider(
+    settings: Settings, preferences: Callable[[], Preferences] | None = None
+) -> ClaudeProvider:
+    """CLI Claude Code (abonnement) ou API Anthropic (clé Console), selon `CLAUDE_MODE`.
+
+    En mode CLI, le modèle (Sonnet / Opus / Haiku) est celui choisi par l'utilisateur (`preferences`).
+    """
     if settings.claude_mode == "cli":
         return ClaudeCliProvider(
             executable=settings.claude_cli_path,
             model=settings.claude_cli_model,
             timeout=settings.claude_cli_timeout_seconds,
+            model_choice=(lambda: preferences().claude_model) if preferences else None,
         )
     api_key = settings.anthropic_api_key.get_secret_value() if settings.anthropic_configured else None
     return AnthropicProvider(
@@ -34,15 +40,20 @@ def build_claude_provider(settings: Settings) -> ClaudeProvider:
     )
 
 
-def build_ai_service(settings: Settings, is_online: Callable[[], bool] = lambda: True) -> AIService:
-    """Construit l'`AIService` à partir de la configuration."""
+def build_ai_service(
+    settings: Settings,
+    is_online: Callable[[], bool] = lambda: True,
+    preferences: Callable[[], Preferences] | None = None,
+) -> AIService:
+    """Construit l'`AIService` à partir de la configuration (et des modèles choisis dans `preferences`)."""
     return AIService(
         ollama=OllamaProvider(
             base_url=settings.ollama_base_url,
             model=settings.ollama_model,
             timeout=settings.ollama_timeout_seconds,
+            model_choice=(lambda: preferences().ollama_model) if preferences else None,
         ),
-        anthropic=build_claude_provider(settings),
+        anthropic=build_claude_provider(settings, preferences),
         allow_cloud_fallback=settings.ai_allow_cloud_fallback,
         is_online=is_online,
     )

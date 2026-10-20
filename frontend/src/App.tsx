@@ -47,7 +47,7 @@ export default function App() {
           providers={providers.providers}
           providersLoading={providers.loading}
           providersError={providers.error}
-          onRefreshProviders={providers.refresh}
+          onRefreshProviders={() => providers.refresh(true)}
           assistantOpen={assistantOpen}
           onToggleAssistant={() => setAssistantOpen((o) => !o)}
         />

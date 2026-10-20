@@ -59,10 +59,80 @@ def test_report_validation(client: TestClient) -> None:
     assert client.get("/api/reports/../../etc").status_code == 404
 
 
+DEFAULT_PREFS = {"online_mode": False, "ai_provider": "auto", "claude_model": "sonnet", "ollama_model": None}
+
+
 def test_settings_persist(client: TestClient, settings) -> None:
-    assert client.get("/api/settings").json() == {"online_mode": False}
+    assert client.get("/api/settings").json() == DEFAULT_PREFS
     client.put("/api/settings", json={"online_mode": True})
     assert json.loads((settings.data_dir / "settings.json").read_text())["online_mode"] is True
+
+
+def test_settings_partial_update_keeps_other_choices(client: TestClient, settings) -> None:
+    """Moteur et modèles mémorisés (docs/SUITE.md §5.2) ; un PUT partiel ne remet rien à zéro."""
+    choices = {"ai_provider": "anthropic", "claude_model": "opus", "ollama_model": "qwen3:8b"}
+    body = client.put("/api/settings", json=choices)
+    assert body.status_code == 200
+    assert client.put("/api/settings", json={"online_mode": True}).json() == {
+        "online_mode": True,
+        "ai_provider": "anthropic",
+        "claude_model": "opus",
+        "ollama_model": "qwen3:8b",
+    }
+    on_disk = json.loads((settings.data_dir / "settings.json").read_text())
+    assert on_disk["claude_model"] == "opus" and on_disk["ollama_model"] == "qwen3:8b"
+    # null = revenir au modèle Ollama de la configuration
+    assert client.put("/api/settings", json={"ollama_model": None}).json()["ollama_model"] is None
+
+
+@pytest.mark.parametrize(
+    "body", [{"claude_model": "gpt"}, {"ai_provider": "openai"}, {"ollama_model": ""}, {"online_mode": "peut-être"}]
+)
+def test_settings_rejects_unknown_choices(client: TestClient, body: dict) -> None:
+    assert client.put("/api/settings", json=body).status_code == 422
+    assert client.get("/api/settings").json() == DEFAULT_PREFS
+
+
+def test_settings_file_from_older_version_is_read(settings) -> None:
+    from app.services.preferences import PreferencesStore
+
+    (settings.data_dir / "settings.json").write_text('{"online_mode": true}', encoding="utf-8")
+    prefs = PreferencesStore(settings.data_dir / "settings.json").get()
+    assert prefs.online_mode is True and prefs.claude_model == "sonnet" and prefs.ai_provider == "auto"
+
+
+def test_concurrent_updates_do_not_overwrite_each_other(settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fusion et écriture sous le même verrou : deux modifications simultanées sont toutes deux gardées."""
+    import threading
+    import time
+
+    from app.services.preferences import Preferences, PreferencesStore
+
+    store = PreferencesStore(settings.data_dir / "settings.json")
+    validate = Preferences.model_validate
+
+    def slow_validate(data: object) -> Preferences:
+        time.sleep(0.05)  # fusion lente : sans verrou commun, les deux fusions partiraient de la même valeur
+        return validate(data)
+
+    monkeypatch.setattr(Preferences, "model_validate", slow_validate)
+    start = threading.Barrier(2)
+
+    def change(field: str, value: object) -> None:
+        start.wait()
+        store.update({field: value})
+
+    threads = [
+        threading.Thread(target=change, args=("online_mode", True)),
+        threading.Thread(target=change, args=("claude_model", "opus")),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    monkeypatch.undo()
+    for prefs in (store.get(), PreferencesStore(settings.data_dir / "settings.json").get()):
+        assert prefs.online_mode is True and prefs.claude_model == "opus"
 
 
 def test_query_endpoint(client: TestClient) -> None:

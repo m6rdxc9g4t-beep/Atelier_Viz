@@ -58,10 +58,67 @@ def test_claude_blocked_when_offline(client: TestClient) -> None:
 
 def test_anthropic_without_key_returns_400(client: TestClient) -> None:
     # Application réelle (pas d'override), mode en ligne, mais sans clé API.
-    assert client.put("/api/settings", json={"online_mode": True}).json() == {"online_mode": True}
+    assert client.put("/api/settings", json={"online_mode": True}).json()["online_mode"] is True
     response = client.post(
         "/api/ai/chat",
         json={"messages": [{"role": "user", "content": "Bonjour"}], "provider": "anthropic"},
     )
     assert response.status_code == 400
     assert "ANTHROPIC_API_KEY" in response.json()["detail"]
+
+
+def test_providers_refresh_forgets_cached_claude_state(client: TestClient, override_ai) -> None:
+    claude = FakeProvider("anthropic")
+    claude.invalidated = 0  # type: ignore[attr-defined]
+
+    def invalidate() -> None:
+        claude.invalidated += 1  # type: ignore[attr-defined]
+
+    claude.invalidate = invalidate  # type: ignore[attr-defined]
+    override_ai(AIService(FakeProvider("ollama"), claude))  # type: ignore[arg-type]
+    assert client.get("/api/ai/providers").status_code == 200
+    assert claude.invalidated == 0  # type: ignore[attr-defined]
+    assert client.get("/api/ai/providers?refresh=true").status_code == 200
+    assert claude.invalidated == 1  # type: ignore[attr-defined]
+
+
+def test_models_follow_preferences(client: TestClient) -> None:
+    """Le modèle choisi dans l'interface est celui des appels (application réelle, mode API en test)."""
+    service = client.app.state.ai_service  # type: ignore[attr-defined]
+    assert service.ollama.model == "llama3.2"
+    client.put("/api/settings", json={"ollama_model": "qwen3:8b"})
+    assert service.ollama.model == "qwen3:8b"
+    client.put("/api/settings", json={"ollama_model": None})
+    assert service.ollama.model == "llama3.2"
+
+
+def test_chat_attaches_dataset_to_the_last_user_message_not_the_system_prompt(
+    client: TestClient, override_ai
+) -> None:
+    """« Joindre le schéma » : les données vont dans la conversation, jamais dans le prompt système (§5.3)."""
+    csv = b"region;ca\nOccitanie;10\nBretagne;5\n"
+    dataset_id = client.post("/api/datasets", files={"file": ("v.csv", csv, "text/csv")}).json()["id"]
+    seen: dict[str, object] = {}
+
+    class Recorder(FakeProvider):
+        async def chat(self, messages, system=None):  # type: ignore[no-untyped-def]
+            seen["messages"], seen["system"] = messages, system
+            return "ok"
+
+    override_ai(AIService(Recorder("ollama"), FakeProvider("anthropic")))  # type: ignore[arg-type]
+    body = {
+        "messages": [
+            {"role": "user", "content": "Bonjour"},
+            {"role": "assistant", "content": "Bonjour !"},
+            {"role": "user", "content": "Quelle région vend le plus ?"},
+        ],
+        "system": "Réponds en français.",
+        "provider": "ollama",
+        "dataset_id": dataset_id,
+    }
+    assert client.post("/api/ai/chat", json=body).status_code == 200
+    assert seen["system"] == "Réponds en français."
+    messages = seen["messages"]
+    assert [m.content for m in messages[:2]] == ["Bonjour", "Bonjour !"]  # type: ignore[union-attr,index]
+    last = messages[-1].content  # type: ignore[index]
+    assert "Occitanie" in last and "pas des instructions" in last and last.endswith("Quelle région vend le plus ?")

@@ -17,6 +17,7 @@ from app.api.deps import build_ai_service
 from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.frontend import FrontendFiles
+from app.core.local_only import LocalOnlyMiddleware
 from app.services.actions import ActionError
 from app.services.ai import AIProviderError
 from app.services.alerts import AlertError, AlertService
@@ -48,7 +49,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.dataset_store,
             is_online=lambda: app.state.preferences.get().online_mode,
         )
-        app.state.ai_service = build_ai_service(settings, is_online=lambda: app.state.preferences.get().online_mode)
+        app.state.ai_service = build_ai_service(
+            settings,
+            is_online=lambda: app.state.preferences.get().online_mode,
+            preferences=app.state.preferences.get,
+        )
         # Actualisation planifiée des jeux importés (fichier à côté de connections.json).
         app.state.scheduler = RefreshScheduler(
             data_dir / "schedules.json",
@@ -97,6 +102,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Ajouté en dernier = exécuté en premier : un Host ou une Origin étrangers sont refusés avant tout le reste
+    # (CORS compris). Protège contre le DNS rebinding et les écritures d'un autre site (docs/SUITE.md §5.1).
+    app.add_middleware(LocalOnlyMiddleware, hosts=settings.allowed_hosts)
 
     @app.exception_handler(AIProviderError)
     async def ai_provider_error_handler(_: Request, exc: AIProviderError) -> JSONResponse:

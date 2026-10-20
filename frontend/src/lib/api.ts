@@ -1,7 +1,7 @@
 /** Client HTTP typé : seul point d'accès du front au backend FastAPI. */
 
-import type { ChatRequest, ChatResponse, ProvidersResponse } from "../types/ai";
-import type { BuildRequest, BuildResponse } from "../types/builder";
+import type { ChatRequest, ChatResponse, ClaudeModel, ProviderChoice, ProvidersResponse } from "../types/ai";
+import type { BuildRequest, BuildResponse, RepairRequest, RepairResponse } from "../types/builder";
 import type { SummaryRequest, SummaryResponse } from "../types/summary";
 import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult, SampleFile, SamplesImport } from "../types/dataset";
 import type { QueryRequest, QueryResponse } from "../types/query";
@@ -22,8 +22,14 @@ import type { GitHubConfigInput, GitHubState, GitHubTest, PullRequest, PullResul
 import type { RefreshRun, RefreshSchedule, ScheduleState } from "../types/refresh";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
 
+/** Miroir de `Preferences` (backend/app/services/preferences.py). */
 export interface Preferences {
   online_mode: boolean;
+  /** Moteur choisi (« Auto · Ollama · Claude »), mémorisé. */
+  ai_provider: ProviderChoice;
+  claude_model: ClaudeModel;
+  /** null = modèle Ollama de la configuration (`OLLAMA_MODEL`). */
+  ollama_model: string | null;
 }
 
 export interface WebhookResult {
@@ -71,10 +77,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<{ status: "ok"; version: string; environment: string }>("/health"),
-  providers: () => request<ProvidersResponse>("/ai/providers"),
+  /** `refresh` : revérifie Claude tout de suite (sinon état gardé 60 s par le serveur). */
+  providers: (refresh = false) => request<ProvidersResponse>(`/ai/providers${refresh ? "?refresh=true" : ""}`),
   chat: (body: ChatRequest) => request<ChatResponse>("/ai/chat", { method: "POST", body: JSON.stringify(body) }),
   buildVisuals: (body: BuildRequest, signal?: AbortSignal) =>
     request<BuildResponse>("/ai/visuals", { method: "POST", body: JSON.stringify(body), signal }),
+  /** Revalide des visuels de l'historique « Créer avec l'IA » (même `repair` que la génération). */
+  repairVisuals: (body: RepairRequest) => request<RepairResponse>("/ai/visuals/repair", { method: "POST", body: JSON.stringify(body) }),
   summarizePage: (body: SummaryRequest, signal?: AbortSignal) =>
     request<SummaryResponse>("/ai/summary", { method: "POST", body: JSON.stringify(body), signal }),
 
@@ -169,7 +178,8 @@ export const api = {
 
   settings: {
     get: () => request<Preferences>("/settings"),
-    set: (value: Preferences) => request<Preferences>("/settings", { method: "PUT", body: JSON.stringify(value) }),
+    /** Seuls les champs envoyés changent (les autres préférences sont gardées par le serveur). */
+    set: (value: Partial<Preferences>) => request<Preferences>("/settings", { method: "PUT", body: JSON.stringify(value) }),
   },
 
   webhook: (url: string, method: "GET" | "POST", payload: Record<string, unknown>) =>

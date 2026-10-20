@@ -87,6 +87,32 @@ if [[ ! -f "$ROOT/backend/desktop.py" || ! -x "$PY" ]]; then
   alert "Le dépôt ($ROOT) ou son environnement Python a changé de place. Relancez scripts/macos/build_app.sh."
   exit 1
 fi
+# Interface compilée plus ancienne que ses sources (git pull sans relancer ce script) : la fenêtre
+# afficherait l'ancienne interface. Local d'abord : jamais de « npm install » au lancement (réseau,
+# scripts des paquets). app/launcher.py décide : « ok », « build » (node_modules à jour : npm run build,
+# hors ligne) ou « install » (dépendances changées : relancer build_app.sh, ancienne interface en attendant).
+FRONT="$ROOT/frontend"
+ACTION="$(cd "$ROOT/backend" && "$PY" -m app.launcher "$FRONT" 2>>"$LOG")" || ACTION="ok"
+case "$ACTION" in
+  build)
+    echo "--- $(date '+%F %T') : interface plus ancienne que ses sources, recompilation (npm run build)" >>"$LOG"
+    if command -v npm >/dev/null; then
+      /usr/bin/osascript -e 'display notification "Mise à jour de l’interface…" with title "Atelier Viz"' >/dev/null 2>&1 || true
+      if ! (cd "$FRONT" && npm run build --silent) >>"$LOG" 2>&1; then
+        alert "La mise à jour de l'interface a échoué (voir ~/Library/Logs/Atelier Viz/atelier-viz.log). L'ancienne interface est utilisée ; relancez scripts/macos/build_app.sh."
+      fi
+    else
+      alert "L'interface n'est plus à jour et npm est introuvable. L'ancienne interface est utilisée ; relancez scripts/macos/build_app.sh."
+    fi
+    ;;
+  install)
+    echo "--- $(date '+%F %T') : dépendances de l'interface absentes ou modifiées : rien n'est installé au lancement" >>"$LOG"
+    # Sans interface compilée, la fenêtre affiche déjà « Interface introuvable … relancez build_app.sh ».
+    if [[ -f "$FRONT/dist/index.html" ]]; then
+      alert "Les dépendances de l'interface ont changé (mise à jour du code). Relancez scripts/macos/build_app.sh pour les installer ; en attendant, l'ancienne interface est utilisée."
+    fi
+    ;;
+esac
 if ! "$PY" -c 'import importlib.util as u, sys; sys.exit(0 if all(u.find_spec(m) for m in ("fastapi", "uvicorn", "duckdb", "webview")) else 1)'; then
   alert "Des modules Python manquent dans $PY. Relancez scripts/macos/build_app.sh."
   exit 1
@@ -124,6 +150,8 @@ cat <<EOF
     ou lancez-la avec Spotlight (⌘ Espace, « Atelier Viz »).
   • Pour la garder dans le Dock : clic droit sur son icône pendant qu'elle tourne → Options → Garder dans le Dock.
   • Journal en cas de souci : ~/Library/Logs/Atelier Viz/atelier-viz.log
-  • Après une mise à jour du code (git pull) : relancez ce script.
+  • Après une mise à jour du code (git pull) : l’interface est recompilée au lancement si besoin
+    (npm run build, sans réseau) ; relancez ce script si des dépendances (npm ou Python) ont changé :
+    l’application ne télécharge jamais rien au lancement.
 EOF
 if [[ "$(uname)" == "Darwin" ]]; then open -R "$APP" || true; fi

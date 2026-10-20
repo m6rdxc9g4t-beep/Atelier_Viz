@@ -11,7 +11,6 @@ from app.schemas.ai import (
     ProviderChoice,
     ProvidersResponse,
     ProviderStatus,
-    TaskComplexity,
 )
 from app.services.ai.anthropic import AnthropicProvider
 from app.services.ai.base import AIProvider, AIProviderError
@@ -27,11 +26,11 @@ OFFLINE_MESSAGE = "Mode hors ligne : activez le mode en ligne (Réglages) pour u
 class AIService:
     """Point d'entrée unique de l'IA pour le reste du backend.
 
-    Règles (voir specification.md §5) :
-    - mode hors ligne : Claude est désactivé, tout passe par Ollama (local) ;
+    Règles (docs/SUITE.md §5.2, specification.md §3) :
+    - mode hors ligne : Claude est désactivé (403 s'il est demandé), tout passe par Ollama (local) ;
     - choix explicite (`ollama` / `anthropic`) : respecté tel quel ;
-    - `auto` + `complex` : Claude si en ligne et configuré, sinon Ollama ;
-    - `auto` + `simple` : Ollama ;
+    - `auto` : Claude si l'application est en ligne **et** Claude disponible (CLI trouvée et connectée,
+      état mis en cache 60 s ; clé présente en mode API), sinon Ollama ;
     - repli Ollama → Claude uniquement si en ligne et `allow_cloud_fallback`.
 
     Args:
@@ -52,9 +51,16 @@ class AIService:
 
     @property
     def claude_usable(self) -> bool:
+        """En ligne et Claude configuré (CLI : recherchée de nouveau au plus toutes les 60 s si elle manquait)."""
         return self.is_online() and self.anthropic.configured
 
-    def resolve(self, choice: ProviderChoice, task: TaskComplexity) -> AIProvider:
+    async def claude_available(self) -> bool:
+        """Claude utilisable tout de suite : en ligne, configuré et disponible (état en cache)."""
+        if not self.claude_usable:
+            return False
+        return (await self.anthropic.status()).available
+
+    async def resolve(self, choice: ProviderChoice) -> AIProvider:
         """Retourne le fournisseur à utiliser pour cette requête."""
         if choice == "ollama":
             return self.ollama
@@ -62,13 +68,11 @@ class AIService:
             if not self.is_online():
                 raise AIProviderError("anthropic", OFFLINE_MESSAGE, 403)
             return self.anthropic
-        if task == "complex" and self.claude_usable:
-            return self.anthropic
-        return self.ollama
+        return self.anthropic if await self.claude_available() else self.ollama
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
         """Route la requête, avec repli cloud optionnel en mode `auto`."""
-        provider = self.resolve(request.provider, request.task)
+        provider = await self.resolve(request.provider)
         try:
             content = await provider.chat(request.messages, request.system)
             return ChatResponse(provider=provider.name, model=provider.model, content=content)
@@ -87,13 +91,12 @@ class AIService:
     async def chat_json(
         self,
         choice: ProviderChoice,
-        task: TaskComplexity,
         messages: list[ChatMessage],
         system: str | None,
         schema: dict[str, Any],
     ) -> tuple[AIProvider, dict[str, Any]]:
         """Sortie JSON structurée, mêmes règles de routage (et de repli) que `chat`."""
-        provider = self.resolve(choice, task)
+        provider = await self.resolve(choice)
         try:
             return provider, await provider.chat_json(messages, system, schema)
         except AIProviderError:
@@ -104,12 +107,23 @@ class AIService:
                 raise
             return self.anthropic, await self.anthropic.chat_json(messages, system, schema)
 
-    async def providers_status(self) -> ProvidersResponse:
-        """État de tous les fournisseurs, vérifiés en parallèle (Claude non sollicité hors ligne)."""
+    async def providers_status(self, refresh: bool = False) -> ProvidersResponse:
+        """État de tous les fournisseurs, vérifiés en parallèle (Claude non sollicité hors ligne).
+
+        `refresh` oublie l'état de Claude mis en cache (bouton « Revérifier »), au plus toutes les 10 s.
+        """
+        invalidate = getattr(self.anthropic, "invalidate", None)
+        if refresh and callable(invalidate):
+            invalidate()
         if not self.is_online():
             ollama = await self.ollama.status()
             claude = ProviderStatus(
-                name="anthropic", available=False, model=self.anthropic.model, detail="Désactivé : mode hors ligne"
+                name="anthropic",
+                available=False,
+                model=self.anthropic.model,
+                detail="Désactivé : mode hors ligne",
+                models=list(getattr(self.anthropic, "models", [])),
+                executable=getattr(self.anthropic, "executable", None),
             )
             return ProvidersResponse(providers=[ollama, claude])
         statuses = await asyncio.gather(self.ollama.status(), self.anthropic.status())

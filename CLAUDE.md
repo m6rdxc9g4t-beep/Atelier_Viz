@@ -10,6 +10,7 @@ cartes hors ligne, boutons d'automatisation, assistant IA (Ollama local ; Claude
 
 ## Principe n°1 : local d'abord
 - Hors ligne par défaut : **rien ne quitte la machine** (données, calculs, fonds de carte, polices).
+- API locale seulement : `LocalOnlyMiddleware` (`app/core/local_only.py`, docs/SUITE.md §5.1) refuse un `Host` non local (hors `ALLOWED_HOSTS`) et, pour les écritures, une `Origin` étrangère ou `null`. Ne jamais l'affaiblir : en test, `conftest` ajoute `testserver` à `allowed_hosts` ; un nouveau client (proxy, fenêtre) doit envoyer un Host de bouclage. `fastapi>=0.132` (corps JSON exigeant un `Content-Type` JSON).
 - Toute fonctionnalité qui contacte Internet (Claude, webhook externe…) doit vérifier `online_mode`
   (`PreferencesStore`) et être refusée proprement hors ligne (HTTP 403 + message en français).
 - Aucune ressource externe au chargement du frontend (pas de CDN, pas de Google Fonts).
@@ -32,7 +33,7 @@ backend/
   app/services/engine/        # database.py (DuckDB + verrou), query.py (QueryRequest → SQL paramétré), expressions.py (langage des calculs)
   app/services/data/          # parsing, profiling, store (persistance DuckDB), model (colonnes / mesures calculées), context (contexte IA)
   app/services/reports.py     # ReportRepository (JSON)
-  app/services/preferences.py # mode en ligne
+  app/services/preferences.py # mode en ligne (fusion + écriture sous un même verrou)
   app/services/actions.py     # webhooks des boutons (et des alertes) ; hors ligne : connexion à l'IP privée validée (anti DNS rebinding)
   app/services/refresh.py     # RefreshScheduler : actualisation planifiée, journal (data/schedules.json)
   app/services/alerts.py      # AlertService : alertes sur seuil, anti-rebond, notifications (data/alerts.json)
@@ -90,6 +91,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 
 ## Application de bureau
 - `backend/desktop.py` → `app/desktop.py` (pywebview + uvicorn en fil) ; paquet macOS : `scripts/macos/build_app.sh`. L'interface compilée est servie par FastAPI (`settings.frontend_dist`).
+- Lanceur : **jamais de `npm install` au lancement** ; `app/launcher.py` (`ok` / `build` / `install`, testé dans `test_launcher.py`) décide d'un `npm run build` ou d'un message « relancez build_app.sh ».
 - Front : tout enregistrement de fichier passe par `saveFile` et tout lien externe par `openExternal` (`lib/desktop.ts`) — jamais `a.download` ni `window.open` directement (WKWebView les ignore).
 - Requêtes vers le serveur local sans proxy (`_local` dans desktop.py : macOS applique sinon le proxy système).
 
@@ -110,7 +112,11 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 
 ## Règles IA
 - `provider = "ollama" | "anthropic" | "auto"` ; hors ligne, `anthropic` → 403, `auto` → Ollama.
-- Mode CLI : appels isolés (`--safe-mode`, `--tools ""`, `--system-prompt`, `--no-session-persistence`, dossier vide, `ANTHROPIC_API_KEY` retirée). Ne jamais donner d'outils à la CLI.
+- Mode CLI : appels isolés (docs/SUITE.md §5.3 : `--safe-mode`, `--tools ""`, `--system-prompt`, `--no-session-persistence`, dossier vide). Ne jamais donner d'outils à la CLI.
+  - Environnement en **liste blanche** (`cli_environment`), dossier de l'exécutable en tête du `PATH` ; exécutable absolu (`find_claude_cli` : `CLAUDE_CLI` relatif refusé, `PATH` sans entrée relative ni `node_modules/.bin`).
+  - **Aucune donnée en argument** : le prompt système ne contient que des consignes ; schéma, lignes, titres, faits vont dans les messages (entrée standard), en `data_block` (`<donnees>…</donnees>`) avec `DATA_RULE` dans le prompt système. Énumération tirée des données dans un schéma JSON : marque `DATA_ENUM` (retirée de `--json-schema`).
+  - Sous-processus par `run_bounded` (sortie ≤ 4 Mo, délai puis SIGTERM/SIGKILL du groupe) ; tests : `runner` simulé, jamais la vraie CLI.
+  - Cache : état 60 s, CLI absente recherchée de nouveau au plus toutes les 60 s, `invalidate` (`?refresh=true`) au plus toutes les 10 s.
 - Seuls le **schéma** et **5 lignes** partent vers l'IA, et seulement si l'utilisateur coche « Joindre le schéma ».
 - Création de visuels : `app/services/ai/builder.py` (schéma contraint → `repair` → une relance max). Le catalogue vient du registre frontend (`visuals/catalog.ts`) : ne pas le dupliquer côté backend. Tout visuel qui arrive au Studio est passé par `repair`.
 - Tout fournisseur implémente `chat` et `chat_json` (sortie structurée).

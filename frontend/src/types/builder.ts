@@ -49,3 +49,21 @@ export interface BuildResponse {
   model: string;
   warnings: string[];
 }
+
+/** Visuels proposés plus tôt (historique du volet), revalidés avant d'être ajoutés de nouveau. */
+export interface RepairRequest {
+  dataset_id: string;
+  catalog: VisualTypeSpec[];
+  visuals: ProposedVisual[];
+}
+
+export interface RepairedVisual {
+  visual: ProposedVisual | null;
+  warnings: string[];
+  errors: string[];
+}
+
+/** Un résultat par visuel envoyé, dans le même ordre. */
+export interface RepairResponse {
+  results: RepairedVisual[];
+}
