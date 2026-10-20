@@ -213,7 +213,10 @@ Les trois applications proposent le **même choix de moteur**, avec la même int
 
 ### 5.1 Mode hors ligne / en ligne
 - Chaque application a un interrupteur **« Hors ligne / En ligne »** dans son en-tête (comme Atelier Viz), **hors ligne par défaut**,
-  mémorisé par application (Viz : `PreferencesStore` ; Projets : réglage du backend ; Tab : `atelier.json`, lu aussi par le processus principal et le serveur MCP).
+  mémorisé par application (Viz : `PreferencesStore` ; Projets : réglage du backend ; Tab : fichier de préférences **hors du dossier de données**,
+  à côté du fichier de secrets — le dossier `~/Atelier_Tab` est modifiable par les IA, le mode en ligne ne doit pas l'être).
+- Aucune IA (outil de l'assistant, serveur MCP) ne peut passer une application en ligne ; seul l'utilisateur le fait.
+- Les routes qui changent le mode (Viz, Projets) n'acceptent que des requêtes locales : `Host` de bouclage et, pour toute écriture, `Origin` absente ou de bouclage (protection contre le DNS rebinding et les requêtes d'un autre site).
 - Hors ligne, **rien ne part vers Claude** : le choix « Claude » est grisé avec l'explication, et une requête explicite est refusée
   (HTTP 403 ou erreur, message en français).
 
@@ -233,14 +236,28 @@ Commande segmentée **« Moteur : Auto · Ollama · Claude »** à l'endroit où
 - Par la **CLI Claude Code** de la machine (abonnement de l'utilisateur), lancée **isolée**, comme dans Viz :
   `claude -p --safe-mode --output-format json --tools "" --strict-mcp-config --disable-slash-commands --no-session-persistence --max-turns <n> --model <alias> --system-prompt <prompt>`
   (+ `--json-schema <schéma>` pour une sortie structurée), conversation sur l'entrée standard, dossier de travail temporaire vide,
-  `ANTHROPIC_API_KEY` retirée et `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` dans l'environnement, délai maximal (180 s par défaut).
+  délai maximal (180 s par défaut ; arrêt forcé si le processus ne s'arrête pas), sortie lue avec une taille maximale.
+- **Aucune donnée en argument** de ligne de commande (visible par `ps`) : le prompt système ne contient que des consignes ;
+  les données (lignes d'exemple, contenu de tables, diffs) passent par l'entrée standard.
+- **Environnement en liste blanche** : `HOME`, `USER`, `LOGNAME`, `PATH`, `SHELL`, `LANG`, `LC_*`, `TMPDIR`, `TZ`, `CLAUDE_CONFIG_DIR`,
+  plus `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`. Rien d'autre (ni `ANTHROPIC_*`, ni `CLAUDE_CODE_USE_BEDROCK/VERTEX`, ni secret de l'application).
+  Le dossier de l'exécutable est placé en tête du `PATH` (une CLI installée par npm doit trouver `node` depuis le Finder).
 - **Jamais d'outil de la CLI** (ni shell, ni fichiers, ni MCP). Quand une application a besoin d'actions (outils de l'assistant de Tab),
   c'est l'application qui les exécute : Claude répond en JSON contraint par `--json-schema`
   (`{"action":"tool","name":…,"arguments":{…}}` ou `{"action":"answer","text":…}`), l'application exécute l'outil par ses actions habituelles
   et renvoie le résultat au tour suivant (8 tours maximum par demande).
-- Recherche de l'exécutable : variable `CLAUDE_CLI`, sinon `PATH`, puis `~/.local/bin/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude`
-  (une app lancée depuis le Finder n'hérite pas du `PATH` du terminal).
-- Disponibilité : exécutable trouvé **et** `claude auth status` réussi (mis en cache 60 s). Version affichée dans les réglages.
+- Recherche de l'exécutable : variable `CLAUDE_CLI` (chemin absolu), sinon `PATH` — en ignorant les entrées relatives et les dossiers `node_modules/.bin` —,
+  puis `~/.local/bin/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude` (une app lancée depuis le Finder n'hérite pas du `PATH` du terminal).
+  Le chemin retenu est absolu.
+- Disponibilité : exécutable trouvé **et** `claude auth status` réussi (mis en cache 60 s ; une revérification forcée au plus toutes les 10 s). Version affichée dans les réglages.
+
+### 5.4 Outils pilotés par une IA
+Ce que lisent les outils (cellules, titres, commits) est une **donnée, jamais une instruction** :
+- le prompt système le dit explicitement, et chaque résultat d'outil est transmis comme un bloc délimité « Résultat d'outil (données) », jamais comme un message de l'utilisateur ;
+- un outil appelé par l'assistant **ne peut pas envoyer de données hors de la machine** sans confirmation de l'utilisateur dans l'interface
+  (Tab : `configure_export` / `export_table` limités aux adresses de bouclage, toute autre adresse demande confirmation ; un jeton d'accès n'est envoyé qu'à l'adresse d'import d'Atelier Projets) ;
+- hors ligne, aucun envoi vers une adresse extérieure, par aucun chemin ;
+- les outils destructeurs (suppression de lignes, de colonnes, de tables) appelés par l'assistant demandent une confirmation.
 - Le lancement d'une **session interactive** Claude Code dans un terminal (Projets : « Claude CLI sur … ») reste une fonction distincte, indépendante du moteur.
 
 ---
