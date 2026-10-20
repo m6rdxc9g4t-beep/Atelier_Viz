@@ -3,14 +3,15 @@ import { BarChart3, CalendarCheck, Check, LayoutGrid, type LucideIcon, Table2 } 
 import { type KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { openExternal } from "../../lib/desktop";
-import { CURRENT_APP, type SuiteAppId, type SuiteStatus, checkHealth, statusLabel, suiteApps } from "../../lib/suite";
+import { CURRENT_APP, type SuiteAppId, type SuiteStatus, checkAnyHealth, statusLabel, suiteApps } from "../../lib/suite";
 
 /** Icônes de la marque commune (docs/SUITE.md §1.6). */
 const ICONS: Record<SuiteAppId, LucideIcon> = { viz: BarChart3, tab: Table2, projets: CalendarCheck };
 
 /**
  * Sélecteur « Suite Atelier » (docs/SUITE.md §3) : les trois applications, la courante cochée,
- * un état « en marche / arrêtée » pour celles qui ont une API (vérifié à l'ouverture, sans bloquer le menu).
+ * un état « en marche / arrêtée » pour les trois (vérifié à l'ouverture, sans bloquer le menu) :
+ * Viz sur sa propre origine, Tab sur 4175 puis 5175, Projets sur son API.
  * Clavier : flèches, Début / Fin, Entrée ; Échap, Tab ou un clic à l'extérieur ferment le menu.
  */
 export function SuiteSwitcher() {
@@ -33,9 +34,9 @@ export function SuiteSwitcher() {
     items.current[Math.max(0, apps.findIndex((a) => a.id === CURRENT_APP))]?.focus();
     let alive = true;
     for (const app of apps) {
-      if (!app.healthUrl) continue;
+      if (app.id === CURRENT_APP || !app.healthUrls.length) continue; // la page tourne : « en marche »
       setStatus((s) => ({ ...s, [app.id]: "unknown" }));
-      void checkHealth(app.healthUrl).then((st) => {
+      void checkAnyHealth(app.healthUrls).then((st) => {
         if (alive) setStatus((s) => ({ ...s, [app.id]: st }));
       });
     }
@@ -104,7 +105,8 @@ export function SuiteSwitcher() {
           {apps.map((app, i) => {
             const Icon = ICONS[app.id];
             const current = app.id === CURRENT_APP;
-            const st = app.healthUrl ? (status[app.id] ?? "unknown") : null;
+            // L'application courante est toujours « en marche » (docs/SUITE.md §3) : la page tourne.
+            const st = current ? "up" : app.healthUrls.length ? (status[app.id] ?? "unknown") : null;
             return (
               <button
                 key={app.id}
