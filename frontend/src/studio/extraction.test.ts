@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import type { DatasetProfile } from "../types/dataset";
 import type { Page, Report, Visual } from "../types/report";
-import { drillTargets, extractionLabel, fitScale, presentationPages, sameField, step } from "./extraction";
+import { drillTargets, extractionLabel, fitScale, fitWidthScale, presentationPages, sameField, step } from "./extraction";
 import { visualFilters } from "./filters";
 import { useStudio } from "./store";
 
@@ -100,5 +100,20 @@ describe("store : extraction", () => {
     expect(s().report?.pages[0]?.drillthrough).toEqual({ fields: ["region", "produit"] });
     s().setDrillthrough(null);
     expect(s().report?.pages[0]?.drillthrough).toBeNull();
+  });
+});
+
+describe("fitWidthScale", () => {
+  it("ne déborde jamais d'un sous-pixel (pas de barre de défilement qui ferait osciller le zoom)", () => {
+    for (const available of [700, 913, 1007, 1366, 1919]) {
+      const s = fitWidthScale(1280, available, 24);
+      expect(1280 * s + 2 * 24).toBeLessThanOrEqual(available - 1 + 1e-9);
+    }
+  });
+
+  it("reste entre 25 % et 200 %", () => {
+    expect(fitWidthScale(1280, 100, 24)).toBe(0.25);
+    expect(fitWidthScale(1280, 10_000, 24)).toBe(2);
+    expect(fitWidthScale(1280, 0, 24)).toBe(1);
   });
 });
