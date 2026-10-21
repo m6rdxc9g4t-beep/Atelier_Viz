@@ -161,7 +161,7 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 | Mettre en évidence | Table ou matrice → onglet Format → **Mise en forme conditionnelle** : dégradé ou couleurs divergentes, règles (« < 900 000 → rouge »), barres de données, icônes ▲ ● ▼ |
 | Habiller | Bouton « Thème » : clair / sombre, préréglages (Verre, Papier, Minuit…), couleurs en hexadécimal, import de thèmes Power BI ; onglet Format d'un visuel : fond transparent, bordure, arrondi, ombre, titre, couleurs |
 | Résumer | Bouton **Résumer** : synthèse de la page par l'IA, chaque chiffre vérifié contre les données ; à insérer dans la page ou dans les notes PowerPoint |
-| Exporter | Bouton **PowerPoint** : une page = une diapositive, graphiques et tableaux modifiables dans PowerPoint (ou images fidèles), filtres listés dans les notes ; fichier créé sur la machine |
+| Exporter | Bouton **Exporter** → **PowerPoint** (une page = une diapositive, graphiques et tableaux modifiables, filtres dans les notes), **PDF** (une page par page), **Image** PNG de la page, ou **Rapport HTML autonome** (un fichier lisible partout hors ligne, avec les données de chaque visuel) ; fichiers créés sur la machine |
 | Raccourcis | Ctrl+Z / Ctrl+Y, Ctrl+D, Suppr, flèches, Échap |
 
 ## Tests

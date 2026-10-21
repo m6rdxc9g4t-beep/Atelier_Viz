@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ArrowLeft, Bookmark, Check, Eye, FilterX, Loader2, MonitorPlay, Palette, Pencil, Presentation, Redo2, ScrollText, Sparkles, Undo2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, Check, Download, Eye, FileCode2, FileImage, FileText, FilterX, Loader2, MonitorPlay, Palette, Pencil, Presentation, Redo2, ScrollText, Sparkles, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLinkedProfiles } from "../hooks/useDatasetProfiles";
@@ -8,6 +8,8 @@ import { navigate } from "../lib/router";
 import type { DatasetSummary } from "../types/dataset";
 import { Canvas } from "./Canvas";
 import { StudioDataContext } from "./context";
+import { ContextMenu } from "./ContextMenu";
+import { DocumentDialog } from "./DocumentDialog";
 import { ExportDialog } from "./ExportDialog";
 import { extractionLabel } from "./extraction";
 import { PageTabs } from "./PageTabs";
@@ -42,6 +44,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
   const [side, setSide] = useState<"default" | "theme" | "ai" | "summary" | "bookmarks">("default");
   const toggleSide = (v: "theme" | "ai" | "summary" | "bookmarks") => setSide((cur) => (cur === v ? "default" : v));
   const [exporting, setExporting] = useState(false);
+  const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
+  const [documentFormat, setDocumentFormat] = useState<"pdf" | "png" | "html" | null>(null);
   const extraction = useStudio((st) => st.extraction);
   // Présentation : mode lecture plein écran ; le mode d'avant est rétabli en sortant.
   const [presenting, setPresenting] = useState<null | "edit" | "view">(null);
@@ -242,11 +246,16 @@ export function StudioPage({ reportId }: { reportId: string }) {
             </button>
             <button
               type="button"
-              onClick={() => setExporting(true)}
-              title="Exporter le rapport en PowerPoint (.pptx)"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setExportMenu({ x: r.left, y: r.bottom + 4 });
+              }}
+              aria-haspopup="menu"
+              aria-expanded={exportMenu !== null}
+              title="Exporter : PowerPoint, PDF, image ou rapport HTML"
               className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-fg"
             >
-              <Presentation className="size-3.5" aria-hidden /> <span className="hidden md:inline">PowerPoint</span>
+              <Download className="size-3.5" aria-hidden /> <span className="hidden md:inline">Exporter</span>
             </button>
             <button
               type="button"
@@ -310,6 +319,21 @@ export function StudioPage({ reportId }: { reportId: string }) {
         <PageTabs />
       </div>
       {exporting && <ExportDialog onClose={() => setExporting(false)} />}
+      {exportMenu && (
+        <ContextMenu
+          x={exportMenu.x}
+          y={exportMenu.y}
+          title="Exporter"
+          onClose={() => setExportMenu(null)}
+          items={[
+            { label: "PowerPoint (.pptx)", hint: "Graphiques modifiables", icon: Presentation, onSelect: () => setExporting(true) },
+            { label: "PDF", hint: "Une page par page du rapport", icon: FileText, onSelect: () => setDocumentFormat("pdf") },
+            { label: "Image (PNG)", hint: "La page affichée", icon: FileImage, onSelect: () => setDocumentFormat("png") },
+            { label: "Rapport HTML autonome", hint: "Un fichier lisible partout, avec les données", icon: FileCode2, onSelect: () => setDocumentFormat("html") },
+          ]}
+        />
+      )}
+      {documentFormat && <DocumentDialog initial={documentFormat} onClose={() => setDocumentFormat(null)} />}
       {presenting && <PresentationMode report={report} onExit={stopPresenting} />}
     </StudioDataContext.Provider>
   );

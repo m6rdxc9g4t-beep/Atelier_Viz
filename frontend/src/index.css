@@ -213,3 +213,11 @@ body {
 .recharts-wrapper *:focus {
   outline: none;
 }
+
+/* Export (image, PDF, HTML) : pas de barre de défilement dans les captures. */
+[data-snapshot] * {
+  scrollbar-width: none;
+}
+[data-snapshot] *::-webkit-scrollbar {
+  display: none;
+}

@@ -19,6 +19,7 @@ import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { FIELD_MIME, type DraggedField, useStudioData } from "./context";
 import { drillTargets, extractionLabel } from "./extraction";
 import { pageActiveFilters, visualFilters } from "./filters";
+import { useSnapshot } from "./snapshot";
 import { useStudio } from "./store";
 
 interface Props {
@@ -32,16 +33,20 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
   const def = VISUALS[visual.type];
   const { profiles, datasets } = useStudioData();
   const [alerting, setAlerting] = useState(false);
+  const snapshot = useSnapshot();
   const mode = useStudio((s) => s.mode);
   const selectedId = useStudio((s) => s.selectedId);
-  const selection = useStudio((s) => s.selection);
-  const extraction = useStudio((s) => (s.extraction?.pageId === page.id ? s.extraction : null));
+  const liveSelection = useStudio((s) => s.selection);
+  const liveExtraction = useStudio((s) => (s.extraction?.pageId === page.id ? s.extraction : null));
+  // Export (instantané) : état fourni par l'appelant, jamais celui de l'écran.
+  const selection = snapshot ? snapshot.selection : liveSelection;
+  const extraction = snapshot ? (snapshot.extraction?.pageId === page.id ? snapshot.extraction : null) : liveExtraction;
   const [menu, setMenu] = useState<{ x: number; y: number; title: string; items: MenuItem[] } | null>(null);
   const studio = useStudio.getState;
   const [dropping, setDropping] = useState(false);
   // Mode exploration (Power BI) : un clic sur un élément descend d'un niveau au lieu de filtrer les autres visuels.
   const [drillMode, setDrillMode] = useState(false);
-  const editing = mode === "edit";
+  const editing = mode === "edit" && !snapshot;
   const selected = editing && selectedId === visual.id;
   const dataset = visual.dataset_id ? profiles.get(visual.dataset_id) : undefined;
 
@@ -288,7 +293,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
           {result?.truncated && <span className="text-[10px] text-muted" title="Résultat limité : utilisez un Top N ou des filtres">tronqué</span>}
         </header>
       )}
-      {drillable && <DrillBar visual={visual} dataset={dataset} drillMode={drillMode} onToggle={() => setDrillMode((m) => !m)} onChange={setDrill} />}
+      {drillable && !snapshot && <DrillBar visual={visual} dataset={dataset} drillMode={drillMode} onToggle={() => setDrillMode((m) => !m)} onChange={setDrill} />}
       <div className="min-h-0 flex-1">{body}</div>
       {menu && <ContextMenu x={menu.x} y={menu.y} title={menu.title} items={menu.items} onClose={() => setMenu(null)} />}
       {alerting && alertDraft && (
