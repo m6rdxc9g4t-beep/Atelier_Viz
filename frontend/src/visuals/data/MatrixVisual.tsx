@@ -8,6 +8,8 @@ import { bindingKey, bindingLabel } from "../fields";
 import { formatDimension, formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
 import { type MatrixNode, buildMatrix } from "./pivot";
+import { type CondFormat, type Stats, decorStyle, decorate, formatFor, statsOf } from "./conditional";
+import { DecoratedValue } from "./TableVisual";
 
 /** Matrice : lignes hiérarchiques dépliables, colonne pivot, sous-totaux et total général exacts. */
 export function MatrixVisual(props: VisualProps) {
@@ -24,6 +26,23 @@ export function MatrixVisual(props: VisualProps) {
   if (!model.root.children.length && !model.root.cells.size) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
 
   const colKeys = [...model.columns.map(valueKey), "__total"];
+
+  // Mise en forme conditionnelle : statistiques sur les cellules affichées (hors colonne Total).
+  const visible: MatrixNode[] = [];
+  const collect = (n: MatrixNode) => {
+    visible.push(n);
+    if (n.level < rows.length && (expandAll || open.has(n.path))) n.children.forEach(collect);
+  };
+  model.root.children.forEach(collect);
+  const formats = new Map<string, CondFormat>(values.map((m) => [bindingKey(m), formatFor(visual, bindingKey(m))]));
+  const stats = new Map<string, Stats | null>(
+    values.map((m) => [
+      bindingKey(m),
+      statsOf(visible.flatMap((n) => colKeys.filter((k) => k !== "__total").map((k) => n.cells.get(k)?.[bindingKey(m)] as number | null))),
+    ]),
+  );
+  const cellDecor = (raw: unknown, key: string, total: boolean) =>
+    total || typeof raw !== "number" ? {} : decorate(raw, formats.get(key) as CondFormat, stats.get(key) ?? null);
   const colType = columnType(dataset, column?.field);
   const colLabel = (k: string, i: number) =>
     k === "__total" ? "Total" : formatDimension(model.columns[i] ?? null, colType, column?.bin);
@@ -54,11 +73,19 @@ export function MatrixVisual(props: VisualProps) {
             )}
           </th>
           {colKeys.map((ck) =>
-            values.map((m) => (
-              <td key={`${ck}-${bindingKey(m)}`} className={clsx("whitespace-nowrap px-2 py-1 text-right tabular-nums", ck === "__total" && "bg-surface-2/60")}>
-                {node.cells.get(ck) ? formatNumber(node.cells.get(ck)?.[bindingKey(m)] ?? null, fmt) : ""}
-              </td>
-            )),
+            values.map((m) => {
+              const raw = node.cells.get(ck)?.[bindingKey(m)] ?? null;
+              const decor = cellDecor(raw, bindingKey(m), ck === "__total");
+              return (
+                <td
+                  key={`${ck}-${bindingKey(m)}`}
+                  className={clsx("relative whitespace-nowrap px-2 py-1 text-right tabular-nums", ck === "__total" && "bg-surface-2/60")}
+                  style={decorStyle(decor)}
+                >
+                  {node.cells.get(ck) ? <DecoratedValue decor={decor} text={formatNumber(raw, fmt)} /> : ""}
+                </td>
+              );
+            }),
           )}
         </tr>
         {!isLeaf && expanded && node.children.map(renderNode)}

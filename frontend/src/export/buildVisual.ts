@@ -17,6 +17,8 @@ import { columnType, shapeSeries } from "../visuals/charts/series";
 import { first, isReady, numberFormat, role, valueKey } from "../visuals/common";
 import { kpiGap } from "../visuals/data/KpiVisual";
 import { type MatrixNode, buildMatrix } from "../visuals/data/pivot";
+import { type CondFormat, type Stats, GLYPHS, decorHex, decorate, formatFor, isFormatted, statsOf } from "../visuals/data/conditional";
+import { SCALES } from "../theme/scales";
 import { bindingKey, bindingLabel } from "../visuals/fields";
 import { formatDimension, formatNumber } from "../visuals/format";
 import { type ButtonAction, isSafeUrl, renderTemplate } from "../visuals/interactive/actions";
@@ -515,9 +517,15 @@ function fit(text: string, widthIn: number, fontSize: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+/** Mise en forme conditionnelle d'une cellule exportée (couleurs hexadécimales). */
+interface CellDecor {
+  fill?: string;
+  text?: string;
+}
+
 interface TableSpec {
   header: { text: string; align: "left" | "right"; colspan?: number }[][];
-  body: { cells: string[]; bold?: boolean }[];
+  body: { cells: string[]; bold?: boolean; decor?: (CellDecor | undefined)[] }[];
   total: string[] | null;
   numericFrom: number;
 }
@@ -556,7 +564,17 @@ function tableItems(ctx: BuildContext, body: Rect, colors: VisualColors, title: 
       }),
     );
   }
-  for (const r of shown) rows.push(r.cells.map((t, j) => cell(t, j, r.bold ? { bold: true } : {})));
+  for (const r of shown)
+    rows.push(
+      r.cells.map((t, j) => {
+        const d = r.decor?.[j];
+        return cell(t, j, {
+          ...(r.bold ? { bold: true } : {}),
+          ...(d?.fill ? { fill: { color: pptColor(d.fill) } } : {}),
+          ...(d?.text ? { color: pptColor(d.text) } : {}),
+        });
+      }),
+    );
   if (more > 0) {
     const n = leafHeader.length || 1;
     rows.push([cell(`… et ${more} autre${more > 1 ? "s" : ""} ligne${more > 1 ? "s" : ""} (voir le rapport)`, 0, { color: muted, colspan: n, align: "left", italic: true })]);
@@ -587,18 +605,42 @@ const table: Builder = (ctx, body, colors, title, warnings) => {
   const totals = measures.map((m) =>
     m.agg === "sum" || m.agg === "count" ? formatNumber(result.rows.reduce((t, r) => t + num(r[bindingKey(m)]), 0), fmt) : "",
   );
+  const cond = condExport(ctx, colors, measures.map(bindingKey), (key) => result.rows.map((r) => r[key] as number | null));
   return tableItems(ctx, body, colors, title, {
     header: [[...dims.map((d) => ({ text: bindingLabel(d), align: "left" as const })), ...measures.map((m) => ({ text: bindingLabel(m), align: "right" as const }))]],
-    body: result.rows.map((r) => ({
-      cells: [
-        ...dims.map((d) => formatDimension(r[bindingKey(d)] ?? null, columnType(ctx.dataset, d.field), d.bin)),
-        ...measures.map((m) => formatNumber(r[bindingKey(m)] ?? null, fmt)),
-      ],
-    })),
+    body: result.rows.map((r) => {
+      const styled = measures.map((m) => cond(bindingKey(m), r[bindingKey(m)] ?? null, formatNumber(r[bindingKey(m)] ?? null, fmt)));
+      return {
+        cells: [...dims.map((d) => formatDimension(r[bindingKey(d)] ?? null, columnType(ctx.dataset, d.field), d.bin)), ...styled.map((s) => s.text)],
+        decor: [...dims.map(() => undefined), ...styled.map((s) => s.decor)],
+      };
+    }),
     total: showTotals ? [...dims.map((_, i) => (i === 0 ? "Total" : "")), ...totals] : null,
     numericFrom: dims.length,
   }, warnings);
 };
+
+/**
+ * Mise en forme conditionnelle à l'export : fond et texte en hexadécimal (thème clair ou sombre),
+ * icône ▲ ● ▼ devant la valeur. Les barres de données n'existent pas dans une table PowerPoint.
+ */
+function condExport(
+  ctx: BuildContext,
+  colors: VisualColors,
+  keys: string[],
+  valuesOf: (key: string) => (number | null)[],
+): (key: string, raw: unknown, text: string) => { text: string; decor: CellDecor | undefined } {
+  const formats = new Map<string, CondFormat>(keys.map((k) => [k, formatFor(ctx.visual, k)]));
+  const stats = new Map<string, Stats | null>(keys.filter((k) => isFormatted(formats.get(k) as CondFormat)).map((k) => [k, statsOf(valuesOf(k))]));
+  const palette = SCALES[ctx.theme.mode];
+  return (key, raw, text) => {
+    const f = formats.get(key);
+    if (!f || !isFormatted(f) || typeof raw !== "number" || !text) return { text, decor: undefined };
+    const d = decorate(raw, f, stats.get(key) ?? null);
+    const hex = decorHex(d, palette, colors.surface);
+    return { text: d.icon ? `${GLYPHS[d.icon.glyph]} ${text}` : text, decor: hex.fill || hex.text ? { fill: hex.fill, text: hex.text } : undefined };
+  };
+}
 
 /** Nombre maximal de colonnes de valeurs d'une matrice exportée (au-delà : colonnes omises, Total conservé). */
 export const MATRIX_MAX_VALUE_COLUMNS = 12;
@@ -636,15 +678,28 @@ const matrix: Builder = (ctx, body, colors, title, warnings) => {
   if (values.length > 1) header.push([{ text: "", align: "left" }, ...colKeys.flatMap(() => values.map((m) => ({ text: bindingLabel(m), align: "right" as const })))]);
 
   const cellsOf = (node: MatrixNode) => colKeys.flatMap((ck) => values.map((m) => (node.cells.get(ck) ? formatNumber(node.cells.get(ck)?.[bindingKey(m)] ?? null, fmt) : "")));
-  const flat: TableSpec["body"] = [];
-  const walk = (node: MatrixNode) => {
+  // Lignes affichées (comme à l'écran), puis mise en forme conditionnelle sur leurs cellules hors Total.
+  const visible: MatrixNode[] = [];
+  const collect = (node: MatrixNode) => {
+    visible.push(node);
+    if (node.level < rows.length && expandAll) node.children.forEach(collect);
+  };
+  model.root.children.forEach(collect);
+  const valueCols = colKeys.filter((k) => k !== "__total");
+  const cond = condExport(ctx, colors, values.map(bindingKey), (key) => visible.flatMap((n) => valueCols.map((k) => n.cells.get(k)?.[key] as number | null)));
+  const flat: TableSpec["body"] = visible.map((node) => {
     const binding = rows[node.level - 1];
     const isLeaf = node.level >= rows.length;
     const label = binding ? formatDimension(node.value, columnType(ctx.dataset, binding.field), binding.bin) : "";
-    flat.push({ cells: [`${" ".repeat(node.level - 1)}${label}`, ...cellsOf(node)], bold: !isLeaf });
-    if (!isLeaf && expandAll) node.children.forEach(walk);
-  };
-  model.root.children.forEach(walk);
+    const styled = colKeys.flatMap((ck) =>
+      values.map((m) => {
+        const raw = node.cells.get(ck)?.[bindingKey(m)] ?? null;
+        const text = node.cells.get(ck) ? formatNumber(raw, fmt) : "";
+        return ck === "__total" ? { text, decor: undefined } : cond(bindingKey(m), raw, text);
+      }),
+    );
+    return { cells: [`${" ".repeat(node.level - 1)}${label}`, ...styled.map((s) => s.text)], bold: !isLeaf, decor: [undefined, ...styled.map((s) => s.decor)] };
+  });
 
   return tableItems(ctx, body, colors, title, { header, body: flat, total: ["Total", ...cellsOf(model.root)], numericFrom: 1 }, warnings);
 };

@@ -239,6 +239,38 @@ describe("visuels natifs", () => {
     expect(gap?.runs[0]?.options?.color).toBe(pptColor(light.positive));
   });
 
+  it("table et matrice : mise en forme conditionnelle exportée (fond, texte, icônes)", () => {
+    const conditional = { "sum(ca)": { scale: "sequential", icons: "sign", rules: [{ op: "lt", value: 0, color: "negative" }], rulesTarget: "text" } };
+    const v = visual("table", { columns: [{ field: "region" }], values: [{ field: "ca", agg: "sum" }] }, { conditional });
+    const rows = [
+      { region: "Nord", "sum(ca)": 100 },
+      { region: "Sud", "sum(ca)": -20 },
+      { region: "Est", "sum(ca)": 40 },
+    ];
+    const [table] = ofKind(buildVisual(ctx(v, data(result(rows)))).items, "table");
+    const body = table?.rows.slice(1, 4) ?? [];
+    expect(body.map((r) => r[1]?.text.slice(0, 1))).toEqual(["▲", "▼", "▲"]);
+    const fills = body.map((r) => (r[1]?.options?.fill as { color: string } | undefined)?.color);
+    expect(fills.every((f) => typeof f === "string" && /^[0-9A-F]{6}$/i.test(f))).toBe(true);
+    expect(new Set(fills).size).toBe(3); // intensités différentes
+    expect(body[1]?.[1]?.options?.color).toBe("D03B3B"); // règle « < 0 » en rouge sur le texte
+    expect(body[0]?.[0]?.options?.fill).toBeUndefined(); // dimensions jamais colorées
+
+    const m = visual("matrix", { rows: [{ field: "region" }], columns: [{ field: "produit" }], values: [{ field: "ca", agg: "sum" }] }, { conditional: { "sum(ca)": { scale: "diverging" } } });
+    const mrows = [
+      { region: "Nord", produit: "A", "sum(ca)": 10 },
+      { region: "Nord", produit: "B", "sum(ca)": -10 },
+      { region: "Nord", produit: null, "sum(ca)": 0 },
+      { region: null, produit: "A", "sum(ca)": 10 },
+      { region: null, produit: "B", "sum(ca)": -10 },
+      { region: null, produit: null, "sum(ca)": 0 },
+    ];
+    const [mt] = ofKind(buildVisual(ctx(m, data(result(mrows)))).items, "table");
+    const nord = mt?.rows.find((r) => r[0]?.text === "Nord");
+    expect(nord?.[1]?.options?.fill).toBeDefined();
+    expect(nord?.[3]?.options?.fill).toBeUndefined(); // colonne Total jamais colorée
+  });
+
   it("table : total, et lignes au-delà de la hauteur résumées", () => {
     const v = visual("table", { columns: [{ field: "region" }], values: [{ field: "ca", agg: "sum" }] });
     const rows = Array.from({ length: 80 }, (_, i) => ({ region: `R${i}`, "sum(ca)": i }));

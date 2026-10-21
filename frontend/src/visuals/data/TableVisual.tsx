@@ -8,6 +8,7 @@ import { VisualMessage, dimmed, numberFormat, role, toggleSelection } from "../c
 import { bindingKey, bindingLabel } from "../fields";
 import { formatDimension, formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
+import { type CondFormat, type Decor, GLYPHS, decorStyle, decorate, formatFor, statsOf, toneCss } from "./conditional";
 
 /** Table : dimensions + mesures, tri par clic sur l'en-tête, total, barres de données. */
 export function TableVisual(props: VisualProps) {
@@ -17,7 +18,6 @@ export function TableVisual(props: VisualProps) {
   const [sort, setSort] = useState<{ key: string; desc: boolean } | null>(null);
   const fmt = numberFormat(visual);
   const showTotals = opt<boolean>(visual, def, "totals");
-  const dataBars = opt<boolean>(visual, def, "dataBars");
 
   const rows = useMemo(() => {
     const list = [...(result?.rows ?? [])];
@@ -35,9 +35,9 @@ export function TableVisual(props: VisualProps) {
   if (!result) return null;
   if (!rows.length) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
 
-  const maxBy = Object.fromEntries(
-    measures.map((m) => [bindingKey(m), Math.max(...rows.map((r) => Math.abs(Number(r[bindingKey(m)] ?? 0))), 1)]),
-  );
+  // Mise en forme conditionnelle : statistiques des valeurs affichées de chaque mesure.
+  const formats = new Map<string, CondFormat>(measures.map((m) => [bindingKey(m), formatFor(visual, bindingKey(m))]));
+  const stats = new Map(measures.map((m) => [bindingKey(m), statsOf(rows.map((r) => r[bindingKey(m)] as number | null))]));
   // Total = somme des lignes : exact pour somme et nombre ; pour les autres agrégations on n'affiche rien.
   const totals = Object.fromEntries(
     measures.map((m) => [
@@ -89,17 +89,12 @@ export function TableVisual(props: VisualProps) {
                   </td>
                 ))}
                 {measures.map((m) => {
-                  const v = Number(r[bindingKey(m)] ?? 0);
+                  const key = bindingKey(m);
+                  const raw = r[key] ?? null;
+                  const decor = formats.get(key) ? decorate(typeof raw === "number" ? raw : null, formats.get(key) as CondFormat, stats.get(key) ?? null) : {};
                   return (
-                    <td key={bindingKey(m)} className="relative whitespace-nowrap px-2 py-1 text-right tabular-nums">
-                      {dataBars && (
-                        <span
-                          aria-hidden
-                          className="absolute inset-y-1 right-1 rounded-sm bg-[var(--seq-200)] opacity-60"
-                          style={{ width: `calc(${(Math.abs(v) / (maxBy[bindingKey(m)] ?? 1)) * 100}% - 8px)` }}
-                        />
-                      )}
-                      <span className="relative">{formatNumber(r[bindingKey(m)] ?? null, fmt)}</span>
+                    <td key={key} className="relative whitespace-nowrap px-2 py-1 text-right tabular-nums" style={decorStyle(decor)}>
+                      <DecoratedValue decor={decor} text={formatNumber(raw, fmt)} />
                     </td>
                   );
                 })}
@@ -126,5 +121,29 @@ export function TableVisual(props: VisualProps) {
       </table>
       {result.truncated && <p className="px-2 py-1 text-[10px] text-muted">Résultat tronqué — affinez avec des filtres ou un Top N.</p>}
     </div>
+  );
+}
+
+/** Valeur d'une cellule avec sa barre de données et son icône éventuelles. */
+export function DecoratedValue({ decor, text }: { decor: Decor; text: string }) {
+  return (
+    <>
+      {decor.bar && (
+        <span
+          aria-hidden
+          className="absolute inset-y-1 right-1 rounded-sm"
+          style={{
+            width: `calc(${decor.bar.ratio * 100}% - 8px)`,
+            backgroundColor: `color-mix(in oklab, ${toneCss(decor.bar.negative ? "div-neg" : "seq")} 30%, transparent)`,
+          }}
+        />
+      )}
+      {decor.icon && (
+        <span className="relative mr-1 text-[9px]" style={{ color: toneCss(decor.icon.tone) }} role="img" aria-label={decor.icon.label}>
+          {GLYPHS[decor.icon.glyph]}
+        </span>
+      )}
+      <span className="relative">{text}</span>
+    </>
   );
 }

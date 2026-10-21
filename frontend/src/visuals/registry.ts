@@ -204,10 +204,10 @@ export const VISUALS: Record<VisualType, VisualDef> = {
       { id: "values", label: "Valeurs", kind: "measure" },
     ],
     size: { w: 8, h: 14 },
-    defaults: { totals: true, dataBars: false, sort: "category" },
+    // Barres de données, couleurs et icônes : « Mise en forme conditionnelle » (onglet Format).
+    defaults: { totals: true, sort: "category" },
     options: [
       { key: "totals", label: "Ligne de total", type: "boolean", section: "Affichage" },
-      { key: "dataBars", label: "Barres de données", type: "boolean", section: "Affichage" },
       ...SORT_OPTIONS,
       ...NUMBER_OPTIONS,
     ],
