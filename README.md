@@ -54,6 +54,24 @@ fenêtre (⌘Q) arrête tout.
   ont changé, un message vous invite à relancer `./scripts/macos/build_app.sh` ; l'ancienne interface reste utilisée en attendant.
 - En cas de souci : `~/Library/Logs/Atelier Viz/atelier-viz.log`. Sans fenêtre native, `python desktop.py --browser` (dans `backend/`) ouvre l'application dans le navigateur.
 
+### Application autonome (sans Python ni conda)
+
+Pour installer Atelier Viz sur un poste qui n'a ni Python, ni conda, ni Node :
+
+```bash
+python scripts/standalone/build.py --self-test   # dans un venv Python 3.11+, sur le système visé
+```
+
+- **macOS** : `dist-standalone/Atelier-Viz-<version>-macOS.zip` → « Atelier Viz.app » à glisser dans Applications.
+- **Windows** : `Atelier-Viz-<version>-Windows.zip` → dossier « Atelier Viz », lancer « Atelier Viz.exe » (fenêtre WebView2).
+- **Linux** (essai) : `atelier-viz-<version>-linux.tar.gz` → `./atelier-viz/atelier-viz` ouvre l'interface dans le navigateur.
+- Tout est dans le paquet (Python, DuckDB, pilotes SQL, interface compilée, exemples) ; les données vivent hors du paquet
+  (`~/Library/Application Support/Atelier Viz`, `%LOCALAPPDATA%\Atelier Viz`, `~/.local/share/atelier-viz`), où un
+  fichier `.env` facultatif est lu (ex. `CLAUDE_MODE=cli`). Remplacer l'application ne touche pas aux données.
+- L'intégration continue (« Application autonome », GitHub Actions) construit et auto-teste les trois paquets ; les
+  archives sont dans les artefacts du workflow (lancement manuel ou étiquette `v*`).
+- Paquets non signés : au premier lancement, macOS demande clic droit → **Ouvrir** ; Windows SmartScreen → « Informations complémentaires » → **Exécuter quand même**.
+
 ### Activer Claude
 
 1. Installez Claude Code : `curl -fsSL https://claude.ai/install.sh | bash` (ou `brew install --cask claude-code`),

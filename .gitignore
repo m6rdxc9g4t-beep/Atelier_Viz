@@ -23,3 +23,7 @@ dist/
 
 # Données locales de l'application
 backend/data/
+
+# Paquet autonome (scripts/standalone/build.py)
+dist-standalone/
+build-standalone/
