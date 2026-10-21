@@ -9,6 +9,7 @@ import datetime as dt
 import decimal
 import io
 import json
+import os
 import socket
 import sqlite3
 import stat
@@ -80,7 +81,8 @@ def test_password_never_stored_in_clear_nor_returned(client: TestClient, setting
     assert c["has_password"] is True and "password" not in c
     assert "s3cr3t!" not in (settings.data_dir / "connections.json").read_text()
     secrets = settings.data_dir / "secrets.json"
-    assert stat.S_IMODE(secrets.stat().st_mode) == 0o600
+    if os.name == "posix":  # Windows : pas de droits Unix (Gestionnaire d'identifiants en usage réel)
+        assert stat.S_IMODE(secrets.stat().st_mode) == 0o600
     assert "s3cr3t!" in secrets.read_text()
     assert all("password" not in x for x in client.get("/api/connections").json())
 

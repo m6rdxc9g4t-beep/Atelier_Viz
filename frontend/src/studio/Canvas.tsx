@@ -3,7 +3,7 @@ import { Maximize2, Minus, Plus } from "lucide-react";
 import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { Layout, Page, Report } from "../types/report";
-import { fitScale } from "./extraction";
+import { fitScale, fitWidthScale } from "./extraction";
 import { DEFAULT_PAGE, GAP } from "./grid";
 import { type Guides, RESIZE_DIRS, type ResizeDir, moveRect, resizeCursor, resizeRect } from "./snap";
 import { useStudio } from "./store";
@@ -48,18 +48,20 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
   const size = page.size ?? DEFAULT_PAGE;
   const fit = fitPage
     ? fitScale(size, { width: available, height: availableH }, PADDING)
-    : available > 0
-      ? Math.min(2, Math.max(0.25, (available - 2 * PADDING) / size.width))
-      : 1;
+    : fitWidthScale(size.width, available, PADDING);
   const zoom = zoomChoice === "fit" || fitPage ? fit : zoomChoice;
 
   // Largeur disponible (ajustement à la largeur, comme « Ajuster à la largeur » de Power BI).
+  // La gouttière de la barre de défilement est toujours réservée (`scrollbar-gutter: stable`) : sous Windows,
+  // la barre prend de la place, et son apparition changeait la largeur, donc le zoom, qui la faisait
+  // disparaître… (la page tremblait). Sous macOS, les barres flottent au-dessus du contenu.
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const measure = () => {
-      setAvailable(el.clientWidth);
-      setAvailableH(el.clientHeight);
+      // Mêmes valeurs (au pixel près) : aucun nouveau rendu, donc aucune boucle de mesure.
+      setAvailable((cur) => (Math.abs(cur - el.clientWidth) < 1 ? cur : el.clientWidth));
+      setAvailableH((cur) => (Math.abs(cur - el.clientHeight) < 1 ? cur : el.clientHeight));
     };
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -132,7 +134,7 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
     <>
       <div
         ref={scrollRef}
-        className="absolute inset-0 overflow-auto"
+        className="absolute inset-0 overflow-auto [scrollbar-gutter:stable]"
         style={{ padding: PADDING, paddingTop: fitPage ? Math.max(PADDING, (availableH - px(size.height)) / 2) : PADDING }}
       >
         <div

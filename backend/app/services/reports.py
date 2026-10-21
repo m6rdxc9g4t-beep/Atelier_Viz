@@ -10,6 +10,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from app.core.files import replace_file
 from app.schemas.report import Page, PageSize, Report, ReportBody, ReportCreate, ReportSummary
 
 _ID_RE = re.compile(r"^[0-9a-f]{12}$")
@@ -105,4 +106,4 @@ class ReportRepository:
         assert path is not None
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
-        tmp.replace(path)  # écriture atomique : pas de fichier à moitié écrit en cas de coupure
+        replace_file(tmp, path)  # écriture atomique : pas de fichier à moitié écrit en cas de coupure

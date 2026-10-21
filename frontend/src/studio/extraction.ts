@@ -55,6 +55,17 @@ export function step(index: number, count: number, delta: number): number {
 }
 
 /** Échelle pour faire tenir toute la page dans la zone (marges comprises), entre 0,1 et 4. */
+/**
+ * Zoom « ajuster à la largeur » : la page occupe la largeur disponible moins les marges, bornée à 25 %–200 %.
+ * Arrondi vers le bas au millième (et 1 px de marge) : jamais de débordement d'un sous-pixel, qui ferait
+ * apparaître une barre de défilement, changerait la largeur disponible, donc le zoom, et ainsi de suite.
+ */
+export function fitWidthScale(pageWidth: number, available: number, margin = 0): number {
+  if (available <= 0 || pageWidth <= 0) return 1;
+  const s = Math.floor(((available - 2 * margin - 1) / pageWidth) * 1000) / 1000;
+  return Math.min(2, Math.max(0.25, s));
+}
+
 export function fitScale(page: { width: number; height: number }, area: { width: number; height: number }, margin = 0): number {
   if (area.width <= 0 || area.height <= 0) return 1;
   const s = Math.min((area.width - 2 * margin) / page.width, (area.height - 2 * margin) / page.height);

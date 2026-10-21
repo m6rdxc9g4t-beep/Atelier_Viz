@@ -21,7 +21,6 @@
 import base64
 import hashlib
 import json
-import os
 import re
 import threading
 import uuid
@@ -35,6 +34,7 @@ from urllib.parse import quote
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
+from app.core.files import replace_file
 from app.schemas.github import (
     Conflict,
     GitHubConfig,
@@ -136,7 +136,7 @@ class GitHubSync:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(stored.model_dump_json(indent=2), encoding="utf-8")
-        os.replace(tmp, self.path)
+        replace_file(tmp, self.path)
 
     def _token(self) -> str | None:
         return self.secrets.get(TOKEN_KEY) or self.env_token() or None

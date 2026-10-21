@@ -2,7 +2,9 @@
 
 Par défaut : trousseau du système (Trousseau macOS, Gestionnaire d'identifiants Windows,
 Secret Service sous Linux) via `keyring`. Sans trousseau disponible : fichier
-`data/secrets.json` lisible par le seul utilisateur (droits 0600).
+`data/secrets.json` lisible par le seul utilisateur (droits 0600 sous macOS / Linux ; sous Windows,
+où ces droits n'existent pas, le Gestionnaire d'identifiants est toujours disponible et le repli
+fichier n'est utilisé que si on le force : `SECRETS_BACKEND=file`).
 Les secrets ne sont jamais renvoyés par l'API ni écrits dans `connections.json`.
 """
 
@@ -11,6 +13,8 @@ import os
 import threading
 from pathlib import Path
 from typing import Literal, Protocol
+
+from app.core.files import replace_file
 
 SERVICE = "atelier-viz"
 
@@ -41,7 +45,7 @@ class FileSecrets:
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f)
-        os.replace(tmp, self.path)
+        replace_file(tmp, self.path)
         os.chmod(self.path, 0o600)
 
     def get(self, key: str) -> str | None:

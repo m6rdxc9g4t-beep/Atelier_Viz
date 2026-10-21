@@ -1,0 +1,88 @@
+# Version Windows : tests du backend et du frontend sous Windows, puis installation réelle de
+# l'application de bureau (scripts/windows/build_app.ps1, Windows PowerShell 5.1 comme chez l'utilisateur)
+# et auto-test du lanceur (serveur local + interface compilée, sans fenêtre).
+name: Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Les échecs sont aussi publiés en annotations (lisibles sans télécharger le journal complet).
+      - name: Backend — pytest et ruff
+        working-directory: backend
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          $out = python -m pytest -q -rfE -p no:cacheprovider 2>&1
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { "$_" }
+          $out | Select-String -Pattern '^(FAILED|ERROR) ' | Select-Object -First 40 | ForEach-Object { "::error title=pytest::$($_.Line)" }
+          python -m ruff check .
+          if ($code -ne 0 -or $LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Frontend — tests
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          $out = npm test 2>&1
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { "$_" }
+          $out | Select-String -Pattern '(FAIL|AssertionError|Error:)' | Select-Object -First 30 | ForEach-Object { "::error title=vitest::$($_.Line.Trim())" }
+          exit $code
+
+      # Parcours d'un PC neuf : premiere_installation.ps1 (logiciels déjà présents ici, dépôt = ce checkout),
+      # environnement backend\.venv, puis build_app.ps1.
+      - name: Application de bureau — première installation (premiere_installation.ps1 → build_app.ps1)
+        id: install
+        if: ${{ !cancelled() }}
+        shell: powershell
+        # Sans redirection : Windows PowerShell 5.1 transformerait la sortie d'erreur de pip / npm en erreurs.
+        run: .\scripts\windows\premiere_installation.ps1 -NonInteractif -SansClaude -SansOllama
+
+      - name: Application de bureau — auto-test du lanceur
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        shell: powershell
+        working-directory: backend
+        run: |
+          $config = Get-Content -Raw "$env:LOCALAPPDATA\Atelier Viz\launcher.json" | ConvertFrom-Json
+          if ($config.python -notlike '*\backend\.venv\Scripts\pythonw.exe') { throw "Lanceur hors de backend\.venv : $($config.python)" }
+          $proc = Start-Process -FilePath $config.python -ArgumentList '-X', 'utf8', '-m', 'app.windows_launcher', '--self-test' -Wait -PassThru
+          $log = Get-Content "$env:LOCALAPPDATA\Atelier Viz\Logs\atelier-viz.log"
+          $log
+          $log | Select-Object -Last 15 | ForEach-Object { "::notice title=atelier-viz.log::$_" }
+          $link = Join-Path ([Environment]::GetFolderPath('Programs')) 'Atelier Viz.lnk'
+          if (-not (Test-Path $link)) { throw "Raccourci absent : $link" }
+          if ($proc.ExitCode -ne 0) { throw "Auto-test en echec (code $($proc.ExitCode))" }
+
+      - name: Application de bureau — désinstallation
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        shell: powershell
+        run: .\scripts\windows\build_app.ps1 -Uninstall
