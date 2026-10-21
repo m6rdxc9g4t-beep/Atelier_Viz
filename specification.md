@@ -45,6 +45,24 @@ Un **outil de BI local, dans l'esprit de Power BI**, qui va plus loin sur l'auto
 - Réutilise un serveur Atelier Viz déjà lancé ; refuse proprement si la base DuckDB est verrouillée par un autre processus (page d'erreur dans la fenêtre).
 - Pont JavaScript `window.pywebview.api` : `save_file` (boîte « Enregistrer sous ») et `open_external` (http, https, mailto uniquement) ; côté front, `lib/desktop.ts` (`saveFile`, `openExternal`) bascule seul entre application et navigateur.
 
+#### Windows
+
+| Élément | macOS | Windows |
+|---|---|---|
+| Installation | `scripts/macos/build_app.sh` → `Atelier Viz.app` | `scripts/windows/build_app.ps1` (ou `build_app.cmd`) → raccourcis menu Démarrer (+ Bureau) |
+| Lanceur | script bash du paquet `.app` | `pythonw.exe -X utf8 -m app.windows_launcher` (aucune console, UTF-8 forcé) |
+| PATH figé | dans le lanceur | `%LOCALAPPDATA%\Atelier Viz\launcher.json` (fusionné en tête du PATH) |
+| Journal | `~/Library/Logs/Atelier Viz/` | `%LOCALAPPDATA%\Atelier Viz\Logs\` (5 Mo, ancien gardé une fois) |
+| Fenêtre | WKWebView | WebView2 (Edge) ; absent → message (jamais le moteur d'Internet Explorer) |
+| Icône | `icon.png` → icns | `scripts/windows/icon.ico` (16 à 256 px) |
+| CLI Claude | `~/.local/bin`, Homebrew | `claude.exe` seulement : `%USERPROFILE%\.local\bin`, WinGet (`Links`), npm (binaire du paquet, jamais `claude.cmd`) ; variables système en liste blanche ; `CREATE_NO_WINDOW` ; arrêt `taskkill /T /F` |
+| Secrets | Trousseau | Gestionnaire d'identifiants (`keyring`) |
+| Notifications | `osascript` | toast Windows (Windows PowerShell 5.1, script constant, texte par variables d'environnement) |
+| Base verrouillée | « Could not set lock » | message système Windows (anglais ou français) reconnu |
+
+- Écritures atomiques (`replace_file`, `app/core/files.py`) : sous Windows, un remplacement refusé un instant (antivirus, lecture concurrente) est réessayé pendant ≈ 1 s.
+- Vérifié en continu sur `windows-latest` (`.github/workflows/windows.yml`) : pytest, Vitest, `build_app.ps1` sous Windows PowerShell 5.1 et auto-test du lanceur (`--self-test` : serveur, API, interface, sans fenêtre).
+
 ## 3. Principe hors ligne / en ligne
 
 | | Hors ligne (défaut) | En ligne |
@@ -478,6 +496,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 5 bis — Placement libre** ✅ : visuels au pixel près n'importe où sur la page (taille de page en px, repères d'alignement, poignées, clavier, saisie X/Y/L/H, superposition et ordre, zoom), conversion automatique des anciens rapports.
 - **Jalon 5 ter — Connecteurs** ✅ : SQL Server, PostgreSQL, MySQL / MariaDB, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online (fichiers et listes), en lecture seule, secrets au trousseau, actualisation. Reste : actualisation planifiée, Excel / CSV sur un serveur HTTP, Snowflake / BigQuery.
 - **Jalon 5 quater — Application Mac** ✅ : « Atelier Viz.app » à double-cliquer (fenêtre native, icône, Dock), interface servie par l'API, enregistrement natif des fichiers.
+- **Jalon 5 quater bis — Application Windows** ✅ : raccourcis menu Démarrer / Bureau (`build_app.ps1`), fenêtre WebView2 sans console, CLI Claude `claude.exe`, notifications et secrets Windows, CI `windows-latest`. Reste : installateur autonome (sans Python ni Node.js préinstallés).
 - **Jalon 5 quinquies — Suite Atelier** ✅ : design system commun (copies verbatim, jetons dérivés, accent violet), thème `data-theme` + `dark`, sélecteur « Suite Atelier » avec état des API, import des enveloppes DataFlow, connecteurs Atelier Tab (instantanés) et Atelier Projets (API locale), actualisables (`docs/SUITE.md`).
 - **Jalon 6 — Partage et automatisation** ✅ : signets (volet, bouton d'action), actualisation planifiée des sources (ordonnanceur, journal, rechargement des visuels), alertes sur seuil (anti-rebond, notifications, webhook), synchronisation des rapports avec un dépôt GitHub (un commit par envoi, conflits jamais écrasés). Reste : signets personnels / groupes de signets et diaporama de signets ; notifications par e-mail ;  actualisation planifiée quand l'application est fermée (service système).
 - **Jalon 6 bis — IA de la suite** ✅ : choix du moteur commun à la Suite Atelier (Auto · Ollama · Claude, modèles Sonnet / Opus / Haiku et Ollama mémorisés, CLI trouvée hors du `PATH`), volet « Créer avec l'IA » avec suggestions toujours accessibles, nouvelle demande, historique de la session et réajout revalidé ; indicateur « en marche » d'Atelier Tab.

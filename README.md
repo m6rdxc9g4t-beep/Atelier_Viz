@@ -54,6 +54,30 @@ fenêtre (⌘Q) arrête tout.
   ont changé, un message vous invite à relancer `./scripts/macos/build_app.sh` ; l'ancienne interface reste utilisée en attendant.
 - En cas de souci : `~/Library/Logs/Atelier Viz/atelier-viz.log`. Sans fenêtre native, `python desktop.py --browser` (dans `backend/`) ouvre l'application dans le navigateur.
 
+### Application Windows (menu Démarrer)
+
+Prérequis : **Python 3.12 ou 3.13** (python.org, ou conda), **Node.js LTS**, Windows 10 ou 11 (le moteur
+d'affichage Microsoft Edge WebView2 y est déjà installé ; sinon : « WebView2 Runtime » chez Microsoft).
+Une fois, depuis le dépôt, dans PowerShell :
+
+```powershell
+cd backend; python -m venv .venv; .venv\Scripts\Activate.ps1; cd ..   # ou : conda activate atelier
+.\scripts\windows\build_app.ps1      # ou double-clic sur scripts\windows\build_app.cmd
+```
+
+Ensuite, **menu Démarrer → « Atelier Viz »** (raccourci aussi sur le Bureau ; clic droit → *Épingler à la barre
+des tâches*). Même fonctionnement que l'application Mac : fenêtre native, aucune console, mêmes données
+(`backend\data`), interface recompilée au lancement si besoin, **rien n'est téléchargé au lancement**.
+
+- Journal : `%LOCALAPPDATA%\Atelier Viz\Logs\atelier-viz.log`.
+- Après un `git pull` qui change des dépendances : relancez `build_app.ps1` (un message le rappelle).
+- Options : `-NoDesktopShortcut` (pas de raccourci sur le Bureau), `-SkipInstall` (sans réseau : recompile et
+  recrée les raccourcis), `-Uninstall` (retire les raccourcis ; le dépôt et les données restent).
+- Si PowerShell refuse d'exécuter le script (stratégie d'exécution), utilisez `build_app.cmd`.
+- Claude : installez Claude Code pour Windows (`irm https://claude.ai/install.ps1 | iex` dans PowerShell, ou
+  `winget install Anthropic.ClaudeCode`) ; `claude.exe` est trouvé seul (`%USERPROFILE%\.local\bin`, WinGet, npm).
+- Mots de passe des connexions : Gestionnaire d'identifiants Windows. Alertes : notifications de Windows.
+
 ### Activer Claude
 
 1. Installez Claude Code : `curl -fsSL https://claude.ai/install.sh | bash` (ou `brew install --cask claude-code`),
@@ -86,7 +110,7 @@ par DNS rebinding), ni passer Atelier Viz en ligne, ni appeler Claude. Pour join
 |---|---|---|
 | Signets | Studio → **Signets** | Retient la page, les filtres, les segments, la sélection et l'exploration ; un clic pour revenir à cet état. Un Bouton d'action peut « Appliquer un signet » |
 | Actualisation planifiée | Données → **Planifier**, ou **Automatisation** | Jeux importés d'une connexion : toutes les N minutes / heures ou chaque jour à HH:MM, tant que l'application est ouverte. Journal des exécutions ; les rapports ouverts se mettent à jour seuls. SharePoint hors ligne : exécution sautée |
-| Alertes | **Automatisation → Alertes**, ou cloche d'un KPI / d'une jauge | « Somme de chiffre_affaires < 150 000 » (filtres possibles), sur la valeur ou sa **variation** (« baisse de plus de 10 % depuis la dernière actualisation »), éventuellement **pour chaque** région : notification dans l'application (cloche de l'en-tête), **notification système** (centre de notifications du Mac) et / ou webhook (n8n, Make…), au franchissement du seuil, après chaque actualisation |
+| Alertes | **Automatisation → Alertes**, ou cloche d'un KPI / d'une jauge | « Somme de chiffre_affaires < 150 000 » (filtres possibles), sur la valeur ou sa **variation** (« baisse de plus de 10 % depuis la dernière actualisation »), éventuellement **pour chaque** région : notification dans l'application (cloche de l'en-tête), **notification système** (centre de notifications de macOS ou de Windows) et / ou webhook (n8n, Make…), au franchissement du seuil, après chaque actualisation |
 | GitHub | **Réglages → Synchronisation GitHub** | Mode « En ligne ». Dépôt `propriétaire/dépôt`, branche, dossier, jeton fine-grained (*Contents : read and write*) rangé au trousseau. **Envoyer** = un commit ; **Récupérer** = import, conflits jamais écrasés sans votre choix. **Seuls les rapports partent** (jamais les tables des jeux) ; option *Retirer les sélections, filtres et adresses de webhook avant l'envoi*, **activée par défaut**, car un rapport recopie des valeurs des données et l'adresse (souvent secrète) des webhooks ; avertissement si le dépôt est public. **Historique** d'un rapport (icône d'horloge) : versions, aperçu, **restauration** (ou en copie). **GitHub Enterprise** : adresse de l'API (`https://<hôte>/api/v3`) |
 
 ## Suite Atelier
@@ -128,7 +152,7 @@ pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (
 | SharePoint Online | Fichier d'une bibliothèque (lien « Copier le lien ») ou **liste** SharePoint, avec votre compte Microsoft 365. Mode « En ligne » requis. |
 
 - **Hors ligne**, seuls la machine et les réseaux privés (entreprise, VPN) sont joignables ; une base sur Internet demande le mode « En ligne ».
-- **Mots de passe et jetons** : rangés dans le trousseau du système (Trousseau macOS…), jamais dans les fichiers de l'application ni renvoyés par l'API.
+- **Mots de passe et jetons** : rangés dans le trousseau du système (Trousseau macOS, Gestionnaire d'identifiants Windows…), jamais dans les fichiers de l'application ni renvoyés par l'API.
 - **Lecture seule** : une requête libre doit être une seule instruction `SELECT` / `WITH` (pas de `INSERT`, `SELECT … INTO`, `;` au milieu…). Un compte limité à la lecture reste conseillé (`db_datareader`, `pg_read_all_data`…).
 
 ### Activer SharePoint Online (une fois, par l'administrateur Microsoft 365)
