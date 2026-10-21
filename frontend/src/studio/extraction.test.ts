@@ -38,7 +38,7 @@ describe("pages d'extraction", () => {
   it("décrit les filtres reçus", () => {
     expect(extractionLabel([{ field: "region", op: "in", values: ["Occitanie"] }])).toBe("region = Occitanie");
     expect(extractionLabel([{ field: "date", op: "in", values: ["2026-03-01"], bin: "month" }, { field: "x", op: "in", values: [1, 2, 3, 4] }])).toBe(
-      "date (month) = 2026-03-01, x = 1 ou 2 ou 3…",
+      "date = mars 2026, x = 1 ou 2 ou 3…",
     );
   });
 

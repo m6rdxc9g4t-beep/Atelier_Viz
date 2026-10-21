@@ -124,6 +124,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Seuls le **schéma** et **5 lignes** partent vers l'IA, et seulement si l'utilisateur coche « Joindre le schéma ».
 - Création de visuels : `app/services/ai/builder.py` (schéma contraint → `repair` → une relance max). Le catalogue vient du registre frontend (`visuals/catalog.ts`) : ne pas le dupliquer côté backend. Tout visuel qui arrive au Studio est passé par `repair`.
 - Tout fournisseur implémente `chat` et `chat_json` (sortie structurée).
+- Questions et explications : `summary/ask.ts` (constructeur → visuel calculé localement → faits) et `summary/explain.ts` (décomposition par le moteur) ; `POST /api/ai/answer` (`services/ai/answer.py`) vérifie chaque nombre comme la synthèse. Jamais de ligne brute vers l'IA : seulement des faits agrégés lisibles par `numbers()`.
 - Résumé de page : les faits sont calculés côté frontend (`summary/facts.ts`), écrits comme à l'écran ; `app/services/ai/summary.py` vérifie chaque nombre de la réponse contre ces faits (relance, puis retrait). Ne jamais envoyer de lignes brutes ; tout nouveau type de fait doit rester lisible par `numbers()`.
 
 ## Export PowerPoint
