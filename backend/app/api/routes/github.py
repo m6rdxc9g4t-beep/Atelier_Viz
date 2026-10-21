@@ -13,6 +13,10 @@ from app.schemas.github import (
     PullResult,
     PushRequest,
     PushResult,
+    ReportVersion,
+    ReportVersionDetail,
+    RestoreRequest,
+    RestoreResult,
 )
 
 router = APIRouter(prefix="/github", tags=["github"])
@@ -52,3 +56,21 @@ async def push(body: PushRequest, github: GitHubDep) -> PushResult:
 async def pull(body: PullRequest, github: GitHubDep) -> PullResult:
     """Importe les rapports du dépôt ; les conflits sont signalés, jamais écrasés sans choix. Hors ligne : 403."""
     return await asyncio.to_thread(github.pull, body)
+
+
+@router.get("/reports/{report_id}/history", response_model=list[ReportVersion])
+async def history(report_id: str, github: GitHubDep) -> list[ReportVersion]:
+    """Commits qui ont modifié ce rapport sur la branche (30 derniers). Hors ligne : 403."""
+    return await asyncio.to_thread(github.history, report_id)
+
+
+@router.get("/reports/{report_id}/versions/{sha}", response_model=ReportVersionDetail)
+async def version(report_id: str, sha: str, github: GitHubDep) -> ReportVersionDetail:
+    """Aperçu d'une version (nom, pages, nombre de visuels). Hors ligne : 403."""
+    return await asyncio.to_thread(github.version, report_id, sha)
+
+
+@router.post("/reports/{report_id}/restore", response_model=RestoreResult)
+async def restore(report_id: str, body: RestoreRequest, github: GitHubDep) -> RestoreResult:
+    """Rétablit une version sur ce poste (ou l'importe en copie) ; rien n'est envoyé. Hors ligne : 403."""
+    return await asyncio.to_thread(github.restore, report_id, body)

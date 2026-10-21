@@ -18,7 +18,7 @@ import type {
   TestResult,
 } from "../types/connection";
 import type { Alert, AlertInput, AlertNotification } from "../types/alert";
-import type { GitHubConfigInput, GitHubState, GitHubTest, PullRequest, PullResult, PushRequest, PushResult } from "../types/github";
+import type { GitHubConfigInput, GitHubState, GitHubTest, PullRequest, PullResult, PushRequest, PushResult, ReportVersion, ReportVersionDetail, RestoreRequest, RestoreResult } from "../types/github";
 import type { RefreshRun, RefreshSchedule, ScheduleState } from "../types/refresh";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
 
@@ -172,6 +172,11 @@ export const api = {
     test: () => request<GitHubTest>("/github/test", { method: "POST" }),
     push: (body: PushRequest = {}) => request<PushResult>("/github/push", { method: "POST", body: JSON.stringify(body) }),
     pull: (body: PullRequest = {}) => request<PullResult>("/github/pull", { method: "POST", body: JSON.stringify(body) }),
+    /** Commits qui ont modifié ce rapport (30 derniers). */
+    history: (reportId: string) => request<ReportVersion[]>(`/github/reports/${reportId}/history`),
+    version: (reportId: string, sha: string) => request<ReportVersionDetail>(`/github/reports/${reportId}/versions/${sha}`),
+    /** Rétablit une version sur ce poste (ou l'importe en copie) ; rien n'est envoyé. */
+    restore: (reportId: string, body: RestoreRequest) => request<RestoreResult>(`/github/reports/${reportId}/restore`, { method: "POST", body: JSON.stringify(body) }),
   },
 
   query: (body: QueryRequest, signal?: AbortSignal) =>
