@@ -10,7 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.dataset import Scalar
-from app.schemas.query import Agg, DateBin, Filter
+from app.schemas.query import Agg, DateBin, Filter, ShowAs
 
 VisualType = Literal[
     # Graphiques
@@ -49,6 +49,7 @@ class FieldBinding(BaseModel):
     agg: Agg | None = Field(default=None, description="Agrégation (mesures). None = dimension.")
     bin: DateBin | None = Field(default=None, description="Période pour les dates.")
     label: str | None = None
+    show: ShowAs | None = Field(default=None, description="Calcul rapide sur une mesure (cumul, N-1, évolution…).")
 
 
 class Layout(BaseModel):

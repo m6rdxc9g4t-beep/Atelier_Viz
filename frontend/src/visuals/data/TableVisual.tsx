@@ -16,7 +16,6 @@ export function TableVisual(props: VisualProps) {
   const dims = role(visual, "columns");
   const measures = role(visual, "values");
   const [sort, setSort] = useState<{ key: string; desc: boolean } | null>(null);
-  const fmt = numberFormat(visual);
   const showTotals = opt<boolean>(visual, def, "totals");
 
   const rows = useMemo(() => {
@@ -42,7 +41,8 @@ export function TableVisual(props: VisualProps) {
   const totals = Object.fromEntries(
     measures.map((m) => [
       bindingKey(m),
-      m.agg === "sum" || m.agg === "count" ? rows.reduce((t, r) => t + Number(r[bindingKey(m)] ?? 0), 0) : null,
+      // Total = somme des lignes : exact pour somme et nombre ; jamais pour un cumul, un N-1 ou un %.
+      (m.agg === "sum" || m.agg === "count") && !m.show ? rows.reduce((t, r) => t + Number(r[bindingKey(m)] ?? 0), 0) : null,
     ]),
   );
   const firstDim = dims[0];
@@ -94,7 +94,7 @@ export function TableVisual(props: VisualProps) {
                   const decor = formats.get(key) ? decorate(typeof raw === "number" ? raw : null, formats.get(key) as CondFormat, stats.get(key) ?? null) : {};
                   return (
                     <td key={key} className="relative whitespace-nowrap px-2 py-1 text-right tabular-nums" style={decorStyle(decor)}>
-                      <DecoratedValue decor={decor} text={formatNumber(raw, fmt)} />
+                      <DecoratedValue decor={decor} text={formatNumber(raw, numberFormat(visual, m))} />
                     </td>
                   );
                 })}
@@ -112,7 +112,7 @@ export function TableVisual(props: VisualProps) {
               ))}
               {measures.map((m) => (
                 <td key={bindingKey(m)} className="border-t border-border px-2 py-1.5 text-right tabular-nums">
-                  {totals[bindingKey(m)] === null ? "" : formatNumber(totals[bindingKey(m)] ?? null, fmt)}
+                  {totals[bindingKey(m)] === null ? "" : formatNumber(totals[bindingKey(m)] ?? null, numberFormat(visual, m))}
                 </td>
               ))}
             </tr>

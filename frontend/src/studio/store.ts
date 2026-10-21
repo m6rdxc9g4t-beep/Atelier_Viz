@@ -82,7 +82,7 @@ export function convertRoles(visual: Visual, type: VisualType): Record<string, F
     const pool = r.kind === "dimension" ? dims : meas;
     const cap = r.id === "category" ? Math.min(levels, r.max ?? levels) : r.max;
     const take = cap ? pool.splice(0, cap) : pool.splice(0);
-    if (take.length) out[r.id] = r.kind === "measure" ? take.map((b) => ({ ...b, agg: b.agg ?? "sum" })) : take.map((b) => ({ ...b, agg: null }));
+    if (take.length) out[r.id] = r.kind === "measure" ? take.map((b) => ({ ...b, agg: b.agg ?? "sum" })) : take.map(({ show: _show, ...b }) => ({ ...b, agg: null }));
   }
   return out;
 }

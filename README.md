@@ -151,6 +151,7 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 | Changer de type | Sélectionner le visuel puis cliquer une autre icône (les champs sont conservés) |
 | Filtrer | Segments, volet Filtres (page / visuel), clic sur un élément d'un graphique (filtrage croisé) |
 | Automatiser | Visuel « Bouton d'action » : URL avec `{champ}`, webhook (n8n, Make, Zapier), page, réinitialisation |
+| Comparer dans le temps | Puits Valeurs → **Afficher** : cumul depuis le début de l'année, N-1, écart et évolution vs N-1 (%), moyenne mobile, part du total — sans formule, sur n'importe quel visuel (KPI « +13,9 % vs N-1 ») |
 | Calculer | Volet Données → **+ Mesure** (`SUM(chiffre_affaires * taux_marge / 100)`, `DIVIDE([Marge], SUM(chiffre_affaires))`) ou **+ Colonne** (`IF(chiffre_affaires >= 5000, "Grosse vente", "Standard")`), vérifiées à la frappe |
 | Explorer | Plusieurs champs dans l'Axe = hiérarchie ; flèches du visuel pour monter / descendre ; « Hiérarchie de dates » pour année › trimestre › mois |
 | Mettre en évidence | Table ou matrice → onglet Format → **Mise en forme conditionnelle** : dégradé ou couleurs divergentes, règles (« < 900 000 → rouge »), barres de données, icônes ▲ ● ▼ |

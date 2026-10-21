@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import type { Scalar } from "../types/dataset";
 import type { Filter, QueryRequest, Sort } from "../types/query";
 import type { FieldBinding, Visual } from "../types/report";
-import { bindingKey, dimension, measure } from "./fields";
+import { bindingKey, dimension, isPercent, measure } from "./fields";
 import type { NumberFormat } from "./format";
 import type { OptionDef, Selection, VisualDef } from "./types";
 
@@ -69,14 +69,18 @@ export function genericQuery(visual: Visual, def: VisualDef, filters: Filter[], 
   };
 }
 
-export function numberFormat(visual: Visual): NumberFormat {
+export function numberFormat(visual: Visual, binding?: FieldBinding): NumberFormat {
   const o = visual.options;
-  return {
+  const fmt: NumberFormat = {
     decimals: typeof o.decimals === "number" ? o.decimals : undefined,
     compact: o.compact === true,
     prefix: typeof o.prefix === "string" ? o.prefix : undefined,
     suffix: typeof o.suffix === "string" ? o.suffix : undefined,
   };
+  // Pourcentages (évolution vs N-1, part du total) : « 12,5 % », même au milieu d'autres valeurs.
+  const values = Object.values(visual.roles).flat().filter((b) => b.agg);
+  const percent = binding ? isPercent(binding) : values.length > 0 && values.every(isPercent);
+  return percent ? { decimals: fmt.decimals ?? 1, compact: false, prefix: "", suffix: " %" } : fmt;
 }
 
 export const NUMBER_OPTIONS: OptionDef[] = [

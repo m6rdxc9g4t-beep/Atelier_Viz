@@ -415,7 +415,7 @@ const kpi: Builder = (ctx, body, colors, title) => {
   const targetB = first(visual, "target");
   const row = ctx.data.result?.rows[0];
   if (!valueB || !row) return [];
-  const fmt = numberFormat(visual);
+  const fmt = numberFormat(visual, valueB);
   const value = num(row[bindingKey(valueB)]);
   const target = targetB ? num(row[bindingKey(targetB)]) : null;
   const gap = kpiGap(value, target);
@@ -600,16 +600,15 @@ const table: Builder = (ctx, body, colors, title, warnings) => {
   const dims = role(visual, "columns");
   const measures = role(visual, "values");
   if (!result.rows.length) return [message(ctx, body, colors, "Aucune donnée pour ces filtres.")];
-  const fmt = numberFormat(visual);
   const showTotals = opt<boolean>(visual, def, "totals") !== false && measures.length > 0;
   const totals = measures.map((m) =>
-    m.agg === "sum" || m.agg === "count" ? formatNumber(result.rows.reduce((t, r) => t + num(r[bindingKey(m)]), 0), fmt) : "",
+    (m.agg === "sum" || m.agg === "count") && !m.show ? formatNumber(result.rows.reduce((t, r) => t + num(r[bindingKey(m)]), 0), numberFormat(visual, m)) : "",
   );
   const cond = condExport(ctx, colors, measures.map(bindingKey), (key) => result.rows.map((r) => r[key] as number | null));
   return tableItems(ctx, body, colors, title, {
     header: [[...dims.map((d) => ({ text: bindingLabel(d), align: "left" as const })), ...measures.map((m) => ({ text: bindingLabel(m), align: "right" as const }))]],
     body: result.rows.map((r) => {
-      const styled = measures.map((m) => cond(bindingKey(m), r[bindingKey(m)] ?? null, formatNumber(r[bindingKey(m)] ?? null, fmt)));
+      const styled = measures.map((m) => cond(bindingKey(m), r[bindingKey(m)] ?? null, formatNumber(r[bindingKey(m)] ?? null, numberFormat(visual, m))));
       return {
         cells: [...dims.map((d) => formatDimension(r[bindingKey(d)] ?? null, columnType(ctx.dataset, d.field), d.bin)), ...styled.map((s) => s.text)],
         decor: [...dims.map(() => undefined), ...styled.map((s) => s.decor)],
@@ -654,7 +653,6 @@ const matrix: Builder = (ctx, body, colors, title, warnings) => {
   const values = role(visual, "values");
   const model = buildMatrix(result.rows, rows, column);
   if (!model.root.children.length && !model.root.cells.size) return [message(ctx, body, colors, "Aucune donnée pour ces filtres.")];
-  const fmt = numberFormat(visual);
   const expandAll = opt<boolean>(visual, def, "expanded") === true;
   const colType = columnType(ctx.dataset, column?.field);
 
@@ -677,7 +675,7 @@ const matrix: Builder = (ctx, body, colors, title, warnings) => {
   ];
   if (values.length > 1) header.push([{ text: "", align: "left" }, ...colKeys.flatMap(() => values.map((m) => ({ text: bindingLabel(m), align: "right" as const })))]);
 
-  const cellsOf = (node: MatrixNode) => colKeys.flatMap((ck) => values.map((m) => (node.cells.get(ck) ? formatNumber(node.cells.get(ck)?.[bindingKey(m)] ?? null, fmt) : "")));
+  const cellsOf = (node: MatrixNode) => colKeys.flatMap((ck) => values.map((m) => (node.cells.get(ck) ? formatNumber(node.cells.get(ck)?.[bindingKey(m)] ?? null, numberFormat(visual, m)) : "")));
   // Lignes affichées (comme à l'écran), puis mise en forme conditionnelle sur leurs cellules hors Total.
   const visible: MatrixNode[] = [];
   const collect = (node: MatrixNode) => {
@@ -694,7 +692,7 @@ const matrix: Builder = (ctx, body, colors, title, warnings) => {
     const styled = colKeys.flatMap((ck) =>
       values.map((m) => {
         const raw = node.cells.get(ck)?.[bindingKey(m)] ?? null;
-        const text = node.cells.get(ck) ? formatNumber(raw, fmt) : "";
+        const text = node.cells.get(ck) ? formatNumber(raw, numberFormat(visual, m)) : "";
         return ck === "__total" ? { text, decor: undefined } : cond(bindingKey(m), raw, text);
       }),
     );

@@ -17,7 +17,6 @@ export function MatrixVisual(props: VisualProps) {
   const rows = role(visual, "rows");
   const column = first(visual, "columns");
   const values = role(visual, "values");
-  const fmt = numberFormat(visual);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const expandAll = opt<boolean>(visual, def, "expanded");
 
@@ -82,7 +81,7 @@ export function MatrixVisual(props: VisualProps) {
                   className={clsx("relative whitespace-nowrap px-2 py-1 text-right tabular-nums", ck === "__total" && "bg-surface-2/60")}
                   style={decorStyle(decor)}
                 >
-                  {node.cells.get(ck) ? <DecoratedValue decor={decor} text={formatNumber(raw, fmt)} /> : ""}
+                  {node.cells.get(ck) ? <DecoratedValue decor={decor} text={formatNumber(raw, numberFormat(visual, m))} /> : ""}
                 </td>
               );
             }),
@@ -128,7 +127,7 @@ export function MatrixVisual(props: VisualProps) {
             {colKeys.map((ck) =>
               values.map((m) => (
                 <td key={`t-${ck}-${bindingKey(m)}`} className="border-t border-border px-2 py-1.5 text-right tabular-nums">
-                  {formatNumber(model.root.cells.get(ck)?.[bindingKey(m)] ?? null, fmt)}
+                  {formatNumber(model.root.cells.get(ck)?.[bindingKey(m)] ?? null, numberFormat(visual, m))}
                 </td>
               )),
             )}

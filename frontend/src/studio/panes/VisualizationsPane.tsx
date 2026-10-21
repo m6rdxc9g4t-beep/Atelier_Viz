@@ -2,10 +2,10 @@ import clsx from "clsx";
 import { X } from "lucide-react";
 import { useState } from "react";
 
-import type { Agg, DateBin } from "../../types/query";
+import type { Agg, DateBin, ShowKind } from "../../types/query";
 import type { FieldBinding, Visual, VisualType } from "../../types/report";
 import { DRILLABLE, dateHierarchy } from "../../visuals/drill";
-import { AGG_LABELS, BIN_LABELS, aggsFor, bindingLabel, findField } from "../../visuals/fields";
+import { AGG_LABELS, BIN_LABELS, SHOW_LABELS, aggsFor, bindingLabel, dateFields, findField, withShow } from "../../visuals/fields";
 import { VISUALS, VISUAL_GROUPS } from "../../visuals/registry";
 import type { OptionDef, RoleDef } from "../../visuals/types";
 import { FIELD_MIME, type DraggedField, useStudioData } from "../context";
@@ -159,6 +159,10 @@ function RoleWell({ visual, role }: { visual: Visual; role: RoleDef }) {
                 </button>
               </div>
               {role.kind === "measure" && b.agg === "calc" && <p className="mt-1 text-[10px] text-muted">Mesure calculée</p>}
+              {role.kind === "measure" && <ShowSelect visual={visual} binding={b} onChange={(next) => s().updateVisual(visual.id, (v) => {
+                const list = v.roles[role.id];
+                if (list?.[i]) list[i] = next;
+              })} />}
               {role.kind === "measure" && b.agg !== "calc" && (
                 <select
                   aria-label="Agrégation"
@@ -299,6 +303,72 @@ function FormatTab({ visual }: { visual: Visual }) {
           </div>
         </Section>
       ))}
+    </div>
+  );
+}
+
+/** « Afficher la valeur comme » : cumul, N-1, évolution, moyenne mobile, part du total. */
+function ShowSelect({ visual, binding, onChange }: { visual: Visual; binding: FieldBinding; onChange: (b: FieldBinding) => void }) {
+  const { profiles } = useStudioData();
+  const profile = visual.dataset_id ? profiles.get(visual.dataset_id) : undefined;
+  const dates = dateFields(visual, profile);
+  const show = binding.show;
+  const pick = (kind: ShowKind | null) => {
+    const next = withShow(binding, kind, visual, profile);
+    if (next) onChange(next);
+  };
+  return (
+    <div className="mt-1 space-y-1">
+      <select
+        aria-label="Afficher la valeur comme"
+        value={show?.kind ?? ""}
+        onChange={(e) => pick((e.target.value || null) as ShowKind | null)}
+        className="w-full rounded border border-border bg-field px-1 py-0.5"
+      >
+        <option value="">Afficher : valeur</option>
+        {(Object.keys(SHOW_LABELS) as ShowKind[]).map((k) => (
+          <option key={k} value={k} disabled={k !== "pct_total" && !dates.length}>
+            {SHOW_LABELS[k]}
+          </option>
+        ))}
+      </select>
+      {show && show.kind !== "pct_total" && (
+        <div className="flex gap-1">
+          {dates.length > 1 && (
+            <select
+              aria-label="Date de référence"
+              value={show.date ?? ""}
+              onChange={(e) => onChange({ ...binding, show: { ...show, date: e.target.value } })}
+              className="min-w-0 flex-1 rounded border border-border bg-field px-1 py-0.5"
+            >
+              {dates.map((d) => (
+                <option key={d} value={d}>
+                  selon {d}
+                </option>
+              ))}
+            </select>
+          )}
+          {show.kind === "moving_avg" && (
+            <label className="flex items-center gap-1 text-[10px] text-muted">
+              sur
+              <select
+                aria-label="Nombre de périodes"
+                value={show.window ?? 3}
+                onChange={(e) => onChange({ ...binding, show: { ...show, window: Number(e.target.value) } })}
+                className="rounded border border-border bg-field px-1 py-0.5 text-[11px] text-fg"
+              >
+                {[2, 3, 4, 6, 12].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              périodes
+            </label>
+          )}
+        </div>
+      )}
+      {!dates.length && <p className="text-[10px] text-muted">Pas de champ date : seuls les % du total sont possibles.</p>}
     </div>
   );
 }

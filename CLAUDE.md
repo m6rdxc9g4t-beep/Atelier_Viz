@@ -100,7 +100,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 1. **Modularité** : routes minces, logique dans `services/` ; un visuel = un composant + une entrée de registre.
 2. **Typage strict** : TypeScript `strict` + `noUncheckedIndexedAccess`, pas de `any` ; Pydantic pour tout ce qui traverse l'API.
 3. **Docstrings / JSDoc en français** sur les fonctions publiques.
-4. **Contrat API** : tout schéma Pydantic a son miroir dans `frontend/src/types/`. Clés de colonnes identiques des deux côtés : dimension `champ` ou `champ|période`, mesure `agg(champ)`.
+4. **Contrat API** : tout schéma Pydantic a son miroir dans `frontend/src/types/`. Clés de colonnes identiques des deux côtés : dimension `champ` ou `champ|période`, mesure `agg(champ)`, calcul rapide `agg(champ)@kind` (`ShowAs.suffix` / `showSuffix`).
 5. **Moteur** : jamais de SQL venant du client ; champs validés contre le profil, identifiants via `quote_ident`, valeurs en paramètres liés.
 6. **Code bloquant** (pandas, DuckDB, disque, sous-processus) : `asyncio.to_thread`.
 7. **Tests** : chaque endpoint a un test pytest ; la logique front (pivot, filtres, gabarits, placement des champs) a des tests Vitest. Les tests forcent `claude_mode="api"` sans clé.

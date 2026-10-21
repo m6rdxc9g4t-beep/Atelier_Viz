@@ -75,6 +75,15 @@ class _Builder:
         self.params.append(value)
         return "CAST(? AS TIMESTAMP)" if self.types[field] == "date" and value is not None else "?"
 
+    def fragment(self, filters: list[Filter]) -> tuple[str, list[Any]]:
+        """Conditions combinées (AND) avec leurs propres paramètres, sans toucher à `self.params`."""
+        saved, self.params = self.params, []
+        try:
+            text = " AND ".join(self.condition(f) for f in filters)
+            return text, self.params
+        finally:
+            self.params = saved
+
     def condition(self, f: Filter) -> str:
         expr = self.binned(f.field, f.bin)
         values = f.values
@@ -124,12 +133,18 @@ def run_query(db: LocalDatabase, table: str, profile: DatasetProfile, req: Query
     meas_keys = [m.key for m in req.measures]
     if len(set(dim_keys + meas_keys)) != len(dim_keys) + len(meas_keys):
         raise QueryError("Chaque dimension et chaque mesure ne peut apparaître qu'une fois.")
+    shows = [m for m in req.measures if m.show is not None]
+    for m in shows:
+        assert m.show is not None
+        if m.show.date is not None and b.types.get(m.show.date) != "date":
+            raise QueryError(f"« {m.show.date} » n'est pas un champ date : calcul « {m.show.kind} » impossible.")
 
-    select = [f"{e} AS {quote_ident(k)}" for e, k in zip(dim_exprs, dim_keys, strict=True)]
-    select += [f"{e} AS {quote_ident(k)}" for e, k in zip(meas_exprs, meas_keys, strict=True)]
     columns = [
         QueryColumn(key=d.key, field=d.field, role="dimension", type=b.types[d.field]) for d in req.dimensions
-    ] + [QueryColumn(key=m.key, field=m.field, role="measure", type=_measure_type(m, b.types)) for m in req.measures]
+    ] + [
+        QueryColumn(key=m.key, field=m.field, role="measure", type="number" if m.show else _measure_type(m, b.types))
+        for m in req.measures
+    ]
 
     where = [b.condition(f) for f in req.filters]
     # Préfixe du SELECT calculé AVANT d'assembler le texte : aucun remplacement dans le SQL
@@ -152,25 +167,33 @@ def run_query(db: LocalDatabase, table: str, profile: DatasetProfile, req: Query
             group_by = " GROUP BY " + ", ".join(dim_exprs)
     elif dim_exprs:
         prefix = "DISTINCT "
-    sql = f"SELECT {prefix}{', '.join(select)} FROM {b.table}"
-    if where:
-        sql += " WHERE " + " AND ".join(where)
-    sql += group_by
 
     valid_keys = {c.key for c in columns}
     order = []
-    for s in req.sort:
-        if s.key not in valid_keys:
-            raise QueryError(f"Tri sur une clé absente de la requête : « {s.key} ».")
-        order.append(f"{quote_ident(s.key)} {'DESC' if s.desc else 'ASC'} NULLS LAST")
+    for srt in req.sort:
+        if srt.key not in valid_keys:
+            raise QueryError(f"Tri sur une clé absente de la requête : « {srt.key} ».")
+        order.append(f"{quote_ident(srt.key)} {'DESC' if srt.desc else 'ASC'} NULLS LAST")
     if not order and dim_keys:
         order = [f"{quote_ident(k)} ASC NULLS LAST" for k in dim_keys]
-    if order:
-        sql += " ORDER BY " + ", ".join(order)
-    sql += f" LIMIT {req.limit + 1}"
+    tail = (" ORDER BY " + ", ".join(order) if order else "") + f" LIMIT {req.limit + 1}"
+
+    if not shows:
+        select = [f"{e} AS {quote_ident(k)}" for e, k in zip(dim_exprs, dim_keys, strict=True)]
+        select += [f"{e} AS {quote_ident(k)}" for e, k in zip(meas_exprs, meas_keys, strict=True)]
+        sql = f"SELECT {prefix}{', '.join(select)} FROM {b.table}"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += group_by + tail
+        params = b.params
+    else:
+        from app.services.engine.showas import compose  # import local : module compagnon
+
+        base_params = list(b.params)
+        sql, params = compose(db, b, req, dim_exprs, prefix, where, group_by, base_params, tail)
 
     try:
-        _, rows = db.execute(sql, b.params)
+        _, rows = db.execute(sql, params)
     except duckdb.Error as exc:
         raise QueryError(f"Le moteur n'a pas pu exécuter la requête : {exc}") from exc
     truncated = len(rows) > req.limit
