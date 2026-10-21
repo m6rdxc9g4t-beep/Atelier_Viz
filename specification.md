@@ -91,6 +91,16 @@ Atelier Viz fait partie d'une suite de trois applications locales — **Atelier 
 | Données | Import des enveloppes DataFlow d'Atelier Tab (fichier JSON) ; connecteurs « Atelier Tab » et « Atelier Projets » (§5 sexies) |
 | API | `GET /api/health` interrogée par les deux autres applications |
 
+### Nœud de workflow (docs/SUITE.md §7)
+- `app/services/atelier/` : `manifest.py` (manifeste), `tables.py` (conversions `atelier-table/1`), `service.py` (lecture, requête, upsert),
+  `journal.py` (journal JSONL), `events.py` (observateurs des services → événements), `idempotency.py`, `errors.py`.
+- Journal : fichier `data/atelier_events.jsonl` (verrou, une ligne par `write` + `fsync`, rétention réécrite atomiquement) et `data/atelier_events.seq`
+  (dernier `seq`, écriture atomique) — indépendant de DuckDB, donc écrivable jusqu'à la fin du lifespan et jamais mêlé aux données.
+- Émissions par observateurs : `DatasetStore.on_created` / `on_removed`, `RefreshScheduler.on_run` (toute exécution, réussie ou non),
+  `AlertService.on_fired` (au franchissement, avec notifications et webhook), `ReportRepository.on_saved` (création et enregistrement, regroupés par rapport).
+- Upsert : un jeu porte `origin = {kind: "atelier-table", key}` ; un nouvel envoi passe par `DatasetStore.replace_data` (étapes rejouées, modèle revalidé, 409 sinon).
+  Un tel jeu n'est pas actualisable par l'ordonnanceur (aucune source à relire).
+
 ## 4. Modèle d'un rapport (`backend/data/reports/<id>.json`)
 
 ```json
@@ -471,6 +481,12 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | POST | `/api/ai/answer` | Réponse à une question ou explication d'un écart (`kind`) à partir de faits agrégés ; chiffres vérifiés |
 | POST | `/api/github/reports/{id}/restore` | Rétablit une version sur ce poste (ou en copie, `as_copy`) ; rien n'est envoyé |
 
+| GET | `/api/atelier/manifest` | Manifeste du nœud Atelier (docs/SUITE.md §7.1) : actions, événements, schémas JSON |
+| GET | `/api/atelier/datasets/{id}/table` | Lignes d'un jeu en `atelier-table/1` (`offset`, `limit` ≤ 5 000, défaut 1 000) |
+| POST | `/api/atelier/query` | Corps `QueryRequest`, résultat `atelier-table/1` (clés snake_case, libellés français) |
+| POST | `/api/atelier/datasets` | Upsert d'une table par clé externe (`origin.kind = "atelier-table"`), `Idempotency-Key` (§7.4) |
+| GET | `/api/atelier/events` | Journal d'événements (`since`, `limit` ≤ 500, `types`) : `next`, `oldest`, `gap` |
+
 Toutes les routes passent par le garde « requêtes locales » (§3) : `Host` de bouclage ou `ALLOWED_HOSTS`, `Origin` locale ou absente pour les écritures, sinon 403.
 
 Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le schéma, identifiants entre guillemets, valeurs en paramètres liés (test d'injection inclus).
@@ -478,7 +494,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (320, + 2 sur serveurs réels) côté back, Vitest (170) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (388, + 2 sur serveurs réels) côté back, Vitest (214) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -498,3 +514,4 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 6 ter — Durcissement local** ✅ : garde « requêtes locales » (Host / Origin, `ALLOWED_HOSTS`), `fastapi>=0.132` ; CLI Claude conforme à docs/SUITE.md §5.3 (environnement en liste blanche, exécutable absolu, aucune donnée en argument, sortie bornée, arrêt forcé, revérification limitée) ; préférences écrites sous verrou ; lanceur macOS sans `npm install` ; santé d'Atelier Tab dérivée de `VITE_ATELIER_TAB_URL`.
 - **Charte néon monochrome** ✅ : toute l'application dans la couleur signature jaune, en clair et en sombre (fond teinté avec fine grille, cartes cerclées d'un trait néon avec halo, bouton principal plein / contour néon, navigation active avec barre de couleur), marque commune v3 ; palette de données et thèmes de rapport inchangés.
 - **Jalon 7 — Analyse avancée** ✅ : mise en forme conditionnelle des tables et matrices ✅, calculs dans le temps (« Afficher la valeur comme » : cumul annuel, N-1, évolution, moyenne mobile, part du total) ✅, relations entre jeux ✅, préparation des données (étapes rejouées à l'actualisation) ✅, pages d'extraction (clic droit) et mode présentation (plein écran, diaporama de pages ou de signets) ✅, alertes sur variation et « pour chaque » valeur d'une dimension, notifications système ✅, export PDF / image / rapport HTML autonome ✅, historique GitHub d'un rapport, restauration d'une version, GitHub Enterprise ✅, questions en langage naturel et explication d'un écart (chiffres vérifiés) ✅, application autonome PyInstaller (macOS .app, Windows .exe, essai Linux ; données hors du paquet ; construction et auto-test en intégration continue) ✅.
+- **Jalon 8 — Nœud Atelier** ✅ : Atelier Viz devient un nœud de workflow pour Atelier Nexus (docs/SUITE.md §7, `atelier-node/1`) : manifeste (`GET /api/atelier/manifest`, 8 actions aux identifiants stables, schémas générés des modèles Pydantic), table d'échange `atelier-table/1` (lecture paginée d'un jeu, requêtes du moteur des visuels à clés snake_case), création / remplacement d'un jeu par clé externe (`datasets.upsert_table`, idempotence par `Idempotency-Key`), journal d'événements persistant (`GET /api/atelier/events` : créations, actualisations réussies ou en échec, suppressions, alertes déclenchées, rapports enregistrés ; `seq` jamais réutilisé, rétention 1 000 / 30 jours, `gap`), erreurs `{detail, code}`. Reste : flux poussé (SSE) plutôt qu'interrogé ; actions d'écriture sur les rapports et les alertes.
