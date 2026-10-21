@@ -12,7 +12,7 @@ import { FIELD_MIME, type DraggedField, useStudioData } from "../context";
 import { useStudio } from "../store";
 import { Pane, Section } from "./Pane";
 import { ConditionalSection } from "./ConditionalSection";
-import { PageSizeSection, PositionSection } from "./PositionSection";
+import { DrillthroughSection, PageSizeSection, PositionSection } from "./PositionSection";
 import { VisualStyleSection } from "./VisualStyleSection";
 
 /** Volet Visualisations : galerie (ajouter / changer de type) + onglets Champs et Format. */
@@ -61,6 +61,7 @@ export function VisualizationsPane() {
         <>
           <p className="p-4 text-xs text-muted">Cliquez sur une icône pour ajouter un visuel, ou sélectionnez un visuel du canvas pour le configurer.</p>
           <PageSizeSection />
+          <DrillthroughSection />
         </>
       ) : (
         <>

@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ArrowDown, ArrowUp, BellPlus, BringToFront, ChevronsDown, Copy, GripHorizontal, Loader2, SendToBack, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, BellPlus, BringToFront, ChevronsDown, Copy, CornerDownRight, GripHorizontal, Info, Loader2, SendToBack, Trash2, X } from "lucide-react";
 import { type DragEvent, memo, useMemo, useState } from "react";
 
 import { AlertEditor } from "../features/automation/AlertEditor";
@@ -15,7 +15,9 @@ import { VISUALS } from "../visuals/registry";
 import { defaultTitle } from "../visuals/title";
 import type { VisualActions } from "../visuals/types";
 import { useQueryResult } from "../visuals/useQueryResult";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { FIELD_MIME, type DraggedField, useStudioData } from "./context";
+import { drillTargets, extractionLabel } from "./extraction";
 import { pageActiveFilters, visualFilters } from "./filters";
 import { useStudio } from "./store";
 
@@ -33,6 +35,8 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
   const mode = useStudio((s) => s.mode);
   const selectedId = useStudio((s) => s.selectedId);
   const selection = useStudio((s) => s.selection);
+  const extraction = useStudio((s) => (s.extraction?.pageId === page.id ? s.extraction : null));
+  const [menu, setMenu] = useState<{ x: number; y: number; title: string; items: MenuItem[] } | null>(null);
   const studio = useStudio.getState;
   const [dropping, setDropping] = useState(false);
   // Mode exploration (Power BI) : un clic sur un élément descend d'un niveau au lieu de filtrer les autres visuels.
@@ -45,8 +49,8 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
   const view = useMemo(() => drillView(visual), [visual]);
   const drillable = canDrill(visual);
   const filters = useMemo(
-    () => visualFilters(page, view, selection, (id) => profiles.get(id)),
-    [page, view, selection, profiles],
+    () => visualFilters(page, view, selection, (id) => profiles.get(id), extraction),
+    [page, view, selection, profiles, extraction],
   );
   const request = def.query ? def.query(view, filters) : null;
   const setDrill = (state: ReturnType<typeof drillUp>) => {
@@ -64,6 +68,48 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
     resetFilters: () => studio().resetFilters(),
     applyBookmark: (id) => studio().applyBookmark(id),
     activeFilters: pageActiveFilters(page, selection),
+  };
+
+  /**
+   * Clic droit : l'élément visé est d'abord sélectionné (comme un clic), puis le menu propose les
+   * pages d'extraction qui acceptent ses champs.
+   */
+  const onContextMenu = (e: React.MouseEvent) => {
+    if (!def.query || !visual.dataset_id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const before = studio().selection;
+    const target = e.target as Element;
+    if (target !== e.currentTarget) {
+      target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: e.clientX, clientY: e.clientY, view: window }));
+      // Le clic a désélectionné l'élément déjà choisi : on garde la sélection d'avant.
+      if (before?.visualId === visual.id && !studio().selection) studio().setSelection(before);
+    }
+    const current = studio().selection;
+    const own = current?.visualId === visual.id ? current : null;
+    const targets = drillTargets(report, page.id, own);
+    const items: MenuItem[] = targets.map((t) => ({
+      label: `Extraire vers « ${t.page.name} »`,
+      hint: extractionLabel(t.filters),
+      icon: CornerDownRight,
+      onSelect: () => studio().drillThrough(t.page.id, own?.datasetId ?? visual.dataset_id ?? "", t.filters),
+    }));
+    if (!items.length) {
+      const hasPages = report.pages.some((p) => p.id !== page.id && p.drillthrough);
+      items.push({
+        label: own ? "Aucune page d'extraction pour cet élément" : "Cliquez droit sur un élément (barre, part, ligne…)",
+        hint: hasPages
+          ? `Pages d'extraction : ${report.pages
+              .filter((p) => p.id !== page.id && p.drillthrough)
+              .map((p) => `« ${p.name} » (${p.drillthrough?.fields.join(", ")})`)
+              .join(" · ")}`
+          : "Définissez une page d'extraction : sur la page cible, sans visuel sélectionné, volet Visualisations → « Page d'extraction ».",
+        icon: Info,
+        disabled: true,
+      });
+    }
+    if (own) items.push({ label: "Effacer la sélection", icon: X, onSelect: () => studio().setSelection(null) });
+    setMenu({ x: e.clientX, y: e.clientY, title: own ? extractionLabel(own.filters) : visual.title || defaultTitle(visual), items });
   };
 
   const onDrop = (e: DragEvent) => {
@@ -163,6 +209,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
       }}
       onDragLeave={() => setDropping(false)}
       onDrop={onDrop}
+      onContextMenu={onContextMenu}
       style={{ ...frame, ...visualCss(style, pageColor), color: "var(--fg)" }}
       className={clsx(
         "group/visual relative flex h-full flex-col outline-offset-2",
@@ -243,6 +290,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
       )}
       {drillable && <DrillBar visual={visual} dataset={dataset} drillMode={drillMode} onToggle={() => setDrillMode((m) => !m)} onChange={setDrill} />}
       <div className="min-h-0 flex-1">{body}</div>
+      {menu && <ContextMenu x={menu.x} y={menu.y} title={menu.title} items={menu.items} onClose={() => setMenu(null)} />}
       {alerting && alertDraft && (
         <AlertEditor
           initial={alertDraft}

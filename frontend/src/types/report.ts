@@ -71,6 +71,12 @@ export interface Page {
   filters: Filter[];
   /** Absent = ancienne grille (convertie par `migratePage`). */
   size?: PageSize | null;
+  /** Page d'extraction : atteinte par clic droit sur un élément portant l'un de ces champs. */
+  drillthrough?: Drillthrough | null;
+}
+
+export interface Drillthrough {
+  fields: string[];
 }
 
 /** État d'un visuel capturé par un signet : sélection d'un segment, niveau d'exploration. */

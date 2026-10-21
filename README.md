@@ -150,6 +150,8 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 | Placer au pixel près | Glisser la poignée du haut du visuel n'importe où sur la page (repères d'alignement roses, Alt pour s'en passer), 8 poignées pour la taille (Maj : proportions), flèches du clavier (1 px, Maj : 10 px), ou X / Y / L / H dans l'onglet Format ; superposer et choisir premier plan / arrière-plan ; taille de la page dans l'onglet Format sans sélection ; zoom en bas à droite (Ctrl + molette) |
 | Changer de type | Sélectionner le visuel puis cliquer une autre icône (les champs sont conservés) |
 | Filtrer | Segments, volet Filtres (page / visuel), clic sur un élément d'un graphique (filtrage croisé) |
+| Extraire | Une page « Détail région » marquée page d'extraction (volet Visualisations, sans visuel sélectionné) ; clic droit sur une barre d'une autre page → **Extraire vers** : la page s'ouvre filtrée, bouton Retour |
+| Présenter | Bouton **Présenter** : plein écran, flèches pour changer de page, diaporama automatique des pages ou des signets, Échap pour quitter |
 | Automatiser | Visuel « Bouton d'action » : URL avec `{champ}`, webhook (n8n, Make, Zapier), page, réinitialisation |
 | Comparer dans le temps | Puits Valeurs → **Afficher** : cumul depuis le début de l'année, N-1, écart et évolution vs N-1 (%), moyenne mobile, part du total — sans formule, sur n'importe quel visuel (KPI « +13,9 % vs N-1 ») |
 | Calculer | Volet Données → **+ Mesure** (`SUM(chiffre_affaires * taux_marge / 100)`, `DIVIDE([Marge], SUM(chiffre_affaires))`) ou **+ Colonne** (`IF(chiffre_affaires >= 5000, "Grosse vente", "Standard")`), vérifiées à la frappe |

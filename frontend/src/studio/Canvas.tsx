@@ -3,6 +3,7 @@ import { Maximize2, Minus, Plus } from "lucide-react";
 import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { Layout, Page, Report } from "../types/report";
+import { fitScale } from "./extraction";
 import { DEFAULT_PAGE, GAP } from "./grid";
 import { type Guides, RESIZE_DIRS, type ResizeDir, moveRect, resizeCursor, resizeRect } from "./snap";
 import { useStudio } from "./store";
@@ -33,27 +34,36 @@ interface Drag {
  * Le zoom met la page à l'échelle d'un bloc (`transform: scale`), comme Power BI : Recharts corrige
  * ses coordonnées de souris pour une échelle (`getRelativeCoordinate`), les cartes via `localPoint`.
  */
-export function Canvas({ page, report }: { page: Page; report: Report }) {
+export function Canvas({ page, report, fitPage = false }: { page: Page; report: Report; /** Présentation : page entière à l'écran, sans zoom. */ fitPage?: boolean }) {
   const editing = useStudio((s) => s.mode) === "edit";
   const selectedId = useStudio((s) => s.selectedId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(0);
+  const [availableH, setAvailableH] = useState(0);
   const [zoomChoice, setZoomChoice] = useState<number | "fit">("fit");
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
   dragRef.current = drag;
 
   const size = page.size ?? DEFAULT_PAGE;
-  const fit = available > 0 ? Math.min(2, Math.max(0.25, (available - 2 * PADDING) / size.width)) : 1;
-  const zoom = zoomChoice === "fit" ? fit : zoomChoice;
+  const fit = fitPage
+    ? fitScale(size, { width: available, height: availableH }, PADDING)
+    : available > 0
+      ? Math.min(2, Math.max(0.25, (available - 2 * PADDING) / size.width))
+      : 1;
+  const zoom = zoomChoice === "fit" || fitPage ? fit : zoomChoice;
 
   // Largeur disponible (ajustement à la largeur, comme « Ajuster à la largeur » de Power BI).
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setAvailable(el.clientWidth));
+    const measure = () => {
+      setAvailable(el.clientWidth);
+      setAvailableH(el.clientHeight);
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setAvailable(el.clientWidth);
+    measure();
     return () => ro.disconnect();
   }, []);
 
@@ -120,7 +130,11 @@ export function Canvas({ page, report }: { page: Page; report: Report }) {
 
   return (
     <>
-      <div ref={scrollRef} className="absolute inset-0 overflow-auto" style={{ padding: PADDING }}>
+      <div
+        ref={scrollRef}
+        className="absolute inset-0 overflow-auto"
+        style={{ padding: PADDING, paddingTop: fitPage ? Math.max(PADDING, (availableH - px(size.height)) / 2) : PADDING }}
+      >
         <div
           role="presentation"
           data-page-frame
@@ -205,7 +219,7 @@ export function Canvas({ page, report }: { page: Page; report: Report }) {
           )}
         </div>
       </div>
-      <ZoomControl zoom={zoom} isFit={zoomChoice === "fit"} onChange={setZoomChoice} size={size} />
+      {!fitPage && <ZoomControl zoom={zoom} isFit={zoomChoice === "fit"} onChange={setZoomChoice} size={size} />}
     </>
   );
 }

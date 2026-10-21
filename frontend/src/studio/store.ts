@@ -10,6 +10,7 @@ import { defaultBinding } from "../visuals/fields";
 import { VISUALS } from "../visuals/registry";
 import type { RoleDef, Selection } from "../visuals/types";
 import { MAX_BOOKMARKS, applyBookmarkTo, captureBookmark, nextBookmarkName } from "./bookmarks";
+import type { Extraction } from "./extraction";
 import { DEFAULT_PAGE, GAP, clampToPage, fitHeight, migratePage, sizePx } from "./grid";
 
 const MIN_TEXT_H = 72;
@@ -107,6 +108,8 @@ interface StudioState {
   pageId: string;
   selectedId: string | null;
   selection: Selection | null;
+  /** Extraction active (page d'extraction atteinte par clic droit) ; non enregistrée. */
+  extraction: Extraction | null;
   mode: Mode;
   saveState: SaveState;
   saveError: string | null;
@@ -135,6 +138,12 @@ interface StudioState {
   select: (id: string | null) => void;
   setPage: (id: string) => void;
   setSelection: (s: Selection | null) => void;
+  /** Ouvre une page d'extraction filtrée sur l'élément choisi. */
+  drillThrough: (pageId: string, datasetId: string, filters: Filter[]) => void;
+  /** Revient à la page d'origine d'une extraction. */
+  backFromExtraction: () => void;
+  /** Champs d'extraction de la page courante (null = page ordinaire). */
+  setDrillthrough: (fields: string[] | null) => void;
   setMode: (m: Mode) => void;
   setSaveState: (s: SaveState, error?: string | null) => void;
   notify: (message: string | null) => void;
@@ -192,6 +201,7 @@ export const useStudio = create<StudioState>((set, get) => {
     pageId: "",
     selectedId: null,
     selection: null,
+    extraction: null,
     mode: "edit",
     saveState: "saved",
     saveError: null,
@@ -350,7 +360,17 @@ export const useStudio = create<StudioState>((set, get) => {
     },
 
     select: (id) => set({ selectedId: id }),
-    setPage: (id) => set({ pageId: id, selectedId: null, selection: null }),
+    setPage: (id) => set({ pageId: id, selectedId: null, selection: null, extraction: null }),
+    drillThrough: (pageId, datasetId, filters) =>
+      set({ extraction: { pageId, fromPageId: get().pageId, datasetId, filters }, pageId, selectedId: null, selection: null }),
+    backFromExtraction: () => {
+      const ex = get().extraction;
+      if (ex) set({ pageId: ex.fromPageId, extraction: null, selectedId: null, selection: null });
+    },
+    setDrillthrough: (fields) =>
+      withPage((p) => {
+        p.drillthrough = fields && fields.length ? { fields } : null;
+      }),
     setSelection: (s) => set({ selection: s }),
     setMode: (m) => set({ mode: m, selectedId: m === "view" ? null : get().selectedId }),
     setSaveState: (s, error = null) => set({ saveState: s, saveError: error }),
