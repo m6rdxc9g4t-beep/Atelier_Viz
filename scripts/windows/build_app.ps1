@@ -51,6 +51,7 @@ $LogFile = Join-Path $ConfigDir 'Logs\atelier-viz.log'
 function Say([string]$Text) { Write-Host $Text -ForegroundColor Cyan }
 function Fail([string]$Text) {
   Write-Host "Erreur : $Text" -ForegroundColor Red
+  if ($env:GITHUB_ACTIONS -eq 'true') { Write-Host "::error title=build_app.ps1::$Text" }
   exit 1
 }
 

@@ -141,6 +141,7 @@ def _exe(folder, name: str = "claude"):  # type: ignore[no-untyped-def]
     return path
 
 
+@pytest.mark.skipif(__import__("os").name != "posix", reason="exécutables POSIX ; Windows : test_windows.py")
 def test_find_claude_cli_order(tmp_path) -> None:
     """CLAUDE_CLI (absolu), puis l'exécutable configuré, puis le PATH, puis les dossiers d'installation."""
     import os
@@ -160,6 +161,7 @@ def test_find_claude_cli_order(tmp_path) -> None:
     assert find_claude_cli("claude", env={"PATH": path}, fallback_dirs=()) == str(in_path)
 
 
+@pytest.mark.skipif(__import__("os").name != "posix", reason="exécutables POSIX ; Windows : test_windows.py")
 def test_find_claude_cli_refuses_relative_paths_and_node_modules(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Chemin relatif refusé, entrées relatives du PATH et dossiers node_modules/.bin ignorés (§5.3)."""
     from app.services.ai.claude_cli import find_claude_cli
@@ -178,6 +180,7 @@ def test_find_claude_cli_refuses_relative_paths_and_node_modules(tmp_path, monke
     assert find_claude_cli("claude", env={"PATH": path}, fallback_dirs=()) == str(good)
 
 
+@pytest.mark.skipif(__import__("os").name != "posix", reason="exécutables POSIX ; Windows : test_windows.py")
 def test_find_claude_cli_falls_back_to_install_dirs(tmp_path) -> None:
     """Application lancée depuis le Finder : PATH minimal, la CLI est dans ~/.local/bin ou Homebrew."""
     from app.services.ai.claude_cli import find_claude_cli
@@ -258,6 +261,7 @@ def test_model_follows_user_choice() -> None:
 # --- Environnement en liste blanche, sortie bornée, arrêt forcé (docs/SUITE.md §5.3) ---
 
 
+@pytest.mark.skipif(__import__("os").name != "posix", reason="exécutables POSIX ; Windows : test_windows.py")
 def test_cli_environment_is_an_exact_allow_list() -> None:
     from app.services.ai.claude_cli import cli_environment
 
@@ -299,7 +303,7 @@ def test_provider_passes_the_allow_list_to_the_cli(monkeypatch: pytest.MonkeyPat
     asyncio.run(ClaudeCliProvider(executable="/x/bin/claude", runner=runner).chat(MSG))
     env = runner.calls[0]["env"]
     assert "CLAUDE_CODE_USE_BEDROCK" not in env and "GITHUB_TOKEN" not in env
-    assert env["PATH"].split(":")[0] == "/x/bin"
+    assert env["PATH"].startswith("/x/bin")  # dossier de l'exécutable en tête (« : » ou « ; »)
 
 
 def test_json_schema_argument_never_carries_data_enums() -> None:
