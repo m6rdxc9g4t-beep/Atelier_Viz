@@ -96,6 +96,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Lanceur : **jamais de `npm install` au lancement** ; `app/launcher.py` (`ok` / `build` / `install`, testé dans `test_launcher.py`) décide d'un `npm run build` ou d'un message « relancez build_app.sh ».
 - Front : tout enregistrement de fichier passe par `saveFile` et tout lien externe par `openExternal` (`lib/desktop.ts`) — jamais `a.download` ni `window.open` directement (WKWebView les ignore).
 - Requêtes vers le serveur local sans proxy (`_local` dans desktop.py : macOS applique sinon le proxy système).
+- **Paquet autonome** (PyInstaller) : `scripts/standalone/build.py` + `atelier_viz.spec`, entrée `backend/standalone.py` → `app/standalone.py` (ressources du paquet via `FRONTEND_DIST` / `SAMPLES_DIR`, données dans le dossier d'application du système, `--self-test`). Tout fichier lu à l'exécution passe par une variable de `Settings` (jamais un chemin relatif au dépôt) ; tout nouveau fichier de données à embarquer s'ajoute aux `datas` du `.spec`. Workflow `.github/workflows/standalone.yml` (macOS, Windows, Linux).
 
 ## Règles de code
 1. **Modularité** : routes minces, logique dans `services/` ; un visuel = un composant + une entrée de registre.
