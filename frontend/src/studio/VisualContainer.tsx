@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ArrowDown, ArrowUp, BellPlus, BringToFront, ChevronsDown, Copy, CornerDownRight, GripHorizontal, Info, Loader2, SendToBack, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BellPlus, BringToFront, ChevronsDown, Copy, CornerDownRight, GripHorizontal, Info, Lightbulb, Loader2, SendToBack, Trash2, X } from "lucide-react";
 import { type DragEvent, memo, useMemo, useState } from "react";
 
 import { AlertEditor } from "../features/automation/AlertEditor";
@@ -13,9 +13,10 @@ import { canDrill, drillCrumbs, drillDown, drillLevels, drillState, drillUp, dri
 import { findField } from "../visuals/fields";
 import { VISUALS } from "../visuals/registry";
 import { defaultTitle } from "../visuals/title";
-import type { VisualActions } from "../visuals/types";
+import type { Selection, VisualActions } from "../visuals/types";
 import { useQueryResult } from "../visuals/useQueryResult";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { ExplainDialog } from "./ExplainDialog";
 import { FIELD_MIME, type DraggedField, useStudioData } from "./context";
 import { drillTargets, extractionLabel } from "./extraction";
 import { pageActiveFilters, visualFilters } from "./filters";
@@ -42,6 +43,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
   const selection = snapshot ? snapshot.selection : liveSelection;
   const extraction = snapshot ? (snapshot.extraction?.pageId === page.id ? snapshot.extraction : null) : liveExtraction;
   const [menu, setMenu] = useState<{ x: number; y: number; title: string; items: MenuItem[] } | null>(null);
+  const [explaining, setExplaining] = useState<Selection | null>(null);
   const studio = useStudio.getState;
   const [dropping, setDropping] = useState(false);
   // Mode exploration (Power BI) : un clic sur un élément descend d'un niveau au lieu de filtrer les autres visuels.
@@ -113,7 +115,10 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
         disabled: true,
       });
     }
-    if (own) items.push({ label: "Effacer la sélection", icon: X, onSelect: () => studio().setSelection(null) });
+    if (own) {
+      items.push({ label: "Expliquer cette valeur", hint: "Ce qui fait l'écart, par dimension", icon: Lightbulb, onSelect: () => setExplaining(own) });
+      items.push({ label: "Effacer la sélection", icon: X, onSelect: () => studio().setSelection(null) });
+    }
     setMenu({ x: e.clientX, y: e.clientY, title: own ? extractionLabel(own.filters) : visual.title || defaultTitle(visual), items });
   };
 
@@ -295,6 +300,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
       )}
       {drillable && !snapshot && <DrillBar visual={visual} dataset={dataset} drillMode={drillMode} onToggle={() => setDrillMode((m) => !m)} onChange={setDrill} />}
       <div className="min-h-0 flex-1">{body}</div>
+      {explaining && <ExplainDialog page={page} visual={visual} selection={explaining} onClose={() => setExplaining(null)} />}
       {menu && <ContextMenu x={menu.x} y={menu.y} title={menu.title} items={menu.items} onClose={() => setMenu(null)} />}
       {alerting && alertDraft && (
         <AlertEditor

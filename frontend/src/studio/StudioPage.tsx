@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ArrowLeft, Bookmark, Check, Download, Eye, FileCode2, FileImage, FileText, FilterX, Loader2, MonitorPlay, Palette, Pencil, Presentation, Redo2, ScrollText, Sparkles, Undo2, X } from "lucide-react";
+import { ArrowLeft, Bookmark, Check, CircleHelp, Download, Eye, FileCode2, FileImage, FileText, FilterX, Loader2, MonitorPlay, Palette, Pencil, Presentation, Redo2, ScrollText, Sparkles, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLinkedProfiles } from "../hooks/useDatasetProfiles";
@@ -15,6 +15,7 @@ import { extractionLabel } from "./extraction";
 import { PageTabs } from "./PageTabs";
 import { ExtractionBar, Presentation as PresentationMode } from "./Presentation";
 import { AIBuilderPane } from "./panes/AIBuilderPane";
+import { AskPane } from "./panes/AskPane";
 import { BookmarksPane } from "./panes/BookmarksPane";
 import { SummaryPane } from "./panes/SummaryPane";
 import { DataPane } from "./panes/DataPane";
@@ -41,8 +42,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
   const [activeDatasetId, setActiveDatasetId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Volets de droite : édition classique, thème, ou création par l'IA.
-  const [side, setSide] = useState<"default" | "theme" | "ai" | "summary" | "bookmarks">("default");
-  const toggleSide = (v: "theme" | "ai" | "summary" | "bookmarks") => setSide((cur) => (cur === v ? "default" : v));
+  const [side, setSide] = useState<"default" | "theme" | "ai" | "summary" | "bookmarks" | "ask">("default");
+  const toggleSide = (v: "theme" | "ai" | "summary" | "bookmarks" | "ask") => setSide((cur) => (cur === v ? "default" : v));
   const [exporting, setExporting] = useState(false);
   const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
   const [documentFormat, setDocumentFormat] = useState<"pdf" | "png" | "html" | null>(null);
@@ -237,6 +238,15 @@ export function StudioPage({ reportId }: { reportId: string }) {
             </button>
             <button
               type="button"
+              onClick={() => toggleSide("ask")}
+              aria-pressed={side === "ask"}
+              title="Poser une question en français : un visuel et une réponse aux chiffres vérifiés"
+              className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "ask" ? "text-accent-ink" : "text-muted hover:text-fg")}
+            >
+              <CircleHelp className="size-3.5" aria-hidden /> <span className="hidden md:inline">Demander</span>
+            </button>
+            <button
+              type="button"
               onClick={() => toggleSide("summary")}
               aria-pressed={side === "summary"}
               title="Synthèse de la page par l'IA, chiffres vérifiés"
@@ -295,6 +305,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
             )}
           </section>
           {side === "summary" && <SummaryPane />}
+          {side === "ask" && <AskPane />}
           {side === "bookmarks" && <BookmarksPane />}
           {editing && side === "theme" && <ThemePane />}
           {editing && side === "ai" && (

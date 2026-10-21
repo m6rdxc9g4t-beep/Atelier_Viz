@@ -98,6 +98,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Requêtes vers le serveur local sans proxy (`_local` dans desktop.py : macOS applique sinon le proxy système).
 - **Windows** : `scripts/windows/build_app.ps1` (UTF-8 **avec BOM**, CRLF : Windows PowerShell 5.1 ; compatible 5.1, pas de `??` ni de ternaire) crée les raccourcis vers `pythonw.exe -X utf8 -m app.windows_launcher`. Le lanceur (`app/windows_launcher.py`, bibliothèque standard jusqu'au lancement) suit les mêmes règles que celui du Mac (jamais d'installation au lancement) ; `--self-test` est exécuté par la CI `windows-latest`.
 - Code multiplateforme : remplacement de fichier par `replace_file` (`app/core/files.py`), jamais `os.replace` direct ; tout sous-processus lancé depuis l'application passe `creationflags=CREATE_NO_WINDOW` sous Windows ; jamais de `.cmd` / `.bat` avec des arguments variables (`cmd.exe` les réinterprète) ; chemins de l'utilisateur par `launcher.log_dir` / `build_script` ; tests indépendants du système (paramètre `windows=` / `platform=` plutôt que `sys.platform`).
+- **Paquet autonome** (PyInstaller) : `scripts/standalone/build.py` + `atelier_viz.spec`, entrée `backend/standalone.py` → `app/standalone.py` (ressources du paquet via `FRONTEND_DIST` / `SAMPLES_DIR`, données dans le dossier d'application du système, `--self-test`). Tout fichier lu à l'exécution passe par une variable de `Settings` (jamais un chemin relatif au dépôt) ; tout nouveau fichier de données à embarquer s'ajoute aux `datas` du `.spec`. Workflow `.github/workflows/standalone.yml` (macOS, Windows, Linux).
 
 ## Règles de code
 1. **Modularité** : routes minces, logique dans `services/` ; un visuel = un composant + une entrée de registre.
@@ -126,6 +127,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Seuls le **schéma** et **5 lignes** partent vers l'IA, et seulement si l'utilisateur coche « Joindre le schéma ».
 - Création de visuels : `app/services/ai/builder.py` (schéma contraint → `repair` → une relance max). Le catalogue vient du registre frontend (`visuals/catalog.ts`) : ne pas le dupliquer côté backend. Tout visuel qui arrive au Studio est passé par `repair`.
 - Tout fournisseur implémente `chat` et `chat_json` (sortie structurée).
+- Questions et explications : `summary/ask.ts` (constructeur → visuel calculé localement → faits) et `summary/explain.ts` (décomposition par le moteur) ; `POST /api/ai/answer` (`services/ai/answer.py`) vérifie chaque nombre comme la synthèse. Jamais de ligne brute vers l'IA : seulement des faits agrégés lisibles par `numbers()`.
 - Résumé de page : les faits sont calculés côté frontend (`summary/facts.ts`), écrits comme à l'écran ; `app/services/ai/summary.py` vérifie chaque nombre de la réponse contre ces faits (relance, puis retrait). Ne jamais envoyer de lignes brutes ; tout nouveau type de fait doit rester lisible par `numbers()`.
 
 ## Export PowerPoint

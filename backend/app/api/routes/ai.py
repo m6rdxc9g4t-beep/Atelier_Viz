@@ -6,7 +6,8 @@ from app.api.deps import AIServiceDep, StoreDep
 from app.api.routes.datasets import get_or_404
 from app.schemas.ai import ChatRequest, ChatResponse, ProvidersResponse
 from app.schemas.builder import BuildRequest, BuildResponse, RepairRequest, RepairResponse
-from app.schemas.summary import SummaryRequest, SummaryResponse
+from app.schemas.summary import AnswerRequest, AnswerResponse, SummaryRequest, SummaryResponse
+from app.services.ai.answer import answer
 from app.services.ai.builder import build_visuals, repair_existing
 from app.services.ai.summary import summarize
 from app.services.data.context import with_dataset
@@ -59,3 +60,10 @@ async def summary(payload: SummaryRequest, service: AIServiceDep) -> SummaryResp
     """Synthèse d'une page. Seuls les faits agrégés envoyés par le frontend partent vers l'IA ;
     chaque chiffre de la réponse est vérifié contre ces faits."""
     return await summarize(service, payload)
+
+
+@router.post("/answer", response_model=AnswerResponse)
+async def answer_question(payload: AnswerRequest, service: AIServiceDep) -> AnswerResponse:
+    """Réponse à une question (ou explication d'un écart) à partir des faits calculés par le frontend ;
+    chaque chiffre de la réponse est vérifié contre ces faits."""
+    return await answer(service, payload)

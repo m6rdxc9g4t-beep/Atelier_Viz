@@ -1,6 +1,7 @@
 /** Pages d'extraction (drill-through) et mode présentation : logique pure, testée. */
 
 import type { Filter } from "../types/query";
+import { formatDimension } from "../visuals/format";
 import type { Page, Report } from "../types/report";
 import type { Selection } from "../visuals/types";
 
@@ -29,15 +30,14 @@ export function drillTargets(report: Report, fromPageId: string, selection: Sele
     .filter((t) => t.filters.length > 0);
 }
 
-const show = (v: unknown) => (v === null || v === undefined ? "(vide)" : String(v));
-
-/** « region = Occitanie », « annee = 2026, region = Occitanie ou Bretagne ». */
+/** « region = Occitanie », « date = mars 2026, region = Occitanie ou Bretagne ». */
 export function extractionLabel(filters: Filter[]): string {
   return filters
     .map((f) => {
       const values = f.values ?? [];
+      const show = (v: (typeof values)[number]) => (v === null || v === undefined ? "(vide)" : f.bin ? formatDimension(v, "date", f.bin) : String(v));
       const shown = values.slice(0, 3).map(show).join(" ou ") + (values.length > 3 ? "…" : "");
-      return `${f.field}${f.bin ? ` (${f.bin})` : ""} = ${shown}`;
+      return `${f.field} = ${shown}`;
     })
     .join(", ");
 }

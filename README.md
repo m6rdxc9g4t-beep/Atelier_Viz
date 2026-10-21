@@ -91,6 +91,24 @@ des tâches*). Même fonctionnement que l'application Mac : fenêtre native, auc
   `winget install Anthropic.ClaudeCode`) ; `claude.exe` est trouvé seul (`%USERPROFILE%\.local\bin`, WinGet, npm).
 - Mots de passe des connexions : Gestionnaire d'identifiants Windows. Alertes : notifications de Windows.
 
+### Application autonome (sans Python ni conda)
+
+Pour installer Atelier Viz sur un poste qui n'a ni Python, ni conda, ni Node :
+
+```bash
+python scripts/standalone/build.py --self-test   # dans un venv Python 3.11+, sur le système visé
+```
+
+- **macOS** : `dist-standalone/Atelier-Viz-<version>-macOS.zip` → « Atelier Viz.app » à glisser dans Applications.
+- **Windows** : `Atelier-Viz-<version>-Windows.zip` → dossier « Atelier Viz », lancer « Atelier Viz.exe » (fenêtre WebView2).
+- **Linux** (essai) : `atelier-viz-<version>-linux.tar.gz` → `./atelier-viz/atelier-viz` ouvre l'interface dans le navigateur.
+- Tout est dans le paquet (Python, DuckDB, pilotes SQL, interface compilée, exemples) ; les données vivent hors du paquet
+  (`~/Library/Application Support/Atelier Viz`, `%LOCALAPPDATA%\Atelier Viz`, `~/.local/share/atelier-viz`), où un
+  fichier `.env` facultatif est lu (ex. `CLAUDE_MODE=cli`). Remplacer l'application ne touche pas aux données.
+- L'intégration continue (« Application autonome », GitHub Actions) construit et auto-teste les trois paquets ; les
+  archives sont dans les artefacts du workflow (lancement manuel ou étiquette `v*`).
+- Paquets non signés : au premier lancement, macOS demande clic droit → **Ouvrir** ; Windows SmartScreen → « Informations complémentaires » → **Exécuter quand même**.
+
 ### Activer Claude
 
 1. Installez Claude Code : `curl -fsSL https://claude.ai/install.sh | bash` (ou `brew install --cask claude-code`),
@@ -197,6 +215,7 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 | Explorer | Plusieurs champs dans l'Axe = hiérarchie ; flèches du visuel pour monter / descendre ; « Hiérarchie de dates » pour année › trimestre › mois |
 | Mettre en évidence | Table ou matrice → onglet Format → **Mise en forme conditionnelle** : dégradé ou couleurs divergentes, règles (« < 900 000 → rouge »), barres de données, icônes ▲ ● ▼ |
 | Habiller | Bouton « Thème » : clair / sombre, préréglages (Verre, Papier, Minuit…), couleurs en hexadécimal, import de thèmes Power BI ; onglet Format d'un visuel : fond transparent, bordure, arrondi, ombre, titre, couleurs |
+| Demander | Bouton **Demander** : « Quelle région a le plus gros chiffre d'affaires ? » → un visuel calculé ici avec les filtres de la page et une réponse courte, chaque chiffre vérifié ; **Ajouter à la page**. Clic droit sur une valeur → **Expliquer cette valeur** : écart avec la période précédente (ou répartition comparée à l'ensemble) décomposé par dimension, puis rédigé par l'IA |
 | Résumer | Bouton **Résumer** : synthèse de la page par l'IA, chaque chiffre vérifié contre les données ; à insérer dans la page ou dans les notes PowerPoint |
 | Exporter | Bouton **Exporter** → **PowerPoint** (une page = une diapositive, graphiques et tableaux modifiables, filtres dans les notes), **PDF** (une page par page), **Image** PNG de la page, ou **Rapport HTML autonome** (un fichier lisible partout hors ligne, avec les données de chaque visuel) ; fichiers créés sur la machine |
 | Raccourcis | Ctrl+Z / Ctrl+Y, Ctrl+D, Suppr, flèches, Échap |

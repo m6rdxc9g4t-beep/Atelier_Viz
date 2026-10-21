@@ -2,7 +2,7 @@
 
 import type { ChatRequest, ChatResponse, ClaudeModel, ProviderChoice, ProvidersResponse } from "../types/ai";
 import type { BuildRequest, BuildResponse, RepairRequest, RepairResponse } from "../types/builder";
-import type { SummaryRequest, SummaryResponse } from "../types/summary";
+import type { AnswerRequest, AnswerResponse, SummaryRequest, SummaryResponse } from "../types/summary";
 import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult, PrepPreview, PrepStep, Relation, RelationCheck, SampleFile, SamplesImport } from "../types/dataset";
 import type { QueryRequest, QueryResponse } from "../types/query";
 import type {
@@ -86,6 +86,8 @@ export const api = {
   repairVisuals: (body: RepairRequest) => request<RepairResponse>("/ai/visuals/repair", { method: "POST", body: JSON.stringify(body) }),
   summarizePage: (body: SummaryRequest, signal?: AbortSignal) =>
     request<SummaryResponse>("/ai/summary", { method: "POST", body: JSON.stringify(body), signal }),
+  /** Réponse vérifiée à une question (ou explication d'un écart) à partir de faits calculés ici. */
+  answer: (body: AnswerRequest, signal?: AbortSignal) => request<AnswerResponse>("/ai/answer", { method: "POST", body: JSON.stringify(body), signal }),
 
   samples: {
     list: () => request<SampleFile[]>("/samples"),
