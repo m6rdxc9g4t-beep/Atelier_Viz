@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from app import desktop
 from app.core.config import Settings
+from app.launcher import build_script
 from main import create_app
 
 
@@ -96,7 +97,7 @@ def test_prepare_explains_missing_interface(
     monkeypatch.setattr(desktop, "PREFERRED_PORT", desktop.find_port(0))
     settings.frontend_dist = tmp_path / "absent"
     url, server, error = desktop.prepare(settings)
-    assert server is None and error is not None and "build_app.sh" in error
+    assert server is None and error is not None and build_script() in error
 
 
 def test_database_lock_is_detected(settings: Settings, dist: Path) -> None:

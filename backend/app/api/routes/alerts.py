@@ -31,7 +31,7 @@ async def create_alert(body: AlertInput, alerts: AlertsDep) -> Alert:
 
 
 class SystemNotifications(BaseModel):
-    """Notifications système disponibles sur cette machine (centre de notifications macOS, notify-send)."""
+    """Notifications système disponibles sur cette machine (centre de notifications macOS, notify-send, Windows)."""
 
     available: bool
 

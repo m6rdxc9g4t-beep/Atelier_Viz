@@ -1,0 +1,68 @@
+# Version Windows : tests du backend et du frontend sous Windows, puis installation réelle de
+# l'application de bureau (scripts/windows/build_app.ps1, Windows PowerShell 5.1 comme chez l'utilisateur)
+# et auto-test du lanceur (serveur local + interface compilée, sans fenêtre).
+name: Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Backend — pytest et ruff
+        working-directory: backend
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          python -m pytest -q
+          python -m ruff check .
+
+      - name: Frontend — tests
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+
+      - name: Application de bureau — installation (build_app.ps1)
+        shell: powershell
+        run: .\scripts\windows\build_app.ps1 -NoDesktopShortcut
+
+      - name: Application de bureau — auto-test du lanceur
+        shell: powershell
+        working-directory: backend
+        run: |
+          $config = Get-Content -Raw "$env:LOCALAPPDATA\Atelier Viz\launcher.json" | ConvertFrom-Json
+          $proc = Start-Process -FilePath $config.python -ArgumentList '-X', 'utf8', '-m', 'app.windows_launcher', '--self-test' -Wait -PassThru
+          Get-Content "$env:LOCALAPPDATA\Atelier Viz\Logs\atelier-viz.log"
+          $link = Join-Path ([Environment]::GetFolderPath('Programs')) 'Atelier Viz.lnk'
+          if (-not (Test-Path $link)) { throw "Raccourci absent : $link" }
+          if ($proc.ExitCode -ne 0) { throw "Auto-test en echec (code $($proc.ExitCode))" }
+
+      - name: Application de bureau — désinstallation
+        shell: powershell
+        run: .\scripts\windows\build_app.ps1 -Uninstall

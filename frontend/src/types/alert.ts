@@ -26,7 +26,7 @@ export interface AlertInput {
   enabled: boolean;
   /** Notification dans l'application. */
   notify: boolean;
-  /** Notification système (macOS, Linux). */
+  /** Notification système (macOS, Windows, Linux). */
   system?: boolean;
   webhook: AlertWebhook | null;
 }

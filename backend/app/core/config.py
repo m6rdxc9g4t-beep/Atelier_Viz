@@ -74,7 +74,8 @@ class Settings(BaseSettings):
 
     # Actualisation planifiée et alertes (data/schedules.json, data/alerts.json)
     scheduler_enabled: bool = True
-    # Notifications système (centre de notifications macOS, notify-send sous Linux) au déclenchement d'une alerte.
+    # Notifications système au déclenchement d'une alerte :
+    # centre de notifications macOS, notification Windows, notify-send sous Linux.
     system_notifications: bool = True
     scheduler_period_seconds: float = Field(default=15.0, ge=1.0)
     # Arrêt : délai laissé aux actualisations en cours avant la fermeture de DuckDB

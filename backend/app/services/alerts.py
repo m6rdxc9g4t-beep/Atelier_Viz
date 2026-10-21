@@ -18,7 +18,6 @@ import asyncio
 import hashlib
 import json
 import math
-import os
 import threading
 import uuid
 from collections.abc import Callable
@@ -28,6 +27,7 @@ from typing import Any
 
 import httpx
 
+from app.core.files import replace_file
 from app.schemas.alert import (
     COMPARISON_SYMBOL,
     MAX_GROUPS,
@@ -148,7 +148,7 @@ class AlertService:
             "notifications": [n.model_dump(mode="json") for n in notes[:MAX_NOTIFICATIONS]],
         }
         tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        os.replace(tmp, self.path)
+        replace_file(tmp, self.path)
 
     # --- Registre (synchrone : via asyncio.to_thread) ---------------------------------------------
 

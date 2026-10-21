@@ -1,13 +1,15 @@
 """Application de bureau : le serveur local et l'interface dans une fenêtre native.
 
-Lancée par « Atelier Viz.app » (voir scripts/macos/build_app.sh), ou à la main :
+Lancée par « Atelier Viz.app » (scripts/macos/build_app.sh), par le raccourci Windows
+(scripts/windows/build_app.ps1 → app/windows_launcher.py), ou à la main :
     python desktop.py              # fenêtre native (pywebview), sinon navigateur
     python desktop.py --browser    # dans le navigateur par défaut
 
 - Le serveur écoute sur 127.0.0.1 uniquement (jamais sur le réseau), port 8000 s'il est libre.
 - Un serveur Atelier Viz déjà lancé (par exemple `uvicorn` en développement) est réutilisé :
   la base DuckDB n'accepte qu'un seul processus à la fois.
-- Fermer la fenêtre (ou ⌘Q) arrête le serveur proprement.
+- Fermer la fenêtre (⌘Q, Alt+F4) arrête le serveur proprement.
+- Fenêtre : WKWebView sous macOS, WebView2 (Edge) sous Windows.
 - Pont JavaScript (`window.pywebview.api`) : enregistrement de fichiers par une vraie boîte
   « Enregistrer sous » et ouverture des liens externes dans le navigateur.
 """
@@ -36,13 +38,16 @@ from urllib.parse import urlsplit
 import uvicorn
 
 from app.core.config import Settings, get_settings
+from app.launcher import build_script, log_hint
 
 APP_NAME = "Atelier Viz"
 HOST = "127.0.0.1"
 PREFERRED_PORT = 8000
 WINDOW_SIZE = (1440, 900)
 MIN_SIZE = (1024, 640)
-ICON = Path(__file__).resolve().parents[2] / "scripts" / "macos" / "icon.png"
+SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+# Icône de la fenêtre : .ico sous Windows (WinForms), sinon .png (GTK / Qt ; macOS l'ignore : icône du paquet .app).
+ICON = SCRIPTS / "windows" / "icon.ico" if sys.platform == "win32" else SCRIPTS / "macos" / "icon.png"
 
 log = logging.getLogger("atelier.desktop")
 
@@ -128,6 +133,20 @@ class ServerThread:
             self.thread.join(timeout)
 
 
+_LOCK_HINTS = (
+    "lock",  # macOS / Linux : « Could not set lock on file »
+    "being used by another process",  # Windows (anglais)
+    "utilisé par un autre processus",  # Windows (français) : message système traduit
+    "sharing violation",
+)
+
+
+def lock_error(message: str) -> bool:
+    """Vrai si l'erreur DuckDB signale un fichier déjà ouvert par un autre processus (tous systèmes)."""
+    text = message.lower()
+    return any(hint in text for hint in _LOCK_HINTS)
+
+
 def database_busy(settings: Settings) -> str | None:
     """Message si la base DuckDB est déjà ouverte par un autre processus (un seul à la fois)."""
     import duckdb
@@ -138,7 +157,7 @@ def database_busy(settings: Settings) -> str | None:
     try:
         duckdb.connect(str(path)).close()
     except duckdb.Error as exc:
-        if "lock" in str(exc).lower():
+        if lock_error(str(exc)):
             return (
                 "La base de données est déjà ouverte par un autre programme Atelier Viz "
                 "(un serveur « uvicorn » lancé dans un terminal ?). Arrêtez-le, puis relancez l'application."
@@ -254,7 +273,7 @@ class DesktopApi:
 _PAGE_STYLE = (
     "font:15px -apple-system,system-ui,sans-serif;display:grid;place-items:center;height:90vh;margin:0;color:#1f2328"
 )
-_LOG_HINT = "Journal : ~/Library/Logs/Atelier Viz/atelier-viz.log"
+_LOG_HINT = f"Journal : {log_hint()}"
 
 
 def error_page(message: str) -> str:
@@ -296,7 +315,7 @@ def prepare(settings: Settings) -> tuple[str, ServerThread | None, str | None]:
             ),
         )
     if not (settings.frontend_dist / "index.html").is_file():
-        return "", None, f"Interface introuvable ({settings.frontend_dist}). Relancez scripts/macos/build_app.sh."
+        return "", None, f"Interface introuvable ({settings.frontend_dist}). Relancez {build_script()}."
     busy = database_busy(settings)
     if busy:
         return "", None, busy

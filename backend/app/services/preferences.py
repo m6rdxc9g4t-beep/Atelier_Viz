@@ -1,12 +1,12 @@
 """Préférences modifiables depuis l'interface (data/settings.json)."""
 
-import os
 import threading
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.core.files import replace_file
 from app.schemas.ai import ProviderChoice
 
 ClaudeModel = Literal["sonnet", "opus", "haiku"]
@@ -70,5 +70,5 @@ class PreferencesStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_name(f".{self.path.name}.tmp")
         tmp.write_text(value.model_dump_json(indent=2), encoding="utf-8")
-        os.replace(tmp, self.path)
+        replace_file(tmp, self.path)
         self._value = value

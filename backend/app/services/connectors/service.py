@@ -10,7 +10,6 @@
 """
 
 import json
-import os
 import threading
 import uuid
 from collections.abc import Callable, Iterator
@@ -22,6 +21,7 @@ import httpx
 import pandas as pd
 
 from app.core.config import Settings
+from app.core.files import replace_file
 from app.schemas.connection import (
     SERVER_KINDS,
     SQL_KINDS,
@@ -97,7 +97,7 @@ class ConnectionService:
             json.dumps([c.model_dump(mode="json", exclude=fields) for c in items], ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        os.replace(tmp, self.path)
+        replace_file(tmp, self.path)
 
     def _decorate(self, c: Connection) -> Connection:
         update: dict[str, object] = {"has_password": bool(self.secrets.get(self._key(c.id, "password")))}

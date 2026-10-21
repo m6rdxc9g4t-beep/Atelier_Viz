@@ -350,7 +350,7 @@ export function AlertEditor({
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={draft.system ?? true} onChange={(e) => setDraft({ ...draft, system: e.target.checked })} className="accent-[var(--accent)]" />
-                Notification système (centre de notifications du Mac)
+                Notification système (macOS, Windows)
               </label>
               {system === false && <span className="text-[11px] text-muted">— indisponible sur cette machine</span>}
               {system && (

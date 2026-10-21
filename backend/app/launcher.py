@@ -4,15 +4,19 @@ Local d'abord : au lancement, **jamais** de `npm install` (réseau, scripts des 
 - `ok`      : l'interface compilée (frontend/dist) est à jour ;
 - `build`   : elle est plus ancienne que ses sources et `node_modules` correspond à `package-lock.json` :
               `npm run build` suffit (hors ligne) ;
-- `install` : les dépendances manquent ou ont changé (git pull) : il faut relancer
-              `scripts/macos/build_app.sh`, seul à installer les paquets ; l'ancienne interface reste utilisée.
+- `install` : les dépendances manquent ou ont changé (git pull) : il faut relancer le script d'installation
+              (`build_script()` : `scripts/macos/build_app.sh` ou `scripts/windows/build_app.ps1`), seul à
+              installer les paquets ; l'ancienne interface reste utilisée.
 
-Appelé par le lanceur (`python -m app.launcher <dossier frontend>`), qui affiche l'action sur la sortie standard.
+Appelé par le lanceur macOS (`python -m app.launcher <dossier frontend>`), qui affiche l'action sur la sortie
+standard, et par le lanceur Windows (`app/windows_launcher.py`).
 Bibliothèque standard seulement : fonctionne même si des dépendances Python manquent.
 """
 
 import json
+import os
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
@@ -20,6 +24,41 @@ Action = Literal["ok", "build", "install"]
 
 SOURCES = ("src", "public", "index.html", "package.json", "package-lock.json", "vite.config.ts", "tsconfig.json")
 """Fichiers et dossiers dont une modification rend l'interface compilée périmée."""
+
+
+APP_NAME = "Atelier Viz"
+LOG_NAME = "atelier-viz.log"
+
+
+def build_script(platform: str | None = None) -> str:
+    """Script d'installation de l'application de bureau pour ce système (chemin depuis la racine du dépôt)."""
+    return "scripts/windows/build_app.ps1" if (platform or sys.platform) == "win32" else "scripts/macos/build_app.sh"
+
+
+def log_dir(platform: str | None = None, environ: Mapping[str, str] | None = None) -> Path:
+    """Dossier du journal de l'application de bureau.
+
+    macOS : `~/Library/Logs/Atelier Viz` ; Windows : `%LOCALAPPDATA%\\Atelier Viz\\Logs` ;
+    ailleurs : `~/.local/state/atelier-viz`.
+    """
+    platform = platform or sys.platform
+    env = os.environ if environ is None else environ
+    if platform == "darwin":
+        return Path.home() / "Library" / "Logs" / APP_NAME
+    if platform == "win32":
+        base = env.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        return Path(base) / APP_NAME / "Logs"
+    return Path(env.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "atelier-viz"
+
+
+def log_hint(platform: str | None = None, environ: Mapping[str, str] | None = None) -> str:
+    """Emplacement du journal, tel qu'on l'écrit à l'utilisateur (`~` pour le dossier personnel sur Mac)."""
+    platform = platform or sys.platform
+    if platform == "darwin":
+        return f"~/Library/Logs/{APP_NAME}/{LOG_NAME}"
+    if platform == "win32":
+        return f"%LOCALAPPDATA%\\{APP_NAME}\\Logs\\{LOG_NAME}"
+    return str(log_dir(platform, environ) / LOG_NAME)
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:

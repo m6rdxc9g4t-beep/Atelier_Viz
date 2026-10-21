@@ -16,7 +16,6 @@
 import asyncio
 import json
 import logging
-import os
 import threading
 import time
 from collections.abc import Awaitable, Callable
@@ -25,6 +24,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from app.core.files import replace_file
 from app.schemas.refresh import RefreshRun, RefreshSchedule, RunStatus, RunTrigger, ScheduleState
 from app.services.connectors.base import ConnectorError, short
 from app.services.data.model import ModelError
@@ -132,7 +132,7 @@ class RefreshScheduler:
         tmp = self.path.with_suffix(".tmp")
         payload = {"version": 1, "datasets": {k: v.model_dump(mode="json") for k, v in entries.items()}}
         tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        os.replace(tmp, self.path)
+        replace_file(tmp, self.path)
 
     def _update(self, dataset_id: str, fn: Callable[[_Entry], None]) -> _Entry:
         with self._file_lock:
