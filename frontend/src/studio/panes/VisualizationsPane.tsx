@@ -11,6 +11,7 @@ import type { OptionDef, RoleDef } from "../../visuals/types";
 import { FIELD_MIME, type DraggedField, useStudioData } from "../context";
 import { useStudio } from "../store";
 import { Pane, Section } from "./Pane";
+import { ConditionalSection } from "./ConditionalSection";
 import { PageSizeSection, PositionSection } from "./PositionSection";
 import { VisualStyleSection } from "./VisualStyleSection";
 
@@ -243,6 +244,7 @@ function FormatTab({ visual }: { visual: Visual }) {
         </label>
       </Section>
       <PositionSection visual={visual} />
+      {(visual.type === "table" || visual.type === "matrix") && <ConditionalSection visual={visual} />}
       <VisualStyleSection visual={visual} />
       {[...sections.entries()].map(([title, opts]) => (
         <Section key={title} title={title}>

@@ -107,6 +107,7 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 | Automatiser | Visuel « Bouton d'action » : URL avec `{champ}`, webhook (n8n, Make, Zapier), page, réinitialisation |
 | Calculer | Volet Données → **+ Mesure** (`SUM(chiffre_affaires * taux_marge / 100)`, `DIVIDE([Marge], SUM(chiffre_affaires))`) ou **+ Colonne** (`IF(chiffre_affaires >= 5000, "Grosse vente", "Standard")`), vérifiées à la frappe |
 | Explorer | Plusieurs champs dans l'Axe = hiérarchie ; flèches du visuel pour monter / descendre ; « Hiérarchie de dates » pour année › trimestre › mois |
+| Mettre en évidence | Table ou matrice → onglet Format → **Mise en forme conditionnelle** : dégradé ou couleurs divergentes, règles (« < 900 000 → rouge »), barres de données, icônes ▲ ● ▼ |
 | Habiller | Bouton « Thème » : clair / sombre, préréglages (Verre, Papier, Minuit…), couleurs en hexadécimal, import de thèmes Power BI ; onglet Format d'un visuel : fond transparent, bordure, arrondi, ombre, titre, couleurs |
 | Résumer | Bouton **Résumer** : synthèse de la page par l'IA, chaque chiffre vérifié contre les données ; à insérer dans la page ou dans les notes PowerPoint |
 | Exporter | Bouton **PowerPoint** : une page = une diapositive, graphiques et tableaux modifiables dans PowerPoint (ou images fidèles), filtres listés dans les notes ; fichier créé sur la machine |

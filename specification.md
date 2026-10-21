@@ -90,13 +90,26 @@ Le mode se change dans l'en-tête (pastille « Hors ligne / En ligne ») ou dans
 | Groupe | Visuels |
 |---|---|
 | Graphiques | Histogramme, Barres horizontales, Courbes, Aires, Combiné barres + courbes (un seul axe), Secteurs, Anneau, Treemap, Entonnoir, Radar, Cascade, Nuage de points, Jauge, Carte de chaleur |
-| Données | Carte KPI (cible + tendance), Table (tri, total, barres de données), Matrice (lignes hiérarchiques, colonne pivot, sous-totaux exacts) |
+| Données | Carte KPI (cible + tendance), Table (tri, total), Matrice (lignes hiérarchiques, colonne pivot, sous-totaux exacts) ; mise en forme conditionnelle des deux (voir ci-dessous) |
 | Cartes | Choroplèthe (France régions, France départements, monde ; noms ou codes, français ou anglais), Carte à points (latitude / longitude, taille, couleur) |
 | Interactivité | Segment (liste, liste déroulante, vignettes, plage de nombres ou de dates), Bouton d'action, Zone de texte |
 
 Options communes : légende, étiquettes, tri (catégorie / valeur), Top N, format des nombres (compact, décimales, préfixe, suffixe), empilé / 100 %, lissage, marqueurs.
 
 **Règles de lisibilité** (guide dataviz) : palette catégorielle validée pour le daltonisme, ordre fixe, 8 séries max puis « Autres » ; 3 couleurs max pour nuages et cartes à points ; rampe séquentielle à une teinte pour intensités ; divergent bleu/rouge pour hausse/baisse ; **jamais de double axe** ; info-bulles partout ; version sombre dédiée.
+
+### Mise en forme conditionnelle (tables et matrices)
+
+Onglet Format → « Mise en forme conditionnelle », réglée **par mesure** (`options.conditional[clé]`, clé `agg(champ)`) :
+
+| Réglage | Effet |
+|---|---|
+| Couleur de fond | Dégradé (du plus faible au plus fort, `--seq-500`) ou divergente (`--div-neg` / `--div-pos`, centrée sur 0 si les valeurs le traversent) ; teintes de 8 à 55 % pour garder le texte lisible (≥ 4,5:1, testé en clair et en sombre) |
+| Règles | `>`, `≥`, `<`, `≤`, `=`, `entre` → vert, rouge, bleu ou gris, sur le fond ou le texte ; la première vérifiée l'emporte |
+| Barres de données | Proportionnelles à la valeur absolue, rouges pour les négatifs |
+| Icônes | Signe (▲ positif, ▼ négatif, ● nul) ou tiers (▲ haut, ● milieu, ▼ bas) : la forme porte le sens, pas seulement la couleur |
+
+Calcul sur les cellules **affichées** (matrice : lignes dépliées, hors colonne Total). Export PowerPoint : fond et texte colorés, icônes devant la valeur (pas de barres dans un tableau PowerPoint). Logique pure : `visuals/data/conditional.ts`.
 
 ## 5 bis. Thèmes et mise en forme
 
