@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { configError, pendingCount, resultLines, sharedContent, visibilityWarning } from "./github";
+import { apiUrlError, configError, pendingCount, resultLines, sharedContent, versionLabel, visibilityWarning, webUrl } from "./github";
 
 describe("synchronisation GitHub", () => {
   it("valide la configuration", () => {
@@ -42,5 +42,20 @@ describe("synchronisation GitHub", () => {
     expect(visibilityWarning(null, false)).toBeNull();
     expect(visibilityWarning(false, true)).toMatch(/Dépôt public/);
     expect(visibilityWarning(false, false)).toMatch(/nettoyage désactivé/);
+  });
+});
+
+describe("GitHub Enterprise et historique", () => {
+  it("valide l'adresse de l'API et en déduit le site web", () => {
+    expect(apiUrlError("https://github.entreprise.fr/api/v3")).toBeNull();
+    expect(apiUrlError("http://localhost:8080/api/v3")).toBeNull();
+    expect(apiUrlError("http://github.entreprise.fr/api/v3")).toMatch(/https/);
+    expect(apiUrlError("https://moi:secret@ghe.fr")).toMatch(/identifiant/);
+    expect(apiUrlError("pas une adresse")).toMatch(/invalide/);
+    expect(configError({ repo: "a/b", branch: "main", folder: "x", strip_private: true, api_url: "http://ghe.fr" })).toMatch(/https/);
+    expect(webUrl("https://api.github.com")).toBe("https://github.com");
+    expect(webUrl("https://ghe.fr/api/v3")).toBe("https://ghe.fr");
+    expect(webUrl(undefined)).toBe("https://github.com");
+    expect(versionLabel({ author: "François", message: "Deuxième version" })).toBe("François · Deuxième version");
   });
 });

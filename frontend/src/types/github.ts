@@ -13,6 +13,8 @@ export interface GitHubConfig {
    * à la récupération, ces champs restent ceux du poste.
    */
   strip_private: boolean;
+  /** API REST : https://api.github.com, ou GitHub Enterprise Server (https://<hôte>/api/v3). */
+  api_url?: string;
 }
 
 /** `token` absent = inchangé ; chaîne vide = effacé. Jamais renvoyé par l'API. */
@@ -99,5 +101,33 @@ export interface PullResult {
   unchanged: number;
   conflicts: Conflict[];
   skipped: SkippedFile[];
+  message: string;
+}
+
+/** Un commit qui a modifié le fichier d'un rapport. */
+export interface ReportVersion {
+  sha: string;
+  message: string;
+  author: string | null;
+  date: string | null;
+  url: string | null;
+}
+
+export interface ReportVersionDetail {
+  sha: string;
+  name: string;
+  pages: string[];
+  visuals: number;
+  updated_at: string | null;
+}
+
+export interface RestoreRequest {
+  sha: string;
+  as_copy?: boolean;
+}
+
+export interface RestoreResult {
+  report_id: string;
+  name: string;
   message: string;
 }

@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { CloudDownload, CloudUpload, ExternalLink, GitBranch, KeyRound, Loader2, ShieldCheck, TriangleAlert } from "lucide-react";
+import { CloudDownload, CloudUpload, ExternalLink, GitBranch, History, KeyRound, Loader2, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 
 import { usePreferences } from "../../hooks/usePreferences";
@@ -7,11 +7,12 @@ import { api } from "../../lib/api";
 import { openExternal } from "../../lib/desktop";
 import type { Conflict, GitHubConfig, GitHubState, GitHubTest, PullResult, PushResult, Resolution } from "../../types/github";
 import { whenLabel } from "../automation/schedule";
-import { STATE_LABEL, configError, pendingCount, resultLines, sharedContent, visibilityWarning } from "./github";
+import { DEFAULT_API, STATE_LABEL, configError, pendingCount, resultLines, sharedContent, visibilityWarning, webUrl } from "./github";
+import { VersionsDialog } from "./VersionsDialog";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const input = "rounded-md border border-border bg-field px-2 py-1.5 text-xs text-fg";
-const EMPTY: GitHubConfig = { repo: "", branch: "main", folder: "atelier-viz/rapports", strip_private: true };
+const EMPTY: GitHubConfig = { repo: "", branch: "main", folder: "atelier-viz/rapports", strip_private: true, api_url: DEFAULT_API };
 
 /**
  * Réglages GitHub : dépôt, branche, dossier, jeton (trousseau) ; « Envoyer » (un commit) et
@@ -30,6 +31,9 @@ export function GitHubSection() {
   const [result, setResult] = useState<{ kind: "push" | "pull"; res: PushResult | PullResult } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [commitMessage, setCommitMessage] = useState("");
+  const [versionsOf, setVersionsOf] = useState<{ id: string; name: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const enterprise = (form.api_url ?? DEFAULT_API) !== DEFAULT_API;
 
   const load = useCallback(() => {
     api.github
@@ -45,6 +49,7 @@ export function GitHubSection() {
   const run = async <T,>(what: "save" | "test" | "push" | "pull", fn: () => Promise<T>): Promise<T | null> => {
     setBusy(what);
     setError(null);
+    setNotice(null);
     try {
       return await fn();
     } catch (e) {
@@ -82,7 +87,7 @@ export function GitHubSection() {
   };
 
   const invalid = configError(form);
-  const dirty = !state?.config || JSON.stringify(form) !== JSON.stringify(state.config) || token !== "";
+  const dirty = !state?.config || JSON.stringify(form) !== JSON.stringify({ ...EMPTY, ...state.config }) || token !== "";
   const ready = !!state?.config && state.has_token;
   const pending = state ? pendingCount(state.reports) : 0;
   const shared = sharedContent(form.strip_private);
@@ -119,7 +124,33 @@ export function GitHubSection() {
         </p>
       )}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+        Serveur
+        <div className="flex rounded-md border border-border p-0.5 text-xs" role="group" aria-label="Serveur GitHub">
+          {([false, true] as const).map((ent) => (
+            <button
+              key={String(ent)}
+              type="button"
+              aria-pressed={enterprise === ent}
+              onClick={() => setForm({ ...form, api_url: ent ? (enterprise ? form.api_url : "https://") : DEFAULT_API })}
+              className={clsx("rounded px-2 py-0.5", enterprise === ent ? "bg-accent-soft font-medium text-fg" : "text-muted hover:text-fg")}
+            >
+              {ent ? "GitHub Enterprise" : "GitHub.com"}
+            </button>
+          ))}
+        </div>
+        {enterprise && (
+          <input
+            aria-label="Adresse de l'API GitHub Enterprise"
+            value={form.api_url ?? ""}
+            onChange={(e) => setForm({ ...form, api_url: e.target.value.trim() })}
+            placeholder="https://github.mon-entreprise.fr/api/v3"
+            className={`${input} min-w-64 flex-1`}
+            spellCheck={false}
+          />
+        )}
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-[11px] text-muted">
           Dépôt (propriétaire/dépôt)
           <input value={form.repo} onChange={(e) => setForm({ ...form, repo: e.target.value.trim() })} placeholder="mon-equipe/rapports-bi" className={input} spellCheck={false} />
@@ -148,7 +179,7 @@ export function GitHubSection() {
       </label>
       <p className="mt-1.5 text-[11px] text-muted">
         Jeton « fine-grained » limité à ce dépôt, permission <em>Contents : Read and write</em>.{" "}
-        <button type="button" onClick={() => openExternal("https://github.com/settings/personal-access-tokens/new")} className="inline-flex items-center gap-0.5 text-accent-ink hover:underline">
+        <button type="button" onClick={() => openExternal(`${webUrl(form.api_url)}/settings/personal-access-tokens/new`)} className="inline-flex items-center gap-0.5 text-accent-ink hover:underline">
           Créer un jeton <ExternalLink className="size-3" aria-hidden />
         </button>
       </p>
@@ -217,6 +248,11 @@ export function GitHubSection() {
             {state.last_pull ? `Dernière récupération ${whenLabel(state.last_pull.at)}.` : ""}
           </p>
 
+          {notice && (
+            <p role="status" className="mt-3 rounded-md border border-border bg-bg px-3 py-2 text-[11px] font-medium">
+              {notice}
+            </p>
+          )}
           {result && <ResultBox kind={result.kind} res={result.res} busy={busy !== null} onPull={(r) => void pull(r)} onPush={(r) => void push(r)} />}
 
           {state.reports.length > 0 && (
@@ -227,6 +263,9 @@ export function GitHubSection() {
                   <th scope="col" className="py-1 font-medium">Rapport</th>
                   <th scope="col" className="py-1 font-medium">Modifié</th>
                   <th scope="col" className="py-1 text-right font-medium">Par rapport à GitHub</th>
+                  <th scope="col" className="w-8 py-1">
+                    <span className="sr-only">Historique</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -235,6 +274,18 @@ export function GitHubSection() {
                     <td className="py-1 pr-2">{r.name}</td>
                     <td className="py-1 pr-2 text-muted tabular-nums">{whenLabel(r.updated_at)}</td>
                     <td className={clsx("py-1 text-right", r.state === "synced" ? "text-positive" : "text-fg")}>{STATE_LABEL[r.state]}</td>
+                    <td className="py-1 text-right">
+                      <button
+                        type="button"
+                        disabled={!online || r.state === "new"}
+                        onClick={() => setVersionsOf({ id: r.id, name: r.name })}
+                        aria-label={`Historique de ${r.name}`}
+                        title={r.state === "new" ? "Jamais envoyé : pas encore d'historique" : "Historique GitHub et restauration d'une version"}
+                        className="rounded p-1 text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30"
+                      >
+                        <History className="size-3.5" aria-hidden />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -246,6 +297,18 @@ export function GitHubSection() {
         <p role="alert" className="mt-3 text-xs text-negative">
           {error}
         </p>
+      )}
+      {versionsOf && (
+        <VersionsDialog
+          report={versionsOf}
+          onClose={() => setVersionsOf(null)}
+          onRestored={(r) => {
+            setVersionsOf(null);
+            setResult(null);
+            setNotice(r.message);
+            load();
+          }}
+        />
       )}
     </section>
   );

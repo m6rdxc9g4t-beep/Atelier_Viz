@@ -46,6 +46,10 @@ from app.schemas.github import (
     PushRequest,
     PushResult,
     ReportSyncState,
+    ReportVersion,
+    ReportVersionDetail,
+    RestoreRequest,
+    RestoreResult,
     SkippedFile,
     SyncEvent,
     SyncRecord,
@@ -55,9 +59,10 @@ from app.services.connectors.secrets import SecretBackend
 from app.services.report_privacy import restore_private, strip_private
 from app.services.reports import ReportRepository
 
-API = "https://api.github.com"
 TOKEN_KEY = "github:token"
 _FILE_RE = re.compile(r"^([0-9a-f]{12})\.json$")
+_ID_RE = re.compile(r"^[0-9a-f]{12}$")
+MAX_VERSIONS = 30
 MAX_REPORT_BYTES = 10_000_000
 
 
@@ -163,7 +168,13 @@ class GitHubSync:
     def configure(self, data: GitHubConfigInput) -> GitHubState:
         """Enregistre le dépôt ; le jeton va au trousseau (absent = inchangé, vide = effacé)."""
         stored = self._read()
-        config = GitHubConfig(repo=data.repo, branch=data.branch, folder=data.folder, strip_private=data.strip_private)
+        config = GitHubConfig(
+            repo=data.repo,
+            branch=data.branch,
+            folder=data.folder,
+            strip_private=data.strip_private,
+            api_url=data.api_url,
+        )
         if not config.same_target(stored.config):
             stored.records = {}  # autre dépôt / branche / dossier : nouvelle base de comparaison
             stored.last_push = stored.last_pull = None
@@ -201,15 +212,15 @@ class GitHubSync:
         return config, token
 
     @contextmanager
-    def _client(self, token: str) -> Iterator["_Api"]:
+    def _client(self, token: str, config: GitHubConfig) -> Iterator["_Api"]:
         with self.http_factory() as http:
-            yield _Api(http, token)
+            yield _Api(http, token, config.api_url)
 
     def test(self) -> GitHubTest:
         """Vérifie le jeton et l'accès au dépôt (droit d'écriture, branche par défaut)."""
         config, token = self._ready()
         owner, name = config.owner_repo
-        with self._client(token) as api:
+        with self._client(token, config) as api:
             try:
                 user = api.get("/user")
                 repo = api.get(f"/repos/{owner}/{name}")
@@ -305,7 +316,7 @@ class GitHubSync:
         """Envoie les rapports (tous ou une sélection) en un seul commit ; signale les conflits sans écraser."""
         config, token = self._ready()
         owner, name = config.owner_repo
-        with self._lock, self._client(token) as api:
+        with self._lock, self._client(token, config) as api:
             stored = self._read()
             head = self._head(api, config, create=True)
             assert head is not None
@@ -386,7 +397,7 @@ class GitHubSync:
             now = self.clock()
             for report, _, sha in to_push:
                 stored.records[report.id] = SyncRecord(remote=sha, local=sha, at=now)
-            commit_url = str(commit.get("html_url") or f"https://github.com/{config.repo}/commit/{commit['sha']}")
+            commit_url = str(commit.get("html_url") or f"{config.web_url}/{config.repo}/commit/{commit['sha']}")
             summary = f"{len(to_push)} rapport(s) envoyé(s)"
             stored.last_push = SyncEvent(at=now, summary=summary, commit_url=commit_url)
             self._write(stored)
@@ -412,7 +423,7 @@ class GitHubSync:
         config, token = self._ready()
         owner, name = config.owner_repo
         result = PullResult(message="")
-        with self._lock, self._client(token) as api:
+        with self._lock, self._client(token, config) as api:
             stored = self._read()
             head = self._head(api, config, create=False)
             if head is None:
@@ -484,6 +495,111 @@ class GitHubSync:
         result.message = " ".join(parts)
         return result
 
+    # --- Historique et restauration ----------------------------------------------------------------
+
+    def history(self, report_id: str) -> list[ReportVersion]:
+        """Commits de la branche qui ont modifié ce rapport (le plus récent en premier, 30 au plus)."""
+        config, token = self._ready()
+        _check_id(report_id)
+        owner, name = config.owner_repo
+        with self._client(token, config) as api:
+            try:
+                items = api.get(
+                    f"/repos/{owner}/{name}/commits",
+                    params={"path": self._path(config, report_id), "sha": config.branch, "per_page": str(MAX_VERSIONS)},
+                )
+            except GitHubError as exc:
+                if exc.status_code in {404, 409}:
+                    return []  # branche absente ou dépôt vide : aucun historique
+                raise
+        out = []
+        for item in items if isinstance(items, list) else []:
+            commit = item.get("commit") or {}
+            author = commit.get("author") or {}
+            out.append(
+                ReportVersion(
+                    sha=str(item.get("sha", "")),
+                    message=str(commit.get("message") or "").split("\n", 1)[0][:300],
+                    author=author.get("name"),
+                    date=author.get("date"),
+                    url=item.get("html_url"),
+                )
+            )
+        return out
+
+    def _version(self, api: "_Api", config: GitHubConfig, report_id: str, sha: str) -> Report:
+        owner, name = config.owner_repo
+        path = quote(self._path(config, report_id), safe="/")
+        try:
+            data = api.get(f"/repos/{owner}/{name}/contents/{path}", params={"ref": sha})
+        except GitHubError as exc:
+            if exc.status_code == 404:
+                raise GitHubError("Ce rapport n'existe pas dans cette version.", 404) from exc
+            raise
+        if not isinstance(data, dict) or data.get("type") != "file":
+            raise GitHubError("Version introuvable.", 404)
+        if data.get("encoding") == "base64" and data.get("content"):
+            content = base64.b64decode(str(data["content"]))
+        else:  # fichier de plus de 1 Mo : contenu à lire par son blob
+            content = api.blob(owner, name, str(data.get("sha", "")))
+        return _parse_report(content, report_id)
+
+    def version(self, report_id: str, sha: str) -> ReportVersionDetail:
+        """Aperçu d'une version : nom, pages, nombre de visuels."""
+        config, token = self._ready()
+        _check_id(report_id)
+        _check_sha(sha)
+        with self._client(token, config) as api:
+            report = self._version(api, config, report_id, sha)
+        return ReportVersionDetail(
+            sha=sha,
+            name=report.name,
+            pages=[p.name for p in report.pages],
+            visuals=sum(len(p.visuals) for p in report.pages),
+            updated_at=report.updated_at,
+        )
+
+    def restore(self, report_id: str, req: RestoreRequest) -> RestoreResult:
+        """Rétablit une version du dépôt sur ce poste (ou l'importe en copie). Rien n'est envoyé à GitHub.
+
+        Le rapport restauré devient une modification locale : le prochain envoi la publiera (sans écraser
+        une version plus récente du dépôt, qui serait signalée en conflit). Avec le nettoyage actif, filtres,
+        sélections et webhooks du poste sont conservés, comme à la récupération.
+        """
+        config, token = self._ready()
+        _check_id(report_id)
+        with self._lock, self._client(token, config) as api:
+            incoming = self._version(api, config, report_id, req.sha)
+            now = self.clock()
+            current = self.reports.get(report_id)
+            if req.as_copy:
+                restored = incoming.model_copy(
+                    update={
+                        "id": uuid.uuid4().hex[:12],
+                        "name": f"{incoming.name} (version {req.sha[:7]})"[:200],
+                        "created_at": now,
+                        "updated_at": now,
+                    }
+                )
+                self.reports.put(restored)
+                return RestoreResult(
+                    report_id=restored.id,
+                    name=restored.name,
+                    message=f"Version {req.sha[:7]} importée en copie : « {restored.name} ».",
+                )
+            if current is not None and config.strip_private:
+                incoming = restore_private(incoming, current)
+            restored = incoming.model_copy(update={"updated_at": now})
+            self.reports.put(restored)
+        return RestoreResult(
+            report_id=restored.id,
+            name=restored.name,
+            message=(
+                f"« {restored.name} » rétabli à la version {req.sha[:7]} sur ce poste. "
+                "Envoyez-le pour publier ce retour en arrière sur GitHub."
+            ),
+        )
+
     def _record(self, report: Report, remote_sha: str, now: datetime, config: GitHubConfig) -> SyncRecord:
         """Base de comparaison après écriture locale (le fichier local peut différer octet pour octet)."""
         written = self.reports.get(report.id) or report
@@ -514,6 +630,16 @@ def _commit_message(names: list[str], stripped: bool) -> str:
     return f"{title}\n\n{shown}{more}.\nEnvoyé depuis Atelier Viz ({what})."
 
 
+def _check_id(report_id: str) -> None:
+    if not _ID_RE.match(report_id):
+        raise GitHubError("Identifiant de rapport invalide.", 422)
+
+
+def _check_sha(sha: str) -> None:
+    if not re.fullmatch(r"[0-9a-f]{7,40}", sha):
+        raise GitHubError("Version invalide.", 422)
+
+
 def _parse_report(content: bytes, report_id: str) -> Report:
     if len(content) > MAX_REPORT_BYTES:
         raise GitHubError("Fichier trop volumineux.")
@@ -531,8 +657,9 @@ def _parse_report(content: bytes, report_id: str) -> Report:
 class _Api:
     """Appels REST GitHub avec messages d'erreur en français (le jeton n'apparaît jamais dans un message)."""
 
-    def __init__(self, http: httpx.Client, token: str) -> None:
+    def __init__(self, http: httpx.Client, token: str, base: str) -> None:
         self.http = http
+        self.base = base
         self.headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github+json",
@@ -542,7 +669,7 @@ class _Api:
 
     def _send(self, method: str, path: str, **kwargs: Any) -> Any:
         try:
-            response = self.http.request(method, f"{API}{path}", headers=self.headers, **kwargs)
+            response = self.http.request(method, f"{self.base}{path}", headers=self.headers, **kwargs)
         except httpx.HTTPError as exc:
             raise GitHubError(
                 f"GitHub injoignable ({type(exc).__name__}) : vérifiez la connexion Internet.", 502
