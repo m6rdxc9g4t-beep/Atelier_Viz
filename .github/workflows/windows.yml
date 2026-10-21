@@ -59,12 +59,14 @@ jobs:
           exit $code
 
       - name: Application de bureau — installation (build_app.ps1)
+        id: install
         if: ${{ !cancelled() }}
         shell: powershell
         # Sans redirection : Windows PowerShell 5.1 transformerait la sortie d'erreur de pip / npm en erreurs.
         run: .\scripts\windows\build_app.ps1 -NoDesktopShortcut
 
       - name: Application de bureau — auto-test du lanceur
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         shell: powershell
         working-directory: backend
         run: |
@@ -78,5 +80,6 @@ jobs:
           if ($proc.ExitCode -ne 0) { throw "Auto-test en echec (code $($proc.ExitCode))" }
 
       - name: Application de bureau — désinstallation
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         shell: powershell
         run: .\scripts\windows\build_app.ps1 -Uninstall

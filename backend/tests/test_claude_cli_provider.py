@@ -334,7 +334,9 @@ def test_run_bounded_returns_output_and_reads_stdin() -> None:
     from app.services.ai.claude_cli import run_bounded
 
     code = "import sys; data = sys.stdin.read(); print(data.upper()); print('erreur', file=sys.stderr)"
-    proc = run_bounded([sys.executable, "-c", code], input="données", timeout=20)
+    # Entrée et sortie en UTF-8 (comme la CLI) : sous Windows, Python utiliserait sinon la page de code.
+    env = {**__import__("os").environ, "PYTHONIOENCODING": "utf-8"}
+    proc = run_bounded([sys.executable, "-c", code], input="données", timeout=20, env=env)
     assert proc.returncode == 0
     assert proc.stdout.strip() == "DONNÉES" and proc.stderr.strip() == "erreur"
 

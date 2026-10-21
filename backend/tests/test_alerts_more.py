@@ -128,7 +128,7 @@ def test_system_notification_switch_and_cleaning(env) -> None:
     assert sent == [] and len(svc.notifications()) == 1
     assert clean("Ligne 1\nLigne 2‮\x00 fin", 80) == "Ligne 1 Ligne 2 fin"
     assert clean("x" * 300, 10) == "xxxxxxxxx…"
-    assert system_notifier("win32") is None
+    assert system_notifier("plan9") is None  # système sans outil de notification connu
 
 
 def test_api_accepts_new_fields(client: TestClient) -> None:

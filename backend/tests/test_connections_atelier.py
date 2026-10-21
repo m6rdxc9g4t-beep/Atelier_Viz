@@ -47,7 +47,7 @@ def exports(tmp_path: Path) -> Path:
 
 def test_atelier_tab_lists_imports_and_refreshes(client: TestClient, exports: Path) -> None:
     infos = {c["kind"]: c for c in client.get("/api/connections/connectors").json()}
-    assert infos["atelier_tab"]["default_location"].endswith("Atelier_Tab/exports")
+    assert Path(infos["atelier_tab"]["default_location"]).parts[-2:] == ("Atelier_Tab", "exports")
     assert infos["atelier_tab"]["driver_installed"] is True and infos["atelier_tab"]["needs_online"] is False
 
     c = make(client, name="Atelier Tab", kind="atelier_tab", path=str(exports))
@@ -339,6 +339,9 @@ def test_atelier_projets_lists_imports_and_refreshes(client: TestClient, projets
 @pytest.fixture
 def local_tz(monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[str], None]]:
     """Force le fuseau local de la machine (variable `TZ`), puis rétablit l'original."""
+
+    if not hasattr(time, "tzset"):
+        pytest.skip("fuseau forcé par la variable TZ : POSIX seulement (Windows suit le fuseau du système)")
 
     def force(name: str) -> None:
         monkeypatch.setenv("TZ", name)
