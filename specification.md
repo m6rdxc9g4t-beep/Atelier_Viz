@@ -138,7 +138,7 @@ Onglet Format → « Mise en forme conditionnelle », réglée **par mesure** (`
 | Réglage | Effet |
 |---|---|
 | Couleur de fond | Dégradé (du plus faible au plus fort, `--seq-500`) ou divergente (`--div-neg` / `--div-pos`, centrée sur 0 si les valeurs le traversent) ; teintes de 8 à 55 % pour garder le texte lisible (≥ 4,5:1, testé en clair et en sombre) |
-| Règles | `>`, `≥`, `<`, `≤`, `=`, `entre` → vert, rouge, bleu ou gris, sur le fond ou le texte ; la première vérifiée l'emporte |
+| Règles | `>`, `≥`, `<`, `≤`, `=`, `entre` → vert, rouge, bleu ou gris (`--cond-*`, indépendants du thème de l'interface), sur le fond ou le texte ; la première vérifiée l'emporte |
 | Barres de données | Proportionnelles à la valeur absolue, rouges pour les négatifs |
 | Icônes | Signe (▲ positif, ▼ négatif, ● nul) ou tiers (▲ haut, ● milieu, ▼ bas) : la forme porte le sens, pas seulement la couleur |
 

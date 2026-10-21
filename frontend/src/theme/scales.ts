@@ -1,7 +1,7 @@
 /**
  * Couleurs d'intensité (séquentielle, divergente, statuts) en hexadécimal, pour l'export
  * PowerPoint et les vérifications de contraste. À l'écran, on utilise les variables CSS de
- * `index.css` (`--seq-500`, `--div-pos`…) : ces valeurs en sont la copie exacte (test).
+ * `index.css` (`--seq-500`, `--div-pos`, `--cond-*`) : ces valeurs en sont la copie exacte (test).
  */
 
 export interface ScaleColors {

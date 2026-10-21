@@ -159,10 +159,10 @@ const CSS_TONE: Record<Tone, string> = {
   seq: "var(--seq-500)",
   "div-pos": "var(--div-pos)",
   "div-neg": "var(--div-neg)",
-  positive: "var(--positive)",
-  negative: "var(--negative)",
-  accent: "var(--accent)",
-  muted: "var(--muted)",
+  positive: "var(--cond-pos)",
+  negative: "var(--cond-neg)",
+  accent: "var(--cond-blue)",
+  muted: "var(--cond-grey)",
 };
 
 /** Styles CSS d'une cellule (fond teinté, couleur de texte des règles). */
