@@ -28,15 +28,47 @@ class Dimension(BaseModel):
         return f"{self.field}|{self.bin}" if self.bin else self.field
 
 
+ShowKind = Literal["ytd", "running", "prev_year", "yoy_diff", "yoy_pct", "moving_avg", "pct_total"]
+"""Calculs rapides (« Afficher la valeur comme ») :
+- `ytd` cumul depuis le début de l'année, `running` cumul depuis l'origine ;
+- `prev_year` même période l'an dernier (N-1), `yoy_diff` écart et `yoy_pct` évolution (%) vs N-1 ;
+- `moving_avg` moyenne mobile sur `window` périodes ; `pct_total` part du total (%).
+Les pourcentages sont renvoyés en points (12,5 pour 12,5 %)."""
+PERCENT_SHOWS: set[str] = {"yoy_pct", "pct_total"}
+
+
+class ShowAs(BaseModel):
+    """Calcul rapide appliqué à une mesure, selon un champ date (sauf `pct_total`)."""
+
+    kind: ShowKind
+    date: str | None = Field(default=None, description="Champ date de référence.")
+    window: int = Field(default=3, ge=2, le=60, description="Périodes de la moyenne mobile.")
+
+    @model_validator(mode="after")
+    def _date_required(self) -> "ShowAs":
+        if self.kind != "pct_total" and not self.date:
+            raise ValueError("Ce calcul demande un champ date.")
+        return self
+
+    @property
+    def suffix(self) -> str:
+        return f"@{self.kind}{self.window if self.kind == 'moving_avg' else ''}"
+
+
 class Measure(BaseModel):
-    """Agrégat calculé ; `field` vide = nombre de lignes."""
+    """Agrégat calculé ; `field` vide = nombre de lignes ; `show` = calcul rapide (cumul, N-1…)."""
 
     field: str | None = None
     agg: Agg = "sum"
+    show: ShowAs | None = None
+
+    @property
+    def base_key(self) -> str:
+        return f"{self.agg}({self.field or '*'})"
 
     @property
     def key(self) -> str:
-        return f"{self.agg}({self.field or '*'})"
+        return self.base_key + (self.show.suffix if self.show else "")
 
 
 class Filter(BaseModel):

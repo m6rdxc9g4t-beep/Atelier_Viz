@@ -43,6 +43,7 @@ def test_report_crud_roundtrip(client: TestClient, settings) -> None:
         "agg": "sum",
         "bin": None,
         "label": None,
+        "show": None,
     }
 
     summaries = client.get("/api/reports").json()

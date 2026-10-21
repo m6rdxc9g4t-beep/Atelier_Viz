@@ -33,7 +33,7 @@ export function KpiVisual(props: VisualProps) {
 
   const row = result?.rows[0];
   if (!valueB || !row) return null;
-  const fmt = numberFormat(visual);
+  const fmt = numberFormat(visual, valueB);
   const value = Number(row[bindingKey(valueB)] ?? 0);
   const target = targetB ? Number(row[bindingKey(targetB)] ?? 0) : null;
   const gap = kpiGap(value, target);

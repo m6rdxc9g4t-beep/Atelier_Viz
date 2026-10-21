@@ -1,7 +1,7 @@
 /** Miroir de backend/app/schemas/report.py — garder synchronisé. */
 
 import type { Scalar } from "./dataset";
-import type { Agg, DateBin, Filter } from "./query";
+import type { Agg, DateBin, Filter, ShowAs } from "./query";
 
 export type VisualType =
   | "bar"
@@ -33,6 +33,8 @@ export interface FieldBinding {
   agg?: Agg | null;
   bin?: DateBin | null;
   label?: string | null;
+  /** Calcul rapide sur une mesure : cumul, N-1, évolution, moyenne mobile, part du total. */
+  show?: ShowAs | null;
 }
 
 /** Position d'un visuel en pixels de page (anciens rapports : cases de grille, converties à l'ouverture). */

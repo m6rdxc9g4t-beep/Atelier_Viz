@@ -24,9 +24,21 @@ export interface Dimension {
   bin?: DateBin | null;
 }
 
+/** Calculs rapides (« Afficher la valeur comme ») ; pourcentages renvoyés en points (12,5 = 12,5 %). */
+export type ShowKind = "ytd" | "running" | "prev_year" | "yoy_diff" | "yoy_pct" | "moving_avg" | "pct_total";
+
+export interface ShowAs {
+  kind: ShowKind;
+  /** Champ date de référence (tous les calculs sauf `pct_total`). */
+  date?: string | null;
+  /** Périodes de la moyenne mobile (2 à 60). */
+  window?: number;
+}
+
 export interface Measure {
   field?: string | null;
   agg: Agg;
+  show?: ShowAs | null;
 }
 
 export interface Filter {

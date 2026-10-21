@@ -271,7 +271,8 @@ def test_route_validates_and_requires_dataset(client: TestClient, override_ai) -
     body = {"prompt": "CA par région", "dataset_id": dataset_id, "catalog": CATALOG}
     res = client.post("/api/ai/visuals", json=body)
     assert res.status_code == 200, res.text
-    assert res.json()["visuals"][0]["roles"]["values"][0] == {"field": "ca", "agg": "sum", "bin": None, "label": None}
+    expected = {"field": "ca", "agg": "sum", "bin": None, "label": None, "show": None}
+    assert res.json()["visuals"][0]["roles"]["values"][0] == expected
     assert client.post("/api/ai/visuals", json={**body, "dataset_id": "000000000000"}).status_code == 404
     assert client.post("/api/ai/visuals", json={**body, "catalog": []}).status_code == 422
 

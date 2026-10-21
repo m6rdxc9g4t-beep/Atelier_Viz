@@ -217,6 +217,22 @@ Vérifié : fichiers validés (schéma OOXML, graphiques, relations), rendus con
 
 ## 5 quinquies. Modélisation : mesures, colonnes calculées, exploration
 
+### Calculs dans le temps (« Afficher la valeur comme »)
+
+Sur toute valeur d'un visuel (puits Valeurs → « Afficher »), sans écrire de formule : `FieldBinding.show` / `Measure.show = { kind, date, window }`, clé `agg(champ)@kind` (`@moving_avg3` pour la moyenne mobile).
+
+| Calcul | Sens |
+|---|---|
+| Cumul depuis le début de l'année (`ytd`) · cumul depuis le début (`running`) | Accumulation jusqu'à la fin de chaque période |
+| Même période l'an dernier (`prev_year`) · écart (`yoy_diff`) · évolution % (`yoy_pct`) | Lignes de l'an dernier décalées d'un an |
+| Moyenne mobile (`moving_avg`, 2 à 12 périodes) | Moyenne des N dernières périodes de l'axe |
+| Part du total (`pct_total`) | Valeur / total général filtré |
+
+- **Avec un axe de dates** : une valeur par période ; les filtres de date limitent les périodes affichées, pas l'accumulation (le cumul de juin inclut janvier même si le filtre commence en avril). **Sans axe de dates** (KPI, table par région) : la période se termine à la dernière date retenue par les filtres de date. Sous-totaux des matrices calculés ensemble par ensemble.
+- Champ date : celui de l'axe du visuel, sinon le premier du jeu (modifiable). Fonctionne aussi sur les mesures et colonnes calculées.
+- Pourcentages renvoyés en points et affichés « 12,5 % » valeur par valeur ; jamais additionnés dans un total de table ni dans les constats du résumé IA.
+- Moteur : `app/services/engine/showas.py` (requête habituelle jointe à une sous-requête par calcul, sans texte du client) ; garde-fou contre les cumuls démesurés (30 M de lignes intermédiaires). Tests comparés à pandas : `tests/test_showas.py`.
+
 **Mesures et colonnes calculées** (volet Données → « + Mesure » / « + Colonne ») :
 
 | | Colonne calculée | Mesure calculée |

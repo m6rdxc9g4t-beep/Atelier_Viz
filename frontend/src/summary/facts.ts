@@ -67,7 +67,16 @@ function dimensionLabel(visual: Visual, col: QueryColumn): string {
   return col.field ?? col.key;
 }
 
-const isAdditive = (key: string) => key.startsWith("sum(") || key.startsWith("count(");
+// Additif = somme ou nombre bruts ; un calcul rapide (« @ytd », « @yoy_pct »…) ne s'additionne jamais.
+const isAdditive = (key: string) => (key.startsWith("sum(") || key.startsWith("count(")) && !key.includes("@");
+
+/** Format d'une colonne de mesure (pourcentages des calculs rapides compris). */
+function fmtOf(visual: Visual, key: string, fallback: NumberFormat): NumberFormat {
+  const b = Object.values(visual.roles)
+    .flat()
+    .find((x) => x.agg && bindingKey(x) === key);
+  return b ? numberFormat(visual, b) : fallback;
+}
 const binOf = (col: QueryColumn) => (col.key.includes("|") ? (col.key.split("|")[1] as Parameters<typeof formatDimension>[2]) : null);
 const dimText = (row: Row, col: QueryColumn) => formatDimension(row[col.key] ?? null, col.type, binOf(col));
 
@@ -192,7 +201,7 @@ function kpiFacts(visual: Visual, data: FactsData, fmt: NumberFormat): string[] 
   return out;
 }
 
-function matrixFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): string[] {
+function matrixFacts(visual: Visual, result: QueryResult): string[] {
   const rows = role(visual, "rows");
   const values = role(visual, "values");
   const column = first(visual, "columns");
@@ -206,9 +215,11 @@ function matrixFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): st
     label: formatDimension(n.value, undefined, r0.bin),
     value: Number(n.cells.get("__total")?.[key] ?? 0),
   }));
-  const out = rankFacts(entries, bindingLabel(m), r0.label || r0.field, fmt, m.agg === "sum" || m.agg === "count");
+  const additive = isAdditive(key);
+  const mf = numberFormat(visual, m);
+  const out = rankFacts(entries, bindingLabel(m), r0.label || r0.field, mf, additive);
   const total = model.root.cells.get("__total")?.[key];
-  if (total != null && !(m.agg === "sum" || m.agg === "count")) out.push(`Ensemble : ${amount(Number(total), fmt)}`);
+  if (total != null && !additive) out.push(`Ensemble : ${amount(Number(total), mf)}`);
   return out;
 }
 
@@ -217,12 +228,12 @@ function tableFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): str
   const meas = result.columns.filter((c) => c.role === "measure");
   const out = [`${result.rows.length}${result.truncated ? " (ou plus)" : ""} lignes`];
   for (const c of meas.slice(0, 3)) {
-    if (isAdditive(c.key)) out.push(`Total ${measureLabel(visual, c)} : ${amount(result.rows.reduce((t, r) => t + Number(r[c.key] ?? 0), 0), fmt)}`);
+    if (isAdditive(c.key)) out.push(`Total ${measureLabel(visual, c)} : ${amount(result.rows.reduce((t, r) => t + Number(r[c.key] ?? 0), 0), fmtOf(visual, c.key, fmt))}`);
   }
   const m = meas[0];
   if (m && dims.length) {
     const top = [...result.rows].sort((a, b) => Number(b[m.key] ?? 0) - Number(a[m.key] ?? 0)).slice(0, 3);
-    top.forEach((r, i) => out.push(`${ordinal(i)} (${measureLabel(visual, m)}) : ${dims.map((d) => dimText(r, d)).join(" · ")} — ${amount(Number(r[m.key] ?? 0), fmt)}`));
+    top.forEach((r, i) => out.push(`${ordinal(i)} (${measureLabel(visual, m)}) : ${dims.map((d) => dimText(r, d)).join(" · ")} — ${amount(Number(r[m.key] ?? 0), fmtOf(visual, m.key, fmt))}`));
   }
   return out;
 }
@@ -251,7 +262,7 @@ export function visualFacts(visual: Visual, data: FactsData): string[] {
       facts = kpiFacts(visual, data, fmt);
       break;
     case "matrix":
-      facts = matrixFacts(visual, data.result, fmt);
+      facts = matrixFacts(visual, data.result);
       break;
     case "table":
       facts = tableFacts(visual, data.result, fmt);
