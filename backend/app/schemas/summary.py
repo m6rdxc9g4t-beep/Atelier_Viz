@@ -40,3 +40,20 @@ class SummaryResponse(BaseModel):
     warnings: list[str] = Field(
         default_factory=list, description="Points écartés ou corrigés (chiffres non vérifiables)."
     )
+
+
+class AnswerRequest(BaseModel):
+    """Question en langage naturel (ou « explique cet écart »), avec les faits calculés par le frontend."""
+
+    question: str = Field(min_length=3, max_length=500)
+    provider: ProviderChoice = "auto"
+    filters: list[str] = Field(default_factory=list, max_length=20, description="Filtres actifs, en clair.")
+    visuals: list[VisualFacts] = Field(min_length=1, max_length=6)
+    kind: str = Field(default="question", pattern=r"^(question|explain)$")
+
+
+class AnswerResponse(BaseModel):
+    answer: str
+    provider: ProviderName
+    model: str
+    warnings: list[str] = Field(default_factory=list, description="Phrases écartées (chiffre non vérifiable).")

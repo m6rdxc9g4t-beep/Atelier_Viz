@@ -32,3 +32,20 @@ export interface SummaryResponse {
   model: string;
   warnings: string[];
 }
+
+/** Question en langage naturel (ou explication d'un écart), avec les faits calculés ici. */
+export interface AnswerRequest {
+  question: string;
+  provider: ProviderChoice;
+  filters: string[];
+  visuals: VisualFacts[];
+  kind?: "question" | "explain";
+}
+
+export interface AnswerResponse {
+  answer: string;
+  provider: ProviderName;
+  model: string;
+  /** Phrases écartées (chiffre non vérifiable). */
+  warnings: string[];
+}

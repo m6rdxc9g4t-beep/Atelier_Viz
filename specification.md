@@ -196,6 +196,19 @@ Bouton **Résumer** du Studio (édition et lecture) : un titre et 3 à 5 points 
 
 Mesuré avec Claude (CLI, Sonnet) : 5 à 8 s par page ; sur les pages de démonstration, aucun chiffre écarté.
 
+### Questions en langage naturel et explication d'un écart
+
+**Demander** (bouton du Studio, édition et lecture) : « Quelle région a le plus gros chiffre d'affaires ? »
+1. Le constructeur de visuels (même chaîne que « Créer avec l'IA » : schéma contraint → `repair`) choisit **un** visuel qui répond.
+2. Le visuel est calculé **ici** par le moteur, avec les filtres de la page (filtres, segments, sélection).
+3. Ses constats (`visualFacts`, écrits comme à l'écran) partent vers `POST /api/ai/answer` : l'IA répond en 1 à 3 phrases, en ne recopiant que ces chiffres ; chaque nombre est vérifié (`services/ai/answer.py`, mêmes règles que la synthèse : une relance, puis retrait des phrases invérifiables).
+4. Réponse, mention « Chiffres vérifiés », aperçu du visuel et **Ajouter à la page**. Suggestions de questions tirées du profil du jeu ; historique de la session par rapport.
+
+**Expliquer cette valeur** (clic droit sur une barre, un point, une part) :
+- Axe de dates : écart avec la **période précédente**, réparti par valeur de chaque dimension (texte ou booléen, 2 à 50 valeurs, 5 au plus ; colonnes liées par l'axe exclues) ; les 2 dimensions où un contributeur pèse le plus sont retenues (3 hausses, 3 baisses).
+- Autre axe : **répartition de l'élément comparée à l'ensemble** (écarts de part en points).
+- Mesures additives seulement (somme, nombre de lignes). Décomposition calculée localement (`summary/explain.ts`, testée), barres de contribution, puis explication rédigée par l'IA (`kind: "explain"`) à partir de ces seuls chiffres, vérifiés un à un. Sans moteur disponible, la décomposition reste affichée.
+
 ## 5 quater. Export PowerPoint
 
 Bouton **PowerPoint** du Studio (édition et lecture) → fichier `.pptx` 16:9 téléchargé. Tout est calculé **dans le navigateur** (pptxgenjs, chargé à la demande) : aucune donnée ne quitte la machine, hors ligne compris.
@@ -455,6 +468,7 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | GET / PUT / DELETE | `/api/github` | État (sans jeton, sans réseau) · configuration (`token` absent = inchangé, vide = effacé) · oubli |
 | POST | `/api/github/test` · `/push` · `/pull` | Vérifie l'accès · envoie (un commit) · récupère (résolutions des conflits) — en ligne uniquement |
 | GET | `/api/github/reports/{id}/history` · `/versions/{sha}` | Historique d'un rapport (commits) · aperçu d'une version — en ligne uniquement |
+| POST | `/api/ai/answer` | Réponse à une question ou explication d'un écart (`kind`) à partir de faits agrégés ; chiffres vérifiés |
 | POST | `/api/github/reports/{id}/restore` | Rétablit une version sur ce poste (ou en copie, `as_copy`) ; rien n'est envoyé |
 
 Toutes les routes passent par le garde « requêtes locales » (§3) : `Host` de bouclage ou `ALLOWED_HOSTS`, `Origin` locale ou absente pour les écritures, sinon 403.
@@ -483,4 +497,4 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 6 bis — IA de la suite** ✅ : choix du moteur commun à la Suite Atelier (Auto · Ollama · Claude, modèles Sonnet / Opus / Haiku et Ollama mémorisés, CLI trouvée hors du `PATH`), volet « Créer avec l'IA » avec suggestions toujours accessibles, nouvelle demande, historique de la session et réajout revalidé ; indicateur « en marche » d'Atelier Tab.
 - **Jalon 6 ter — Durcissement local** ✅ : garde « requêtes locales » (Host / Origin, `ALLOWED_HOSTS`), `fastapi>=0.132` ; CLI Claude conforme à docs/SUITE.md §5.3 (environnement en liste blanche, exécutable absolu, aucune donnée en argument, sortie bornée, arrêt forcé, revérification limitée) ; préférences écrites sous verrou ; lanceur macOS sans `npm install` ; santé d'Atelier Tab dérivée de `VITE_ATELIER_TAB_URL`.
 - **Charte néon monochrome** ✅ : toute l'application dans la couleur signature jaune, en clair et en sombre (fond teinté avec fine grille, cartes cerclées d'un trait néon avec halo, bouton principal plein / contour néon, navigation active avec barre de couleur), marque commune v3 ; palette de données et thèmes de rapport inchangés.
-- **Jalon 7 — Analyse avancée** (en cours) : mise en forme conditionnelle des tables et matrices ✅, calculs dans le temps (« Afficher la valeur comme » : cumul annuel, N-1, évolution, moyenne mobile, part du total) ✅, relations entre jeux ✅, préparation des données (étapes rejouées à l'actualisation) ✅, pages d'extraction (clic droit) et mode présentation (plein écran, diaporama de pages ou de signets) ✅, alertes sur variation et « pour chaque » valeur d'une dimension, notifications système ✅, export PDF / image / rapport HTML autonome ✅, historique GitHub d'un rapport, restauration d'une version, GitHub Enterprise ✅.
+- **Jalon 7 — Analyse avancée** (en cours) : mise en forme conditionnelle des tables et matrices ✅, calculs dans le temps (« Afficher la valeur comme » : cumul annuel, N-1, évolution, moyenne mobile, part du total) ✅, relations entre jeux ✅, préparation des données (étapes rejouées à l'actualisation) ✅, pages d'extraction (clic droit) et mode présentation (plein écran, diaporama de pages ou de signets) ✅, alertes sur variation et « pour chaque » valeur d'une dimension, notifications système ✅, export PDF / image / rapport HTML autonome ✅, historique GitHub d'un rapport, restauration d'une version, GitHub Enterprise ✅, questions en langage naturel et explication d'un écart (chiffres vérifiés) ✅.
