@@ -1,6 +1,6 @@
 import clsx from "clsx";
-import { ArrowLeft, Bookmark, Check, Eye, FilterX, Loader2, Palette, Pencil, Presentation, Redo2, ScrollText, Sparkles, Undo2, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Bookmark, Check, Eye, FilterX, Loader2, MonitorPlay, Palette, Pencil, Presentation, Redo2, ScrollText, Sparkles, Undo2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLinkedProfiles } from "../hooks/useDatasetProfiles";
 import { api } from "../lib/api";
@@ -9,7 +9,9 @@ import type { DatasetSummary } from "../types/dataset";
 import { Canvas } from "./Canvas";
 import { StudioDataContext } from "./context";
 import { ExportDialog } from "./ExportDialog";
+import { extractionLabel } from "./extraction";
 import { PageTabs } from "./PageTabs";
+import { ExtractionBar, Presentation as PresentationMode } from "./Presentation";
 import { AIBuilderPane } from "./panes/AIBuilderPane";
 import { BookmarksPane } from "./panes/BookmarksPane";
 import { SummaryPane } from "./panes/SummaryPane";
@@ -40,7 +42,21 @@ export function StudioPage({ reportId }: { reportId: string }) {
   const [side, setSide] = useState<"default" | "theme" | "ai" | "summary" | "bookmarks">("default");
   const toggleSide = (v: "theme" | "ai" | "summary" | "bookmarks") => setSide((cur) => (cur === v ? "default" : v));
   const [exporting, setExporting] = useState(false);
+  const extraction = useStudio((st) => st.extraction);
+  // Présentation : mode lecture plein écran ; le mode d'avant est rétabli en sortant.
+  const [presenting, setPresenting] = useState<null | "edit" | "view">(null);
+  const presentingRef = useRef(presenting);
+  presentingRef.current = presenting;
   const s = useStudio.getState;
+  const startPresenting = () => {
+    setPresenting(s().mode);
+    s().setMode("view");
+  };
+  const stopPresenting = useCallback(() => {
+    const previous = presentingRef.current;
+    if (previous) useStudio.getState().setMode(previous);
+    setPresenting(null);
+  }, []);
 
   // Chargement
   useEffect(() => {
@@ -232,6 +248,14 @@ export function StudioPage({ reportId }: { reportId: string }) {
             >
               <Presentation className="size-3.5" aria-hidden /> <span className="hidden md:inline">PowerPoint</span>
             </button>
+            <button
+              type="button"
+              onClick={startPresenting}
+              title="Présenter en plein écran : flèches pour changer de page, diaporama de pages ou de signets, Échap pour quitter"
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-fg"
+            >
+              <MonitorPlay className="size-3.5" aria-hidden /> <span className="hidden md:inline">Présenter</span>
+            </button>
             <div className="ml-1 flex rounded-md border border-border p-0.5 text-xs" role="group" aria-label="Mode">
               {(["edit", "view"] as const).map((m) => (
                 <button
@@ -256,7 +280,10 @@ export function StudioPage({ reportId }: { reportId: string }) {
             style={theme ? themeVars(theme) : undefined}
             aria-label={`Page ${page?.name ?? ""}`}
           >
-            {page && <Canvas page={page} report={report} />}
+            {page && !presenting && <Canvas page={page} report={report} />}
+            {extraction && extraction.pageId === page?.id && !presenting && (
+              <ExtractionBar label={extractionLabel(extraction.filters)} from={report.pages.find((p) => p.id === extraction.fromPageId)?.name ?? ""} />
+            )}
           </section>
           {side === "summary" && <SummaryPane />}
           {side === "bookmarks" && <BookmarksPane />}
@@ -283,6 +310,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
         <PageTabs />
       </div>
       {exporting && <ExportDialog onClose={() => setExporting(false)} />}
+      {presenting && <PresentationMode report={report} onExit={stopPresenting} />}
     </StudioDataContext.Provider>
   );
 }

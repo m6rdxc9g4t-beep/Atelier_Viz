@@ -53,6 +53,7 @@ export function visualFilters(
   visual: Visual,
   selection: Selection | null,
   profileOf: (datasetId: string) => DatasetProfile | undefined,
+  extraction: { datasetId: string; filters: Filter[] } | null = null,
 ): Filter[] {
   const profile = visual.dataset_id ? profileOf(visual.dataset_id) : undefined;
   const fields = profile ? new Set(profile.columns.map((c) => c.name)) : undefined;
@@ -76,7 +77,11 @@ export function visualFilters(
     selection && selection.visualId !== visual.id
       ? selection.filters.map((f) => adapt(f, selection.datasetId)).filter((f): f is Filter => f !== null)
       : [];
-  return [...pageFilters, ...slicers, ...cross, ...visual.filters];
+  // Extraction : par la relation, sinon par une colonne de même nom dans ce jeu.
+  const drilled = (extraction?.filters ?? [])
+    .map((f) => adapt(f, extraction?.datasetId) ?? (fields?.has(f.field) ? f : null))
+    .filter((f): f is Filter => f !== null);
+  return [...pageFilters, ...drilled, ...slicers, ...cross, ...visual.filters];
 }
 
 /** Tous les filtres actifs de la page (utilisés par les gabarits des boutons). */

@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Copy, CornerDownRight, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { useStudio } from "./store";
@@ -41,12 +41,13 @@ export function PageTabs() {
               aria-current={p.id === pageId ? "page" : undefined}
               onClick={() => s().setPage(p.id)}
               onDoubleClick={() => editing && setRenaming(p.id)}
-              title={editing ? "Double-cliquez pour renommer" : p.name}
+              title={`${p.drillthrough ? `Page d'extraction (${p.drillthrough.fields.join(", ")}) — ` : ""}${editing ? "Double-cliquez pour renommer" : p.name}`}
               className={clsx(
-                "rounded-md px-3 py-1.5 text-xs",
+                "flex items-center gap-1 rounded-md px-3 py-1.5 text-xs",
                 p.id === pageId ? "bg-accent-soft font-medium text-fg shadow-[inset_0_-2px_0_var(--accent),0_0_14px_-4px_var(--accent)]" : "text-muted hover:bg-surface-2 hover:text-fg",
               )}
             >
+              {p.drillthrough && <CornerDownRight className="size-3 text-accent-ink" aria-label="Page d'extraction" />}
               {p.name}
             </button>
             {editing && p.id === pageId && (

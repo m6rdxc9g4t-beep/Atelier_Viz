@@ -1,6 +1,8 @@
+import clsx from "clsx";
 import { useEffect, useState } from "react";
 
 import type { Layout, Visual } from "../../types/report";
+import { useStudioData } from "../context";
 import { DEFAULT_PAGE, PAGE_PRESETS } from "../grid";
 import { useStudio } from "../store";
 import { Section } from "./Pane";
@@ -89,6 +91,65 @@ export function PageSizeSection() {
         <NumberField label="H" value={size.height} min={240} onCommit={(v) => set({ height: Math.min(40000, v) })} />
       </div>
       <p className="mt-1.5 text-[10px] text-muted">La page s'allonge d'elle-même quand un visuel dépasse le bas.</p>
+    </Section>
+  );
+}
+
+/**
+ * Page d'extraction (drill-through) : un clic droit sur un élément d'un autre page qui porte l'un des
+ * champs choisis ouvre cette page, filtrée sur l'élément.
+ */
+export function DrillthroughSection() {
+  const page = useStudio((s) => s.page());
+  const { profiles } = useStudioData();
+  if (!page) return null;
+  const on = !!page.drillthrough;
+  const fields = page.drillthrough?.fields ?? [];
+  const names = [...new Set([...profiles.values()].flatMap((p) => p.columns.filter((c) => !c.measure && c.type !== "number").map((c) => c.name)))].sort((a, b) =>
+    a.localeCompare(b, "fr"),
+  );
+  const set = (next: string[] | null) => useStudio.getState().setDrillthrough(next);
+  return (
+    <Section title="Page d'extraction">
+      <label className="flex items-center justify-between gap-2 text-xs">
+        Utiliser comme page d'extraction
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => set(e.target.checked ? fields.length ? fields : names.slice(0, 1) : null)}
+          className="accent-[var(--accent)]"
+        />
+      </label>
+      {on && (
+        <>
+          <p className="mt-2 mb-1 text-[11px] text-muted">Champs d'extraction</p>
+          <div className="flex max-h-40 flex-wrap gap-1 overflow-y-auto">
+            {names.map((n) => {
+              const picked = fields.includes(n);
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  aria-pressed={picked}
+                  onClick={() => {
+                    const next = picked ? fields.filter((f) => f !== n) : [...fields, n].slice(0, 10);
+                    if (next.length) set(next);
+                  }}
+                  className={clsx(
+                    "rounded border px-1.5 py-0.5 text-[11px]",
+                    picked ? "border-accent-ink bg-accent-soft text-fg" : "border-border text-muted hover:bg-accent-faint",
+                  )}
+                >
+                  {n}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-[10px] leading-snug text-muted">
+            Clic droit sur une barre, une part ou une ligne d'une autre page → « Extraire vers « {page.name} » ». La page s'ouvre filtrée, avec un bouton Retour.
+          </p>
+        </>
+      )}
     </Section>
   );
 }

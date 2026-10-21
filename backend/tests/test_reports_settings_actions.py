@@ -24,7 +24,14 @@ VISUAL = {
 def test_report_crud_roundtrip(client: TestClient, settings) -> None:
     created = client.post("/api/reports", json={"name": "Ventes"}).json()
     assert created["pages"] == [
-        {"id": "p1", "name": "Page 1", "visuals": [], "filters": [], "size": {"width": 1280, "height": 720}}
+        {
+            "id": "p1",
+            "name": "Page 1",
+            "visuals": [],
+            "filters": [],
+            "size": {"width": 1280, "height": 720},
+            "drillthrough": None,
+        }
     ]
 
     body = {

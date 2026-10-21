@@ -83,6 +83,12 @@ class Visual(BaseModel):
     filters: list[Filter] = Field(default_factory=list, description="Filtres propres à ce visuel.")
 
 
+class Drillthrough(BaseModel):
+    """Page d'extraction : on y arrive par clic droit sur un élément qui porte l'un de ces champs."""
+
+    fields: list[str] = Field(min_length=1, max_length=10, description="Champs d'extraction (« region »).")
+
+
 class Page(BaseModel):
     id: str
     name: str
@@ -91,6 +97,7 @@ class Page(BaseModel):
     size: PageSize | None = Field(
         default=None, description="Taille en pixels (placement libre) ; absent = ancienne grille."
     )
+    drillthrough: Drillthrough | None = Field(default=None, description="Page d'extraction (clic droit).")
 
 
 class BookmarkVisualState(BaseModel):
