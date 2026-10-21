@@ -108,12 +108,41 @@ describe("filtres", () => {
   const slicer = visual("slicer", { field: [{ field: "region" }] }, { selected: ["Nord"] });
   const chart = visual("column", { category: [{ field: "produit" }], values: [{ field: "ca", agg: "sum" }] });
   const page: Page = { id: "p", name: "P", visuals: [slicer, chart], filters: [{ field: "ca", op: "gt", values: [0] }, { field: "inconnu", op: "in", values: ["x"] }] };
-  const fieldsOf = () => new Set(dataset.columns.map((c) => c.name));
+  const fieldsOf = () => dataset;
 
   it("combine page, segments, sélection et filtres du visuel", () => {
     const sel = { visualId: "autre", datasetId: dataset.id, keys: ["A"], filters: [{ field: "produit", op: "in" as const, values: ["A"] }] };
     const f = visualFilters(page, chart, sel, fieldsOf);
     expect(f.map((x) => x.field)).toEqual(["ca", "region", "produit"]);
+  });
+
+  it("un segment ou une sélection d'un jeu lié filtre ce jeu par sa colonne liée (chaînes comprises)", () => {
+    const col = (name: string) => ({ name, type: "string" as const, nulls: 0, distinct: 1, min: null, max: null, mean: null, top_values: [] });
+    const base = { format: "csv" as const, rows: 1, columns_count: 1, created_at: "", sample: [] };
+    const pays = { ...base, id: "pppppppppppp", name: "pays", columns: [col("pays"), col("nom")], model: { columns: [], measures: [] } };
+    const regions = {
+      ...base,
+      id: "rrrrrrrrrrrr",
+      name: "regions",
+      columns: [col("nom"), col("code"), col("geo.pays")],
+      model: { columns: [], measures: [], relations: [{ name: "geo", dataset_id: pays.id, from_column: "nom", to_column: "nom" }] },
+    };
+    const ventes = {
+      ...dataset,
+      columns: [...dataset.columns, col("regions.nom"), col("regions.geo.pays")],
+      model: { columns: [], measures: [], relations: [{ name: "regions", dataset_id: regions.id, from_column: "region", to_column: "nom" }] },
+    };
+    const all = new Map([ventes, regions, pays].map((p) => [p.id, p]));
+    const onRegions = { ...visual("slicer", { field: [{ field: "nom" }] }, { selected: ["Nord"] }), dataset_id: regions.id };
+    const onPays = { ...visual("slicer", { field: [{ field: "pays" }] }, { selected: ["FR"] }), dataset_id: pays.id };
+    const onVentes = visual("slicer", { field: [{ field: "produit" }] }, { selected: ["A"] });
+    const p2: Page = { id: "p", name: "P", visuals: [onRegions, onPays, onVentes, chart], filters: [] };
+    const sel = { visualId: "carte", datasetId: regions.id, keys: ["S"], filters: [{ field: "code", op: "in" as const, values: ["S"] }] };
+    const f = visualFilters(p2, chart, sel, (id) => all.get(id));
+    expect(f.map((x) => x.field)).toEqual(["regions.nom", "regions.geo.pays", "produit"]); // « regions.code » n'est pas repris : sélection ignorée
+    // Sens unique : le segment des ventes ne filtre pas un visuel des régions.
+    const regionChart = { ...visual("bar", { category: [{ field: "nom" }] }), dataset_id: regions.id };
+    expect(visualFilters(p2, regionChart, null, (id) => all.get(id)).map((x) => x.field)).toEqual(["nom", "geo.pays"]);
   });
 
   it("un segment ne se filtre pas lui-même", () => {

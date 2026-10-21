@@ -1,15 +1,14 @@
 /**
  * Rechargement automatique après une actualisation planifiée : le front interroge régulièrement
  * l'horodatage de version de chaque jeu actualisable (`GET /api/refresh/versions`). Quand il change,
- * le profil est relu et les visuels du jeu se rechargent (`invalidateQueries`).
+ * le profil est relu et les visuels du jeu se rechargent (`datasetChanged`, jeux liés compris).
  */
 
 import { useEffect } from "react";
 
 import { api } from "../lib/api";
 import type { DatasetProfile } from "../types/dataset";
-import { invalidateQueries } from "../visuals/useQueryResult";
-import { setProfile } from "./useDatasetProfiles";
+import { datasetChanged, setProfile } from "./useDatasetProfiles";
 
 export const POLL_MS = 20_000;
 
@@ -49,7 +48,7 @@ export async function pollVersions(): Promise<string[]> {
     } catch {
       // Jeu supprimé entre-temps : rien à recharger.
     }
-    invalidateQueries(id);
+    datasetChanged(id);
   }
   return changed;
 }

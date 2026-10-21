@@ -29,7 +29,7 @@ export function visualRequests(
 ): { filters: Filter[]; main: QueryRequest | null; colors: QueryRequest | null; trend: QueryRequest | null } {
   visual = drillView(visual); // niveau d'exploration affiché
   const def = VISUALS[visual.type];
-  const filters = visualFilters(page, visual, selection, (id) => (id ? new Set(profiles.get(id)?.columns.map((c) => c.name)) : undefined));
+  const filters = visualFilters(page, visual, selection, (id) => profiles.get(id));
   if (!def.query || !isReady(visual, def)) return { filters, main: null, colors: null, trend: null };
   const colorField = CARTESIAN.has(visual.type) ? first(visual, "series") : PARTS.has(visual.type) ? first(visual, "category") : undefined;
   return {

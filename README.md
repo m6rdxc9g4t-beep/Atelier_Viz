@@ -31,7 +31,7 @@ claude auth login && claude update                     # Claude (mode « En lign
 ```
 
 Premier essai : **Rapports → Ouvrir l'exemple**. Les données d'exemple du dossier `samples/`
-(`ventes_2026.csv` : 573 ventes ; `magasins.csv` : 30 magasins avec coordonnées) sont importées et un rapport
+(`ventes_2026.csv` : 573 ventes ; `magasins.csv` : 30 magasins avec coordonnées ; `regions.csv` : 13 régions, reliées aux deux autres) sont importées et un rapport
 de démonstration s'ouvre. On peut aussi les importer depuis **Données → Charger les données d'exemple**.
 
 ### Application Mac à double-cliquer
@@ -153,6 +153,7 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 | Automatiser | Visuel « Bouton d'action » : URL avec `{champ}`, webhook (n8n, Make, Zapier), page, réinitialisation |
 | Comparer dans le temps | Puits Valeurs → **Afficher** : cumul depuis le début de l'année, N-1, écart et évolution vs N-1 (%), moyenne mobile, part du total — sans formule, sur n'importe quel visuel (KPI « +13,9 % vs N-1 ») |
 | Calculer | Volet Données → **+ Mesure** (`SUM(chiffre_affaires * taux_marge / 100)`, `DIVIDE([Marge], SUM(chiffre_affaires))`) ou **+ Colonne** (`IF(chiffre_affaires >= 5000, "Grosse vente", "Standard")`), vérifiées à la frappe |
+| Relier deux jeux | Volet Données → **Relier** : ventes → régions par la colonne `region` ; les colonnes des régions (`regions.responsable`…) s'utilisent dans les visuels des ventes, et un segment sur les régions filtre les ventes. Diagnostic des correspondances pendant la saisie |
 | Explorer | Plusieurs champs dans l'Axe = hiérarchie ; flèches du visuel pour monter / descendre ; « Hiérarchie de dates » pour année › trimestre › mois |
 | Mettre en évidence | Table ou matrice → onglet Format → **Mise en forme conditionnelle** : dégradé ou couleurs divergentes, règles (« < 900 000 → rouge »), barres de données, icônes ▲ ● ▼ |
 | Habiller | Bouton « Thème » : clair / sombre, préréglages (Verre, Papier, Minuit…), couleurs en hexadécimal, import de thèmes Power BI ; onglet Format d'un visuel : fond transparent, bordure, arrondi, ombre, titre, couleurs |
@@ -172,7 +173,7 @@ cd frontend && npm test && npm run build      # 170 tests
 ```
 atelier-viz/
 ├── CLAUDE.md · specification.md · README.md
-├── samples/                      # ventes_2026.csv (573 ventes), magasins.csv (30 magasins géolocalisés)
+├── samples/                      # ventes_2026.csv (573 ventes), magasins.csv (30 magasins géolocalisés), regions.csv (13 régions)
 ├── backend/
 │   ├── main.py
 │   └── app/

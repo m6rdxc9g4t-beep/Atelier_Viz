@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { api } from "../lib/api";
-import { invalidateQueries } from "../visuals/useQueryResult";
-import { forgetProfile, refreshDataset } from "./useDatasetProfiles";
+import { datasetChanged, forgetProfile, refreshDataset } from "./useDatasetProfiles";
 import { onDatasetRefreshed } from "./useDataVersions";
 import type { DatasetProfile, DatasetSummary } from "../types/dataset";
 
@@ -106,7 +105,7 @@ export function useDatasets(): DatasetsState {
       try {
         await api.datasets.remove(id);
         forgetProfile(id);
-        invalidateQueries(id);
+        datasetChanged(id);
         const rest = datasets.filter((d) => d.id !== id);
         setDatasets(rest);
         if (selected?.id === id) {

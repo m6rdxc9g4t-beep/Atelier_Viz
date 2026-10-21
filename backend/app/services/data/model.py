@@ -44,6 +44,20 @@ class CompiledColumn:
     type: ColumnType
 
 
+@dataclass(frozen=True)
+class Join:
+    """Jointure d'une relation dans la vue : colonnes du jeu lié reprises sous `<relation>.<colonne>`."""
+
+    source: str
+    """Relation interrogée du jeu lié (sa vue s'il en a une)."""
+    from_column: str
+    to_column: str
+    as_text: bool
+    """Clés de types différents (nombre / texte) : comparées comme du texte."""
+    columns: tuple[tuple[str, str], ...]
+    """(colonne du jeu lié, nom dans ce jeu)."""
+
+
 @dataclass
 class CompiledModel:
     columns: list[CompiledColumn]
@@ -111,22 +125,51 @@ def measure_sql(profile: DatasetProfile, name: str) -> str:
     return compile_expression(expression, "measure", view_scope(profile), name=name).sql
 
 
-def view_ddl(dataset_id: str, columns: list[CompiledColumn]) -> str:
+def view_ddl(dataset_id: str, columns: list[CompiledColumn], joins: list[Join] | None = None) -> str:
+    """Vue `v_<id>` = table + colonnes des jeux liés + colonnes calculées (ou suppression si rien à ajouter).
+
+    Le jeu lié est dédoublonné sur sa clé (première ligne retenue) : une relation ne multiplie jamais
+    les lignes de ce jeu, donc ses sommes restent justes.
+    """
     view, table = quote_ident(f"v_{dataset_id}"), quote_ident(f"ds_{dataset_id}")
-    if not columns:
+    joins = joins or []
+    if not columns and not joins:
         return f"DROP VIEW IF EXISTS {view}"
-    extra = ", ".join(f"{c.sql} AS {quote_ident(c.name)}" for c in columns)
-    return f"CREATE OR REPLACE VIEW {view} AS SELECT *, {extra} FROM {table}"
+    relation = table
+    if joins:
+        picked = ["t.*"]
+        clauses = []
+        for i, j in enumerate(joins):
+            alias = f"r{i}"
+            key = quote_ident(j.to_column)
+            first = f"ROW_NUMBER() OVER (PARTITION BY {key} ORDER BY {key}) = 1"
+            dedup = f"(SELECT * FROM {quote_ident(j.source)} QUALIFY {first})"
+            left, right = f"t.{quote_ident(j.from_column)}", f"{alias}.{key}"
+            if j.as_text:
+                left, right = f"CAST({left} AS VARCHAR)", f"CAST({right} AS VARCHAR)"
+            clauses.append(f" LEFT JOIN {dedup} AS {alias} ON {left} = {right}")
+            picked += [f"{alias}.{quote_ident(src)} AS {quote_ident(out)}" for src, out in j.columns]
+        relation = f"(SELECT {', '.join(picked)} FROM {table} AS t{''.join(clauses)})"
+    extra = "".join(f", {c.sql} AS {quote_ident(c.name)}" for c in columns)
+    return f"CREATE OR REPLACE VIEW {view} AS SELECT j.*{extra} FROM {relation} AS j"
 
 
-def profile_calculated(db: LocalDatabase, source: str, col: CompiledColumn, expression: str) -> ColumnProfile:
-    """Statistiques d'une colonne calculée, calculées par DuckDB sur la vue."""
+def profile_calculated(
+    db: LocalDatabase, source: str, col: CompiledColumn, expression: str | None, related: str | None = None
+) -> ColumnProfile:
+    """Statistiques d'une colonne calculée (ou liée par une relation), calculées par DuckDB sur la vue."""
     c = quote_ident(col.name)
     src = quote_ident(source)
     _, rows = db.execute(f"SELECT COUNT(*) - COUNT({c}), COUNT(DISTINCT {c}), MIN({c}), MAX({c}) FROM {src}")
     nulls, distinct, low, high = rows[0]
     profile = ColumnProfile(
-        name=col.name, type=col.type, nulls=int(nulls), distinct=int(distinct), calculated=True, expression=expression
+        name=col.name,
+        type=col.type,
+        nulls=int(nulls),
+        distinct=int(distinct),
+        calculated=related is None,
+        expression=expression,
+        related=related,
     )
     if col.type in {"number", "date"}:
         profile.min, profile.max = to_json(low), to_json(high)
@@ -164,9 +207,8 @@ def check_expression(
             return ExpressionResult(ok=False, error=exc.message, position=exc.position)
         if name.lower() in {n.lower() for n in base} | {c.name.lower() for c in items}:
             return ExpressionResult(ok=False, error="Ce nom est déjà utilisé par une autre colonne.")
-        table = quote_ident(f"ds_{profile.id}")
         try:
-            _, rows = db.execute(f"SELECT {result.sql} FROM {table} LIMIT 5")
+            _, rows = db.execute(f"SELECT {result.sql} FROM {quote_ident(source)} LIMIT 5")
         except duckdb.Error as exc:
             return ExpressionResult(ok=False, error=f"Calcul impossible : {exc}")
         return ExpressionResult(ok=True, type=result.type, preview=[to_json(r[0]) for r in rows])  # type: ignore[arg-type]

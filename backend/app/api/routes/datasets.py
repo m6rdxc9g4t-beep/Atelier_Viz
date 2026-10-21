@@ -13,6 +13,8 @@ from app.schemas.dataset import (
     DatasetSummary,
     ExpressionCheck,
     ExpressionResult,
+    Relation,
+    RelationCheck,
 )
 from app.services.data import DatasetError, DatasetStore, StoredDataset, read_table
 from app.services.data.model import ModelError
@@ -85,6 +87,13 @@ async def save_model(dataset_id: str, model: DatasetModel, store: StoreDep) -> D
             {"message": "Le modèle contient des erreurs.", "issues": [i.model_dump() for i in exc.issues]},
         ) from exc
     return updated.profile()
+
+
+@router.post("/{dataset_id}/relations/check", response_model=RelationCheck)
+async def check_relation(dataset_id: str, relation: Relation, store: StoreDep) -> RelationCheck:
+    """Correspondance des clés d'une relation avant enregistrement (lignes trouvées, doublons)."""
+    dataset = await get_or_404(store, dataset_id)
+    return await asyncio.to_thread(store.check_relation, dataset, relation)
 
 
 @router.post("/{dataset_id}/model/check", response_model=ExpressionResult)

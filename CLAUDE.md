@@ -52,7 +52,7 @@ frontend/src/
   features/                   # reports (accueil), data (import), automation (planifications, alertes), settings (+ GitHub), assistant
   lib/api.ts, lib/router.ts   # client HTTP typé, routeur par hash
   types/                      # miroirs TypeScript des schémas Pydantic
-samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées)
+samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées), regions.csv (relié aux deux)
 ```
 
 ## Ajouter un type de visuel
@@ -110,6 +110,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Expressions des colonnes / mesures calculées : `app/services/engine/expressions.py` (lexer → parseur → compilation typée). **Ne jamais** concaténer une expression utilisateur dans du SQL : tout passe par ce compilateur.
 - Colonnes calculées : vue `v_<id>` (`StoredDataset.source`) ; toute requête lit `dataset.source`, jamais `dataset.table` directement. Mesures : `agg = "calc"`, compilées à chaque requête (`model.measure_sql`).
 - Exploration : tout code qui lit les rôles d'un visuel pour l'afficher (requête, composant, export, résumé) part de `drillView(visual)`.
+- Relations (`DatasetModel.relations`, plusieurs-à-un) : colonnes liées matérialisées dans la vue `v_<id>` sous `<relation>.<colonne>` (`ColumnProfile.related`), jeu lié dédoublonné sur sa clé (jamais de lignes multipliées). Après une modification du modèle ou des données d'un jeu, `DatasetStore` recrée les vues des jeux dépendants ; côté front, appeler `datasetChanged(id)` (jamais `invalidateQueries` seul). Les filtres d'un autre jeu passent par `visualFilters(…, profileOf)` (préfixe `relatedPrefix`) ; le Studio charge les jeux liés avec `useLinkedProfiles`.
 
 ## Règles IA
 - `provider = "ollama" | "anthropic" | "auto"` ; hors ligne, `anthropic` → 403, `auto` → Ollama.

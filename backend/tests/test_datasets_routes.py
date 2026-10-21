@@ -29,8 +29,9 @@ def test_upload_returns_profile(client: TestClient) -> None:
         "top_values": [],
         "calculated": False,
         "expression": None,
+        "related": None,
     }
-    assert body["model"] == {"columns": [], "measures": []}
+    assert body["model"] == {"columns": [], "measures": [], "relations": []}
     assert body["sample"][0] == {"date": "2026-01-05", "region": "Nord", "montant": 1200.5}
 
 
