@@ -6,12 +6,22 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.connection import DatasetOrigin
+from app.schemas.connection import AnyOrigin
 
 ColumnType = Literal["number", "string", "date", "boolean"]
-# Fichiers importés, ou type de la connexion d'origine.
+# Fichiers importés, type de la connexion d'origine, ou table reçue d'un workflow (`atelier_table`).
 SourceFormat = Literal[
-    "csv", "xlsx", "json", "sqlserver", "postgres", "mysql", "sqlite", "sharepoint", "atelier_tab", "atelier_projets"
+    "csv",
+    "xlsx",
+    "json",
+    "sqlserver",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "sharepoint",
+    "atelier_tab",
+    "atelier_projets",
+    "atelier_table",
 ]
 Scalar = float | int | str | bool | None
 
@@ -267,7 +277,10 @@ class DatasetSummary(BaseModel):
     rows: int
     columns_count: int
     created_at: datetime
-    origin: DatasetOrigin | None = Field(default=None, description="Connexion d'origine (jeu actualisable).")
+    origin: AnyOrigin | None = Field(
+        default=None,
+        description="Connexion d'origine (jeu actualisable), ou clé de la table reçue d'un workflow (`atelier-table`).",
+    )
 
 
 class DatasetProfile(DatasetSummary):

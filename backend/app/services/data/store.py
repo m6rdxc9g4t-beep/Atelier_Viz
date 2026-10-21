@@ -7,15 +7,17 @@ dans `__datasets`. Les données survivent au redémarrage du serveur.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import duckdb
 import pandas as pd
 
-from app.schemas.connection import DatasetOrigin
+from app.schemas.connection import AnyOrigin
 from app.schemas.dataset import (
     ColumnProfile,
     ColumnType,
@@ -44,6 +46,8 @@ from app.services.data.model import (
 from app.services.data.prep import PrepError, apply_steps
 from app.services.data.profiling import build_profile, records, to_json
 from app.services.engine.database import LocalDatabase, quote_ident
+
+logger = logging.getLogger(__name__)
 
 SAMPLE_ROWS = 20
 _ID_RE = re.compile(r"^[0-9a-f]{12}$")
@@ -88,13 +92,34 @@ class StoredDataset:
 
 
 class DatasetStore:
-    """Accès aux jeux de données. Méthodes synchrones : à appeler via `asyncio.to_thread`."""
+    """Accès aux jeux de données. Méthodes synchrones : à appeler via `asyncio.to_thread`.
+
+    Observateurs (`on_created`, `on_removed`) : appelés après chaque création / suppression, quel que soit
+    le chemin (fichier, connexion, exemples, workflow) ; une erreur d'observateur est journalisée, jamais relancée.
+    """
 
     def __init__(self, db: LocalDatabase) -> None:
         self.db = db
         self.db.execute(_META_DDL)
+        self._created: list[Callable[[StoredDataset], None]] = []
+        self._removed: list[Callable[[str, str], None]] = []
 
-    def add(self, name: str, fmt: SourceFormat, df: pd.DataFrame, origin: DatasetOrigin | None = None) -> StoredDataset:
+    def on_created(self, listener: Callable[[StoredDataset], None]) -> None:
+        """Abonne un observateur appelé après la création d'un jeu (jeu créé)."""
+        self._created.append(listener)
+
+    def on_removed(self, listener: Callable[[str, str], None]) -> None:
+        """Abonne un observateur appelé après la suppression d'un jeu (identifiant, nom)."""
+        self._removed.append(listener)
+
+    def _notify(self, listeners: list[Callable[..., None]], *args: object) -> None:
+        for listener in listeners:
+            try:
+                listener(*args)
+            except Exception as exc:  # noqa: BLE001 — un observateur en échec n'annule pas l'opération
+                logger.warning("Observateur des jeux de données en échec : %s", exc)
+
+    def add(self, name: str, fmt: SourceFormat, df: pd.DataFrame, origin: AnyOrigin | None = None) -> StoredDataset:
         dataset_id = uuid.uuid4().hex[:12]
         name = self._unique_name(name)
         profile = DatasetProfile(
@@ -113,7 +138,9 @@ class DatasetStore:
             "INSERT INTO __datasets VALUES (?, ?, ?, ?, ?)",
             [dataset_id, name, fmt, profile.created_at, profile.model_dump_json()],
         )
-        return StoredDataset(dataset_id, profile)
+        dataset = StoredDataset(dataset_id, profile)
+        self._notify(self._created, dataset)
+        return dataset
 
     def get(self, dataset_id: str) -> StoredDataset | None:
         if not _ID_RE.match(dataset_id):
@@ -139,7 +166,8 @@ class DatasetStore:
         )
 
     def remove(self, dataset_id: str) -> bool:
-        if self.get(dataset_id) is None:
+        existing = self.get(dataset_id)
+        if existing is None:
             return False
         # Les jeux liés à celui-ci perdent leur relation (et ce qui en dépendait) avant la suppression.
         for dep in self.dependents(dataset_id):
@@ -151,7 +179,16 @@ class DatasetStore:
         self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'ds_{dataset_id}')}")
         self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset_id}')}")
         self.db.execute("DELETE FROM __datasets WHERE id = ?", [dataset_id])
+        self._notify(self._removed, dataset_id, existing.name)
         return True
+
+    def find_by_origin_key(self, key: str) -> StoredDataset | None:
+        """Jeu alimenté par un workflow sous cette clé externe (`origin.kind == "atelier-table"`), s'il existe."""
+        for dataset in self.list():
+            origin = dataset.profile_data.origin
+            if origin is not None and origin.kind == "atelier-table" and origin.key == key:
+                return dataset
+        return None
 
     def set_model(self, dataset: StoredDataset, model: DatasetModel) -> StoredDataset:
         """Valide et enregistre le modèle : vue recréée, colonnes liées et calculées profilées.
@@ -173,7 +210,7 @@ class DatasetStore:
         self._rebuild_dependents(dataset.id)
         return StoredDataset(dataset.id, updated)
 
-    def replace_data(self, dataset: StoredDataset, df: pd.DataFrame, origin: DatasetOrigin | None) -> StoredDataset:
+    def replace_data(self, dataset: StoredDataset, df: pd.DataFrame, origin: AnyOrigin | None) -> StoredDataset:
         """Actualise le contenu d'un jeu (même identifiant : les rapports restent branchés).
 
         Les étapes de préparation sont rejouées sur les nouvelles données, puis le modèle (relations,
@@ -234,7 +271,7 @@ class DatasetStore:
         self,
         dataset: StoredDataset,
         df: pd.DataFrame,
-        origin: DatasetOrigin | None,
+        origin: AnyOrigin | None,
         raw: pd.DataFrame | None = None,
         steps: list[PrepStep] | None = None,
     ) -> StoredDataset:

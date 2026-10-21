@@ -7,6 +7,8 @@
 - Politique réseau : SharePoint Online exige le mode « En ligne » ; hors ligne, l'exécution est
   sautée avec un statut explicite (de même qu'un serveur SQL public refusé hors ligne).
 - Après chaque actualisation réussie, les observateurs (`on_refreshed`) sont prévenus (alertes).
+- Après chaque exécution terminée (réussie, en échec, sautée ou interrompue), les observateurs `on_run`
+  reçoivent le jeu et l'entrée du journal (journal d'événements du nœud Atelier) ; ils passent avant `on_refreshed`.
 - Arrêt propre (`shutdown`, appelé par le lifespan **avant** la fermeture de DuckDB) : les tâches lancées
   par `tick` sont gardées (référence forte) puis annulées ; le travail en cours dans un fil (`to_thread`
   ne peut pas être interrompu) est attendu jusqu'à un délai borné. Une actualisation qui ne s'est pas
@@ -25,6 +27,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+from app.schemas.connection import DatasetOrigin
 from app.schemas.refresh import RefreshRun, RefreshSchedule, RunStatus, RunTrigger, ScheduleState
 from app.services.connectors.base import ConnectorError, short
 from app.services.data.model import ModelError
@@ -37,6 +40,7 @@ INTERRUPTED = "Interrompue par l'arrêt de l'application : elle sera relancée �
 Clock = Callable[[], datetime]
 Refresher = Callable[[StoredDataset], StoredDataset]
 Listener = Callable[[str], Awaitable[None]]
+RunListener = Callable[[str, RefreshRun], Awaitable[None]]
 
 
 def utc_now() -> datetime:
@@ -106,6 +110,7 @@ class RefreshScheduler:
         self._locks: dict[str, asyncio.Lock] = {}
         self._running: set[str] = set()
         self._listeners: list[Listener] = []
+        self._run_listeners: list[RunListener] = []
         self._tasks: set[asyncio.Task[RefreshRun]] = set()  # tâches de `tick` (référence forte)
         self._work: set[asyncio.Future[StoredDataset]] = set()  # actualisations en cours dans un fil
         self._stopping = False
@@ -158,7 +163,7 @@ class RefreshScheduler:
 
     def _state(self, dataset: StoredDataset, entry: _Entry) -> ScheduleState:
         origin = dataset.profile_data.origin
-        assert origin is not None
+        assert isinstance(origin, DatasetOrigin)  # `_refreshable` / `states` écartent les autres provenances
         return ScheduleState(
             dataset_id=dataset.id,
             dataset_name=dataset.name,
@@ -176,10 +181,16 @@ class RefreshScheduler:
         dataset = self.store.get(dataset_id)
         if dataset is None:
             raise ConnectorError(f"Jeu de données « {dataset_id} » introuvable.", 404)
-        if dataset.profile_data.origin is None:
+        origin = dataset.profile_data.origin
+        if origin is None:
             raise ConnectorError(
                 "Seul un jeu importé depuis une connexion peut être actualisé : "
                 "réimportez ce fichier pour le mettre à jour."
+            )
+        if origin.kind == "atelier-table":
+            raise ConnectorError(
+                "Ce jeu est alimenté par un workflow (Atelier Nexus) : il se met à jour quand le workflow "
+                "renvoie sa table (action « datasets.upsert_table »), pas par actualisation."
             )
         return dataset
 
@@ -191,12 +202,17 @@ class RefreshScheduler:
     def states(self) -> list[ScheduleState]:
         """Tous les jeux actualisables, planifiés d'abord. Synchrone : via `to_thread`."""
         entries = self._read()
-        found = [d for d in self.store.list() if d.profile_data.origin is not None]
+        found = [
+            d
+            for d in self.store.list()
+            if d.profile_data.origin is not None and d.profile_data.origin.kind != "atelier-table"
+        ]
         states = [self._state(d, entries.get(d.id) or _Entry()) for d in found]
         return sorted(states, key=lambda s: (s.schedule.mode == "off", s.dataset_name.lower()))
 
     def versions(self) -> dict[str, str]:
-        """Horodatage de version de chaque jeu actualisable : le front recharge les visuels quand il change."""
+        """Horodatage de version de chaque jeu actualisable (ou alimenté par un workflow) : le front recharge les
+        visuels quand il change."""
         return {
             d.id: d.profile_data.origin.refreshed_at.isoformat()
             for d in self.store.list()
@@ -220,6 +236,20 @@ class RefreshScheduler:
     def on_refreshed(self, listener: Listener) -> None:
         """Abonne un observateur appelé après chaque actualisation réussie (identifiant du jeu)."""
         self._listeners.append(listener)
+
+    def on_run(self, listener: RunListener) -> None:
+        """Abonne un observateur appelé après chaque exécution terminée, réussie ou non (jeu, entrée du journal).
+
+        Pas appelé pour une demande refusée avant de commencer (jeu introuvable, déjà en cours).
+        """
+        self._run_listeners.append(listener)
+
+    async def _notify_run(self, dataset_id: str, run: RefreshRun) -> None:
+        for listener in self._run_listeners:
+            try:
+                await listener(dataset_id, run)
+            except Exception as exc:  # noqa: BLE001 — un observateur en échec ne bloque pas les autres
+                logger.warning("Observateur d'exécution en échec : %s", short(exc))
 
     def is_running(self, dataset_id: str) -> bool:
         return dataset_id in self._running
@@ -297,8 +327,10 @@ class RefreshScheduler:
                 self._log(dataset_id, run)  # écriture directe : la tâche est en cours d'annulation
                 if status == "interrupted":
                     logger.warning("Actualisation de %s interrompue par l'arrêt de l'application.", dataset_id)
+                await self._notify_run(dataset_id, run)  # annulation déjà reçue : ces attentes ne sont pas coupées
                 raise asyncio.CancelledError
             await asyncio.to_thread(self._log, dataset_id, run)
+        await self._notify_run(dataset_id, run)
         if status == "success":
             for listener in self._listeners:
                 try:
