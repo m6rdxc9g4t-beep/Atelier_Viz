@@ -6,6 +6,7 @@ from app.api.routes import (
     actions,
     ai,
     alerts,
+    atelier,
     connections,
     datasets,
     github,
@@ -30,3 +31,4 @@ api_router.include_router(connections.router)
 api_router.include_router(refresh.router)
 api_router.include_router(alerts.router)
 api_router.include_router(github.router)
+api_router.include_router(atelier.router)

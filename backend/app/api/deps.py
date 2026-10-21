@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.services.ai import AIService, AnthropicProvider, ClaudeCliProvider, OllamaProvider
 from app.services.ai.service import ClaudeProvider
 from app.services.alerts import AlertService
+from app.services.atelier import AtelierService, EventJournal, IdempotencyStore
 from app.services.connectors import ConnectionService
 from app.services.data import DatasetStore
 from app.services.engine import LocalDatabase
@@ -116,6 +117,24 @@ def get_github(request: Request) -> GitHubSync:
     return github
 
 
+def get_atelier(request: Request) -> AtelierService:
+    """Actions du nœud Atelier (docs/SUITE.md §7)."""
+    service: AtelierService = request.app.state.atelier
+    return service
+
+
+def get_journal(request: Request) -> EventJournal:
+    """Journal d'événements du nœud Atelier."""
+    journal: EventJournal = request.app.state.journal
+    return journal
+
+
+def get_idempotency(request: Request) -> IdempotencyStore:
+    """Réponses enregistrées par clé d'idempotence."""
+    store: IdempotencyStore = request.app.state.idempotency
+    return store
+
+
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 AIServiceDep = Annotated[AIService, Depends(get_ai_service)]
 DatabaseDep = Annotated[LocalDatabase, Depends(get_database)]
@@ -126,3 +145,6 @@ ConnectionsDep = Annotated[ConnectionService, Depends(get_connections)]
 SchedulerDep = Annotated[RefreshScheduler, Depends(get_scheduler)]
 AlertsDep = Annotated[AlertService, Depends(get_alerts)]
 GitHubDep = Annotated[GitHubSync, Depends(get_github)]
+AtelierDep = Annotated[AtelierService, Depends(get_atelier)]
+JournalDep = Annotated[EventJournal, Depends(get_journal)]
+IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency)]
