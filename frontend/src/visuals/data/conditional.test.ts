@@ -65,7 +65,7 @@ describe("mise en forme conditionnelle", () => {
 
   it("styles d'écran en variables de thème, couleurs d'export en hexadécimal", () => {
     const d = decorate(100, { ...EMPTY_FORMAT, scale: "sequential", rules: [{ op: "gt", value: 50, color: "negative" }], rulesTarget: "text" }, stats);
-    expect(decorStyle(d)).toEqual({ backgroundColor: "color-mix(in oklab, var(--seq-500) 55%, transparent)", color: "var(--negative)" });
+    expect(decorStyle(d)).toEqual({ backgroundColor: "color-mix(in oklab, var(--seq-500) 55%, transparent)", color: "var(--cond-neg)" });
     expect(decorHex(d, SCALES.light, "#ffffff")).toEqual({ fill: blend("#256abf", "#ffffff", MAX_TINT), text: "#d03b3b", icon: undefined });
   });
 
@@ -82,12 +82,14 @@ describe("mise en forme conditionnelle", () => {
 
   it("les couleurs d'export sont celles de index.css", () => {
     const css = readFileSync(resolve(__dirname, "../../index.css"), "utf8");
-    const block = (sel: string) => css.slice(css.indexOf(sel), css.indexOf("}", css.indexOf(sel)));
+    // Blocs de la palette de données (ceux qui définissent --seq-500), clair puis sombre.
+    const blocks = [...css.matchAll(/\n([^{}\n][^{}]*)\{([^}]*--seq-500[^}]*)\}/g)];
+    const of = (selector: string) => blocks.find((m) => (m[1] ?? "").includes(selector))?.[2] ?? "";
     const value = (b: string, name: string) => new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, "i").exec(b)?.[1]?.toLowerCase();
-    for (const [mode, sel] of [["light", "\n:root,\n"], ["dark", "\n.dark,\n"]] as const) {
-      const b = block(sel);
+    for (const [mode, sel] of [["light", ".theme-light"], ["dark", ".theme-dark"]] as const) {
+      const b = of(sel);
       const c = SCALES[mode];
-      expect([value(b, "seq-500"), value(b, "div-pos"), value(b, "div-neg"), value(b, "positive"), value(b, "negative"), value(b, "accent"), value(b, "muted")]).toEqual([
+      expect([value(b, "seq-500"), value(b, "div-pos"), value(b, "div-neg"), value(b, "cond-pos"), value(b, "cond-neg"), value(b, "cond-blue"), value(b, "cond-grey")]).toEqual([
         c.seq, c.divPos, c.divNeg, c.positive, c.negative, c.accent, c.muted,
       ]);
     }

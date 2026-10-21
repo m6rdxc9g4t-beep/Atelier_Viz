@@ -81,6 +81,12 @@
   --div-pos: #2a78d6;
   --div-neg: #e34948;
   --div-mid: #c9c8c2;
+
+  /* Mise en forme conditionnelle (règles des tables et matrices) : indépendantes du thème de l'interface */
+  --cond-pos: #0b7a0b;
+  --cond-neg: #d03b3b;
+  --cond-blue: #2a78d6;
+  --cond-grey: #62615c;
 }
 
 .dark,
@@ -105,6 +111,11 @@
   --div-pos: #3987e5;
   --div-neg: #e66767;
   --div-mid: #4a4a45;
+
+  --cond-pos: #34c78a;
+  --cond-neg: #f06a6a;
+  --cond-blue: #3987e5;
+  --cond-grey: #a6a59c;
 }
 
 /*

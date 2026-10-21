@@ -20,7 +20,7 @@ import { bindingKey, bindingLabel } from "../../visuals/fields";
 import { useStudio } from "../store";
 import { Section } from "./Pane";
 
-const field = "rounded-md border border-border bg-bg px-2 py-1 text-xs text-fg";
+const field = "rounded-md border border-border bg-field px-2 py-1 text-xs text-fg";
 
 /** Nombre saisi à la française (« 1 000,5 ») ; null si invalide. */
 export function parseNumber(text: string): number | null {
@@ -56,7 +56,7 @@ export function ConditionalSection({ visual }: { visual: Visual }) {
       title="Mise en forme conditionnelle"
       action={
         isFormatted(format) ? (
-          <button type="button" onClick={() => save({ ...EMPTY_FORMAT })} className="text-[11px] text-accent hover:underline">
+          <button type="button" onClick={() => save({ ...EMPTY_FORMAT })} className="text-[11px] text-accent-ink hover:underline">
             Effacer
           </button>
         ) : undefined
@@ -126,7 +126,7 @@ export function ConditionalSection({ visual }: { visual: Visual }) {
           <button
             type="button"
             onClick={() => set({ rules: [...format.rules, { op: "gt", value: 0, color: "positive" }] })}
-            className="flex items-center gap-1 text-[11px] text-accent hover:underline"
+            className="flex items-center gap-1 text-[11px] text-accent-ink hover:underline"
           >
             <Plus className="size-3" aria-hidden /> Ajouter une règle
           </button>
