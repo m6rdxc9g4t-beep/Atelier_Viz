@@ -132,6 +132,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Nouveau type de visuel : l'ajouter à `BUILDERS` (natif) ou à `IMAGE_ONLY` (capture) dans `buildVisual.ts`, avec un test dans `export.test.ts`.
 - Pièges pptxgenjs : couleurs sans « # » (`pptColor`), options jamais partagées (le writer clone), pas d'étiquette `outEnd` sur un empilé, pas d'axe secondaire (et jamais de double axe), `isTextBox` sur les textes.
 - Après une modification : exporter la galerie, `python scripts/office/validate.py` (skill pptx) puis contrôler le rendu.
+- PDF / image / HTML : `export/exportDocument.ts` (orchestration), `export/document.ts` (pur, testé : tableaux, HTML), `export/pageImage.tsx` (page rendue hors écran sous `SnapshotContext` : tout composant de visuel doit lire sélection / extraction / édition via `useSnapshot()` quand il en dépend). Le rapport HTML reste autonome : aucune URL externe, tout texte passe par `escapeHtml`.
 
 ## Thèmes
 - `frontend/src/theme/` : `color.ts` (hex, mélange, contraste WCAG), `reportTheme.ts` (préréglages, `themeVars`, `visualCss`, import Power BI), `ColorInput.tsx`.

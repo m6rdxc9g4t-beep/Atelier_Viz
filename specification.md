@@ -286,6 +286,19 @@ Page Données → **Préparer** : éditeur plein écran avec la liste des **éta
 - Le modèle (colonnes et mesures calculées, relations) et les relations des autres jeux vers celui-ci sont revalidés sur le résultat : une étape qui les casserait est refusée (422, étape ou relation désignée). L'éditeur signale l'étape fautive et désactive « Appliquer ».
 - Un renommage n'est pas répercuté dans les visuels existants (comme dans Power BI).
 
+### Export PDF, image et rapport HTML autonome
+
+Bouton **Exporter** du Studio → PowerPoint, **PDF**, **Image (PNG)** ou **Rapport HTML autonome**. Tout est fait dans le navigateur : aucune donnée envoyée.
+
+| Format | Contenu |
+|---|---|
+| PDF | Une page PDF par page du rapport (taille de la page, 1280 × 720 px → 960 × 540 pt), image haute définition (×2) ; titre et créateur dans les propriétés (`pdf-lib`, chargé à la demande) |
+| Image | La page affichée en PNG ×2 (`Rapport - Page.png`) |
+| HTML | Un seul fichier hors ligne (aucune ressource externe, aucun script tiers) : sommaire, chaque page en image, filtres actifs en clair, **données de chaque visuel** en tableau (valeurs formatées comme à l'écran, 200 lignes au plus), flèches ← → entre les pages, impression d'une page par feuille, clair / sombre selon le système |
+
+- La page est rendue hors écran à sa taille réelle avec les vrais composants (`export/pageImage.tsx`, `SnapshotContext` : lecture seule, sélection et extraction fournies), puis photographiée (html-to-image) ; barres de défilement masquées.
+- Filtres, segments, sélection et extraction actifs sont appliqués ; « Toutes les pages » omet les pages d'extraction.
+
 ## 5 sexies. Connecteurs de données
 
 « Se connecter à une source » (page Données) : connexions enregistrées, parcours, aperçu, import, actualisation.
@@ -452,7 +465,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 2 — Studio** ✅ : DuckDB, rapports multi-pages, 22 visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons d'automatisation, mode hors ligne / en ligne.
 - **Jalon 2 bis — Thèmes** ✅ : thème de l'application (clair / sombre / système), thèmes de rapport, styles par visuel, couleurs hexadécimales, import de thèmes Power BI.
 - **Jalon 3 — IA qui construit** ✅ : « Crée un graphique du CA par région » → visuels validés ajoutés au Studio (Claude via `claude -p --json-schema`, Ollama en format JSON). Résumé de page vérifié chiffre par chiffre, insérable dans le rapport et dans les notes PowerPoint.
-- **Jalon 4 — Export PowerPoint** ✅ : diapositives 16:9, graphiques et tableaux natifs modifiables, images pour les visuels sans équivalent, thème du rapport, notes avec les filtres. Reste : export PDF et image d'une page.
+- **Jalon 4 — Export PowerPoint** ✅ : diapositives 16:9, graphiques et tableaux natifs modifiables, images pour les visuels sans équivalent, thème du rapport, notes avec les filtres. Export PDF, image et rapport HTML autonome ajoutés au jalon 7.
 - **Jalon 5 — Modélisation** ✅ : mesures et colonnes calculées (langage analysé et compilé, jamais de SQL brut), hiérarchies et exploration (drill-down), hiérarchie de dates, relations entre jeux de données (plusieurs-à-un, filtres propagés).
 - **Jalon 5 bis — Placement libre** ✅ : visuels au pixel près n'importe où sur la page (taille de page en px, repères d'alignement, poignées, clavier, saisie X/Y/L/H, superposition et ordre, zoom), conversion automatique des anciens rapports.
 - **Jalon 5 ter — Connecteurs** ✅ : SQL Server, PostgreSQL, MySQL / MariaDB, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online (fichiers et listes), en lecture seule, secrets au trousseau, actualisation. Reste : actualisation planifiée, Excel / CSV sur un serveur HTTP, Snowflake / BigQuery.
@@ -462,4 +475,4 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 6 bis — IA de la suite** ✅ : choix du moteur commun à la Suite Atelier (Auto · Ollama · Claude, modèles Sonnet / Opus / Haiku et Ollama mémorisés, CLI trouvée hors du `PATH`), volet « Créer avec l'IA » avec suggestions toujours accessibles, nouvelle demande, historique de la session et réajout revalidé ; indicateur « en marche » d'Atelier Tab.
 - **Jalon 6 ter — Durcissement local** ✅ : garde « requêtes locales » (Host / Origin, `ALLOWED_HOSTS`), `fastapi>=0.132` ; CLI Claude conforme à docs/SUITE.md §5.3 (environnement en liste blanche, exécutable absolu, aucune donnée en argument, sortie bornée, arrêt forcé, revérification limitée) ; préférences écrites sous verrou ; lanceur macOS sans `npm install` ; santé d'Atelier Tab dérivée de `VITE_ATELIER_TAB_URL`.
 - **Charte néon monochrome** ✅ : toute l'application dans la couleur signature jaune, en clair et en sombre (fond teinté avec fine grille, cartes cerclées d'un trait néon avec halo, bouton principal plein / contour néon, navigation active avec barre de couleur), marque commune v3 ; palette de données et thèmes de rapport inchangés.
-- **Jalon 7 — Analyse avancée** (en cours) : mise en forme conditionnelle des tables et matrices ✅, calculs dans le temps (« Afficher la valeur comme » : cumul annuel, N-1, évolution, moyenne mobile, part du total) ✅, relations entre jeux ✅, préparation des données (étapes rejouées à l'actualisation) ✅, pages d'extraction (clic droit) et mode présentation (plein écran, diaporama de pages ou de signets) ✅, alertes sur variation et « pour chaque » valeur d'une dimension, notifications système ✅.
+- **Jalon 7 — Analyse avancée** (en cours) : mise en forme conditionnelle des tables et matrices ✅, calculs dans le temps (« Afficher la valeur comme » : cumul annuel, N-1, évolution, moyenne mobile, part du total) ✅, relations entre jeux ✅, préparation des données (étapes rejouées à l'actualisation) ✅, pages d'extraction (clic droit) et mode présentation (plein écran, diaporama de pages ou de signets) ✅, alertes sur variation et « pour chaque » valeur d'une dimension, notifications système ✅, export PDF / image / rapport HTML autonome ✅.
