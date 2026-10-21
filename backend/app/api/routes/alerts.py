@@ -30,6 +30,25 @@ async def create_alert(body: AlertInput, alerts: AlertsDep) -> Alert:
     return await alerts.evaluate(created.id, "created")
 
 
+class SystemNotifications(BaseModel):
+    """Notifications système disponibles sur cette machine (centre de notifications macOS, notify-send)."""
+
+    available: bool
+
+
+@router.get("/system", response_model=SystemNotifications)
+async def system_status(alerts: AlertsDep) -> SystemNotifications:
+    return SystemNotifications(available=alerts.notifier is not None)
+
+
+@router.post("/system/test", response_model=SystemNotifications)
+async def system_test(alerts: AlertsDep) -> SystemNotifications:
+    """Envoie une notification d'essai (rien si elles ne sont pas disponibles)."""
+    if alerts.notifier is not None:
+        await asyncio.to_thread(alerts.notifier, "Atelier Viz", "Les notifications des alertes s'afficheront ainsi.")
+    return SystemNotifications(available=alerts.notifier is not None)
+
+
 @router.get("/notifications", response_model=list[AlertNotification])
 async def notifications(alerts: AlertsDep) -> list[AlertNotification]:
     """Notifications dans l'application (déclenchements), la plus récente en premier."""

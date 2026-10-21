@@ -5,11 +5,11 @@ import { createPortal } from "react-dom";
 import { getProfile } from "../../hooks/useDatasetProfiles";
 import { usePreferences } from "../../hooks/usePreferences";
 import { api } from "../../lib/api";
-import type { Alert, AlertInput, Comparison } from "../../types/alert";
+import type { Alert, AlertBasis, AlertInput, Comparison } from "../../types/alert";
 import type { DatasetProfile, DatasetSummary } from "../../types/dataset";
 import type { Agg, Filter, FilterOp } from "../../types/query";
 import { AGG_LABELS, aggsFor } from "../../visuals/fields";
-import { COMPARISONS, alertError, filterLabel, formatAlertNumber, parseFilterValues } from "./alerts";
+import { BASIS_LABELS, COMPARISONS, alertError, basisUnit, filterLabel, formatAlertNumber, parseFilterValues } from "./alerts";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const field = "rounded-md border border-border bg-field px-2 py-1.5 text-xs text-fg";
@@ -45,7 +45,17 @@ export function AlertEditor({
   const { prefs } = usePreferences();
   const [draft, setDraft] = useState<AlertInput>(initial);
   const [profile, setProfile] = useState<DatasetProfile | undefined>();
-  const [current, setCurrent] = useState<{ value: number | null; error: string | null } | null>(null);
+  const [current, setCurrent] = useState<{ value: number | null; error: string | null; groups?: number; over?: number } | null>(null);
+  const [system, setSystem] = useState<boolean | null>(null);
+  const [tested, setTested] = useState(false);
+  const basis = draft.basis ?? "value";
+
+  useEffect(() => {
+    api.alerts
+      .system()
+      .then((r) => setSystem(r.available))
+      .catch(() => setSystem(false));
+  }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filterDraft, setFilterDraft] = useState<{ field: string; op: FilterOp; raw: string } | null>(null);
@@ -60,14 +70,24 @@ export function AlertEditor({
     };
   }, [draft.dataset_id]);
 
-  // Valeur actuelle de la mesure (moteur de requêtes, mêmes filtres).
-  const key = JSON.stringify([draft.dataset_id, draft.measure, draft.filters]);
+  // Valeur actuelle de la mesure (moteur de requêtes, mêmes filtres) ; par valeur de la dimension s'il y en a une.
+  const key = JSON.stringify([draft.dataset_id, draft.measure, draft.filters, draft.split_by, draft.comparison, draft.threshold, basis]);
   useEffect(() => {
     const ctl = new AbortController();
     const t = setTimeout(() => {
+      const split = draft.split_by;
       api
-        .query({ dataset_id: draft.dataset_id, measures: [draft.measure], filters: draft.filters, limit: 1 }, ctl.signal)
+        .query(
+          { dataset_id: draft.dataset_id, dimensions: split ? [{ field: split }] : [], measures: [draft.measure], filters: draft.filters, limit: split ? 500 : 1 },
+          ctl.signal,
+        )
         .then((res) => {
+          if (split) {
+            const values = res.rows.map((r) => r[1]).filter((v): v is number => typeof v === "number");
+            const over = basis === "value" ? values.filter((v) => meets(v, draft.comparison, draft.threshold)).length : undefined;
+            setCurrent({ value: null, error: null, groups: res.rows.length, over });
+            return;
+          }
           const v = res.rows[0]?.[0];
           setCurrent({ value: typeof v === "number" ? v : null, error: null });
         })
@@ -248,13 +268,38 @@ export function AlertEditor({
                 </button>
               )}
             </div>
+
+            <label className="flex flex-col gap-1 text-[11px] text-muted">
+              Pour chaque (facultatif)
+              <select aria-label="Pour chaque" value={draft.split_by ?? ""} onChange={(e) => setDraft({ ...draft, split_by: e.target.value || null })} className={field}>
+                <option value="">Le jeu entier (une seule valeur)</option>
+                {(profile?.columns ?? [])
+                  .filter((c) => c.type !== "number")
+                  .map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+              {draft.split_by && <span>Chaque valeur de « {draft.split_by} » a son propre seuil franchi : une notification par valeur qui le franchit.</span>}
+            </label>
           </fieldset>
 
           <fieldset className="space-y-2">
             <legend className="mb-1 text-xs font-semibold">Condition</legend>
+            <label className="flex flex-col gap-1 text-[11px] text-muted">
+              Comparer au seuil
+              <select aria-label="Comparer au seuil" value={basis} onChange={(e) => setDraft({ ...draft, basis: e.target.value as AlertBasis })} className={field}>
+                {(Object.keys(BASIS_LABELS) as AlertBasis[]).map((b) => (
+                  <option key={b} value={b}>
+                    {BASIS_LABELS[b].charAt(0).toUpperCase() + BASIS_LABELS[b].slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="flex flex-wrap items-end gap-2">
               <label className="flex flex-col gap-1 text-[11px] text-muted">
-                Se déclenche quand la mesure est
+                {basis === "value" ? "Se déclenche quand la mesure est" : basis === "change_pct" ? "Quand la variation (%) est" : "Quand l'écart est"}
                 <select value={draft.comparison} onChange={(e) => setDraft({ ...draft, comparison: e.target.value as Comparison })} className={field}>
                   {COMPARISONS.map((c) => (
                     <option key={c.value} value={c.value}>
@@ -265,7 +310,10 @@ export function AlertEditor({
               </label>
               <label className="flex flex-col gap-1 text-[11px] text-muted">
                 Seuil
-                <input type="number" step="any" value={Number.isFinite(draft.threshold) ? draft.threshold : ""} onChange={(e) => setDraft({ ...draft, threshold: e.target.value === "" ? Number.NaN : Number(e.target.value) })} className={`${field} w-36 tabular-nums`} />
+                <span className="flex items-center gap-1">
+                  <input aria-label="Seuil" type="number" step="any" value={Number.isFinite(draft.threshold) ? draft.threshold : ""} onChange={(e) => setDraft({ ...draft, threshold: e.target.value === "" ? Number.NaN : Number(e.target.value) })} className={`${field} w-36 tabular-nums`} />
+                  {basisUnit(basis) && <span className="text-xs text-fg">%</span>}
+                </span>
               </label>
               <p className="pb-1.5 text-[11px] text-muted" aria-live="polite">
                 Valeur actuelle :{" "}
@@ -273,11 +321,21 @@ export function AlertEditor({
                   <Loader2 className="inline size-3 animate-spin" aria-label="Calcul" />
                 ) : current.error ? (
                   <span className="text-negative">{current.error}</span>
+                ) : current.groups !== undefined ? (
+                  <span className="font-medium text-fg tabular-nums">
+                    {current.over !== undefined ? `${current.over} / ${current.groups} valeurs au-delà du seuil` : `${current.groups} valeurs`}
+                  </span>
                 ) : (
                   <span className="font-medium text-fg tabular-nums">{current.value === null ? "—" : formatAlertNumber(current.value)}</span>
                 )}
               </p>
             </div>
+            {basis !== "value" && (
+              <p className="text-[11px] text-muted">
+                La variation compare chaque mesure à celle de l'évaluation précédente (après chaque actualisation). La première évaluation sert de référence. Ex. « ≤ -10 % » : prévenir si le
+                total baisse de 10 % ou plus d'une actualisation à l'autre.
+              </p>
+            )}
             <p className="text-[11px] text-muted">
               Évaluée après chaque actualisation du jeu et à la demande. Elle se déclenche au <strong className="font-medium text-fg">franchissement</strong> du seuil, pas à chaque évaluation où il reste dépassé.
             </p>
@@ -289,6 +347,22 @@ export function AlertEditor({
               <input type="checkbox" checked={draft.notify} onChange={(e) => setDraft({ ...draft, notify: e.target.checked })} className="accent-[var(--accent)]" />
               Notification dans l'application
             </label>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={draft.system ?? true} onChange={(e) => setDraft({ ...draft, system: e.target.checked })} className="accent-[var(--accent)]" />
+                Notification système (centre de notifications du Mac)
+              </label>
+              {system === false && <span className="text-[11px] text-muted">— indisponible sur cette machine</span>}
+              {system && (
+                <button
+                  type="button"
+                  onClick={() => api.alerts.testSystem().then(() => setTested(true), () => undefined)}
+                  className="text-[11px] text-accent-ink hover:underline"
+                >
+                  {tested ? "Envoyée ✓" : "Essayer"}
+                </button>
+              )}
+            </div>
             <label className="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"
@@ -332,4 +406,10 @@ export function AlertEditor({
     </div>,
     document.body,
   );
+}
+
+/** Condition remplie (aperçu dans l'éditeur ; même règle que le serveur, égalité à 1e-9 près). */
+function meets(v: number, c: Comparison, t: number): boolean {
+  const eq = Math.abs(v - t) <= 1e-9 * Math.max(1, Math.abs(t));
+  return { gt: v > t, gte: v >= t, lt: v < t, lte: v <= t, eq, neq: !eq }[c];
 }
