@@ -7,11 +7,11 @@ import { api } from "../../lib/api";
 import type { Alert, AlertInput } from "../../types/alert";
 import type { DatasetSummary } from "../../types/dataset";
 import { AlertEditor } from "./AlertEditor";
-import { STATUS_TEXT, alertStatus, conditionLabel, filterLabel, formatAlertNumber } from "./alerts";
+import { STATUS_TEXT, alertStatus, alertValueLabel, basisUnit, conditionLabel, emptyAlert, filterLabel, formatAlertNumber } from "./alerts";
 import { whenLabel } from "./schedule";
 
-const STATUS_ICON = { fired: BellRing, ok: ShieldCheck, never: Bell, error: CircleAlert, off: BellOff };
-const STATUS_TONE = { fired: "text-negative", ok: "text-positive", never: "text-muted", error: "text-negative", off: "text-muted" };
+const STATUS_ICON = { fired: BellRing, ok: ShieldCheck, never: Bell, reference: Bell, error: CircleAlert, off: BellOff };
+const STATUS_TONE = { fired: "text-negative", ok: "text-positive", never: "text-muted", reference: "text-muted", error: "text-negative", off: "text-muted" };
 const TRIGGER = { refresh: "après actualisation", manual: "à la demande", created: "à la création" };
 
 /** Écran « Alertes » : liste, état, évaluation à la demande, historique ; création et modification. */
@@ -77,7 +77,7 @@ export function AlertsSection() {
           onClick={() =>
             first &&
             setEditor({
-              initial: { name: "", dataset_id: first.id, measure: { field: null, agg: "count" }, filters: [], comparison: "gt", threshold: 0, enabled: true, notify: true, webhook: null },
+              initial: emptyAlert(first.id),
               editing: null,
             })
           }
@@ -119,12 +119,15 @@ export function AlertsSection() {
                     </span>
                   </span>
                   <span className="w-36 text-right text-xs">
-                    <span className="block font-medium tabular-nums">{a.last_value === null ? "—" : formatAlertNumber(a.last_value)}</span>
+                    <span className="block font-medium tabular-nums" title={a.split_by ? `Valeurs de « ${a.split_by} » au-delà du seuil` : undefined}>
+                      {alertValueLabel(a)}
+                    </span>
                     <span className="block text-[11px] text-muted">{a.last_evaluated_at ? whenLabel(a.last_evaluated_at) : "jamais évaluée"}</span>
                   </span>
                   <span className="flex items-center gap-0.5">
                     <span className="mr-1 flex gap-1 text-[10px] text-muted">
                       {a.notify && <span className="rounded border border-border px-1">Notification</span>}
+                      {a.system && <span className="rounded border border-border px-1">Système</span>}
                       {a.webhook && <span className="rounded border border-border px-1">Webhook</span>}
                     </span>
                     <IconButton label="Évaluer maintenant" onClick={() => void evaluate(a.id)} disabled={busy === a.id}>
@@ -210,12 +213,33 @@ function AlertHistory({ alert }: { alert: Alert }) {
             <td className="py-1 pr-2 whitespace-nowrap tabular-nums">
               {whenLabel(e.at)} <span className="text-muted">· {TRIGGER[e.trigger]}</span>
             </td>
-            <td className="py-1 pr-2 text-right tabular-nums">{e.value === null ? "—" : formatAlertNumber(e.value)}</td>
+            <td className="py-1 pr-2 text-right tabular-nums">
+              {alert.split_by
+                ? e.groups_count === null || e.groups_count === undefined
+                  ? "—"
+                  : `${(e.groups ?? []).filter((g) => g.met).length} / ${e.groups_count}`
+                : e.value === null
+                  ? "—"
+                  : `${formatAlertNumber(e.value)}${basisUnit(alert.basis)}`}
+            </td>
             <td className={clsx("py-1 pr-2 whitespace-nowrap", e.fired ? "font-medium text-negative" : e.met ? "text-fg" : "text-muted")}>
-              {e.fired ? "Déclenchée" : e.met ? "Seuil toujours franchi" : e.error ? "—" : "Condition non remplie"}
+              {e.fired ? "Déclenchée" : e.met ? "Seuil toujours franchi" : e.error || e.note ? "—" : "Condition non remplie"}
             </td>
             <td className="max-w-80 truncate py-1 text-muted" title={[e.error, e.webhook_error].filter(Boolean).join(" · ")}>
-              {[e.error, e.webhook_status ? `webhook : HTTP ${e.webhook_status}` : null, e.webhook_error].filter(Boolean).join(" · ")}
+              {[
+                (e.groups ?? []).length
+                  ? (e.groups ?? [])
+                      .slice(0, 6)
+                      .map((g) => `${g.fired ? "▲ " : ""}${g.key} ${g.value === null ? "—" : `${formatAlertNumber(g.value)}${basisUnit(alert.basis)}`}`)
+                      .join(", ") + ((e.groups ?? []).length > 6 ? "…" : "")
+                  : null,
+                e.error,
+                e.note,
+                e.webhook_status ? `webhook : HTTP ${e.webhook_status}` : null,
+                e.webhook_error,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </td>
           </tr>
         ))}

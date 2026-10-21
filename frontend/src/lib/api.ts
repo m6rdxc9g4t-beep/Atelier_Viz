@@ -156,6 +156,9 @@ export const api = {
     update: (id: string, body: AlertInput) => request<Alert>(`/alerts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     remove: (id: string) => request<void>(`/alerts/${id}`, { method: "DELETE" }),
     evaluate: (id: string) => request<Alert>(`/alerts/${id}/evaluate`, { method: "POST" }),
+    /** Notifications système disponibles sur cette machine ? */
+    system: () => request<{ available: boolean }>("/alerts/system"),
+    testSystem: () => request<{ available: boolean }>("/alerts/system/test", { method: "POST" }),
     notifications: () => request<AlertNotification[]>("/alerts/notifications"),
     /** Liste vide = toutes. */
     markRead: (ids: string[] = []) =>

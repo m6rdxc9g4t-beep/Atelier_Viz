@@ -132,7 +132,7 @@ def test_webhook_called_on_fire_and_offline_policy(client: TestClient, tmp_path:
 
 def test_alert_input_requires_an_action() -> None:
     with pytest.raises(ValueError, match="au moins une action"):
-        AlertInput.model_validate(alert_body("a" * 12, notify=False))
+        AlertInput.model_validate(alert_body("a" * 12, notify=False, system=False))
 
 
 # --- API --------------------------------------------------------------------------------------

@@ -28,6 +28,7 @@ from app.services.github import GitHubError, GitHubSync
 from app.services.preferences import PreferencesStore
 from app.services.refresh import RefreshScheduler
 from app.services.reports import ReportRepository
+from app.services.system_notify import system_notifier
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -75,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.dataset_store,
             app.state.database,
             is_online=lambda: app.state.preferences.get().online_mode,
+            notifier=system_notifier() if settings.system_notifications else None,
         )
         app.state.scheduler.on_refreshed(app.state.alerts.evaluate_dataset)
         ticker = (
