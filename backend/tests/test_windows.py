@@ -278,3 +278,14 @@ def test_windows_scripts_are_present_and_encoded_for_powershell_5() -> None:
     assert "build_app.ps1" in (folder / "build_app.cmd").read_text(encoding="ascii")
     assert (folder / "icon.ico").read_bytes()[:4] == b"\x00\x00\x01\x00"  # en-tête ICO
     assert desktop.ICON.name in {"icon.ico", "icon.png"} and desktop.ICON.is_file()
+
+
+def test_first_install_script_targets_a_blank_pc() -> None:
+    """premiere_installation.ps1 : winget, dépôt privé, environnement backend\\.venv, puis build_app.ps1."""
+    script = (ROOT / "scripts" / "windows" / "premiere_installation.ps1").read_bytes()
+    assert script.startswith(b"\xef\xbb\xbf")
+    text = script.decode("utf-8-sig")
+    for needle in ("Git.Git", "Python.Python.3.13", "OpenJS.NodeJS.LTS", "Anthropic.ClaudeCode", "Ollama.Ollama"):
+        assert needle in text
+    assert "github.com/m6rdxc9g4t-beep/Atelier_Viz.git" in text and "build_app.ps1" in text
+    assert "-NonInteractif" in (ROOT / ".github" / "workflows" / "windows.yml").read_text(encoding="utf-8")

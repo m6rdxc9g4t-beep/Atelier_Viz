@@ -58,12 +58,14 @@ jobs:
           $out | Select-String -Pattern '(FAIL|AssertionError|Error:)' | Select-Object -First 30 | ForEach-Object { "::error title=vitest::$($_.Line.Trim())" }
           exit $code
 
-      - name: Application de bureau — installation (build_app.ps1)
+      # Parcours d'un PC neuf : premiere_installation.ps1 (logiciels déjà présents ici, dépôt = ce checkout),
+      # environnement backend\.venv, puis build_app.ps1.
+      - name: Application de bureau — première installation (premiere_installation.ps1 → build_app.ps1)
         id: install
         if: ${{ !cancelled() }}
         shell: powershell
         # Sans redirection : Windows PowerShell 5.1 transformerait la sortie d'erreur de pip / npm en erreurs.
-        run: .\scripts\windows\build_app.ps1 -NoDesktopShortcut
+        run: .\scripts\windows\premiere_installation.ps1 -NonInteractif -SansClaude -SansOllama
 
       - name: Application de bureau — auto-test du lanceur
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
@@ -71,6 +73,7 @@ jobs:
         working-directory: backend
         run: |
           $config = Get-Content -Raw "$env:LOCALAPPDATA\Atelier Viz\launcher.json" | ConvertFrom-Json
+          if ($config.python -notlike '*\backend\.venv\Scripts\pythonw.exe') { throw "Lanceur hors de backend\.venv : $($config.python)" }
           $proc = Start-Process -FilePath $config.python -ArgumentList '-X', 'utf8', '-m', 'app.windows_launcher', '--self-test' -Wait -PassThru
           $log = Get-Content "$env:LOCALAPPDATA\Atelier Viz\Logs\atelier-viz.log"
           $log

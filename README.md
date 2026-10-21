@@ -56,6 +56,19 @@ fenêtre (⌘Q) arrête tout.
 
 ### Application Windows (menu Démarrer)
 
+**PC Windows neuf (ni Git, ni Python, ni Node.js)** : téléchargez `scripts/windows/premiere_installation.ps1`
+dans votre dossier Téléchargements, puis dans PowerShell :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\premiere_installation.ps1"
+```
+
+Il installe ce qui manque avec winget (Git, Python 3.13, Node.js LTS ; Claude Code et Ollama si vous le
+souhaitez), récupère ce dépôt privé (connexion GitHub dans le navigateur) dans `%USERPROFILE%\Atelier_Viz`, crée
+`backend\.venv` puis lance `build_app.ps1`. Relancé plus tard, il met à jour (`git pull`) et réinstalle.
+
+**Si Python et Node.js sont déjà là :**
+
 Prérequis : **Python 3.12 ou 3.13** (python.org, ou conda), **Node.js LTS**, Windows 10 ou 11 (le moteur
 d'affichage Microsoft Edge WebView2 y est déjà installé ; sinon : « WebView2 Runtime » chez Microsoft).
 Une fois, depuis le dépôt, dans PowerShell :
