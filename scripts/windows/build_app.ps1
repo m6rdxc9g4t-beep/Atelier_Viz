@@ -113,11 +113,30 @@ if (-not $SkipInstall) {
 Say '2/4 · Interface (npm run build)'
 $npm = Get-Command npm.cmd -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $npm) { Fail "npm introuvable : installez Node.js LTS (https://nodejs.org)." }
+
+# Réseau d'entreprise qui inspecte le HTTPS (proxy avec son propre certificat racine) : npm ne connaît que
+# ses propres autorités et échoue (SELF_SIGNED_CERT_IN_CHAIN). On lui fait utiliser le magasin de certificats
+# de Windows — celui que Git, pip et le navigateur utilisent déjà —, sans jamais désactiver la vérification.
+function Test-NodeSystemCa {
+  $ErrorActionPreference = 'Continue'
+  $node = Join-Path (Split-Path -Parent $npm.Source) 'node.exe'
+  if (-not (Test-Path -LiteralPath $node)) { return $false }
+  & $node --use-system-ca -e '0' 2>$null
+  return ($LASTEXITCODE -eq 0)
+}
+if (Test-NodeSystemCa) {
+  if (-not $env:NODE_OPTIONS) { $env:NODE_OPTIONS = '--use-system-ca' }
+  elseif ($env:NODE_OPTIONS -notlike '*--use-system-ca*') { $env:NODE_OPTIONS = "$env:NODE_OPTIONS --use-system-ca" }
+}
 Push-Location $Frontend
 try {
   if (-not $SkipInstall) {
     & $npm.Source install --no-audit --no-fund --loglevel=error
-    if ($LASTEXITCODE -ne 0) { Fail "npm install a échoué." }
+    if ($LASTEXITCODE -ne 0) {
+      Fail ("npm install a échoué. Sur un réseau d'entreprise, vérifiez que Node.js est à jour (22.15 ou plus " +
+        "récent : winget upgrade OpenJS.NodeJS.LTS) ; sinon, demandez au service informatique le certificat " +
+        "racine du proxy et indiquez son chemin dans la variable NODE_EXTRA_CA_CERTS.")
+    }
   }
   & $npm.Source run build --silent
   if ($LASTEXITCODE -ne 0) { Fail "la compilation de l'interface a échoué." }
