@@ -5,6 +5,7 @@ import { useState } from "react";
 import { KIND_META, sinceLabel } from "../../features/data/connect/meta";
 import { TYPE_META } from "../../features/data/FieldsPanel";
 import { refreshDataset } from "../../hooks/useDatasetProfiles";
+import { isConnectionOrigin } from "../../types/connection";
 import type { ColumnProfile } from "../../types/dataset";
 import { measureField } from "../../visuals/fields";
 import { VISUALS } from "../../visuals/registry";
@@ -117,7 +118,12 @@ export function DataPane() {
             </option>
           ))}
         </select>
-        {profile?.origin && (
+        {profile?.origin?.kind === "atelier-table" && (
+          <div className="truncate text-[11px] text-muted" title={`Alimenté par un workflow (clé « ${profile.origin.key} »)`}>
+            Workflow · {sinceLabel(profile.origin.refreshed_at)}
+          </div>
+        )}
+        {profile && isConnectionOrigin(profile.origin) && (
           <div className="flex items-center gap-1 text-[11px] text-muted">
             <span
               className="min-w-0 flex-1 truncate"

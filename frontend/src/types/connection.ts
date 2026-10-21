@@ -134,6 +134,23 @@ export interface DatasetOrigin {
   refreshed_at: string;
 }
 
+/** Jeu alimenté par un workflow (docs/SUITE.md §7, action `datasets.upsert_table`) : pas de source à relire. */
+export interface AtelierTableOrigin {
+  kind: "atelier-table";
+  /** Clé externe stable choisie par l'appelant (Atelier Nexus). */
+  key: string;
+  table_name: string | null;
+  refreshed_at: string;
+}
+
+/** Provenance d'un jeu : connexion (actualisable) ou table reçue d'un workflow. */
+export type AnyOrigin = DatasetOrigin | AtelierTableOrigin;
+
+/** Vrai si le jeu vient d'une connexion (actualisable et planifiable). */
+export function isConnectionOrigin(origin: AnyOrigin | null | undefined): origin is DatasetOrigin {
+  return !!origin && origin.kind !== "atelier-table";
+}
+
 /** Libellé lisible d'une table (« schéma.nom », sauf schéma par défaut). */
 export function tableLabel(t: TableRef): string {
   return t.schema && !["dbo", "public"].includes(t.schema) ? `${t.schema}.${t.name}` : t.name;
