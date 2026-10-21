@@ -3,7 +3,7 @@
 import type { ChatRequest, ChatResponse, ClaudeModel, ProviderChoice, ProvidersResponse } from "../types/ai";
 import type { BuildRequest, BuildResponse, RepairRequest, RepairResponse } from "../types/builder";
 import type { SummaryRequest, SummaryResponse } from "../types/summary";
-import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult, SampleFile, SamplesImport } from "../types/dataset";
+import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult, Relation, RelationCheck, SampleFile, SamplesImport } from "../types/dataset";
 import type { QueryRequest, QueryResponse } from "../types/query";
 import type {
   AuthStatus,
@@ -106,6 +106,9 @@ export const api = {
     remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
     saveModel: (id: string, model: DatasetModel) =>
       request<DatasetProfile>(`/datasets/${id}/model`, { method: "PUT", body: JSON.stringify(model) }),
+    /** Correspondance des clés d'une relation (lignes trouvées, doublons côté « un »). */
+    checkRelation: (id: string, body: Relation, signal?: AbortSignal) =>
+      request<RelationCheck>(`/datasets/${id}/relations/check`, { method: "POST", body: JSON.stringify(body), signal }),
     checkExpression: (id: string, body: ExpressionCheck, signal?: AbortSignal) =>
       request<ExpressionResult>(`/datasets/${id}/model/check`, { method: "POST", body: JSON.stringify(body), signal }),
     /** Relit la source d'un jeu importé depuis une connexion (même identifiant). */

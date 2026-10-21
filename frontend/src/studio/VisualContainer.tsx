@@ -45,7 +45,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
   const view = useMemo(() => drillView(visual), [visual]);
   const drillable = canDrill(visual);
   const filters = useMemo(
-    () => visualFilters(page, view, selection, (id) => (id ? new Set(profiles.get(id)?.columns.map((c) => c.name)) : undefined)),
+    () => visualFilters(page, view, selection, (id) => profiles.get(id)),
     [page, view, selection, profiles],
   );
   const request = def.query ? def.query(view, filters) : null;

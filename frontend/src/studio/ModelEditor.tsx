@@ -2,11 +2,10 @@ import clsx from "clsx";
 import { Calculator, Check, Loader2, SquareFunction, Trash2, TriangleAlert, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { setProfile } from "../hooks/useDatasetProfiles";
+import { datasetChanged, setProfile } from "../hooks/useDatasetProfiles";
 import { api } from "../lib/api";
 import type { DatasetModel, DatasetProfile, ExpressionResult, ModelIssue } from "../types/dataset";
 import { formatDimension, formatNumber } from "../visuals/format";
-import { invalidateQueries } from "../visuals/useQueryResult";
 import { useStudio } from "./store";
 
 export type ModelItemKind = "column" | "measure";
@@ -144,7 +143,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
       const next = updateModel(model, kind, initial?.name ?? null, remove ? null : { name: name.trim(), expression });
       const updated = await api.datasets.saveModel(profile.id, next);
       setProfile(updated);
-      invalidateQueries(profile.id);
+      datasetChanged(profile.id);
       if (initial && !remove && initial.name !== name.trim()) useStudio.getState().renameField(profile.id, initial.name, name.trim(), kind === "measure");
       useStudio.getState().notify(remove ? `« ${initial?.name} » supprimée.` : `« ${name.trim()} » enregistrée.`);
       onClose();

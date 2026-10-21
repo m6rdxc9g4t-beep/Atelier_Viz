@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { Calculator, Pencil, Plus, RefreshCw, Search, SquareFunction } from "lucide-react";
+import { Calculator, Link2, Pencil, Plus, RefreshCw, Search, SquareFunction } from "lucide-react";
 import { useState } from "react";
 
 import { KIND_META, sinceLabel } from "../../features/data/connect/meta";
@@ -10,6 +10,7 @@ import { measureField } from "../../visuals/fields";
 import { VISUALS } from "../../visuals/registry";
 import { FIELD_MIME, type DraggedField, useStudioData } from "../context";
 import { type ModelItemKind, ModelEditor } from "../ModelEditor";
+import { RelationsDialog } from "../RelationsDialog";
 import { useStudio } from "../store";
 import { Pane } from "./Pane";
 
@@ -21,6 +22,7 @@ export function DataPane() {
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [editor, setEditor] = useState<{ kind: ModelItemKind; initial?: { name: string; expression: string } } | null>(null);
+  const [relationsOpen, setRelationsOpen] = useState(false);
   const profile = activeDatasetId ? profiles.get(activeDatasetId) : undefined;
   const selected = report?.pages.flatMap((p) => p.visuals).find((v) => v.id === selectedId);
   const used = new Set(selected ? Object.values(selected.roles).flat().map((b) => `${b.agg === "calc" ? "m" : "c"}:${b.field}`) : []);
@@ -39,7 +41,15 @@ export function DataPane() {
   };
 
   const match = (name: string) => name.toLowerCase().includes(search.toLowerCase());
-  const columns = (profile?.columns ?? []).filter((c) => match(c.name));
+  const columns = (profile?.columns ?? []).filter((c) => !c.related && match(c.name));
+  // Colonnes reprises par les relations, groupées sous le nom de chaque relation.
+  const linked = (profile?.model?.relations ?? [])
+    .map((r) => ({
+      relation: r,
+      target: datasets.find((d) => d.id === r.dataset_id)?.name ?? "",
+      columns: (profile?.columns ?? []).filter((c) => c.related === r.name && match(c.name)),
+    }))
+    .filter((g) => g.columns.length > 0);
   const measures = (profile?.model?.measures ?? []).filter((m) => match(m.name));
 
   const item = (field: ColumnProfile, edit?: () => void) => {
@@ -47,7 +57,13 @@ export function DataPane() {
     const Icon = field.measure ? Calculator : field.calculated ? SquareFunction : TypeIcon;
     const isUsed = used.has(`${field.measure ? "m" : "c"}:${field.name}`);
     const drag: DraggedField = { datasetId: activeDatasetId ?? "", field: field.name, measure: field.measure };
-    const hint = field.measure ? `Mesure calculée = ${field.expression}` : field.calculated ? `Colonne calculée = ${field.expression}` : label;
+    const hint = field.measure
+      ? `Mesure calculée = ${field.expression}`
+      : field.calculated
+        ? `Colonne calculée = ${field.expression}`
+        : field.related
+          ? `${field.name} (${label}, par la relation « ${field.related} »)`
+          : label;
     return (
       <li key={`${field.measure ? "m" : "c"}-${field.name}`} className="group/field flex items-center">
         <button
@@ -65,7 +81,7 @@ export function DataPane() {
           )}
         >
           <Icon className="size-3.5 shrink-0 text-accent-ink" aria-hidden />
-          <span className="min-w-0 flex-1 truncate">{field.name}</span>
+          <span className="min-w-0 flex-1 truncate">{field.related ? field.name.slice(field.related.length + 1) : field.name}</span>
           {isUsed && <span className="size-1.5 rounded-full bg-accent" aria-label="utilisé" />}
         </button>
         {edit && (
@@ -131,7 +147,7 @@ export function DataPane() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher un champ" className="min-w-0 flex-1 bg-transparent outline-none" />
         </label>
         {profile && (
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-3 gap-1">
             <button
               type="button"
               onClick={() => setEditor({ kind: "measure" })}
@@ -145,6 +161,14 @@ export function DataPane() {
               className="flex items-center justify-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted hover:border-accent-ink hover:text-accent-ink"
             >
               <Plus className="size-3" aria-hidden /> Colonne
+            </button>
+            <button
+              type="button"
+              onClick={() => setRelationsOpen(true)}
+              title="Relier ce jeu à un autre (ex. ventes → régions)"
+              className="flex items-center justify-center gap-1 rounded-md border border-border px-1.5 py-1 text-[11px] text-muted hover:border-accent-ink hover:text-accent-ink"
+            >
+              <Link2 className="size-3" aria-hidden /> Relier
             </button>
           </div>
         )}
@@ -161,6 +185,18 @@ export function DataPane() {
       <ul className="p-1.5" aria-label="Colonnes">
         {columns.map((c) => item(c, c.calculated ? () => setEditor({ kind: "column", initial: { name: c.name, expression: c.expression ?? "" } }) : undefined))}
       </ul>
+      {linked.map((g) => (
+        <section key={g.relation.name} aria-label={`Relation ${g.relation.name}`}>
+          <p className="flex items-center gap-1 px-3 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted" title={`${g.relation.from_column} → ${g.target} · ${g.relation.to_column}`}>
+            <Link2 className="size-3 text-accent-ink" aria-hidden />
+            <span className="truncate">{g.relation.name}</span>
+          </p>
+          <ul className="p-1.5" aria-label={`Colonnes liées ${g.relation.name}`}>
+            {g.columns.map((c) => item(c))}
+          </ul>
+        </section>
+      ))}
+      {relationsOpen && profile && <RelationsDialog profile={profile} datasets={datasets} onClose={() => setRelationsOpen(false)} />}
       {editor && profile && <ModelEditor profile={profile} kind={editor.kind} initial={editor.initial} onClose={() => setEditor(null)} />}
     </Pane>
   );

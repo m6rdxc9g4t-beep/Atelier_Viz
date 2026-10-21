@@ -252,6 +252,22 @@ Sur toute valeur d'un visuel (puits Valeurs → « Afficher »), sans écrire de
 - « Hiérarchie de dates » : un champ date devient année › trimestre › mois.
 - État enregistré dans `options.drill` ; requêtes, export PowerPoint et résumé IA utilisent le niveau affiché (`drillView`).
 
+### Relations entre jeux de données
+
+Volet Données → **Relier** (ou page Données → **Relations**) : chaque ligne d'un jeu (« plusieurs », ex. les ventes) est reliée à **une** ligne d'un autre jeu (« un », ex. les régions) par une colonne commune.
+
+| | Comportement |
+|---|---|
+| Modèle | `DatasetModel.relations` : `name` (sans point), `dataset_id`, `from_column` (colonne d'origine du jeu), `to_column`, `columns` (reprises ; toutes si `null`) ; 10 relations au plus par jeu |
+| Colonnes liées | Ajoutées à la vue `v_<id>` sous `<relation>.<colonne>` (`ColumnProfile.related`), utilisables partout comme les autres (axe, légende, filtre, segment, colonne calculée) ; groupées sous le nom de la relation dans le volet |
+| Jointure | `LEFT JOIN` sur le jeu lié **dédoublonné sur sa clé** (première ligne retenue) : une relation ne multiplie jamais les lignes, les totaux restent justes. Clés de types différents comparées comme du texte |
+| Chaînes | Le jeu lié est lu par sa propre vue : ses colonnes liées suivent (`regions.pays.nom`). Cycles, auto-relation, colonnes inconnues et noms en double refusés (422) |
+| Filtres | Propagation à sens unique, du « un » vers le « plusieurs » : un segment ou un filtrage croisé posé sur un visuel du jeu régions filtre les visuels du jeu ventes (par la colonne liée `regions.<champ>`) |
+| Diagnostic | `POST /api/datasets/{id}/relations/check` pendant la saisie : lignes sans correspondance (exemples), clés en double côté « un » |
+| Mise à jour | Modèle ou données du jeu lié modifiés (actualisation comprise) : vues des jeux dépendants recréées et visuels rechargés ; jeu lié supprimé : relation retirée des jeux dépendants |
+
+Exemple : `samples/regions.csv` (13 régions : code, responsable, objectif de CA 2026, population) est relié automatiquement à `ventes_2026.csv` et `magasins.csv` à l'import des exemples.
+
 ## 5 sexies. Connecteurs de données
 
 « Se connecter à une source » (page Données) : connexions enregistrées, parcours, aperçu, import, actualisation.
@@ -369,8 +385,9 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | POST | `/api/datasets` | Import multipart (CSV/XLSX/JSON, 50 Mo) → profil ; persisté dans DuckDB |
 | GET | `/api/datasets` · `/api/datasets/{id}` · `/api/datasets/{id}/rows` | Liste, profil, lignes paginées |
 | DELETE | `/api/datasets/{id}` | Suppression (table et vue) |
-| PUT | `/api/datasets/{id}/model` | Colonnes et mesures calculées : validation complète, vue recréée, profil mis à jour (422 + liste d'erreurs sinon) |
+| PUT | `/api/datasets/{id}/model` | Relations, colonnes et mesures calculées : validation complète, vue recréée, profil mis à jour (422 + liste d'erreurs sinon) |
 | POST | `/api/datasets/{id}/model/check` | Vérification d'une expression pendant la saisie : erreur localisée, type, aperçu |
+| POST | `/api/datasets/{id}/relations/check` | Diagnostic d'une relation : lignes avec correspondance, clés en double, exemples sans correspondance |
 | GET · POST | `/api/samples` | Jeux d'exemple du dossier `samples/` : liste (déjà importés ou non) · import des absents, sans doublon |
 | POST | `/api/query` | Dimensions, mesures (sum, avg, median, min, max, count, count_distinct), filtres (in, not_in, eq, neq, gt, gte, lt, lte, between, contains, is_null, not_null, avec période), tri, limite, `grouping_sets` |
 | GET / POST | `/api/reports` | Liste, création |
@@ -411,7 +428,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 2 bis — Thèmes** ✅ : thème de l'application (clair / sombre / système), thèmes de rapport, styles par visuel, couleurs hexadécimales, import de thèmes Power BI.
 - **Jalon 3 — IA qui construit** ✅ : « Crée un graphique du CA par région » → visuels validés ajoutés au Studio (Claude via `claude -p --json-schema`, Ollama en format JSON). Résumé de page vérifié chiffre par chiffre, insérable dans le rapport et dans les notes PowerPoint.
 - **Jalon 4 — Export PowerPoint** ✅ : diapositives 16:9, graphiques et tableaux natifs modifiables, images pour les visuels sans équivalent, thème du rapport, notes avec les filtres. Reste : export PDF et image d'une page.
-- **Jalon 5 — Modélisation** ✅ : mesures et colonnes calculées (langage analysé et compilé, jamais de SQL brut), hiérarchies et exploration (drill-down), hiérarchie de dates. Reste : relations entre tables (jointures entre jeux de données).
+- **Jalon 5 — Modélisation** ✅ : mesures et colonnes calculées (langage analysé et compilé, jamais de SQL brut), hiérarchies et exploration (drill-down), hiérarchie de dates, relations entre jeux de données (plusieurs-à-un, filtres propagés).
 - **Jalon 5 bis — Placement libre** ✅ : visuels au pixel près n'importe où sur la page (taille de page en px, repères d'alignement, poignées, clavier, saisie X/Y/L/H, superposition et ordre, zoom), conversion automatique des anciens rapports.
 - **Jalon 5 ter — Connecteurs** ✅ : SQL Server, PostgreSQL, MySQL / MariaDB, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online (fichiers et listes), en lecture seule, secrets au trousseau, actualisation. Reste : actualisation planifiée, Excel / CSV sur un serveur HTTP, Snowflake / BigQuery.
 - **Jalon 5 quater — Application Mac** ✅ : « Atelier Viz.app » à double-cliquer (fenêtre native, icône, Dock), interface servie par l'API, enregistrement natif des fichiers.
@@ -420,3 +437,4 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 6 bis — IA de la suite** ✅ : choix du moteur commun à la Suite Atelier (Auto · Ollama · Claude, modèles Sonnet / Opus / Haiku et Ollama mémorisés, CLI trouvée hors du `PATH`), volet « Créer avec l'IA » avec suggestions toujours accessibles, nouvelle demande, historique de la session et réajout revalidé ; indicateur « en marche » d'Atelier Tab.
 - **Jalon 6 ter — Durcissement local** ✅ : garde « requêtes locales » (Host / Origin, `ALLOWED_HOSTS`), `fastapi>=0.132` ; CLI Claude conforme à docs/SUITE.md §5.3 (environnement en liste blanche, exécutable absolu, aucune donnée en argument, sortie bornée, arrêt forcé, revérification limitée) ; préférences écrites sous verrou ; lanceur macOS sans `npm install` ; santé d'Atelier Tab dérivée de `VITE_ATELIER_TAB_URL`.
 - **Charte néon monochrome** ✅ : toute l'application dans la couleur signature jaune, en clair et en sombre (fond teinté avec fine grille, cartes cerclées d'un trait néon avec halo, bouton principal plein / contour néon, navigation active avec barre de couleur), marque commune v3 ; palette de données et thèmes de rapport inchangés.
+- **Jalon 7 — Analyse avancée** (en cours) : mise en forme conditionnelle des tables et matrices ✅, calculs dans le temps (« Afficher la valeur comme » : cumul annuel, N-1, évolution, moyenne mobile, part du total) ✅, relations entre jeux ✅.

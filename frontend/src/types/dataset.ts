@@ -25,6 +25,8 @@ export interface ColumnProfile {
   /** Colonne calculée (définie dans le modèle). */
   calculated?: boolean;
   expression?: string | null;
+  /** Colonne reprise d'un jeu lié : nom de la relation (« regions »). */
+  related?: string | null;
   /** Côté client uniquement : mesure calculée présentée comme un champ glissable. */
   measure?: boolean;
 }
@@ -40,10 +42,34 @@ export interface CalculatedMeasure {
   description?: string | null;
 }
 
-/** Colonnes et mesures calculées d'un jeu de données. */
+/**
+ * Relation plusieurs-à-un vers un autre jeu : ses colonnes deviennent `<name>.<colonne>` dans ce jeu,
+ * et ses segments / sélections filtrent ce jeu.
+ */
+export interface Relation {
+  name: string;
+  dataset_id: string;
+  from_column: string;
+  to_column: string;
+  /** Colonnes reprises (toutes si absent). */
+  columns?: string[] | null;
+}
+
+/** Diagnostic d'une relation avant enregistrement. */
+export interface RelationCheck {
+  ok: boolean;
+  error?: string | null;
+  rows: number;
+  matched: number;
+  duplicates: number;
+  unmatched_sample: string[];
+}
+
+/** Relations, colonnes et mesures calculées d'un jeu de données. */
 export interface DatasetModel {
   columns: CalculatedColumn[];
   measures: CalculatedMeasure[];
+  relations?: Relation[];
 }
 
 export interface ExpressionCheck {
@@ -62,7 +88,7 @@ export interface ExpressionResult {
 }
 
 export interface ModelIssue {
-  kind: "column" | "measure";
+  kind: "column" | "measure" | "relation";
   name: string;
   error: string;
   position?: number | null;

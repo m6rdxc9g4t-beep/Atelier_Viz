@@ -1,10 +1,11 @@
 import clsx from "clsx";
-import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, RefreshCw, Trash2, TriangleAlert, X } from "lucide-react";
+import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, Link2, RefreshCw, Trash2, TriangleAlert, X } from "lucide-react";
 import { useState } from "react";
 
 import type { DatasetsState } from "../../hooks/useDatasets";
 import { formatCount } from "../../lib/format";
 import type { DatasetSummary } from "../../types/dataset";
+import { RelationsDialog } from "../../studio/RelationsDialog";
 import { DatasetSchedulePanel } from "../automation/DatasetSchedulePanel";
 import { ConnectDialog } from "./connect/ConnectDialog";
 import { KIND_META, sinceLabel } from "./connect/meta";
@@ -18,6 +19,7 @@ export function DataView({ state }: { state: DatasetsState }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [planning, setPlanning] = useState(false);
+  const [relating, setRelating] = useState(false);
   const connectButton = (
     <button
       type="button"
@@ -113,6 +115,17 @@ export function DataView({ state }: { state: DatasetsState }) {
                     </span>
                   );
                 })}
+                {datasets.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setRelating(true)}
+                    title="Relier ce jeu à un autre (ex. ventes → régions)"
+                    className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2"
+                  >
+                    <Link2 className="size-3.5 text-accent-ink" aria-hidden />
+                    Relations{selected.model?.relations?.length ? ` (${selected.model.relations.length})` : ""}
+                  </button>
+                )}
                 {selected.origin && (
                   <button
                     type="button"
@@ -179,6 +192,7 @@ export function DataView({ state }: { state: DatasetsState }) {
           )}
         </>
       )}
+      {relating && selected && <RelationsDialog profile={selected} datasets={datasets} onClose={() => setRelating(false)} onSaved={(p) => state.select(p.id)} />}
       {connecting && <ConnectDialog onClose={() => setConnecting(false)} onImported={state.added} />}
     </div>
   );

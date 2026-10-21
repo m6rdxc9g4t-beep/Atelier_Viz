@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { ArrowLeft, Bookmark, Check, Eye, FilterX, Loader2, Palette, Pencil, Presentation, Redo2, ScrollText, Sparkles, Undo2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { useDatasetProfiles } from "../hooks/useDatasetProfiles";
+import { useLinkedProfiles } from "../hooks/useDatasetProfiles";
 import { api } from "../lib/api";
 import { navigate } from "../lib/router";
 import type { DatasetSummary } from "../types/dataset";
@@ -123,7 +123,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
     () => [activeDatasetId, ...(report?.pages.flatMap((p) => p.visuals.map((v) => v.dataset_id)) ?? [])],
     [report, activeDatasetId],
   );
-  const profiles = useDatasetProfiles(usedIds);
+  const profiles = useLinkedProfiles(usedIds);
 
   if (loadError) {
     return (

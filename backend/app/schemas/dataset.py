@@ -36,6 +36,7 @@ class ColumnProfile(BaseModel):
     top_values: list[ValueCount] = Field(default_factory=list, description="Valeurs les plus fréquentes.")
     calculated: bool = Field(default=False, description="Colonne calculée (définie dans le modèle).")
     expression: str | None = Field(default=None, description="Expression d'une colonne calculée.")
+    related: str | None = Field(default=None, description="Relation d'origine d'une colonne liée (« magasins »).")
 
 
 FORBIDDEN_NAME_CHARS = set('|[]"\n\r\t')
@@ -72,11 +73,51 @@ class CalculatedMeasure(BaseModel):
     _name = field_validator("name")(_check_name)
 
 
+def _check_relation_name(name: str) -> str:
+    name = _check_name(name)
+    if "." in name:
+        raise ValueError(
+            "Le nom d'une relation ne peut pas contenir de point (il préfixe les colonnes : « magasins.ville »)."
+        )
+    return name
+
+
+class Relation(BaseModel):
+    """Relation plusieurs-à-un vers un autre jeu (« ventes.region → regions.region »).
+
+    Les colonnes du jeu lié deviennent des colonnes du jeu, nommées `<nom>.<colonne>` : axes, filtres,
+    segments, mesures et colonnes calculées les utilisent comme les autres. Les segments et sélections
+    posés sur le jeu lié filtrent aussi ce jeu (sens unique, comme dans Power BI).
+    """
+
+    name: str = Field(min_length=1, max_length=40, description="Préfixe des colonnes liées.")
+    dataset_id: str = Field(pattern=r"^[0-9a-f]{12}$", description="Jeu lié (côté « un »).")
+    from_column: str = Field(min_length=1, description="Colonne de ce jeu (clé étrangère).")
+    to_column: str = Field(min_length=1, description="Colonne du jeu lié (clé, valeurs uniques).")
+    columns: list[str] | None = Field(default=None, max_length=200, description="Colonnes reprises (toutes si absent).")
+
+    _name = field_validator("name")(_check_relation_name)
+
+
+class RelationCheck(BaseModel):
+    """Diagnostic d'une relation avant enregistrement."""
+
+    ok: bool
+    error: str | None = None
+    rows: int = Field(default=0, description="Lignes de ce jeu.")
+    matched: int = Field(default=0, description="Lignes dont la clé est trouvée dans le jeu lié.")
+    duplicates: int = Field(
+        default=0, description="Clés présentes plusieurs fois côté « un » (première ligne retenue)."
+    )
+    unmatched_sample: list[str] = Field(default_factory=list, description="Exemples de clés sans correspondance.")
+
+
 class DatasetModel(BaseModel):
-    """Modèle d'un jeu de données : colonnes et mesures calculées (évaluées par DuckDB)."""
+    """Modèle d'un jeu de données : relations, colonnes et mesures calculées (évaluées par DuckDB)."""
 
     columns: list[CalculatedColumn] = Field(default_factory=list, max_length=50)
     measures: list[CalculatedMeasure] = Field(default_factory=list, max_length=100)
+    relations: list[Relation] = Field(default_factory=list, max_length=10)
 
 
 class DatasetSummary(BaseModel):
@@ -126,7 +167,7 @@ class ExpressionResult(BaseModel):
 
 
 class ModelIssue(BaseModel):
-    kind: Literal["column", "measure"]
+    kind: Literal["column", "measure", "relation"]
     name: str
     error: str
     position: int | None = None

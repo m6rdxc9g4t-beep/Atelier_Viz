@@ -4,9 +4,12 @@
  * 2. segments de la page (même jeu de données, sauf le visuel lui-même) ;
  * 3. sélection par clic dans un autre visuel (filtrage croisé, même jeu de données) ;
  * 4. filtres propres au visuel.
+ *
+ * Relations : un segment ou une sélection posé sur un jeu lié (côté « un ») filtre aussi ce jeu, par
+ * sa colonne liée `<relation>.<champ>` (sens unique, comme dans Power BI ; chaînes comprises).
  */
 
-import type { Scalar } from "../types/dataset";
+import type { DatasetProfile, Scalar } from "../types/dataset";
 import type { Filter } from "../types/query";
 import type { Page, Visual } from "../types/report";
 import { first } from "../visuals/common";
@@ -25,20 +28,54 @@ export function slicerFilter(v: Visual): Filter | null {
   return selected.length ? { field: field.field, op: "in", values: selected, bin: field.bin ?? null } : null;
 }
 
+/**
+ * Préfixe des colonnes d'un jeu `source` vues depuis le jeu `target` (« regions. », « regions.geo. »),
+ * en suivant les relations ; "" pour le même jeu, null si aucun chemin.
+ */
+export function relatedPrefix(
+  target: string | null | undefined,
+  source: string | null | undefined,
+  profileOf: (id: string) => DatasetProfile | undefined,
+  depth = 0,
+): string | null {
+  if (!target || !source) return null;
+  if (target === source) return "";
+  if (depth > 4) return null;
+  for (const rel of profileOf(target)?.model?.relations ?? []) {
+    const rest = relatedPrefix(rel.dataset_id, source, profileOf, depth + 1);
+    if (rest !== null) return `${rel.name}.${rest}`;
+  }
+  return null;
+}
+
 export function visualFilters(
   page: Page,
   visual: Visual,
   selection: Selection | null,
-  fieldsOf: (datasetId: string | null | undefined) => Set<string> | undefined,
+  profileOf: (datasetId: string) => DatasetProfile | undefined,
 ): Filter[] {
-  const fields = fieldsOf(visual.dataset_id);
+  const profile = visual.dataset_id ? profileOf(visual.dataset_id) : undefined;
+  const fields = profile ? new Set(profile.columns.map((c) => c.name)) : undefined;
   const pageFilters = page.filters.filter((f) => fields?.has(f.field));
+  // Filtre d'un autre jeu : repris s'il est lié à ce jeu et que la colonne liée existe.
+  const adapt = (f: Filter, from: string | null | undefined): Filter | null => {
+    const prefix = relatedPrefix(visual.dataset_id, from, profileOf);
+    if (prefix === null) return null;
+    if (prefix === "") return f;
+    const field = `${prefix}${f.field}`;
+    return fields?.has(field) ? { ...f, field } : null;
+  };
   const slicers = page.visuals
-    .filter((o) => o.type === "slicer" && o.id !== visual.id && o.dataset_id === visual.dataset_id)
-    .map(slicerFilter)
+    .filter((o) => o.type === "slicer" && o.id !== visual.id)
+    .map((o) => {
+      const f = slicerFilter(o);
+      return f ? adapt(f, o.dataset_id) : null;
+    })
     .filter((f): f is Filter => f !== null);
   const cross =
-    selection && selection.visualId !== visual.id && selection.datasetId === visual.dataset_id ? selection.filters : [];
+    selection && selection.visualId !== visual.id
+      ? selection.filters.map((f) => adapt(f, selection.datasetId)).filter((f): f is Filter => f !== null)
+      : [];
   return [...pageFilters, ...slicers, ...cross, ...visual.filters];
 }
 
