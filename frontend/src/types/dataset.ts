@@ -88,7 +88,7 @@ export interface ExpressionResult {
 }
 
 export interface ModelIssue {
-  kind: "column" | "measure" | "relation";
+  kind: "column" | "measure" | "relation" | "step";
   name: string;
   error: string;
   position?: number | null;
@@ -109,6 +109,85 @@ export interface DatasetProfile extends DatasetSummary {
   columns: ColumnProfile[];
   sample: Row[];
   model?: DatasetModel;
+  /** Étapes de préparation (rejouées à chaque actualisation). */
+  steps?: PrepStep[];
+}
+
+// --- Préparation des données (miroir des étapes de backend/app/schemas/dataset.py) ---------------
+
+export type PrepOp = "eq" | "neq" | "in" | "not_in" | "gt" | "gte" | "lt" | "lte" | "contains" | "not_contains" | "is_null" | "not_null";
+export type TextMode = "trim" | "upper" | "lower" | "capitalize";
+
+interface StepBase {
+  note?: string | null;
+}
+export interface RenameStep extends StepBase {
+  kind: "rename";
+  column: string;
+  to: string;
+}
+export interface RemoveStep extends StepBase {
+  kind: "remove";
+  columns: string[];
+}
+export interface CastStep extends StepBase {
+  kind: "cast";
+  column: string;
+  to: ColumnType;
+}
+export interface FilterStep extends StepBase {
+  kind: "filter";
+  column: string;
+  op: PrepOp;
+  values: Scalar[];
+}
+export interface ReplaceStep extends StepBase {
+  kind: "replace";
+  column: string;
+  find: Scalar;
+  replace: Scalar;
+  whole: boolean;
+}
+export interface FillStep extends StepBase {
+  kind: "fill";
+  column: string;
+  value: Scalar;
+  down: boolean;
+}
+export interface TextStep extends StepBase {
+  kind: "text";
+  column: string;
+  mode: TextMode;
+}
+export interface DedupeStep extends StepBase {
+  kind: "dedupe";
+  columns: string[] | null;
+}
+export interface UnpivotStep extends StepBase {
+  kind: "unpivot";
+  columns: string[];
+  attribute: string;
+  value: string;
+}
+export interface SplitStep extends StepBase {
+  kind: "split";
+  column: string;
+  separator: string;
+  into: string[];
+}
+export type PrepStep = RenameStep | RemoveStep | CastStep | FilterStep | ReplaceStep | FillStep | TextStep | DedupeStep | UnpivotStep | SplitStep;
+export type PrepKind = PrepStep["kind"];
+
+/** Résultat des étapes (aperçu) : colonnes, premières lignes, erreur localisée. */
+export interface PrepPreview {
+  ok: boolean;
+  error?: string | null;
+  /** Indice de l'étape fautive. */
+  step?: number | null;
+  rows: number;
+  raw_rows: number;
+  columns: ColumnProfile[];
+  sample: Row[];
 }
 
 export interface DatasetRows {

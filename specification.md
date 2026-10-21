@@ -268,6 +268,24 @@ Volet Données → **Relier** (ou page Données → **Relations**) : chaque lign
 
 Exemple : `samples/regions.csv` (13 régions : code, responsable, objectif de CA 2026, population) est relié automatiquement à `ventes_2026.csv` et `magasins.csv` à l'import des exemples.
 
+### Préparation des données (à la Power Query)
+
+Page Données → **Préparer** : éditeur plein écran avec la liste des **étapes appliquées** (Source puis étapes numérotées, cliquables pour voir l'aperçu à cette étape, modifiables, supprimables), une barre de transformations et l'aperçu des 20 premières lignes (clic sur l'en-tête d'une colonne pour la sélectionner). Rien n'est modifié avant **Appliquer**.
+
+| Étape | Effet |
+|---|---|
+| Renommer · Supprimer des colonnes · Changer le type | Type nombre (« 1 234,50 », « 12,5 % »), date (JJ/MM/AAAA, ISO, numéro de série Excel), texte, booléen (oui / non, vrai / faux, 1 / 0) ; valeur non convertible → vide |
+| Filtrer les lignes | Égal, différent, fait partie de, comparaisons (nombres et dates), contient, vide / non vide ; valeurs saisies converties dans le type de la colonne |
+| Remplacer des valeurs · Remplir les vides | Cellule entière ou morceau de texte ; valeur fixe ou valeur précédente (« remplir vers le bas ») |
+| Nettoyer le texte | Espaces en trop, MAJUSCULES, minuscules, Première Lettre En Majuscule |
+| Supprimer les doublons | Lignes identiques ou identiques sur certaines colonnes |
+| Dépivoter · Fractionner | Colonnes « Jan, Fév… » → lignes (nom, valeur) ; « Nom Prénom » → deux colonnes |
+
+- Étapes typées (`DatasetProfile.steps`, union discriminée par `kind`) appliquées par `app/services/data/prep.py` (pandas) — jamais de code ni de SQL venant du client ; 50 étapes au plus.
+- Source brute gardée dans `raw_<id>` ; les étapes sont **rejouées à chaque actualisation** (connexions, planification). Une étape qui ne tient plus (colonne disparue) bloque l'actualisation (409) sans rien modifier.
+- Le modèle (colonnes et mesures calculées, relations) et les relations des autres jeux vers celui-ci sont revalidés sur le résultat : une étape qui les casserait est refusée (422, étape ou relation désignée). L'éditeur signale l'étape fautive et désactive « Appliquer ».
+- Un renommage n'est pas répercuté dans les visuels existants (comme dans Power BI).
+
 ## 5 sexies. Connecteurs de données
 
 « Se connecter à une source » (page Données) : connexions enregistrées, parcours, aperçu, import, actualisation.
@@ -387,6 +405,8 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | DELETE | `/api/datasets/{id}` | Suppression (table et vue) |
 | PUT | `/api/datasets/{id}/model` | Relations, colonnes et mesures calculées : validation complète, vue recréée, profil mis à jour (422 + liste d'erreurs sinon) |
 | POST | `/api/datasets/{id}/model/check` | Vérification d'une expression pendant la saisie : erreur localisée, type, aperçu |
+| PUT | `/api/datasets/{id}/steps` | Étapes de préparation : appliquées à la source brute, modèle revalidé (422 + étape / relation fautive sinon) |
+| POST | `/api/datasets/{id}/steps/preview` | Aperçu des étapes sans enregistrer : lignes, colonnes profilées, 20 lignes, étape fautive |
 | POST | `/api/datasets/{id}/relations/check` | Diagnostic d'une relation : lignes avec correspondance, clés en double, exemples sans correspondance |
 | GET · POST | `/api/samples` | Jeux d'exemple du dossier `samples/` : liste (déjà importés ou non) · import des absents, sans doublon |
 | POST | `/api/query` | Dimensions, mesures (sum, avg, median, min, max, count, count_distinct), filtres (in, not_in, eq, neq, gt, gte, lt, lte, between, contains, is_null, not_null, avec période), tri, limite, `grouping_sets` |
@@ -437,4 +457,4 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 6 bis — IA de la suite** ✅ : choix du moteur commun à la Suite Atelier (Auto · Ollama · Claude, modèles Sonnet / Opus / Haiku et Ollama mémorisés, CLI trouvée hors du `PATH`), volet « Créer avec l'IA » avec suggestions toujours accessibles, nouvelle demande, historique de la session et réajout revalidé ; indicateur « en marche » d'Atelier Tab.
 - **Jalon 6 ter — Durcissement local** ✅ : garde « requêtes locales » (Host / Origin, `ALLOWED_HOSTS`), `fastapi>=0.132` ; CLI Claude conforme à docs/SUITE.md §5.3 (environnement en liste blanche, exécutable absolu, aucune donnée en argument, sortie bornée, arrêt forcé, revérification limitée) ; préférences écrites sous verrou ; lanceur macOS sans `npm install` ; santé d'Atelier Tab dérivée de `VITE_ATELIER_TAB_URL`.
 - **Charte néon monochrome** ✅ : toute l'application dans la couleur signature jaune, en clair et en sombre (fond teinté avec fine grille, cartes cerclées d'un trait néon avec halo, bouton principal plein / contour néon, navigation active avec barre de couleur), marque commune v3 ; palette de données et thèmes de rapport inchangés.
-- **Jalon 7 — Analyse avancée** (en cours) : mise en forme conditionnelle des tables et matrices ✅, calculs dans le temps (« Afficher la valeur comme » : cumul annuel, N-1, évolution, moyenne mobile, part du total) ✅, relations entre jeux ✅.
+- **Jalon 7 — Analyse avancée** (en cours) : mise en forme conditionnelle des tables et matrices ✅, calculs dans le temps (« Afficher la valeur comme » : cumul annuel, N-1, évolution, moyenne mobile, part du total) ✅, relations entre jeux ✅, préparation des données (étapes rejouées à l'actualisation) ✅.

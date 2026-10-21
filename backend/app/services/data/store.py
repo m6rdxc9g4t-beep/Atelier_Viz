@@ -26,6 +26,8 @@ from app.schemas.dataset import (
     ExpressionCheck,
     ExpressionResult,
     ModelIssue,
+    PrepPreview,
+    PrepStep,
     Relation,
     RelationCheck,
     SourceFormat,
@@ -39,6 +41,7 @@ from app.services.data.model import (
     profile_calculated,
     view_ddl,
 )
+from app.services.data.prep import PrepError, apply_steps
 from app.services.data.profiling import build_profile, records, to_json
 from app.services.engine.database import LocalDatabase, quote_ident
 
@@ -146,6 +149,7 @@ class DatasetStore:
             self._set_model_pruned(dep, model)
         self.db.execute(f"DROP VIEW IF EXISTS {quote_ident(f'v_{dataset_id}')}")
         self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'ds_{dataset_id}')}")
+        self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset_id}')}")
         self.db.execute("DELETE FROM __datasets WHERE id = ?", [dataset_id])
         return True
 
@@ -172,29 +176,92 @@ class DatasetStore:
     def replace_data(self, dataset: StoredDataset, df: pd.DataFrame, origin: DatasetOrigin | None) -> StoredDataset:
         """Actualise le contenu d'un jeu (même identifiant : les rapports restent branchés).
 
-        Le modèle (relations, colonnes et mesures calculées) est revalidé sur les nouvelles colonnes :
-        s'il ne tient plus (colonne disparue…), `ModelError` est levée et rien n'est modifié.
+        Les étapes de préparation sont rejouées sur les nouvelles données, puis le modèle (relations,
+        colonnes et mesures calculées) est revalidé : si une étape ou le modèle ne tient plus (colonne
+        disparue…), `ModelError` est levée et rien n'est modifié.
         """
+        steps = dataset.profile_data.steps
+        prepared = _prepare(df, steps)
+        updated = self._store(dataset, prepared, origin, raw=df if steps else None)
+        if not steps:
+            self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset.id}')}")
+        return updated
+
+    def set_steps(self, dataset: StoredDataset, steps: list[PrepStep]) -> StoredDataset:
+        """Enregistre les étapes de préparation et les applique à la source brute.
+
+        La source brute est conservée dans `raw_<id>` (copiée de la table à la première étape) ;
+        le modèle est revalidé sur le résultat (`ModelError` sinon, rien n'est modifié).
+        """
+        raw = self.raw_frame(dataset)
+        prepared = _prepare(raw, steps)
+        if not self._has_raw(dataset.id):
+            self.db.write_dataframe(f"raw_{dataset.id}", raw)
+        updated = self._store(dataset, prepared, dataset.profile_data.origin, steps=steps)
+        if not steps:
+            self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset.id}')}")
+        return updated
+
+    def preview_steps(self, dataset: StoredDataset, steps: list[PrepStep], limit: int = SAMPLE_ROWS) -> PrepPreview:
+        """Résultat des étapes sans rien enregistrer ; en cas d'erreur, colonnes avant l'étape fautive."""
+        raw = self.raw_frame(dataset)
+        try:
+            out = apply_steps(raw, steps)
+            ok, error, index = True, None, None
+        except PrepError as exc:
+            out = apply_steps(raw, steps[: exc.index])
+            ok, error, index = False, exc.message, exc.index
+        return PrepPreview(
+            ok=ok,
+            error=error,
+            step=index,
+            rows=len(out),
+            raw_rows=len(raw),
+            columns=build_profile(out),
+            sample=records(out, limit=limit),
+        )
+
+    def raw_frame(self, dataset: StoredDataset) -> pd.DataFrame:
+        """Source brute (avant préparation) d'un jeu."""
+        table = f"raw_{dataset.id}" if self._has_raw(dataset.id) else dataset.table
+        return self.db.read_dataframe(f"SELECT * FROM {quote_ident(table)}")
+
+    def _has_raw(self, dataset_id: str) -> bool:
+        _, rows = self.db.execute("SELECT 1 FROM information_schema.tables WHERE table_name = ?", [f"raw_{dataset_id}"])
+        return bool(rows)
+
+    def _store(
+        self,
+        dataset: StoredDataset,
+        df: pd.DataFrame,
+        origin: DatasetOrigin | None,
+        raw: pd.DataFrame | None = None,
+        steps: list[PrepStep] | None = None,
+    ) -> StoredDataset:
         profile = dataset.profile_data
         staging = f"ds_{dataset.id}__new"
         self.db.write_dataframe(staging, df)
         try:
             base = build_profile(df)
-            self._compile(dataset.id, base, profile.model)  # validation seule, avant tout remplacement
+            _, related, compiled = self._compile(dataset.id, base, profile.model)  # validation, avant tout remplacement
+            self._check_dependents(dataset, {c.name for c in base} | set(related) | {c.name for c in compiled.columns})
             table, new = quote_ident(dataset.table), quote_ident(staging)
             self.db.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM {new}")
         finally:
             self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(staging)}")
+        if raw is not None:
+            self.db.write_dataframe(f"raw_{dataset.id}", raw)
         derived = self._materialize(dataset.id, base, profile.model)
-        updated = profile.model_copy(
-            update={
-                "rows": len(df),
-                "columns_count": len(df.columns),
-                "columns": base + derived,
-                "sample": records(df, limit=SAMPLE_ROWS),
-                "origin": origin,
-            }
-        )
+        update = {
+            "rows": len(df),
+            "columns_count": len(df.columns),
+            "columns": base + derived,
+            "sample": records(df, limit=SAMPLE_ROWS),
+            "origin": origin,
+        }
+        if steps is not None:
+            update["steps"] = steps
+        updated = profile.model_copy(update=update)
         self.db.execute("UPDATE __datasets SET profile = ? WHERE id = ?", [updated.model_dump_json(), dataset.id])
         self._rebuild_dependents(dataset.id)
         return StoredDataset(dataset.id, updated)
@@ -301,6 +368,26 @@ class DatasetStore:
         """Jeux qui ont une relation vers celui-ci."""
         return [d for d in self.list() if any(r.dataset_id == dataset_id for r in d.profile_data.model.relations)]
 
+    def _check_dependents(self, dataset: StoredDataset, columns: set[str]) -> None:
+        """Les relations des autres jeux vers celui-ci trouvent-elles encore leurs colonnes ?"""
+        issues = []
+        for dep in self.dependents(dataset.id):
+            for rel in dep.profile_data.model.relations:
+                if rel.dataset_id != dataset.id:
+                    continue
+                missing = [c for c in [rel.to_column, *(rel.columns or [])] if c not in columns]
+                if missing:
+                    names = ", ".join(f"« {c} »" for c in missing)
+                    issues.append(
+                        ModelIssue(
+                            kind="relation",
+                            name=f"{dep.name} · {rel.name}",
+                            error=f"cette relation utilise {names}, qui n'existerait plus.",
+                        )
+                    )
+        if issues:
+            raise ModelError(issues)
+
     def _rebuild_dependents(self, dataset_id: str) -> None:
         """Après un changement de modèle ou de données : vues et profils des jeux liés recalculés."""
         for dep in self.dependents(dataset_id):
@@ -376,3 +463,13 @@ class DatasetStore:
         while (candidate := f"{stem} ({n}){'.' + ext if ext else ''}") in existing:
             n += 1
         return candidate
+
+
+def _prepare(df: pd.DataFrame, steps: list[PrepStep]) -> pd.DataFrame:
+    """Étapes de préparation ; une étape impossible devient une erreur de modèle (422 / 409)."""
+    if not steps:
+        return df
+    try:
+        return apply_steps(df, steps)
+    except PrepError as exc:
+        raise ModelError([ModelIssue(kind="step", name=exc.label, error=exc.message)]) from exc

@@ -13,6 +13,8 @@ from app.schemas.dataset import (
     DatasetSummary,
     ExpressionCheck,
     ExpressionResult,
+    PrepPreview,
+    PrepRequest,
     Relation,
     RelationCheck,
 )
@@ -87,6 +89,27 @@ async def save_model(dataset_id: str, model: DatasetModel, store: StoreDep) -> D
             {"message": "Le modèle contient des erreurs.", "issues": [i.model_dump() for i in exc.issues]},
         ) from exc
     return updated.profile()
+
+
+@router.put("/{dataset_id}/steps", response_model=DatasetProfile)
+async def save_steps(dataset_id: str, body: PrepRequest, store: StoreDep) -> DatasetProfile:
+    """Enregistre les étapes de préparation et les applique à la source (rejouées à chaque actualisation)."""
+    dataset = await get_or_404(store, dataset_id)
+    try:
+        updated = await asyncio.to_thread(store.set_steps, dataset, body.steps)
+    except ModelError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            {"message": "Les étapes ne peuvent pas être appliquées.", "issues": [i.model_dump() for i in exc.issues]},
+        ) from exc
+    return updated.profile()
+
+
+@router.post("/{dataset_id}/steps/preview", response_model=PrepPreview)
+async def preview_steps(dataset_id: str, body: PrepRequest, store: StoreDep) -> PrepPreview:
+    """Aperçu du résultat des étapes (rien n'est enregistré) ; erreur localisée sur l'étape fautive."""
+    dataset = await get_or_404(store, dataset_id)
+    return await asyncio.to_thread(store.preview_steps, dataset, body.steps)
 
 
 @router.post("/{dataset_id}/relations/check", response_model=RelationCheck)

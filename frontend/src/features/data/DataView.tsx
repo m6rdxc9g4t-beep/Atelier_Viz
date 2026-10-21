@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, Link2, RefreshCw, Trash2, TriangleAlert, X } from "lucide-react";
+import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, Link2, RefreshCw, Trash2, TriangleAlert, Wand2, X } from "lucide-react";
 import { useState } from "react";
 
 import type { DatasetsState } from "../../hooks/useDatasets";
@@ -10,6 +10,7 @@ import { DatasetSchedulePanel } from "../automation/DatasetSchedulePanel";
 import { ConnectDialog } from "./connect/ConnectDialog";
 import { KIND_META, sinceLabel } from "./connect/meta";
 import { DataPreview } from "./DataPreview";
+import { PrepEditor } from "./prep/PrepEditor";
 import { FieldsPanel, TYPE_META } from "./FieldsPanel";
 import { UploadDropzone } from "./UploadDropzone";
 
@@ -20,6 +21,7 @@ export function DataView({ state }: { state: DatasetsState }) {
   const [connecting, setConnecting] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [relating, setRelating] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const connectButton = (
     <button
       type="button"
@@ -115,6 +117,15 @@ export function DataView({ state }: { state: DatasetsState }) {
                     </span>
                   );
                 })}
+                <button
+                  type="button"
+                  onClick={() => setPreparing(true)}
+                  title="Renommer, changer les types, filtrer, nettoyer… (étapes rejouées à chaque actualisation)"
+                  className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2"
+                >
+                  <Wand2 className="size-3.5 text-accent-ink" aria-hidden />
+                  Préparer{selected.steps?.length ? ` (${selected.steps.length})` : ""}
+                </button>
                 {datasets.length > 1 && (
                   <button
                     type="button"
@@ -185,13 +196,14 @@ export function DataView({ state }: { state: DatasetsState }) {
                   <FieldsPanel columns={selected.columns} />
                 </div>
                 <div className="flex h-[32rem] min-w-0 flex-col lg:h-auto lg:min-h-0">
-                  <DataPreview datasetId={selected.id} columns={selected.columns} total={selected.rows} />
+                  <DataPreview key={`${selected.id}:${selected.rows}:${JSON.stringify(selected.steps ?? [])}:${selected.origin?.refreshed_at ?? ""}`} datasetId={selected.id} columns={selected.columns} total={selected.rows} />
                 </div>
               </div>
             </>
           )}
         </>
       )}
+      {preparing && selected && <PrepEditor profile={selected} onClose={() => setPreparing(false)} onSaved={(p) => state.select(p.id)} />}
       {relating && selected && <RelationsDialog profile={selected} datasets={datasets} onClose={() => setRelating(false)} onSaved={(p) => state.select(p.id)} />}
       {connecting && <ConnectDialog onClose={() => setConnecting(false)} onImported={state.added} />}
     </div>
