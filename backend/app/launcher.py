@@ -1,8 +1,9 @@
-"""Mise à jour automatique de l'application de bureau après un `git pull` (docs/SUITE.md §8).
+"""Mise à jour automatique de l'application de bureau après un `git pull` (docs/SUITE.md §8 et §9).
 
-Décision de l'utilisateur : après un `git pull`, « Atelier Viz.app » se met à jour toute seule à son lancement
-suivant, comme Atelier Projets (`desktop/lib/prepare.cjs`). Le code exécuté est celui du dépôt ; ce module décide
-et fait, **seulement si nécessaire** et dans cet ordre :
+Décision de l'utilisateur : après un `git pull`, l'application de bureau (« Atelier Viz.app » sur macOS, raccourci
+« Atelier Viz » du menu Démarrer sous Windows) se met à jour toute seule à son lancement suivant, comme Atelier
+Projets (`desktop/lib/prepare.cjs`). Le code exécuté est celui du dépôt ; ce module décide et fait, **seulement si
+nécessaire** et dans cet ordre :
 
 - `pip`   : `pip install -r requirements.txt [-r requirements-desktop.txt]` avec **le Python de l'application**,
             si ces fichiers (ou l'interpréteur) ont changé depuis la dernière mise à jour réussie ;
@@ -10,22 +11,31 @@ et fait, **seulement si nécessaire** et dans cet ordre :
 - `build` : `npm run build` dans un dossier temporaire (`frontend/.dist-next`) puis remplacement de
             `frontend/dist` : la compilation précédente reste servie en cas d'échec.
 
-La décision compare l'**état du dépôt** (empreinte de `HEAD` et du contenu des fichiers suivis modifiés localement)
-et les empreintes des fichiers de dépendances au **tampon** de la dernière mise à jour réussie
-(`backend/.mise-a-jour.json`, ignoré par git), écrit seulement après une mise à jour entièrement réussie.
-Une seule mise à jour à la fois (verrou `backend/.mise-a-jour.lock`). Jamais de `git pull`, jamais de donnée
-touchée (`backend/data/` n'est ni lu ni écrit, sauf la lecture du mode en ligne). Réseau : seulement les registres
-de paquets (npm, PyPI), pendant les étapes d'installation.
+La décision compare l'**état du dépôt** (empreinte de `HEAD` et du contenu des fichiers modifiés localement ou
+nouveaux non ignorés, `git status --porcelain`, §8.4) et les empreintes des fichiers de dépendances au **tampon**
+de la dernière mise à jour réussie (`backend/.mise-a-jour.json`, ignoré par git), écrit seulement après une mise
+à jour entièrement réussie. Une seule mise à jour à la fois (verrou `backend/.mise-a-jour.lock`). Jamais de
+`git pull`, jamais de donnée touchée (`backend/data/` n'est ni lu ni écrit, sauf la lecture du mode en ligne).
+Réseau : seulement les registres de paquets (npm, PyPI), pendant les étapes d'installation.
 
-Sous-processus : commandes fixes (aucune donnée en argument), délai borné puis arrêt du groupe, sortie dans le
-journal `~/Library/Logs/Atelier Viz/mise-a-jour.log` (taille bornée). Node / npm sont cherchés même depuis le
-Finder : `PATH`, `PATH` du shell de connexion zsh, `~/.homebrew/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, nvm.
+Sous-processus : commandes fixes (aucune donnée en argument), délai borné puis arrêt du groupe (Windows :
+`taskkill /T`), jamais de fenêtre de console (Windows : `CREATE_NO_WINDOW`), sortie dans le journal
+`mise-a-jour.log` de `logs_dir()` (taille bornée) : `~/Library/Logs/Atelier Viz/` (macOS),
+`%LOCALAPPDATA%\\Atelier Viz\\Logs\\` (Windows, §9.2). Node / npm sont cherchés même depuis le Finder ou le menu
+Démarrer : `PATH`, puis macOS : `PATH` du shell de connexion zsh, `~/.homebrew/bin`, `/opt/homebrew/bin`,
+`/usr/local/bin`, nvm, Volta ; Windows (§9.3) : `PATH` de l'utilisateur et du système lu dans le registre,
+`%ProgramFiles%\\nodejs`, nvm-windows (`%NVM_SYMLINK%`), Volta, fnm, Scoop, `%LOCALAPPDATA%\\Programs\\nodejs`
+(`npm.cmd` à côté de `node.exe`, lancé sans shell avec des arguments fixes).
+
+Au lancement de l'application de bureau, `scrub_inherited_env` retire les variables héritées d'une autre app qui
+tromperaient Viz (docs/SUITE.md §9.4 : `DATA_DIR`, `NODE_ENV`, `PYTHONPATH`…) : sa configuration vient de
+`backend/.env`.
 
 Bibliothèque standard seulement : fonctionne même si des dépendances Python manquent (c'est l'étape `pip` qui
 les installe). Le paquet autonome (PyInstaller) ne l'utilise jamais.
 
 Ligne de commande (depuis `backend/`) :
-    python -m app.launcher --mettre-a-jour [--depot DOSSIER]   # mise à jour en console (build_app.sh)
+    python -m app.launcher --mettre-a-jour [--depot DOSSIER]   # mise à jour en console (build_app.sh, install.ps1)
     python -m app.launcher --plan [--depot DOSSIER]            # étapes nécessaires, sans rien faire
     python -m app.launcher <dossier frontend>                  # anciens lanceurs : « ok » (desktop.py fait la suite)
 """
@@ -40,11 +50,12 @@ import os
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterator, Mapping, MutableMapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import IO, Any, Literal, Protocol
@@ -79,10 +90,24 @@ MAX_LOG_BYTES = 20_000_000
 ROTATE_LOG_BYTES = 5_000_000
 """Au-delà, le journal est renommé `mise-a-jour.log.1` au début de la mise à jour suivante."""
 
+APP_NAME = "Atelier Viz"
 LOGIN_SHELL = "/bin/zsh"
 SYSTEM_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin")
 """Emplacements habituels de Node sur macOS (Homebrew Apple Silicon, Intel / installateur nodejs.org)."""
 _PATH_MARK = "__ATELIER_PATH__"
+
+WINDOWS = sys.platform == "win32"
+CREATE_NO_WINDOW = 0x08000000
+CREATE_NEW_PROCESS_GROUP = 0x00000200
+REPLACE_ATTEMPTS = 20
+"""Windows : essais de renommage d'un dossier dont un fichier est encore ouvert (0,5 s entre deux essais)."""
+
+
+def _spawn_options() -> dict[str, Any]:
+    """Options de `Popen` : groupe de processus à part (arrêt des enfants), jamais de console sous Windows."""
+    if WINDOWS:
+        return {"creationflags": CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
 
 
 # --- Empreintes et état du dépôt ------------------------------------------------------------------
@@ -110,7 +135,7 @@ def _capture(cmd: Sequence[str], *, timeout: float, cwd: Path | None = None, lim
                 stdout=out,
                 stderr=subprocess.DEVNULL,
                 cwd=cwd,
-                start_new_session=os.name == "posix",
+                **_spawn_options(),
             )
         except OSError:
             return None
@@ -125,26 +150,62 @@ def _capture(cmd: Sequence[str], *, timeout: float, cwd: Path | None = None, lim
         return out.read(limit).decode("utf-8", "replace")
 
 
+def git_search_dirs(env: Mapping[str, str], platform: str | None = None) -> list[str]:
+    """Dossiers où chercher `git` : PATH filtré, puis emplacements habituels du système."""
+    platform = platform or sys.platform
+    dirs = safe_path_dirs(env.get("PATH", ""), platform)
+    if platform == "win32":
+        extra = [
+            *(str(Path(env[k]) / "Git" / "cmd") for k in ("ProgramFiles", "ProgramW6432") if env.get(k)),
+            *([str(Path(env["LOCALAPPDATA"]) / "Programs" / "Git" / "cmd")] if env.get("LOCALAPPDATA") else []),
+        ]
+    else:
+        extra = ["/usr/bin", "/opt/homebrew/bin", "/usr/local/bin"]
+    return dirs + [d for d in extra if d not in dirs]
+
+
 def find_git(path: str | None = None) -> str | None:
     """Exécutable `git` absolu (PATH filtré, puis emplacements habituels)."""
-    dirs = [*safe_path_dirs(path if path is not None else os.environ.get("PATH", "")), "/usr/bin"]
-    dirs += ["/opt/homebrew/bin", "/usr/local/bin"]
-    found = shutil.which("git", path=os.pathsep.join(dirs))
+    env = {**os.environ, "PATH": path} if path is not None else os.environ
+    found = shutil.which("git", path=os.pathsep.join(git_search_dirs(env)))
     return str(Path(found).resolve()) if found and Path(found).is_absolute() else None
 
 
-def code_state(repo: Path, git: str | None) -> str:
-    """Empreinte du code : commit courant + contenu des fichiers suivis modifiés localement (docs/SUITE.md §8.1).
+def changed_paths(porcelain: str) -> list[str]:
+    """Chemins de `git status --porcelain -z` : modifiés, supprimés, nouveaux non ignorés (docs/SUITE.md §8.4).
 
-    Sans git (ou hors d'un dépôt git) : « sans-git » (seules les dépendances et l'interface compilée comptent).
+    Un renommage donne deux entrées (« XY nouveau », puis l'ancien chemin seul) : les deux comptent.
+    """
+    paths: list[str] = []
+    entries = porcelain.split("\0")
+    i = 0
+    while i < len(entries):
+        entry = entries[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        paths.append(entry[3:])
+        if entry[0] in "RC" and i < len(entries) and entries[i]:
+            paths.append(entries[i])
+            i += 1
+    return sorted(set(paths))
+
+
+def code_state(repo: Path, git: str | None) -> str:
+    """Empreinte du code : commit courant + contenu des fichiers modifiés localement (docs/SUITE.md §8.1, §8.4).
+
+    Compte les fichiers suivis modifiés **et** les fichiers nouveaux non ignorés par git. Sans git (ou hors d'un
+    dépôt git) : « sans-git » (seules les dépendances et l'interface compilée comptent).
     """
     if git is None:
         return "sans-git"
     head = _capture([git, "-C", str(repo), "rev-parse", "HEAD"], timeout=20)
     if head is None:
         return "sans-git"
-    listing = _capture([git, "-C", str(repo), "diff", "--name-only", "-z", "HEAD"], timeout=30) or ""
-    changed = sorted(name for name in listing.split("\0") if name)
+    listing = _capture(
+        [git, "-C", str(repo), "status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames"], timeout=30
+    )
+    changed = changed_paths(listing or "")
     parts = [head.strip()]
     for name in changed:
         target = repo / name
@@ -292,17 +353,60 @@ class UpdateResult:
 # --- Recherche de Node / npm ---------------------------------------------------------------------
 
 
-def safe_path_dirs(path: str) -> list[str]:
-    """Entrées d'un PATH utilisables : absolues, sans `node_modules/.bin` (jamais un binaire d'un projet)."""
+def safe_path_dirs(path: str, platform: str | None = None) -> list[str]:
+    """Entrées d'un PATH utilisables : absolues, sans `node_modules/.bin` (jamais un binaire d'un projet).
+
+    Séparateur et forme absolue selon `platform` (Windows : « ; », `C:\\…` ou `\\\\serveur\\…`).
+    """
+    windows = (platform or sys.platform) == "win32"
+    sep = ";" if windows else ":"
     dirs: list[str] = []
-    for entry in path.split(os.pathsep):
-        if not entry or not os.path.isabs(entry):
+    for raw in path.split(sep):
+        entry = raw.strip().strip('"') if windows else raw
+        if not entry or not is_absolute_path(entry, "win32" if windows else "posix"):
             continue
-        if "node_modules" in Path(entry).parts:
+        if "node_modules" in re.split(r"[\\/]" if windows else "/", entry):
             continue
         if entry not in dirs:
             dirs.append(entry)
     return dirs
+
+
+def is_absolute_path(entry: str, platform: str | None = None) -> bool:
+    """Chemin absolu selon `platform` (Windows : `C:\\…` ou `\\\\serveur\\…`, jamais `\\dossier` ni relatif)."""
+    if (platform or sys.platform) == "win32":
+        return bool(re.match(r"^[A-Za-z]:[\\/]", entry) or entry.startswith("\\\\"))
+    return entry.startswith("/")
+
+
+def registry_path() -> str | None:
+    """Windows : PATH du système puis de l'utilisateur lus dans le registre (variables développées), ou None.
+
+    Équivalent du shell de connexion de macOS : une application lancée depuis le menu Démarrer garde le PATH de
+    l'ouverture de session ; Node installé depuis ne s'y trouve pas encore.
+    """
+    if not WINDOWS:
+        return None
+    import winreg
+
+    parts: list[str] = []
+    for hive, key in (
+        (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+        (winreg.HKEY_CURRENT_USER, "Environment"),
+    ):
+        try:
+            with winreg.OpenKey(hive, key) as handle:
+                value, _ = winreg.QueryValueEx(handle, "Path")
+        except OSError:
+            continue
+        if isinstance(value, str) and value:
+            parts.append(winreg.ExpandEnvironmentStrings(value))
+    return ";".join(parts) or None
+
+
+def system_login_path() -> str | None:
+    """PATH « de connexion » selon le système : registre sous Windows, shell zsh de connexion ailleurs."""
+    return registry_path() if WINDOWS else login_shell_path()
 
 
 def login_shell_path(shell: str = LOGIN_SHELL, timeout: float = 8.0) -> str | None:
@@ -341,18 +445,51 @@ def nvm_dirs(home: Path, env: Mapping[str, str]) -> list[str]:
     return [str(p / "bin") for p in installed]
 
 
+def windows_node_dirs(env: Mapping[str, str], home: Path) -> list[str]:
+    """Windows (docs/SUITE.md §9.3) : emplacements habituels de Node hors du PATH, dans l'ordre."""
+
+    def under(var: str, *parts: str) -> list[str]:
+        base = env.get(var)
+        return [str(Path(base, *parts))] if base else []
+
+    fnm = [str(Path(env["FNM_DIR"]) / "aliases" / "default")] if env.get("FNM_DIR") else []
+    return [
+        *under("ProgramFiles", "nodejs"),
+        *under("ProgramW6432", "nodejs"),
+        *under("NVM_SYMLINK"),
+        *under("VOLTA_HOME", "bin"),
+        *under("LOCALAPPDATA", "Volta", "bin"),
+        *under("ProgramFiles", "Volta"),
+        *fnm,
+        *under("APPDATA", "fnm", "aliases", "default"),
+        *under("LOCALAPPDATA", "fnm", "aliases", "default"),
+        *under("LOCALAPPDATA", "Programs", "nodejs"),
+        str(home / "scoop" / "apps" / "nodejs-lts" / "current"),
+        str(home / "scoop" / "apps" / "nodejs" / "current"),
+        *under("ProgramFiles(x86)", "nodejs"),
+    ]
+
+
 def npm_search_dirs(
-    env: Mapping[str, str], home: Path, login_path: Callable[[], str | None] = login_shell_path
+    env: Mapping[str, str],
+    home: Path,
+    login_path: Callable[[], str | None] = system_login_path,
+    platform: str | None = None,
 ) -> list[str]:
     """Dossiers où chercher Node et npm, dans l'ordre (voir le module)."""
-    dirs = safe_path_dirs(env.get("PATH", ""))
-    for extra in [
-        *safe_path_dirs(login_path() or ""),
-        str(home / ".homebrew" / "bin"),
-        *SYSTEM_BIN_DIRS,
-        *nvm_dirs(home, env),
-        str(home / ".volta" / "bin"),
-    ]:
+    platform = platform or sys.platform
+    dirs = safe_path_dirs(env.get("PATH", ""), platform)
+    if platform == "win32":
+        extras = [*safe_path_dirs(login_path() or "", platform), *windows_node_dirs(env, home)]
+    else:
+        extras = [
+            *safe_path_dirs(login_path() or "", platform),
+            str(home / ".homebrew" / "bin"),
+            *SYSTEM_BIN_DIRS,
+            *nvm_dirs(home, env),
+            str(home / ".volta" / "bin"),
+        ]
+    for extra in extras:
         if extra not in dirs:
             dirs.append(extra)
     return dirs
@@ -361,22 +498,60 @@ def npm_search_dirs(
 def find_npm(
     env: Mapping[str, str] | None = None,
     home: Path | None = None,
-    login_path: Callable[[], str | None] = login_shell_path,
+    login_path: Callable[[], str | None] = system_login_path,
+    platform: str | None = None,
 ) -> Path | None:
-    """`npm` absolu dont le dossier contient aussi `node` (npm est un script `node`), ou None."""
+    """`npm` absolu dont le dossier contient aussi `node` (npm est un script `node`), ou None.
+
+    Windows : `npm.cmd` (ou le `npm.exe` de Volta) à côté de `node.exe`.
+    """
     env = os.environ if env is None else env
-    for folder in npm_search_dirs(env, home or Path.home(), login_path):
-        npm, node = Path(folder) / "npm", Path(folder) / "node"
+    platform = platform or sys.platform
+    for folder in npm_search_dirs(env, home or Path.home(), login_path, platform):
+        base = Path(folder)
+        if platform == "win32":
+            node = base / "node.exe"
+            npm = next((base / n for n in ("npm.cmd", "npm.exe") if (base / n).is_file()), None)
+            if npm is not None and node.is_file():
+                return npm
+            continue
+        npm, node = base / "npm", base / "node"
         if npm.is_file() and os.access(npm, os.X_OK) and node.is_file() and os.access(node, os.X_OK):
             return npm
     return None
+
+
+def app_python(executable: str, platform: str | None = None) -> str:
+    """Interpréteur de l'application : sous Windows, `python.exe` à la place de `pythonw.exe` (même environnement).
+
+    Le raccourci lance `pythonw.exe` (sans console) ; `install.ps1` et le tampon utilisent `python.exe` : sans cette
+    correspondance, le premier lancement réinstallerait les dépendances Python pour rien.
+    """
+    if (platform or sys.platform) != "win32":
+        return executable
+    path = Path(executable)
+    if path.name.lower() == "pythonw.exe":
+        console = path.with_name("python.exe")
+        if console.is_file():
+            return str(console)
+    return executable
 
 
 # --- Exécution bornée et journalisée ---------------------------------------------------------------
 
 
 def _stop_group(proc: subprocess.Popen[bytes], grace: float = 5.0) -> None:
-    """SIGTERM au groupe du processus (enfants compris), puis SIGKILL après `grace` secondes."""
+    """SIGTERM au groupe du processus (enfants compris), puis SIGKILL après `grace` secondes.
+
+    Windows : `taskkill /T /F` arrête l'arbre des processus (npm.cmd → node → esbuild…).
+    """
+    if WINDOWS:
+        _taskkill(proc.pid)
+        with contextlib.suppress(OSError):
+            proc.kill()
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            proc.wait(grace)
+        return
 
     def send(sig: int) -> None:
         if os.name == "posix":
@@ -393,6 +568,19 @@ def _stop_group(proc: subprocess.Popen[bytes], grace: float = 5.0) -> None:
         send(getattr(signal, "SIGKILL", signal.SIGTERM))
         with contextlib.suppress(subprocess.TimeoutExpired):
             proc.wait(grace)
+
+
+def _taskkill(pid: int) -> None:
+    root = os.environ.get("SystemRoot") or r"C:\Windows"
+    with contextlib.suppress(OSError, subprocess.SubprocessError):
+        subprocess.run(  # noqa: S603 — exécutable système, identifiant de processus entier
+            [str(Path(root) / "System32" / "taskkill.exe"), "/PID", str(int(pid)), "/T", "/F"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+            creationflags=CREATE_NO_WINDOW,
+        )
 
 
 class Runner(Protocol):
@@ -426,7 +614,7 @@ def run_logged(
                 stdin=subprocess.DEVNULL,
                 stdout=sink,
                 stderr=subprocess.STDOUT,
-                start_new_session=os.name == "posix",
+                **_spawn_options(),
             )
         except OSError as exc:
             sink.write(f"Lancement impossible : {exc}\n".encode())
@@ -448,16 +636,25 @@ def run_logged(
         return code
 
 
-def log_path(platform: str | None = None, home: Path | None = None, env: Mapping[str, str] | None = None) -> Path:
-    """Journal de la mise à jour : `~/Library/Logs/Atelier Viz/mise-a-jour.log` sur macOS."""
+def logs_dir(platform: str | None = None, home: Path | None = None, env: Mapping[str, str] | None = None) -> Path:
+    """Dossier des journaux de l'application de bureau, selon le système (docs/SUITE.md §9.2).
+
+    macOS `~/Library/Logs/Atelier Viz/` ; Windows `%LOCALAPPDATA%\\Atelier Viz\\Logs\\` ;
+    Linux `$XDG_STATE_HOME/atelier-viz/` (`~/.local/state/atelier-viz/`).
+    """
     platform = platform or sys.platform
     home = home or Path.home()
     env = os.environ if env is None else env
     if platform == "darwin":
-        return home / "Library" / "Logs" / "Atelier Viz" / LOG_NAME
+        return home / "Library" / "Logs" / APP_NAME
     if platform == "win32":
-        return Path(env.get("LOCALAPPDATA") or home / "AppData" / "Local") / "Atelier Viz" / LOG_NAME
-    return Path(env.get("XDG_STATE_HOME") or home / ".local" / "state") / "atelier-viz" / LOG_NAME
+        return Path(env.get("LOCALAPPDATA") or home / "AppData" / "Local") / APP_NAME / "Logs"
+    return Path(env.get("XDG_STATE_HOME") or home / ".local" / "state") / "atelier-viz"
+
+
+def log_path(platform: str | None = None, home: Path | None = None, env: Mapping[str, str] | None = None) -> Path:
+    """Journal de la mise à jour : `mise-a-jour.log` dans `logs_dir()`."""
+    return logs_dir(platform, home, env) / LOG_NAME
 
 
 def _rotate(log: Path) -> None:
@@ -540,13 +737,15 @@ class Updater:
     """
 
     repo: Path = ROOT
-    python: str = sys.executable
+    python: str = field(default_factory=lambda: app_python(sys.executable))
     log: Path = field(default_factory=log_path)
     runner: Runner = run_logged
     npm_finder: Callable[[], Path | None] = find_npm
     git: str | None = field(default_factory=find_git)
     env: Mapping[str, str] = field(default_factory=lambda: dict(os.environ))
     lock_timeout: float = 30 * 60.0
+    done: set[Step] = field(default_factory=set)
+    """Étapes déjà faites par ce processus (Windows : `pip` avant l'ouverture de la fenêtre)."""
 
     @property
     def front(self) -> Path:
@@ -569,8 +768,21 @@ class Updater:
         state = repo_state(self.repo, self.python, self.git)
         return Plan(state, plan_steps(self.repo, state, read_stamp(self.stamp_path)))
 
-    def run(self, on_status: StatusCallback = lambda label, index, total: None) -> UpdateResult:
-        """Exécute les étapes nécessaires sous verrou ; le tampon n'est écrit qu'après un succès complet."""
+    def run(
+        self, on_status: StatusCallback = lambda label, index, total: None, *, only: Collection[Step] | None = None
+    ) -> UpdateResult:
+        """Exécute les étapes nécessaires sous verrou ; le tampon n'est écrit qu'après un succès complet.
+
+        `only` : seulement ces étapes (si nécessaires), sans écrire le tampon ; une étape ainsi réussie n'est pas
+        refaite par l'appel complet suivant du même `Updater` (`done`, vidé après chaque appel complet).
+        """
+        try:
+            return self._run(on_status, only)
+        finally:
+            if only is None:
+                self.done.clear()
+
+    def _run(self, on_status: StatusCallback, only: Collection[Step] | None) -> UpdateResult:
         _rotate(self.log)
         waiting = "Une autre mise à jour d'Atelier Viz est en cours, patientez…"
         with update_lock(self.lock_path, self.lock_timeout, lambda: on_status(waiting, 0, 0)) as acquired:
@@ -582,7 +794,8 @@ class Updater:
                     previous_available=self.previous_available(),
                     log=str(self.log),
                 )
-            steps = self.plan().steps  # relu sous verrou : une autre instance a peut-être tout fait
+            planned = self.plan().steps  # relu sous verrou : une autre instance a peut-être tout fait
+            steps = tuple(s for s in planned if s not in self.done and (only is None or s in only))
             if steps:
                 self._note(f"mise à jour : {', '.join(steps)} (dépôt {self.repo}, Python {self.python})")
             for index, step in enumerate(steps, start=1):
@@ -599,7 +812,8 @@ class Updater:
                         previous_available=self.previous_available(),
                         log=str(self.log),
                     )
-            if steps:
+                self.done.add(step)
+            if planned and only is None:
                 write_stamp(self.stamp_path, repo_state(self.repo, self.python, self.git))
                 self._note("mise à jour réussie")
             return UpdateResult(ok=True, steps=steps, previous_available=True, log=str(self.log))
@@ -637,12 +851,13 @@ class Updater:
     def _npm(self) -> tuple[Path, dict[str, str]]:
         npm = self.npm_finder()
         if npm is None:
+            how = "« winget install OpenJS.NodeJS.LTS »" if WINDOWS else "« brew install node »"
             raise _StepFailed(
-                "Node.js (npm) est introuvable. Installez Node.js (https://nodejs.org ou « brew install node »), "
+                f"Node.js (npm) est introuvable. Installez Node.js (https://nodejs.org ou {how}), "
                 "puis relancez l'application."
             )
         env = self._base_env()
-        # Dossier de npm en tête : `npm` est un script `#!/usr/bin/env node`.
+        # Dossier de npm en tête : `npm` est un script `#!/usr/bin/env node` (Windows : `npm.cmd` appelle `node.exe`).
         env["PATH"] = os.pathsep.join([str(npm.parent), *safe_path_dirs(env.get("PATH", ""))])
         return npm, env
 
@@ -664,33 +879,148 @@ class Updater:
         """`npm run build` dans `frontend/.dist-next`, puis remplacement de `frontend/dist` (gardé en cas d'échec)."""
         npm, env = self._npm()
         nxt, old, dist = self.front / NEXT_DIST, self.front / OLD_DIST, self.front / "dist"
-        for leftover in (nxt, old):
-            shutil.rmtree(leftover, ignore_errors=True)
+        for leftover in (nxt, *self.front.glob(f"{OLD_DIST}*")):
+            remove_tree(leftover)
         # Le script `build` se termine par `vite build` : les options suivantes lui reviennent (chemin relatif).
         cmd = [str(npm), "run", "build", "--", "--outDir", NEXT_DIST, "--emptyOutDir"]
         try:
             self._exec("build", cmd, self.front, env, "La compilation de l'interface")
             if not (nxt / "index.html").is_file():
                 raise _StepFailed("La compilation de l'interface n'a pas produit index.html.")
+            try:
+                replace_dir(nxt, dist, old)
+            except OSError as exc:
+                self._note(f"remplacement de frontend/dist impossible : {exc}")
+                raise _StepFailed(
+                    "L'interface compilée n'a pas pu remplacer la précédente (fichiers utilisés par un autre "
+                    "programme : une autre fenêtre d'Atelier Viz ?). Fermez-le : la mise à jour sera terminée au "
+                    "prochain lancement."
+                ) from exc
         except _StepFailed:
-            shutil.rmtree(nxt, ignore_errors=True)
+            remove_tree(nxt)
             raise
-        replace_dir(nxt, dist, old)
 
 
-def replace_dir(new: Path, target: Path, aside: Path) -> None:
-    """Remplace `target` par `new` (deux renommages dans le même dossier ; `target` restauré en cas d'échec)."""
+def _retrying(action: Callable[[], None], attempts: int, delay: float) -> None:
+    """Réessaie une opération refusée par Windows parce qu'un fichier est ouvert (PermissionError)."""
+    for attempt in range(1, max(1, attempts) + 1):
+        try:
+            action()
+            return
+        except PermissionError:
+            if attempt >= attempts:
+                raise
+            time.sleep(delay)
+
+
+def remove_tree(path: Path) -> None:
+    """Supprime un dossier sans lever d'erreur (Windows : fichiers en lecture seule rendus inscriptibles)."""
+
+    def writable(func: Callable[..., Any], target: str, _exc: object) -> None:
+        with contextlib.suppress(OSError):
+            os.chmod(target, stat.S_IWRITE)
+            func(target)
+
+    if not path.exists():
+        return
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=writable)
+    else:  # pragma: no cover — Python 3.11
+        shutil.rmtree(path, onerror=writable)
+
+
+def replace_dir(new: Path, target: Path, aside: Path, *, attempts: int = REPLACE_ATTEMPTS, delay: float = 0.5) -> None:
+    """Remplace `target` par `new` (deux renommages dans le même dossier ; `target` restauré en cas d'échec).
+
+    Windows (docs/SUITE.md §9.3) : un dossier dont un fichier est ouvert ne peut pas être renommé ; chaque
+    renommage est réessayé (`attempts` fois). Un `aside` resté d'une fois précédente (encore verrouillé) est
+    contourné par un nom unique.
+    """
+    remove_tree(aside)
+    if aside.exists():
+        aside = aside.with_name(f"{aside.name}-{os.getpid()}-{int(time.time())}")
     moved = False
     if target.exists():
-        os.replace(target, aside)
+        _retrying(lambda: os.replace(target, aside), attempts, delay)
         moved = True
     try:
-        os.replace(new, target)
+        _retrying(lambda: os.replace(new, target), attempts, delay)
     except OSError:
         if moved:
-            os.replace(aside, target)
+            _retrying(lambda: os.replace(aside, target), attempts, delay)
         raise
-    shutil.rmtree(aside, ignore_errors=True)
+    remove_tree(aside)
+
+
+# --- Variables héritées d'une autre application (docs/SUITE.md §9.4) -------------------------------
+
+FOREIGN_ENV = frozenset(
+    {
+        # Réglages génériques d'Atelier Viz (app/core/config.py) qu'une autre application pourrait définir pour
+        # elle-même : ils désigneraient ses données, son interface, ses hôtes… Ceux de Viz viennent de backend/.env.
+        "APP_NAME",
+        "APP_ENV",
+        "CORS_ORIGINS",
+        "ALLOWED_HOSTS",
+        "DATA_DIR",
+        "MAX_UPLOAD_MB",
+        "FRONTEND_DIST",
+        "SERVE_FRONTEND",
+        "SAMPLES_DIR",
+        "SECRETS_BACKEND",
+        "ATELIER_HOME",  # paquet autonome
+        # Mise à jour : npm ci sans devDependencies (NODE_ENV=production), modules Python d'une autre app.
+        # NODE_OPTIONS, NODE_EXTRA_CA_CERTS, npm_config_*proxy* sont gardés : réglages réseau de l'utilisateur.
+        "NODE_ENV",
+        "NPM_CONFIG_PRODUCTION",
+        "NPM_CONFIG_OMIT",
+        "NPM_CONFIG_ONLY",
+        "NPM_CONFIG_INCLUDE",
+        "NPM_CONFIG_GLOBAL",
+        "NPM_CONFIG_PREFIX",
+        "NPM_CONFIG_LOCAL_PREFIX",
+        "PYTHONPATH",
+        "PYTHONHOME",
+    }
+)
+"""Variables ignorées au lancement de l'application de bureau (comparées sans tenir compte de la casse)."""
+
+FOREIGN_ENV_PREFIXES = ("NPM_LIFECYCLE_", "NPM_PACKAGE_")
+"""Contexte d'un script npm d'une autre application (`npm run …` qui aurait lancé Viz)."""
+
+KEPT_ENV_PREFIXES = (
+    "OLLAMA_",
+    "CLAUDE_",
+    "ANTHROPIC_",
+    "AI_",
+    "CONNECTOR_",
+    "SHAREPOINT_",
+    "ATELIER_TAB_",
+    "ATELIER_PROJETS_",
+    "ATELIER_REPORT_",
+    "SCHEDULER_",
+    "SYSTEM_NOTIFICATIONS",
+    "GITHUB_TOKEN",
+)
+"""Réglages propres à Viz (préfixe explicite) gardés : tout nouveau réglage relève de l'un ou de `FOREIGN_ENV`."""
+
+
+def foreign_env_names(env: Mapping[str, str]) -> list[str]:
+    """Noms des variables de `env` à ignorer au lancement de l'application de bureau (`FOREIGN_ENV`, contexte npm).
+
+    Les réglages réseau de l'utilisateur (`NODE_OPTIONS`, `NODE_EXTRA_CA_CERTS`, `npm_config_https_proxy`,
+    `npm_config_registry`…) restent : sans eux, `npm ci` échouerait derrière un proxy d'entreprise.
+    """
+    return sorted(k for k in env if k.upper() in FOREIGN_ENV or k.upper().startswith(FOREIGN_ENV_PREFIXES))
+
+
+def scrub_inherited_env(env: MutableMapping[str, str] | None = None) -> list[str]:
+    """Retire de `env` (défaut : `os.environ`) les variables héritées d'une autre application ; noms retirés."""
+    env = os.environ if env is None else env
+    names = foreign_env_names(env)
+    for key in names:
+        env.pop(key, None)
+    return names
 
 
 # --- Préférences (lues sans dépendance) ------------------------------------------------------------
@@ -723,6 +1053,13 @@ def online_mode(data_dir: Path) -> bool:
 # --- Ligne de commande -----------------------------------------------------------------------------
 
 
+def _safe_console() -> None:
+    """Sortie console tolérante : un caractère hors de la page de code (Windows, sortie redirigée) ne plante pas."""
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError):
+            stream.reconfigure(errors="replace")  # type: ignore[union-attr]
+
+
 def _console_status(label: str, index: int, total: int) -> None:
     prefix = f"{index}/{total} · " if total else ""
     print(f"{prefix}{label}", flush=True)
@@ -741,6 +1078,8 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--plan", action="store_true", help="afficher les étapes nécessaires")
     parser.add_argument("--depot", type=Path, default=ROOT, help="racine du dépôt (défaut : celui de ce fichier)")
     opts = parser.parse_args(args)
+    _safe_console()
+    scrub_inherited_env()
     updater = Updater(repo=opts.depot.resolve())
     if opts.plan:
         print(" ".join(updater.plan().steps) or "ok")
