@@ -306,6 +306,15 @@ def write_stamp(path: Path, state: RepoState) -> None:
     os.replace(tmp, path)
 
 
+def forget_stamp(repo: Path = ROOT) -> None:
+    """Oublie la dernière mise à jour réussie : le lancement suivant refait tout ce qui manque (pip compris).
+
+    Appelé quand l'application ne trouve pas ses modules Python (environnement recréé ou abîmé).
+    """
+    with contextlib.suppress(OSError):
+        (repo / "backend" / STAMP_NAME).unlink()
+
+
 def plan_steps(repo: Path, state: RepoState, stamp: RepoState | None) -> tuple[Step, ...]:
     """Étapes nécessaires (vide : tout est à jour), dans l'ordre d'exécution."""
     front = repo / "frontend"
@@ -533,8 +542,9 @@ def app_python(executable: str, platform: str | None = None) -> str:
     if path.name.lower() == "pythonw.exe":
         console = path.with_name("python.exe")
         if console.is_file():
-            return str(console)
-    return executable
+            path = console
+    # Casse et séparateurs uniformes (C:\ ou c:\, / ou \) : le tampon compare des chaînes.
+    return os.path.normcase(str(path)) if os.name == "nt" else str(path)
 
 
 # --- Exécution bornée et journalisée ---------------------------------------------------------------

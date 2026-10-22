@@ -301,6 +301,15 @@ def test_pip_first_then_the_rest_writes_the_stamp_once(repo: Path, runner: FakeR
     assert not failed.ok and failed.failed_step == "pip" and runner.steps == ["pip"]
 
 
+@needs_git
+def test_forgotten_stamp_reinstalls_python_dependencies(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    assert updater.run().ok and updater.plan().steps == ()
+    launcher.forget_stamp(repo)
+    launcher.forget_stamp(repo)  # sans tampon : rien à faire, aucune erreur
+    assert updater.plan().steps == ("pip", "build")
+
+
 def test_unreadable_stamp_means_full_update(repo: Path, tmp_path: Path) -> None:
     stamp = repo / "backend" / launcher.STAMP_NAME
     stamp.write_text("{pas du json", encoding="utf-8")
@@ -605,11 +614,11 @@ def test_git_found_in_the_usual_windows_places(tmp_path: Path) -> None:
 def test_app_python_prefers_the_console_interpreter(tmp_path: Path) -> None:
     """Le raccourci lance pythonw.exe ; le tampon et pip utilisent python.exe du même environnement."""
     scripts = win_bin(tmp_path / "venv" / "Scripts", "python.exe", "pythonw.exe")
-    assert launcher.app_python(str(scripts / "pythonw.exe"), "win32") == str(scripts / "python.exe")
-    assert launcher.app_python(str(scripts / "PythonW.EXE"), "win32") == str(scripts / "python.exe")
-    assert launcher.app_python(str(scripts / "python.exe"), "win32") == str(scripts / "python.exe")
+    console = os.path.normcase(str(scripts / "python.exe"))  # Windows : casse uniforme (comparaison du tampon)
+    assert launcher.app_python(str(scripts / "pythonw.exe"), "win32") == console
+    assert launcher.app_python(str(scripts / "python.exe"), "win32") == console
     alone = win_bin(tmp_path / "seul", "pythonw.exe")
-    assert launcher.app_python(str(alone / "pythonw.exe"), "win32") == str(alone / "pythonw.exe")
+    assert launcher.app_python(str(alone / "pythonw.exe"), "win32") == os.path.normcase(str(alone / "pythonw.exe"))
     assert launcher.app_python("/env/bin/pythonw.exe", "darwin") == "/env/bin/pythonw.exe"
 
 

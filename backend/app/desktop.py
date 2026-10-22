@@ -733,36 +733,53 @@ def launch() -> tuple[str, ServerThread | None, str | None, Path | None]:
         url, server, error = prepare(settings)
     except ImportError as exc:
         log.exception("Modules Python manquants")
+        launcher.forget_stamp()  # environnement Python incomplet : pip sera refait au prochain lancement
         missing = f" ({exc.name})" if exc.name else ""
         message = f"Des modules Python manquent{missing}. Relancez l'application : la mise à jour sera retentée."
         return "", None, message, None
     return url, server, error, settings.frontend_dist
 
 
-def set_windows_icon(window: Any, ico: Path = WINDOWS_ICON) -> bool:
-    """Windows : icône d'Atelier Viz sur la fenêtre et dans la barre des tâches (sinon celle de Python).
+def window_icon(platform: str | None = None) -> str | None:
+    """Icône de la fenêtre : `.ico` sous Windows (WinForms n'accepte que ce format), PNG ailleurs."""
+    icon = WINDOWS_ICON if (platform or sys.platform) == "win32" else ICON
+    return str(icon) if icon.is_file() else None
 
-    pywebview (WinForms) prend l'icône de l'exécutable, `pythonw.exe` ; on pose celle de l'app sur le formulaire,
-    depuis le fil de l'interface (`BeginInvoke`). Sans effet ailleurs ou en cas d'échec.
+
+WEBVIEW2_CLIENT = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+"""Identifiant du runtime Microsoft Edge WebView2 dans les clés EdgeUpdate."""
+
+
+def webview2_available(read: Callable[[str, str], str | None] | None = None) -> bool:
+    """Windows : vrai si le runtime WebView2 est installé (version ≥ 86, comme pywebview).
+
+    Sans lui, pywebview se rabat sur l'ancien moteur d'Internet Explorer, incapable d'afficher l'interface :
+    l'application s'ouvre alors dans le navigateur par défaut. `read(ruche, clé)` → valeur `pv`, injectable.
     """
-    if sys.platform != "win32" or not ico.is_file():
-        return False
+    read = read or _registry_pv
+    for hive, key in (
+        ("HKEY_CURRENT_USER", rf"SOFTWARE\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_CLIENT}"),
+        ("HKEY_LOCAL_MACHINE", rf"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_CLIENT}"),
+        ("HKEY_LOCAL_MACHINE", rf"SOFTWARE\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_CLIENT}"),
+    ):
+        version = read(hive, key) or ""
+        major = version.split(".")[0]
+        if major.isdigit() and int(major) >= 86:
+            return True
+    return False
+
+
+def _registry_pv(hive: str, key: str) -> str | None:
+    if sys.platform != "win32":
+        return None
+    import winreg
+
     try:
-        from System import Action  # type: ignore[import-not-found]  # pythonnet, chargé par pywebview
-        from System.Drawing import Icon  # type: ignore[import-not-found]
-
-        form = window.native
-        form.BeginInvoke(Action(lambda: setattr(form, "Icon", Icon(str(ico)))))
-    except Exception:  # noqa: BLE001 — simple confort visuel
-        log.debug("Icône de fenêtre non appliquée.", exc_info=True)
-        return False
-    return True
-
-
-def _watch_icon(window: Any) -> None:
-    shown = getattr(getattr(window, "events", None), "shown", None)
-    if sys.platform == "win32" and shown is not None:
-        shown += lambda: set_windows_icon(window)
+        with winreg.OpenKey(getattr(winreg, hive), key) as handle:
+            value, _ = winreg.QueryValueEx(handle, "pv")
+    except OSError:
+        return None
+    return str(value)
 
 
 def _window_options() -> dict[str, Any]:
@@ -824,6 +841,10 @@ def run(
                 updater = candidate
                 offline = not launcher.online_mode(launcher.local_data_dir(Path.cwd()))
 
+    if not args.browser and sys.platform == "win32" and not webview2_available():
+        log.warning("WebView2 absent : navigateur utilisé (winget install Microsoft.EdgeWebView2Runtime).")
+        args.browser = True
+
     first: launcher.UpdateResult | None = None
     if updater is not None and not args.browser and pip_before_window(steps):
         first = python_first(updater)  # avant d'importer pywebview (fichiers chargés non remplaçables)
@@ -873,7 +894,7 @@ def _run_window(webview: Any, updater: launcher.Updater | None, offline: bool) -
     api.save_dialog = webview.FileDialog.SAVE
     webview.settings["ALLOW_DOWNLOADS"] = True
     webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = True
-    icon = str(ICON) if ICON.is_file() else None
+    icon = window_icon()
     servers: list[ServerThread] = []
     outcome = {"code": 0}
     try:
@@ -889,7 +910,6 @@ def _run_window(webview: Any, updater: launcher.Updater | None, offline: bool) -
                 **_window_options(),
             )
             api.window = window
-            _watch_icon(window)
             outcome["code"] = 1 if error else 0
             boot: Callable[[], None] | None = None
         else:
@@ -897,7 +917,6 @@ def _run_window(webview: Any, updater: launcher.Updater | None, offline: bool) -
             api._update = session
             window = webview.create_window(APP_NAME, html=splash_page(), js_api=api, **_window_options())
             api.window = window
-            _watch_icon(window)
             closed = threading.Event()
 
             def on_closed() -> None:

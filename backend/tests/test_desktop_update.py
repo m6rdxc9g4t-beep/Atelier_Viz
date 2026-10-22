@@ -292,7 +292,10 @@ def test_missing_python_modules_are_reported(monkeypatch: pytest.MonkeyPatch) ->
         raise ModuleNotFoundError("No module named 'rich'", name="rich")
 
     monkeypatch.setattr(desktop, "get_settings", broken)
+    forgotten: list[bool] = []
+    monkeypatch.setattr(launcher, "forget_stamp", lambda: forgotten.append(True))
     url, server, error, dist = desktop.launch()
+    assert forgotten == [True]  # la mise à jour (pip) sera vraiment retentée
     assert server is None and dist is None and error is not None
     assert "(rich)" in error and "Relancez l'application" in error
 
@@ -415,3 +418,25 @@ def test_log_file_and_error_page_hint_per_platform(tmp_path: Path) -> None:
     win = desktop.app_log_file("win32", tmp_path)
     assert win.parts[-3:] == ("Atelier Viz", "Logs", "atelier-viz.log")
     assert "atelier-viz.log" in desktop.error_page("x")
+
+
+def test_webview2_detection_and_window_icon() -> None:
+    """Sans WebView2 (≥ 86), pywebview afficherait l'interface avec l'ancien moteur d'IE : navigateur à la place."""
+    found = {("HKEY_LOCAL_MACHINE", rf"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{desktop.WEBVIEW2_CLIENT}")}
+    assert desktop.webview2_available(lambda hive, key: "131.0.2903.70" if (hive, key) in found else None)
+    assert desktop.webview2_available(lambda hive, key: "0.0.0.0") is False
+    assert desktop.webview2_available(lambda hive, key: None) is False
+    assert desktop.webview2_available(lambda hive, key: "85.0.1") is False
+    # WinForms n'accepte qu'une icône .ico (le PNG de macOS ferait échouer la fenêtre).
+    assert (desktop.window_icon("win32") or "").endswith("atelier-viz.ico")
+    assert (desktop.window_icon("darwin") or "").endswith("icon.png")
+
+
+def test_windows_without_webview2_opens_in_the_browser(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened: list[str] = []
+    monkeypatch.setattr(desktop.sys, "platform", "win32")
+    monkeypatch.setattr(desktop, "webview2_available", lambda: False)
+    monkeypatch.setattr(desktop, "_run_browser", lambda: opened.append("navigateur") or 0)
+    monkeypatch.setattr(desktop, "_run_window", lambda *a: pytest.fail("pas de fenêtre sans WebView2"))
+    monkeypatch.setitem(sys.modules, "webview", SimpleNamespace())
+    assert desktop.run([]) == 0 and opened == ["navigateur"]
