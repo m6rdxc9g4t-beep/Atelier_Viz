@@ -141,10 +141,10 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "install.ps1 : erreur de syntaxe ($exe)" }
           }
 
-      - name: Installation (PowerShell 5.1, sans raccourci de Bureau)
+      - name: Installation (PowerShell 5.1, Python trouvé par « py -3 », sans raccourci de Bureau)
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -SansBureau `
-            -Python "${{ steps.python.outputs.python-path }}" -DossierRaccourcis $env:RACCOURCIS *>&1 |
+            -DossierRaccourcis $env:RACCOURCIS *>&1 |
             Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'journaux\install.log')
           if ($LASTEXITCODE -ne 0) { throw "install.ps1 a échoué ($LASTEXITCODE)" }
 
@@ -203,14 +203,18 @@ jobs:
           git status --porcelain
           if (git status --porcelain) { throw 'le dépôt paraît modifié (fins de ligne ?)' }
 
-      - name: Réparation (PowerShell 7) puis désinstallation (données conservées)
+      - name: Réparation avec un autre Python (PowerShell 7) puis désinstallation (données conservées)
         run: |
           $ErrorActionPreference = 'Stop'
           $app = Join-Path $env:LOCALAPPDATA 'Atelier Viz'
-          pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -SansBureau -DossierRaccourcis $env:RACCOURCIS *>&1 |
+          # -Python : environnement recréé à partir de ce Python, dépendances réinstallées (tampon oublié).
+          pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -SansBureau `
+            -Python "${{ steps.python.outputs.python-path }}" -DossierRaccourcis $env:RACCOURCIS *>&1 |
             Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'journaux\reparation.log')
           if ($LASTEXITCODE -ne 0) { throw "réparation en échec ($LASTEXITCODE)" }
-          if ((& (Join-Path $app 'venv\Scripts\python.exe') backend\app\launcher.py --plan) -ne 'ok') { throw 'la réparation ne doit rien refaire' }
+          $version = & (Join-Path $app 'venv\Scripts\python.exe') -c "import sys; print('%d.%d' % sys.version_info[:2])"
+          if ($version -ne '3.12') { throw "l'environnement devait être recréé avec Python 3.12 : $version" }
+          if ((& (Join-Path $app 'venv\Scripts\python.exe') backend\app\launcher.py --plan) -ne 'ok') { throw 'après la réparation, rien ne doit rester à faire' }
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -Desinstaller -DossierRaccourcis $env:RACCOURCIS *>&1 |
             Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'journaux\desinstallation.log')
           if ($LASTEXITCODE -ne 0) { throw "désinstallation en échec ($LASTEXITCODE)" }
