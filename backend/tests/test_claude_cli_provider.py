@@ -2,7 +2,10 @@
 
 import asyncio
 import json
+import os
 import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -141,6 +144,11 @@ def _exe(folder, name: str = "claude"):  # type: ignore[no-untyped-def]
     return path
 
 
+posix_only = pytest.mark.skipif(sys.platform == "win32", reason="chemins et exécutables POSIX")
+windows_only = pytest.mark.skipif(sys.platform != "win32", reason="Windows seulement")
+
+
+@posix_only
 def test_find_claude_cli_order(tmp_path) -> None:
     """CLAUDE_CLI (absolu), puis l'exécutable configuré, puis le PATH, puis les dossiers d'installation."""
     import os
@@ -160,6 +168,7 @@ def test_find_claude_cli_order(tmp_path) -> None:
     assert find_claude_cli("claude", env={"PATH": path}, fallback_dirs=()) == str(in_path)
 
 
+@posix_only
 def test_find_claude_cli_refuses_relative_paths_and_node_modules(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Chemin relatif refusé, entrées relatives du PATH et dossiers node_modules/.bin ignorés (§5.3)."""
     from app.services.ai.claude_cli import find_claude_cli
@@ -178,6 +187,7 @@ def test_find_claude_cli_refuses_relative_paths_and_node_modules(tmp_path, monke
     assert find_claude_cli("claude", env={"PATH": path}, fallback_dirs=()) == str(good)
 
 
+@posix_only
 def test_find_claude_cli_falls_back_to_install_dirs(tmp_path) -> None:
     """Application lancée depuis le Finder : PATH minimal, la CLI est dans ~/.local/bin ou Homebrew."""
     from app.services.ai.claude_cli import find_claude_cli
@@ -192,6 +202,48 @@ def test_find_claude_cli_falls_back_to_install_dirs(tmp_path) -> None:
     dirs = (str(empty), str(local), str(brew))
     assert find_claude_cli("claude", env={}, which=lambda _: None, fallback_dirs=dirs) == str(exe)
     assert find_claude_cli("claude", env={}, which=lambda _: None, fallback_dirs=dirs[:2]) is None
+
+
+@windows_only
+def test_find_claude_cli_on_windows_only_accepts_exe(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows : claude.exe seulement (un .cmd ferait passer le prompt système par cmd.exe), PATH puis ~/.local/bin."""
+    from app.services.ai.claude_cli import find_claude_cli
+
+    shim = tmp_path / "npm"
+    shim.mkdir()
+    (shim / "claude.cmd").write_text("@echo off\n")
+    assert find_claude_cli("claude", env={"PATH": str(shim)}, fallback_dirs=()) is None
+    assert find_claude_cli(str(shim / "claude.cmd"), env={"PATH": ""}, fallback_dirs=()) is None
+    native = tmp_path / "Fran\u00e7ois" / ".local" / "bin"
+    native.mkdir(parents=True)
+    (native / "claude.exe").write_bytes(b"MZ")
+    assert find_claude_cli("claude", env={"PATH": f"relatif;{shim};{native}"}, fallback_dirs=()) == str(
+        native / "claude.exe"
+    )
+    assert find_claude_cli("claude", env={"PATH": ""}, fallback_dirs=(str(native),)) == str(native / "claude.exe")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Fran\u00e7ois"))
+    dirs = ("%LOCALAPPDATA%/.local/bin",)
+    assert find_claude_cli("claude", env={"PATH": ""}, fallback_dirs=dirs) == str(native / "claude.exe")
+
+
+@windows_only
+def test_cli_environment_on_windows_keeps_the_system_variables() -> None:
+    from app.services.ai.claude_cli import cli_environment
+
+    source = {
+        "USERPROFILE": r"C:\Users\Fran\u00e7ois",
+        "APPDATA": r"C:\Users\Fran\u00e7ois\AppData\Roaming",
+        "SYSTEMROOT": r"C:\Windows",
+        "TEMP": r"C:\Temp",
+        "PATH": r"C:\Windows\system32;relatif",
+        "ANTHROPIC_API_KEY": "sk-secret",
+        "GITHUB_TOKEN": "ghp_secret",
+        "DATA_DIR": r"C:\depot\backend\data",
+    }
+    env = cli_environment(r"C:\Users\Fran\u00e7ois\.local\bin\claude.exe", source)
+    assert {"USERPROFILE", "APPDATA", "SYSTEMROOT", "TEMP", "PATH"} <= set(env)
+    assert not {"ANTHROPIC_API_KEY", "GITHUB_TOKEN", "DATA_DIR"} & set(env)
+    assert env["PATH"].split(";") == [r"C:\Users\Fran\u00e7ois\.local\bin", r"C:\Windows\system32"]
 
 
 def test_claude_cli_env_variable_is_read_by_settings(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -258,6 +310,7 @@ def test_model_follows_user_choice() -> None:
 # --- Environnement en liste blanche, sortie bornée, arrêt forcé (docs/SUITE.md §5.3) ---
 
 
+@posix_only
 def test_cli_environment_is_an_exact_allow_list() -> None:
     from app.services.ai.claude_cli import cli_environment
 
@@ -299,7 +352,7 @@ def test_provider_passes_the_allow_list_to_the_cli(monkeypatch: pytest.MonkeyPat
     asyncio.run(ClaudeCliProvider(executable="/x/bin/claude", runner=runner).chat(MSG))
     env = runner.calls[0]["env"]
     assert "CLAUDE_CODE_USE_BEDROCK" not in env and "GITHUB_TOKEN" not in env
-    assert env["PATH"].split(":")[0] == "/x/bin"
+    assert env["PATH"].split(os.pathsep)[0] == str(Path("/x/bin/claude").parent)
 
 
 def test_json_schema_argument_never_carries_data_enums() -> None:
@@ -330,7 +383,8 @@ def test_run_bounded_returns_output_and_reads_stdin() -> None:
     from app.services.ai.claude_cli import run_bounded
 
     code = "import sys; data = sys.stdin.read(); print(data.upper()); print('erreur', file=sys.stderr)"
-    proc = run_bounded([sys.executable, "-c", code], input="données", timeout=20)
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}  # comme la CLI : UTF-8 sur les tubes (Windows aussi)
+    proc = run_bounded([sys.executable, "-c", code], input="données", timeout=20, env=env)
     assert proc.returncode == 0
     assert proc.stdout.strip() == "DONNÉES" and proc.stderr.strip() == "erreur"
 

@@ -22,9 +22,13 @@ Isolation de chaque appel (docs/SUITE.md §5.3) :
 Recherche de l'exécutable : `CLAUDE_CLI` (ou `CLAUDE_CLI_PATH`) en chemin absolu — un chemin relatif est
 refusé —, sinon le `PATH` (entrées absolues seulement, dossiers `node_modules/.bin` ignorés), puis
 `~/.local/bin`, `/opt/homebrew/bin` et `/usr/local/bin` — une application lancée depuis le Finder
-n'hérite pas du `PATH` du terminal. Disponibilité = exécutable trouvé et `claude auth status` réussi,
-mise en cache 60 s (avec la version) ; revérification forcée au plus toutes les 10 s. Une CLI introuvable
-est recherchée de nouveau au plus toutes les 60 s (installée après le lancement).
+n'hérite pas du `PATH` du terminal. Sous Windows : `claude.exe` seulement (jamais un `.cmd` : ses arguments
+passeraient par l'interpréteur `cmd.exe`), cherché dans le `PATH`, `~/.local/bin` (installateur natif) et les
+liens de WinGet ; liste blanche complétée des variables indispensables à tout programme Windows
+(`SystemRoot`, `USERPROFILE`, `APPDATA`…, aucune donnée ni secret), processus lancé sans console.
+Disponibilité = exécutable trouvé et `claude auth status` réussi, mise en cache 60 s (avec la version) ;
+revérification forcée au plus toutes les 10 s. Une CLI introuvable est recherchée de nouveau au plus toutes les
+60 s (installée après le lancement).
 
 Le sous-processus est lancé dans un thread plutôt qu'avec `asyncio.create_subprocess_exec` :
 sous Windows, `uvicorn --reload` utilise une boucle d'événements qui ne gère pas les sous-processus asynchrones.
@@ -59,6 +63,10 @@ ROLE_LABELS = {"user": "Utilisateur", "assistant": "Assistant"}
 CLAUDE_MODELS = ["sonnet", "opus", "haiku"]
 """Alias proposés à l'utilisateur (docs/SUITE.md §5.2), Sonnet par défaut."""
 FALLBACK_DIRS = ("~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin")
+WINDOWS_FALLBACK_DIRS = ("~/.local/bin", "%LOCALAPPDATA%/Microsoft/WinGet/Links")
+"""Windows : installateur natif (`%USERPROFILE%\\.local\\bin\\claude.exe`), puis WinGet."""
+WINDOWS = os.name == "nt"
+CREATE_NO_WINDOW = 0x08000000
 STATUS_TTL_SECONDS = 60.0
 """Durée de vie de l'état en cache (`claude auth status`) et de l'absence d'exécutable."""
 FORCED_REFRESH_SECONDS = 10.0
@@ -70,6 +78,31 @@ KILL_GRACE_SECONDS = 3.0
 
 ENV_ALLOWED = frozenset({"HOME", "USER", "LOGNAME", "PATH", "SHELL", "LANG", "TMPDIR", "TZ", "CLAUDE_CONFIG_DIR"})
 """Variables transmises à la CLI (docs/SUITE.md §5.3), avec les `LC_*` ; rien d'autre."""
+WINDOWS_ENV_ALLOWED = frozenset(
+    {
+        "USERPROFILE",
+        "USERNAME",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "PROGRAMDATA",
+        "PROGRAMFILES",
+        "PROGRAMFILES(X86)",
+        "PROGRAMW6432",
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "WINDIR",
+        "COMSPEC",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "OS",
+        "PROCESSOR_ARCHITECTURE",
+        "NUMBER_OF_PROCESSORS",
+    }
+)
+"""Windows : variables du système indispensables à tout programme (dossiers, identité) ; ni donnée, ni secret."""
 
 
 def _is_node_bin(folder: str) -> bool:
@@ -83,7 +116,13 @@ def _has_separator(value: str) -> bool:
 
 
 def _executable_file(path: Path) -> bool:
+    if WINDOWS:  # un .cmd ou .bat passerait ses arguments (prompt système) par cmd.exe : refusé
+        return path.suffix.lower() == ".exe" and path.is_file()
     return path.is_file() and os.access(path, os.X_OK)
+
+
+def _windows_exe(folder: Path, name: str) -> Path:
+    return folder / (name if name.lower().endswith(".exe") else f"{name}.exe")
 
 
 def find_claude_cli(
@@ -91,7 +130,7 @@ def find_claude_cli(
     *,
     env: Mapping[str, str] | None = None,
     which: Callable[..., str | None] = shutil.which,
-    fallback_dirs: Sequence[str] = FALLBACK_DIRS,
+    fallback_dirs: Sequence[str] | None = None,
 ) -> str | None:
     """Chemin **absolu** de la CLI `claude`, ou None (docs/SUITE.md §5.3).
 
@@ -118,11 +157,19 @@ def find_claude_cli(
         if not folder or not os.path.isabs(folder) or _is_node_bin(folder):
             continue
         for name in names:
+            if WINDOWS:
+                candidate = _windows_exe(Path(folder), name)
+                if _executable_file(candidate):
+                    return str(candidate)
+                continue
             found = which(name, path=folder)
             if found and os.path.isabs(found):
                 return found
+    if fallback_dirs is None:
+        fallback_dirs = WINDOWS_FALLBACK_DIRS if WINDOWS else FALLBACK_DIRS
     for folder in fallback_dirs:
-        path = Path(folder).expanduser() / "claude"
+        base = Path(os.path.expandvars(folder)).expanduser()
+        path = _windows_exe(base, "claude") if WINDOWS else base / "claude"
         if path.is_absolute() and _executable_file(path):
             return str(path)
     return None
@@ -136,6 +183,8 @@ def cli_environment(executable: str, source: Mapping[str, str] | None = None) ->
     """
     source = os.environ if source is None else source
     env = {k: v for k, v in source.items() if k in ENV_ALLOWED or k.startswith("LC_")}
+    if WINDOWS:
+        env.update({k: v for k, v in source.items() if k.upper() in WINDOWS_ENV_ALLOWED})
     folder = str(Path(executable).parent)
     rest = [p for p in source.get("PATH", "").split(os.pathsep) if p and os.path.isabs(p) and not _is_node_bin(p)]
     env["PATH"] = os.pathsep.join(dict.fromkeys([folder, *rest]))
@@ -200,6 +249,7 @@ def run_bounded(
         cwd=cwd,
         env=dict(env) if env is not None else None,
         start_new_session=posix,
+        creationflags=0 if posix else CREATE_NO_WINDOW,  # Windows : jamais de console (app sans console)
     )
     out, err = bytearray(), bytearray()
     size = [0]
