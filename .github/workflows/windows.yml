@@ -77,7 +77,7 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          python - "$RUNNER_TEMP/journaux" "${LOCALAPPDATA:-}" <<'PY'
+          PYTHONIOENCODING=utf-8 python - "$RUNNER_TEMP/journaux" "${LOCALAPPDATA:-}" <<'PY'
           import pathlib, sys
           files = sorted(pathlib.Path(sys.argv[1]).glob("*.log"))
           if len(sys.argv) > 2 and sys.argv[2]:
@@ -221,7 +221,7 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          python - "$RUNNER_TEMP/journaux" "${LOCALAPPDATA:-}" <<'PY'
+          PYTHONIOENCODING=utf-8 python - "$RUNNER_TEMP/journaux" "${LOCALAPPDATA:-}" <<'PY'
           import pathlib, sys
           files = sorted(pathlib.Path(sys.argv[1]).glob("*.log"))
           if len(sys.argv) > 2 and sys.argv[2]:
