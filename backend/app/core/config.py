@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     # Arrêt : délai laissé aux actualisations en cours avant la fermeture de DuckDB
     scheduler_shutdown_seconds: float = Field(default=10.0, ge=0.0, le=300.0)
 
+    # Nœud Atelier (docs/SUITE.md §7) : enregistrements d'un même rapport regroupés en un événement
+    # `viz.report.saved` s'ils sont rapprochés de moins de N secondes (le Studio enregistre en continu ; 0 = immédiat).
+    atelier_report_event_seconds: float = Field(default=5.0, ge=0.0, le=600.0)
+
     # GitHub : synchronisation des rapports (jeton de repli ; d'ordinaire saisi dans l'interface → trousseau)
     github_token: SecretStr | None = None
 

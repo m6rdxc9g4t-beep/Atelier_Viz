@@ -453,6 +453,8 @@ class ConnectionService:
             raise ConnectorError(
                 "Ce jeu de données a été importé depuis un fichier : réimportez-le pour le mettre à jour."
             )
+        if origin.kind == "atelier-table":
+            raise ConnectorError("Ce jeu est alimenté par un workflow (Atelier Nexus) : rien à relire.")
         try:
             cfg = self.get(origin.connection_id)
         except ConnectorError as exc:

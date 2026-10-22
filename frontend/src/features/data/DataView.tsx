@@ -1,9 +1,10 @@
 import clsx from "clsx";
-import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, Link2, RefreshCw, Trash2, TriangleAlert, Wand2, X } from "lucide-react";
+import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, Link2, RefreshCw, Trash2, TriangleAlert, Wand2, Workflow, X } from "lucide-react";
 import { useState } from "react";
 
 import type { DatasetsState } from "../../hooks/useDatasets";
 import { formatCount } from "../../lib/format";
+import { isConnectionOrigin } from "../../types/connection";
 import type { DatasetSummary } from "../../types/dataset";
 import { RelationsDialog } from "../../studio/RelationsDialog";
 import { DatasetSchedulePanel } from "../automation/DatasetSchedulePanel";
@@ -93,7 +94,12 @@ export function DataView({ state }: { state: DatasetsState }) {
               <div className="atelier-card flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3">
                 <div className="mr-auto min-w-0">
                   <h2 className="truncate text-sm font-semibold">{selected.name}</h2>
-                  {selected.origin && (
+                  {selected.origin?.kind === "atelier-table" && (
+                    <p className="flex items-center gap-1 truncate text-[11px] text-muted">
+                      Alimenté par un workflow (Atelier Nexus) · clé « {selected.origin.key} » · mis à jour {sinceLabel(selected.origin.refreshed_at)}
+                    </p>
+                  )}
+                  {isConnectionOrigin(selected.origin) && (
                     <p className="flex items-center gap-1 truncate text-[11px] text-muted">
                       {KIND_META[selected.origin.kind].label} · {selected.origin.connection_name} · actualisé {sinceLabel(selected.origin.refreshed_at)}
                       {selected.origin.truncated && (
@@ -137,7 +143,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                     Relations{selected.model?.relations?.length ? ` (${selected.model.relations.length})` : ""}
                   </button>
                 )}
-                {selected.origin && (
+                {isConnectionOrigin(selected.origin) && (
                   <button
                     type="button"
                     onClick={() => void state.refresh(selected.id)}
@@ -149,7 +155,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                     {state.refreshing === selected.id ? "Actualisation…" : "Actualiser"}
                   </button>
                 )}
-                {selected.origin && (
+                {isConnectionOrigin(selected.origin) && (
                   <button
                     type="button"
                     onClick={() => setPlanning((p) => !p)}
@@ -189,7 +195,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                 )}
               </div>
 
-              {planning && selected.origin && <DatasetSchedulePanel datasetId={selected.id} refreshedAt={selected.origin.refreshed_at} />}
+              {planning && isConnectionOrigin(selected.origin) && <DatasetSchedulePanel datasetId={selected.id} refreshedAt={selected.origin.refreshed_at} />}
 
               <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:min-h-[24rem] lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
                 <div className="flex max-h-[28rem] min-w-0 flex-col lg:max-h-none lg:min-h-0">
@@ -211,7 +217,8 @@ export function DataView({ state }: { state: DatasetsState }) {
 }
 
 function SourceIcon({ dataset }: { dataset: DatasetSummary }) {
-  const kind = dataset.origin?.kind;
+  if (dataset.origin?.kind === "atelier-table") return <Workflow className="size-3.5" aria-label="Workflow" />;
+  const kind = isConnectionOrigin(dataset.origin) ? dataset.origin.kind : undefined;
   const Icon = kind === "sharepoint" ? Cloud : kind === "atelier_tab" || kind === "atelier_projets" ? KIND_META[kind].icon : kind && kind !== "file" ? Database : FileSpreadsheet;
   return <Icon className="size-3.5" aria-label={kind ? KIND_META[kind].label : undefined} aria-hidden={!kind} />;
 }

@@ -91,6 +91,11 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - **Extraction / présentation** : `studio/extraction.ts` (cibles, libellés, pages de présentation, échelle) ; `useStudio.extraction` est transitoire (jamais dans le rapport ni dans l'historique) et passe à `visualFilters(…, extraction)`. Le clic droit d'un visuel resélectionne l'élément visé par un clic synthétique : un visuel interactif doit sélectionner via `onSelect`/`toggleSelection` sur `click`. Présentation : `Presentation.tsx` (plein écran) ; tout menu ou popover qui doit y rester visible se rend dans `document.fullscreenElement ?? document.body`.
 - Boîte de dialogue ouverte depuis un visuel : `createPortal` vers `document.body` et `stopPropagation` (sinon le zoom du canvas et la sélection du visuel interfèrent).
 
+## Nœud Atelier (docs/SUITE.md §7)
+- `app/services/atelier/` + `routes/atelier.py` : manifeste, `atelier-table/1`, upsert par clé externe, journal, idempotence. Erreurs des routes `/api/atelier/*` : `AtelierError` → `{detail, code}` (gestionnaires de `main.py`).
+- **Tout nouvel événement** se déclare dans `EVENT_TYPES` (`schemas/atelier.py`, donc au manifeste avec son `data_schema`) et s'émet par `EventJournal.emit` depuis un observateur branché dans `AtelierEvents.attach` — jamais d'écriture directe du fichier ni d'appel au journal depuis une route. `data` : identifiants, libellés, statuts, nombres agrégés ; jamais de ligne, de chemin, de requête SQL, d'URL de webhook ni de secret.
+- **Toute nouvelle action** : entrée de `_actions()` (`services/atelier/manifest.py`), identifiant stable jamais renommé, schémas générés d'un modèle Pydantic ; une action `write` qui crée accepte `Idempotency-Key` (`IdempotencyStore`). Tests : `test_atelier_node.py`.
+
 ## Application de bureau
 - `backend/desktop.py` → `app/desktop.py` (pywebview + uvicorn en fil) ; paquet macOS : `scripts/macos/build_app.sh`. L'interface compilée est servie par FastAPI (`settings.frontend_dist`).
 - Lanceur : **jamais de `npm install` au lancement** ; `app/launcher.py` (`ok` / `build` / `install`, testé dans `test_launcher.py`) décide d'un `npm run build` ou d'un message « relancez build_app.sh ».

@@ -6,7 +6,7 @@ Les mots de passe et jetons ne sont jamais renvoyés par l'API (`has_password`, 
 """
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, SecretStr, model_validator
@@ -209,3 +209,23 @@ class DatasetOrigin(BaseModel):
     max_rows: int | None = None
     truncated: bool = Field(default=False, description="Limite de lignes atteinte au dernier chargement.")
     refreshed_at: datetime
+
+
+ATELIER_KEY_PATTERN = r"^[a-z0-9][a-z0-9_.:-]{0,99}$"
+
+
+class AtelierTableOrigin(BaseModel):
+    """Jeu alimenté par un nœud de workflow (docs/SUITE.md §7, `datasets.upsert_table`) : pas de source à relire.
+
+    `key` est la clé externe stable choisie par l'appelant (Atelier Nexus) : un nouvel envoi avec la même clé
+    remplace les données du jeu au lieu d'en créer un autre.
+    """
+
+    kind: Literal["atelier-table"] = "atelier-table"
+    key: str = Field(pattern=ATELIER_KEY_PATTERN)
+    table_name: str | None = Field(default=None, max_length=200, description="`name` de la table reçue.")
+    refreshed_at: datetime
+
+
+# Provenance d'un jeu : connexion (actualisable) ou table reçue d'un workflow. Discriminée par `kind`.
+AnyOrigin = Annotated[DatasetOrigin | AtelierTableOrigin, Field(discriminator="kind")]

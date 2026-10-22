@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { Connection } from "../../../types/connection";
+import type { AnyOrigin, Connection } from "../../../types/connection";
+import { isConnectionOrigin } from "../../../types/connection";
 import { describeConnection, emptyForm, formOf, groupSnapshots, groupTables, missingField, sinceLabel, sourceDetails, suggestedName, toInput } from "./meta";
 
 const pg: Connection = {
@@ -124,5 +125,16 @@ describe("connecteurs de la Suite Atelier", () => {
     expect(sourceDetails(tables[1]!)).toBe("1 ligne");
     expect(sourceDetails(tables[0]!)).toMatch(/^3 lignes · publiée le 18\/10\/2026 à \d{2}:57$/);
     expect(sourceDetails({ name: "x" })).toBe("");
+  });
+});
+
+describe("isConnectionOrigin", () => {
+  it("distingue une connexion d'une table reçue d'un workflow", () => {
+    const workflow: AnyOrigin = { kind: "atelier-table", key: "nexus:hebdo", table_name: "work-items", refreshed_at: "2026-10-21T08:00:00Z" };
+    const sqlite: AnyOrigin = { connection_id: "c", connection_name: "Base", kind: "sqlite", table: null, query: null, url: null, project_id: null, max_rows: null, truncated: false, refreshed_at: "2026-10-21T08:00:00Z" };
+    expect(isConnectionOrigin(workflow)).toBe(false);
+    expect(isConnectionOrigin(sqlite)).toBe(true);
+    expect(isConnectionOrigin(null)).toBe(false);
+    expect(isConnectionOrigin(undefined)).toBe(false);
   });
 });

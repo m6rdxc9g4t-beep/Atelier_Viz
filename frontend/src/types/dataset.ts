@@ -1,10 +1,10 @@
 /** Miroir de backend/app/schemas/dataset.py — garder synchronisé. */
 
-import type { DatasetOrigin } from "./connection";
+import type { AnyOrigin } from "./connection";
 
 export type ColumnType = "number" | "string" | "date" | "boolean";
-/** Fichier importé, ou type de la connexion d'origine. */
-export type SourceFormat = "csv" | "xlsx" | "json" | "sqlserver" | "postgres" | "mysql" | "sqlite" | "sharepoint" | "atelier_tab" | "atelier_projets";
+/** Fichier importé, type de la connexion d'origine, ou table reçue d'un workflow (`atelier_table`). */
+export type SourceFormat = "csv" | "xlsx" | "json" | "sqlserver" | "postgres" | "mysql" | "sqlite" | "sharepoint" | "atelier_tab" | "atelier_projets" | "atelier_table";
 export type Scalar = number | string | boolean | null;
 export type Row = Record<string, Scalar>;
 
@@ -101,8 +101,8 @@ export interface DatasetSummary {
   rows: number;
   columns_count: number;
   created_at: string;
-  /** Connexion d'origine (jeu actualisable). */
-  origin?: DatasetOrigin | null;
+  /** Connexion d'origine (jeu actualisable), ou table reçue d'un workflow. */
+  origin?: AnyOrigin | null;
 }
 
 export interface DatasetProfile extends DatasetSummary {

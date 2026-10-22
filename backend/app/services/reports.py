@@ -5,22 +5,41 @@ Le format fichier est volontaire : il se versionne tel quel dans Git (jalon GitH
 
 import builtins
 import json
+import logging
 import re
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
 from app.schemas.report import Page, PageSize, Report, ReportBody, ReportCreate, ReportSummary
 
 _ID_RE = re.compile(r"^[0-9a-f]{12}$")
+logger = logging.getLogger(__name__)
 
 
 class ReportRepository:
-    """CRUD des rapports. Méthodes synchrones (accès disque) : appeler via `asyncio.to_thread`."""
+    """CRUD des rapports. Méthodes synchrones (accès disque) : appeler via `asyncio.to_thread`.
+
+    Observateurs `on_saved` : appelés après `create` et `update` (enregistrement depuis l'interface ou l'API),
+    pas après `put` (import depuis GitHub, restauration).
+    """
 
     def __init__(self, directory: Path) -> None:
         self.directory = directory
         self.directory.mkdir(parents=True, exist_ok=True)
+        self._saved: list[Callable[[Report], None]] = []
+
+    def on_saved(self, listener: Callable[[Report], None]) -> None:
+        """Abonne un observateur appelé après la création ou l'enregistrement d'un rapport."""
+        self._saved.append(listener)
+
+    def _notify(self, report: Report) -> None:
+        for listener in self._saved:
+            try:
+                listener(report)
+            except Exception as exc:  # noqa: BLE001 — l'enregistrement est fait : l'observateur ne l'annule pas
+                logger.warning("Observateur des rapports en échec : %s", exc)
 
     def _path(self, report_id: str) -> Path | None:
         return self.directory / f"{report_id}.json" if _ID_RE.match(report_id) else None
@@ -61,6 +80,7 @@ class ReportRepository:
             updated_at=now,
         )
         self._write(report)
+        self._notify(report)
         return report
 
     def update(self, report_id: str, body: ReportBody) -> Report | None:
@@ -74,6 +94,7 @@ class ReportRepository:
             updated_at=datetime.now(UTC),
         )
         self._write(report)
+        self._notify(report)
         return report
 
     def put(self, report: Report) -> Report:

@@ -125,6 +125,24 @@ Contrat commun : [`docs/SUITE.md`](docs/SUITE.md).
 Adresses des applications dans le sélecteur : `VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`,
 `VITE_ATELIER_CUISINE_URL` (fichier `frontend/.env.local`), par défaut celles de `docs/SUITE.md` §2.
 
+### API nœud Atelier (workflows avec Atelier Nexus)
+
+Atelier Viz est un **nœud** que Nexus enchaîne avec Tab et Projets (contrat `atelier-node/1`, [`docs/SUITE.md`](docs/SUITE.md) §7).
+Tout reste sur la machine : mêmes gardes que le reste de l'API (`Host` de bouclage, `Origin` locale pour les écritures).
+
+| Route | Rôle |
+|---|---|
+| `GET /api/atelier/manifest` | Actions et événements disponibles (schémas JSON générés des modèles Pydantic) |
+| `GET /api/atelier/datasets/{id}/table?offset=&limit=` | Lignes d'un jeu en table d'échange `atelier-table/1` (1 000 par défaut, 5 000 au plus) |
+| `POST /api/atelier/query` | Même corps que `POST /api/query` ; résultat `atelier-table/1`, clés `snake_case` (`sum(CA)@ytd` → `sum_ca_ytd`), libellés « Somme de CA » |
+| `POST /api/atelier/datasets` | `{name, key, table}` : crée le jeu (201) ou remplace les données du jeu de cette clé (200, modèle revalidé) ; `Idempotency-Key` accepté (rejeu : `Idempotency-Replayed: true`, autre corps : 409) ; 100 000 lignes, 200 colonnes |
+| `GET /api/atelier/events?since=&limit=&types=` | Journal : `viz.dataset.created` / `refreshed` / `refresh_failed` / `deleted`, `viz.alert.triggered`, `viz.report.saved` |
+
+Actions du manifeste : `datasets.list`, `datasets.get`, `datasets.table`, `datasets.query`, `datasets.upsert_table` (écriture),
+`datasets.refresh` (écriture), `reports.list`, `alerts.list`. Erreurs : `{ "detail": "…", "code": "NOT_FOUND" | "VALIDATION" | "CONFLICT" | "IDEMPOTENCY_KEY_REUSED" }`.
+Fichiers : `data/atelier_events.jsonl` (+ `.seq`), `data/atelier_idempotency.json`. Les enregistrements successifs d'un rapport
+sont regroupés en un événement (`ATELIER_REPORT_EVENT_SECONDS`, 5 s par défaut).
+
 ## Connecteurs (SQL Server, PostgreSQL, MySQL, SQLite, OneDrive, SharePoint)
 
 Page **Données → Se connecter à une source**. Une connexion est enregistrée une fois ; on choisit ensuite une
@@ -186,8 +204,8 @@ Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichie
 ## Tests
 
 ```bash
-cd backend && pytest && ruff check .          # 320 tests
-cd frontend && npm test && npm run build      # 170 tests
+cd backend && pytest && ruff check .          # 388 tests
+cd frontend && npm test && npm run build      # 214 tests
 ```
 
 ## Arborescence
@@ -199,13 +217,14 @@ atelier-viz/
 ├── backend/
 │   ├── main.py
 │   └── app/
-│       ├── api/routes/           # health, settings, ai, datasets, query, reports, actions, connections, refresh, alerts, github
+│       ├── api/routes/           # health, settings, ai, datasets, query, reports, actions, connections, refresh, alerts, github, atelier
 │       ├── schemas/              # ai, dataset, query, report
 │       └── services/
 │           ├── engine/           # DuckDB : stockage + requêtes (GROUPING SETS pour les matrices)
 │           ├── data/             # import, typage, profilage
 │           ├── ai/               # Ollama, Claude CLI, API Anthropic, routage hors ligne / en ligne
 │           ├── connectors/       # SQL, fichiers, SharePoint, secrets (trousseau)
+│           ├── atelier/          # nœud Atelier : manifeste, tables d'échange, journal d'événements, idempotence
 │           └── reports.py · preferences.py · actions.py · refresh.py · alerts.py · github.py
 └── frontend/src/
     ├── visuals/                  # registre + 22 visuels (charts, data, maps, interactive)

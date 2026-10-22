@@ -8,6 +8,8 @@
 - Évaluée après chaque actualisation réussie du jeu (`RefreshScheduler.on_refreshed`) et à la demande.
 - Actions : notification dans l'application et / ou webhook via `app/services/actions.py`
   (hors ligne : adresses locales seulement ; l'URL n'est jamais journalisée).
+- Observateurs `on_fired` : appelés à chaque franchissement (mêmes conditions que le webhook), avec l'alerte
+  et les valeurs déclenchées (journal d'événements du nœud Atelier, `viz.alert.triggered`).
 - Concurrence : un verrou **par alerte** sérialise ses évaluations (l'anti-rebond lit un état à jour) ;
   l'état est enregistré avant l'appel du webhook, qui se fait **hors verrou** puis complète l'événement.
   `_record` compare l'empreinte de la règle (`rule_fingerprint`) lue avant la mesure à celle de l'alerte
@@ -17,11 +19,12 @@
 import asyncio
 import hashlib
 import json
+import logging
 import math
 import os
 import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -47,12 +50,17 @@ from app.services.engine.database import LocalDatabase
 from app.services.engine.query import QueryError, run_query
 from app.services.system_notify import Notifier
 
+logger = logging.getLogger(__name__)
+
 MAX_HISTORY = 50
 MAX_NOTIFICATIONS = 100
 MAX_ALERTS = 200
 MAX_EVENT_GROUPS = 50
 MAX_GROUP_NOTIFICATIONS = 10
 EMPTY_KEY = "(vide)"
+
+
+FiredListener = Callable[[Alert, list[AlertGroupEvent]], Awaitable[None]]
 
 
 class AlertError(Exception):
@@ -116,6 +124,11 @@ class AlertService:
         self.notifier = notifier
         self._lock = threading.Lock()  # fichier alerts.json
         self._eval_locks: dict[str, asyncio.Lock] = {}  # une évaluation à la fois par alerte
+        self._fired_listeners: list[FiredListener] = []
+
+    def on_fired(self, listener: FiredListener) -> None:
+        """Abonne un observateur appelé à chaque déclenchement (alerte, valeurs déclenchées), hors verrou."""
+        self._fired_listeners.append(listener)
 
     # --- Persistance ----------------------------------------------------------------------------
 
@@ -304,6 +317,12 @@ class AlertService:
                     else:
                         event.error = "Aucune valeur (jeu vide après filtres) : état inchangé."
             current, fired = await asyncio.to_thread(self._record, alert.id, fingerprint, event, results)
+        if fired:
+            for listener in self._fired_listeners:
+                try:
+                    await listener(current, fired)
+                except Exception as exc:  # noqa: BLE001 — un observateur en échec ne bloque pas les actions
+                    logger.warning("Observateur d'alerte en échec : %s", exc)
         if fired and current.system and self.notifier is not None:
             await asyncio.to_thread(self._system_notify, current, fired)
         if not (fired and current.webhook is not None):
