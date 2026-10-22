@@ -24,6 +24,10 @@ dist/
 # Données locales de l'application
 backend/data/
 
+# Mise à jour automatique de l'application de bureau (docs/SUITE.md §8, app/launcher.py)
+backend/.mise-a-jour.*
+frontend/.dist-*/
+
 # Paquet autonome (scripts/standalone/build.py)
 dist-standalone/
 build-standalone/

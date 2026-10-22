@@ -49,9 +49,15 @@ fenêtre (⌘Q) arrête tout.
 
 - Même dépôt, mêmes données (`backend/data`) que le mode développement ; un seul des deux à la fois (la base n'accepte qu'un programme). Si un `uvicorn` tourne déjà, l'application le réutilise.
 - Exports PowerPoint et thèmes : boîte « Enregistrer sous » ; liens externes (Microsoft 365, boutons URL) : navigateur par défaut.
-- Après un `git pull` : l'application recompile l'interface à son lancement si les sources sont plus récentes
-  (`npm run build`, sans réseau). Elle **n'installe jamais rien au lancement** : si les dépendances npm (ou Python)
-  ont changé, un message vous invite à relancer `./scripts/macos/build_app.sh` ; l'ancienne interface reste utilisée en attendant.
+- **Après un `git pull`, relancez simplement l'application** : elle se met à jour toute seule (docs/SUITE.md §8).
+  Un écran « Mise à jour… » affiche l'étape en cours ; seulement si nécessaire : dépendances Python
+  (`pip install -r`, dans l'environnement de l'application), dépendances de l'interface (`npm ci`, depuis
+  `package-lock.json`), compilation de l'interface. Rien n'est refait si le dépôt n'a pas bougé ; une modification
+  locale non commitée compte comme un changement. Jamais de `git pull` automatique, vos données ne sont jamais touchées.
+- En cas d'échec (réseau, compilation) : message en français, journal `~/Library/Logs/Atelier Viz/mise-a-jour.log` et
+  « Ouvrir quand même avec la version précédente » ; le lancement suivant réessaie. En mode hors ligne, un échec
+  d'installation ouvre directement la version précédente. Node.js est trouvé même depuis le Finder (Homebrew, nvm…).
+- Relancez `./scripts/macos/build_app.sh` seulement si le dépôt ou l'environnement Python changent de place.
 - En cas de souci : `~/Library/Logs/Atelier Viz/atelier-viz.log`. Sans fenêtre native, `python desktop.py --browser` (dans `backend/`) ouvre l'application dans le navigateur.
 
 ### Application autonome (sans Python ni conda)

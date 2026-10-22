@@ -12,6 +12,8 @@ Lancée par « Atelier Viz.app » (voir scripts/macos/build_app.sh), ou à la ma
   « Enregistrer sous » et ouverture des liens externes dans le navigateur.
 """
 
+from __future__ import annotations
+
 import argparse
 import base64
 import binascii
@@ -30,12 +32,16 @@ import urllib.request
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 from urllib.parse import urlsplit
 
-import uvicorn
+from app import launcher
 
-from app.core.config import Settings, get_settings
+if TYPE_CHECKING:
+    from app.core.config import Settings
+
+# Dépendances (uvicorn, pydantic, FastAPI…) importées seulement après la mise à jour : l'étape `pip` peut les
+# installer ou les changer, et un module déjà chargé ne le serait pas de nouveau (docs/SUITE.md §8).
 
 APP_NAME = "Atelier Viz"
 HOST = "127.0.0.1"
@@ -48,6 +54,13 @@ log = logging.getLogger("atelier.desktop")
 
 # Requêtes vers le serveur local sans aucun proxy (macOS applique sinon le proxy système de l'entreprise).
 _local = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def get_settings() -> Settings:
+    """Réglages du serveur (importés à la demande : voir l'en-tête des imports)."""
+    from app.core.config import get_settings as load
+
+    return load()
 
 
 # --- Serveur ----------------------------------------------------------------------------------
@@ -97,6 +110,8 @@ class ServerThread:
     """Uvicorn dans un fil d'exécution, arrêté proprement (fermeture de DuckDB comprise)."""
 
     def __init__(self, app: Any, port: int, host: str = HOST) -> None:
+        import uvicorn
+
         self.url = f"http://{host}:{port}"
         self.server = uvicorn.Server(uvicorn.Config(app, host=host, port=port, log_level="info", access_log=False))
         self.thread = threading.Thread(target=self._run, name="atelier-server", daemon=True)
@@ -209,8 +224,18 @@ class DesktopApi:
     ) -> None:
         self.window: SaveWindow | None = None
         self.save_dialog: Any = None  # webview.FileDialog.SAVE, renseigné au lancement
+        # Écran « Mise à jour… » (docs/SUITE.md §8). Privé : pywebview n'expose pas à la page les noms en « _ ».
+        self._update: UpdateSession | None = None
         self._open_url = open_url
         self._open_app = open_app
+
+    def update_state(self) -> dict[str, Any]:
+        """État de la mise à jour, lu par l'écran de démarrage (interrogé périodiquement)."""
+        return self._update.snapshot() if self._update else {"state": "done"}
+
+    def update_choice(self, choice: str) -> bool:
+        """Choix après un échec : « previous » (ouvrir avec la version précédente) ou « quit »."""
+        return self._update.choose(choice) if self._update else False
 
     def save_file(self, name: str, data_base64: str) -> dict[str, Any]:
         """Boîte « Enregistrer sous » puis écriture du fichier ; {"saved": chemin | None}."""
@@ -267,6 +292,212 @@ def error_page(message: str) -> str:
     )
 
 
+# --- Mise à jour au lancement (docs/SUITE.md §8) ------------------------------------------------
+
+UpdateChoice = Literal["previous", "quit"]
+
+
+class UpdateSession:
+    """État de la mise à jour partagé entre le fil qui la fait et l'écran de démarrage (sûr entre fils)."""
+
+    def __init__(self, log_file: str = "") -> None:
+        self._lock = threading.Lock()
+        self._chosen = threading.Event()
+        self._choice: UpdateChoice = "quit"
+        self._state: dict[str, Any] = {
+            "state": "running",
+            "label": "Préparation de la mise à jour…",
+            "index": 0,
+            "total": 0,
+            "message": None,
+            "log": log_file,
+            "can_open_previous": False,
+        }
+
+    def snapshot(self) -> dict[str, Any]:
+        """Copie de l'état : `state` = running | failed | done."""
+        with self._lock:
+            return dict(self._state)
+
+    def status(self, label: str, index: int, total: int) -> None:
+        """Étape en cours (rappel de `Updater.run`)."""
+        with self._lock:
+            self._state.update(label=label, index=index, total=total)
+
+    def fail(self, message: str, log_file: str, can_open_previous: bool) -> None:
+        with self._lock:
+            self._state.update(state="failed", message=message, log=log_file, can_open_previous=can_open_previous)
+
+    def done(self) -> None:
+        with self._lock:
+            self._state.update(state="done", label="Ouverture…")
+
+    def choose(self, choice: str) -> bool:
+        """Choix de l'utilisateur après un échec ; faux si la mise à jour n'a pas échoué ou si le choix est inconnu."""
+        with self._lock:
+            if self._state["state"] != "failed" or choice not in ("previous", "quit"):
+                return False
+            if choice == "previous" and not self._state["can_open_previous"]:
+                return False
+            self._choice = "previous" if choice == "previous" else "quit"
+        self._chosen.set()
+        return True
+
+    def close(self) -> None:
+        """Fenêtre fermée : toute attente de choix se termine par « quit »."""
+        with self._lock:
+            self._choice = "quit"
+        self._chosen.set()
+
+    def wait_choice(self, timeout: float | None = None) -> UpdateChoice:
+        """Attend le choix de l'utilisateur (« quit » si la fenêtre est fermée ou le délai dépassé)."""
+        self._chosen.wait(timeout)
+        with self._lock:
+            return self._choice
+
+
+def run_update(
+    updater: launcher.Updater,
+    session: UpdateSession,
+    *,
+    offline: bool,
+    ask: Callable[[UpdateSession], UpdateChoice] = lambda s: s.wait_choice(),
+    on_status: launcher.StatusCallback | None = None,
+) -> bool:
+    """Fait la mise à jour ; vrai si l'application peut s'ouvrir (à jour, ou avec la version précédente).
+
+    Échec : message dans l'écran de démarrage, journal, et « Ouvrir quand même avec la version précédente » si une
+    interface compilée existe. Hors ligne (`online_mode` faux), un échec d'installation (registres de paquets
+    injoignables) ouvre directement la version précédente : la mise à jour sera retentée au prochain lancement.
+    """
+
+    def status(label: str, index: int, total: int) -> None:
+        session.status(label, index, total)
+        if on_status is not None:
+            on_status(label, index, total)
+
+    try:
+        result = updater.run(status)
+    except Exception as exc:  # noqa: BLE001 — toute erreur doit laisser l'utilisateur choisir
+        log.exception("Mise à jour impossible")
+        result = launcher.UpdateResult(
+            ok=False,
+            message=f"Mise à jour impossible : {exc}",
+            previous_available=updater.previous_available(),
+            log=str(updater.log),
+        )
+    if result.ok:
+        session.done()
+        return True
+    log.warning("Mise à jour en échec : %s (journal : %s)", result.message, result.log)
+    if offline and result.network and result.previous_available:
+        log.info("Mode hors ligne : ouverture avec la version précédente, nouvel essai au prochain lancement.")
+        session.done()
+        return True
+    session.fail(result.message or "La mise à jour a échoué.", result.log, result.previous_available)
+    return ask(session) == "previous"
+
+
+_SPLASH = """<!doctype html><html lang="fr"><meta charset="utf-8"><title>__APP__</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1f2328;--muted:#656d76;--line:#e4e2da;--accent:#f2c811;--ink:#7a6200;--danger:#b42318}
+@media (prefers-color-scheme:dark){:root{--bg:#121212;--fg:#ececec;--muted:#a0a0a0;--line:#2c2c2c;--ink:#f2c811;
+--danger:#ff8a80}}
+body{font:15px -apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);margin:0;height:100vh;
+display:grid;place-items:center}
+main{max-width:34rem;padding:2rem}h1{font-size:18px;margin:0 0 .75rem}p{line-height:1.5;margin:.5rem 0}
+.muted{color:var(--muted);font-size:13px}.err{color:var(--danger)}
+.spin{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;
+animation:r 1s linear infinite;margin-bottom:1rem}@keyframes r{to{transform:rotate(360deg)}}
+button{font:inherit;padding:.5rem .9rem;border-radius:8px;border:1px solid var(--line);background:transparent;
+color:var(--fg);cursor:pointer;margin:.75rem .5rem 0 0}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1f2328}
+[hidden]{display:none!important}
+</style>
+<main>
+<div class="spin" id="spin"></div>
+<h1 id="title">Mise à jour d'__APP__…</h1>
+<p id="label">Préparation de la mise à jour…</p>
+<p class="muted" id="count"></p>
+<div id="failed" hidden>
+<p class="err" id="message"></p>
+<p class="muted">Journal : <span id="log"></span></p>
+<p class="muted">La mise à jour sera retentée au prochain lancement.</p>
+<button class="primary" id="previous" hidden>Ouvrir quand même avec la version précédente</button>
+<button id="quit">Quitter</button>
+</div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let busy = false;
+async function poll() {
+  const api = window.pywebview && window.pywebview.api;
+  if (api && !busy) {
+    busy = true;
+    try {
+      const s = await api.update_state();
+      $("label").textContent = s.label || "";
+      $("count").textContent = s.total ? `Étape ${s.index} sur ${s.total}` : "";
+      if (s.state === "failed") {
+        $("spin").hidden = true;
+        $("title").textContent = "La mise à jour a échoué";
+        $("message").textContent = s.message || "";
+        $("log").textContent = s.log || "";
+        $("previous").hidden = !s.can_open_previous;
+        $("failed").hidden = false;
+        $("label").hidden = true;
+        $("count").hidden = true;
+        return;
+      }
+    } catch (e) { /* pont pas encore prêt */ }
+    busy = false;
+  }
+  setTimeout(poll, 400);
+}
+function choose(choice) {
+  document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  if (choice === "previous") {
+    $("failed").hidden = true;
+    $("spin").hidden = false;
+    $("title").textContent = "Ouverture…";
+  }
+  window.pywebview.api.update_choice(choice);
+}
+$("previous").addEventListener("click", () => choose("previous"));
+$("quit").addEventListener("click", () => choose("quit"));
+poll();
+</script></html>"""
+
+
+def splash_page() -> str:
+    """Écran de démarrage « Mise à jour… » : interroge `update_state` et affiche l'étape en cours ou l'échec.
+
+    Aucun contenu inséré côté serveur (hors le nom de l'application) : les textes sont posés par `textContent`.
+    """
+    return _SPLASH.replace("__APP__", html.escape(APP_NAME))
+
+
+def update_wanted(auto_update: bool, skip_flag: bool, frozen: bool | None = None) -> bool:
+    """Vrai si la mise à jour doit être vérifiée : application lancée depuis le dépôt, jamais le paquet autonome."""
+    frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
+    return auto_update and not skip_flag and not frozen
+
+
+def _console_update(updater: launcher.Updater, offline: bool) -> bool:
+    """Mise à jour sans fenêtre (mode navigateur) : étapes et erreurs sur la sortie standard."""
+    session = UpdateSession(str(updater.log))
+
+    def status(label: str, index: int, total: int) -> None:
+        print(f"{index}/{total} · {label}" if total else label, flush=True)
+
+    def ask(s: UpdateSession) -> UpdateChoice:
+        state = s.snapshot()
+        print(f"Mise à jour en échec : {state['message']}\nJournal : {state['log']}", file=sys.stderr)
+        return "previous" if state["can_open_previous"] else "quit"
+
+    return run_update(updater, session, offline=offline, ask=ask, on_status=status)
+
+
 def _name_macos_app() -> None:
     """Nom « Atelier Viz » dans la barre des menus (au lieu de « Python »), avant d'importer pywebview."""
     if sys.platform != "darwin":
@@ -296,7 +527,12 @@ def prepare(settings: Settings) -> tuple[str, ServerThread | None, str | None]:
             ),
         )
     if not (settings.frontend_dist / "index.html").is_file():
-        return "", None, f"Interface introuvable ({settings.frontend_dist}). Relancez scripts/macos/build_app.sh."
+        return (
+            "",
+            None,
+            f"Interface introuvable ({settings.frontend_dist}). Relancez l'application pour la compiler "
+            "(mise à jour automatique), ou scripts/macos/build_app.sh.",
+        )
     busy = database_busy(settings)
     if busy:
         return "", None, busy
@@ -328,15 +564,62 @@ def _interrupt(*_: object) -> None:
     raise KeyboardInterrupt
 
 
-def run(argv: list[str] | None = None) -> int:
-    """Point d'entrée de l'application de bureau."""
+def launch() -> tuple[str, ServerThread | None, str | None, Path | None]:
+    """Réglages puis serveur : (adresse, serveur démarré par nous, erreur, dossier de l'interface compilée)."""
+    try:
+        settings = get_settings()
+        url, server, error = prepare(settings)
+    except ImportError as exc:
+        log.exception("Modules Python manquants")
+        missing = f" ({exc.name})" if exc.name else ""
+        message = f"Des modules Python manquent{missing}. Relancez l'application : la mise à jour sera retentée."
+        return "", None, message, None
+    return url, server, error, settings.frontend_dist
+
+
+def _window_options() -> dict[str, Any]:
+    return {
+        "width": WINDOW_SIZE[0],
+        "height": WINDOW_SIZE[1],
+        "min_size": MIN_SIZE,
+        "text_select": True,
+        "zoomable": True,
+    }
+
+
+def run(
+    argv: list[str] | None = None,
+    *,
+    auto_update: bool = False,
+    updater_factory: Callable[[], launcher.Updater] = launcher.Updater,
+) -> int:
+    """Point d'entrée de l'application de bureau.
+
+    `auto_update` (vrai pour `backend/desktop.py`, donc pour « Atelier Viz.app ») : mise à jour depuis le dépôt
+    avant l'ouverture (docs/SUITE.md §8), avec un écran « Mise à jour… » ; jamais dans le paquet autonome.
+    """
     parser = argparse.ArgumentParser(description=f"{APP_NAME} — application de bureau")
     parser.add_argument("--browser", action="store_true", help="ouvrir dans le navigateur au lieu d'une fenêtre")
+    parser.add_argument(
+        "--sans-mise-a-jour", dest="no_update", action="store_true", help="ne pas vérifier la mise à jour au lancement"
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s : %(message)s")
 
-    settings = get_settings()
-    url, server, error = prepare(settings)
+    updater: launcher.Updater | None = None
+    offline = True
+    if update_wanted(auto_update, args.no_update):
+        try:
+            candidate = updater_factory()
+            steps = candidate.plan().steps
+        except Exception:  # noqa: BLE001 — un dépôt illisible ne doit pas empêcher l'ouverture
+            log.exception("État du dépôt illisible : mise à jour ignorée.")
+        else:
+            if steps:
+                log.info("Mise à jour nécessaire : %s", ", ".join(steps))
+                updater = candidate
+                offline = not launcher.online_mode(launcher.local_data_dir(Path.cwd()))
+
     webview: Any = None
     if not args.browser:
         _name_macos_app()
@@ -345,44 +628,98 @@ def run(argv: list[str] | None = None) -> int:
         except ImportError:
             log.warning("pywebview absent : navigateur utilisé (pip install -r requirements-desktop.txt).")
 
-    try:
-        if webview is None:
-            if error:
-                log.error(error)
-                print(error, file=sys.stderr)
-                return 1
-            webbrowser.open(url)
-            if server is None:
-                return 0
-            print(f"{APP_NAME} : {url} — Ctrl+C pour arrêter.")
-            signal.signal(signal.SIGTERM, _interrupt)  # « Quitter » depuis le Dock : arrêt propre
-            with contextlib.suppress(KeyboardInterrupt):
-                while server.thread.is_alive():
-                    time.sleep(0.5)
-            return 0
+    if webview is None:
+        if updater is not None and not _console_update(updater, offline):
+            return 1
+        return _run_browser()
+    return _run_window(webview, updater, offline)
 
-        api = DesktopApi()
-        api.save_dialog = webview.FileDialog.SAVE
-        webview.settings["ALLOW_DOWNLOADS"] = True
-        webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = True
-        window = webview.create_window(
-            APP_NAME,
-            url=None if error else versioned_url(url, settings.frontend_dist),
-            html=error_page(error) if error else None,
-            js_api=api,
-            width=WINDOW_SIZE[0],
-            height=WINDOW_SIZE[1],
-            min_size=MIN_SIZE,
-            text_select=True,
-            zoomable=True,
-        )
-        api.window = window
-        storage = settings.data_dir.resolve() / "webview"
-        storage.mkdir(parents=True, exist_ok=True)
-        # Stockage persistant : thème, options d'export… conservés d'un lancement à l'autre.
-        webview.start(private_mode=False, storage_path=str(storage), icon=str(ICON) if ICON.is_file() else None)
-        return 1 if error else 0
+
+def _run_browser() -> int:
+    url, server, error, _ = launch()
+    try:
+        if error:
+            log.error(error)
+            print(error, file=sys.stderr)
+            return 1
+        webbrowser.open(url)
+        if server is None:
+            return 0
+        print(f"{APP_NAME} : {url} — Ctrl+C pour arrêter.")
+        signal.signal(signal.SIGTERM, _interrupt)  # « Quitter » depuis le Dock : arrêt propre
+        with contextlib.suppress(KeyboardInterrupt):
+            while server.thread.is_alive():
+                time.sleep(0.5)
+        return 0
     finally:
         if server is not None:
+            log.info("Arrêt du serveur.")
+            server.stop()
+
+
+def _run_window(webview: Any, updater: launcher.Updater | None, offline: bool) -> int:
+    """Fenêtre native ; avec une mise à jour, elle affiche d'abord l'écran « Mise à jour… » puis l'interface."""
+    api = DesktopApi()
+    api.save_dialog = webview.FileDialog.SAVE
+    webview.settings["ALLOW_DOWNLOADS"] = True
+    webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = True
+    icon = str(ICON) if ICON.is_file() else None
+    servers: list[ServerThread] = []
+    outcome = {"code": 0}
+    try:
+        if updater is None:
+            url, server, error, dist = launch()
+            if server is not None:
+                servers.append(server)
+            window = webview.create_window(
+                APP_NAME,
+                url=None if error or dist is None else versioned_url(url, dist),
+                html=error_page(error) if error else None,
+                js_api=api,
+                **_window_options(),
+            )
+            api.window = window
+            outcome["code"] = 1 if error else 0
+            boot: Callable[[], None] | None = None
+        else:
+            session = UpdateSession(str(updater.log))
+            api._update = session
+            window = webview.create_window(APP_NAME, html=splash_page(), js_api=api, **_window_options())
+            api.window = window
+            closed = threading.Event()
+
+            def on_closed() -> None:
+                closed.set()
+                session.close()
+
+            window.events.closed += on_closed
+
+            def boot() -> None:
+                if not run_update(updater, session, offline=offline):
+                    outcome["code"] = 1
+                    if not closed.is_set():
+                        window.destroy()
+                    return
+                if closed.is_set():
+                    return
+                url, server, error, dist = launch()
+                if server is not None:
+                    servers.append(server)
+                if error or dist is None:
+                    outcome["code"] = 1
+                    window.load_html(error_page(error or "Interface introuvable."))
+                else:
+                    window.load_url(versioned_url(url, dist))
+
+        storage = launcher.local_data_dir(Path.cwd()).resolve() / "webview"
+        storage.mkdir(parents=True, exist_ok=True)
+        # Stockage persistant : thème, options d'export… conservés d'un lancement à l'autre.
+        if boot is None:
+            webview.start(private_mode=False, storage_path=str(storage), icon=icon)
+        else:
+            webview.start(boot, private_mode=False, storage_path=str(storage), icon=icon)
+        return outcome["code"]
+    finally:
+        for server in servers:
             log.info("Arrêt du serveur.")
             server.stop()
