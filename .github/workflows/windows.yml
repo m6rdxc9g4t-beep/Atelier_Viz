@@ -1,0 +1,199 @@
+# Windows (docs/SUITE.md §9.5) : tests et compilation sous Windows (et Linux), puis installation depuis le dépôt
+# comme un utilisateur (scripts/windows/install.ps1, profil temporaire, sans raccourci de Bureau), lancement du
+# lanceur en mode « mise à jour seulement » qui doit réussir, puis un second qui ne doit rien refaire.
+name: Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/windows]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Fins de ligne (un clone ne doit jamais paraître modifié, §9.3)
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)"
+
+      - name: Backend (ruff, pytest)
+        working-directory: backend
+        run: |
+          python -m pip install -r requirements-dev.txt
+          ruff check .
+          python -m pytest -q
+
+      - name: Frontend (npm ci, tests, compilation)
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+          npm run build
+
+      - name: Le dépôt reste propre
+        run: |
+          git status --porcelain
+          test -z "$(git status --porcelain)"
+
+  installation:
+    name: Installation Windows (install.ps1 + lanceur)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        # PowerShell 7 pour les vérifications ; install.ps1 est lancé explicitement par PowerShell 5.1 puis 7.
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Profil temporaire (espaces et accents dans le chemin, §9.2)
+        run: |
+          # Environnement Python, journaux et raccourcis hors du profil du runner.
+          $profil = Join-Path $env:RUNNER_TEMP "profil Fran$([char]0x00E7)ois"
+          foreach ($d in @('AppData\Local', 'AppData\Roaming', 'Raccourcis')) {
+            New-Item -ItemType Directory -Force -Path (Join-Path $profil $d) | Out-Null
+          }
+          "USERPROFILE=$profil" >> $env:GITHUB_ENV
+          "LOCALAPPDATA=$profil\AppData\Local" >> $env:GITHUB_ENV
+          "APPDATA=$profil\AppData\Roaming" >> $env:GITHUB_ENV
+          "RACCOURCIS=$profil\Raccourcis" >> $env:GITHUB_ENV
+          # Donnée de l'utilisateur : ne doit jamais être touchée (installation, mise à jour, désinstallation).
+          New-Item -ItemType Directory -Force -Path backend\data | Out-Null
+          Set-Content -LiteralPath backend\data\temoin.txt -Value 'donnees-utilisateur'
+
+      - name: Syntaxe d'install.ps1 (PowerShell 5.1 et 7)
+        run: |
+          foreach ($exe in @('powershell', 'pwsh')) {
+            & $exe -NoProfile -Command {
+              $errs = $null; $tokens = $null
+              [System.Management.Automation.Language.Parser]::ParseFile("$PWD\scripts\windows\install.ps1", [ref]$tokens, [ref]$errs) | Out-Null
+              if ($errs) { $errs | ForEach-Object { Write-Host "$($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+            }
+            if ($LASTEXITCODE -ne 0) { throw "install.ps1 : erreur de syntaxe ($exe)" }
+          }
+
+      - name: Installation (PowerShell 5.1, sans raccourci de Bureau)
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -SansBureau `
+            -Python "${{ steps.python.outputs.python-path }}" -DossierRaccourcis $env:RACCOURCIS
+          if ($LASTEXITCODE -ne 0) { throw "install.ps1 a échoué ($LASTEXITCODE)" }
+
+      - name: Vérifier l'installation
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:LOCALAPPDATA 'Atelier Viz'
+          $lanceur = Join-Path $app 'Atelier Viz.lnk'
+          $menu = Join-Path $env:RACCOURCIS "Menu D$([char]0x00E9)marrer\Atelier\Atelier Viz.lnk"
+          foreach ($p in @($lanceur, $menu, (Join-Path $app 'venv\Scripts\pythonw.exe'), 'frontend\dist\index.html', 'backend\.mise-a-jour.json')) {
+            if (-not (Test-Path -LiteralPath $p)) { throw "absent : $p" }
+          }
+          if (Test-Path -LiteralPath (Join-Path $env:RACCOURCIS 'Bureau\Atelier Viz.lnk')) { throw 'raccourci de Bureau créé malgré -SansBureau' }
+          $cle = Get-ItemProperty -LiteralPath 'HKCU:\Software\Atelier\Apps\viz'
+          if ($cle.Lanceur -ne $lanceur -or $cle.Nom -ne 'Atelier Viz') { throw "enregistrement inattendu : $($cle | Out-String)" }
+          $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut($lanceur)
+          if ($lnk.TargetPath -notlike '*\pythonw.exe') { throw "le lanceur doit utiliser pythonw.exe (sans console) : $($lnk.TargetPath)" }
+          Write-Host "Lanceur : $($lnk.TargetPath) $($lnk.Arguments) (dans $($lnk.WorkingDirectory))"
+          $plan = & (Join-Path $app 'venv\Scripts\python.exe') backend\app\launcher.py --plan
+          if ($plan -ne 'ok') { throw "après l'installation, rien ne doit rester à faire : $plan" }
+
+      - name: Lanceur en mode « mise à jour seulement » (après un git pull simulé)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git -c user.name=CI -c user.email=ci@example.invalid commit --allow-empty -q -m "git pull simulé"
+          $app = Join-Path $env:LOCALAPPDATA 'Atelier Viz'
+          $python = Join-Path $app 'venv\Scripts\python.exe'
+          $plan = & $python backend\app\launcher.py --plan
+          if ($plan -ne 'build') { throw "après un nouveau commit, seule la compilation est attendue : $plan" }
+          $avant = (Get-Item backend\.mise-a-jour.json).LastWriteTimeUtc
+          $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $app 'Atelier Viz.lnk'))
+          $p = Start-Process -FilePath $lnk.TargetPath -ArgumentList "$($lnk.Arguments) --mise-a-jour-seule" `
+            -WorkingDirectory $lnk.WorkingDirectory -Wait -PassThru
+          Get-Content -LiteralPath (Join-Path $app 'Logs\atelier-viz.log') -Tail 20
+          if ($p.ExitCode -ne 0) { throw "le lanceur a échoué (code $($p.ExitCode))" }
+          if ((Get-Item backend\.mise-a-jour.json).LastWriteTimeUtc -eq $avant) { throw 'la mise à jour n''a pas été faite' }
+          $plan = & $python backend\app\launcher.py --plan
+          if ($plan -ne 'ok') { throw "après la mise à jour, rien ne doit rester à faire : $plan" }
+
+      - name: Second lancement, rien à refaire
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:LOCALAPPDATA 'Atelier Viz'
+          $tampon = (Get-Item backend\.mise-a-jour.json).LastWriteTimeUtc
+          $page = (Get-Item frontend\dist\index.html).LastWriteTimeUtc
+          $journal = Join-Path $app 'Logs\mise-a-jour.log'
+          $lignes = (Get-Content -LiteralPath $journal).Count
+          $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $app 'Atelier Viz.lnk'))
+          $p = Start-Process -FilePath $lnk.TargetPath -ArgumentList "$($lnk.Arguments) --mise-a-jour-seule" `
+            -WorkingDirectory $lnk.WorkingDirectory -Wait -PassThru
+          Get-Content -LiteralPath (Join-Path $app 'Logs\atelier-viz.log') -Tail 5
+          if ($p.ExitCode -ne 0) { throw "le second lancement a échoué (code $($p.ExitCode))" }
+          if ((Get-Item backend\.mise-a-jour.json).LastWriteTimeUtc -ne $tampon) { throw 'le tampon a été réécrit : quelque chose a été refait' }
+          if ((Get-Item frontend\dist\index.html).LastWriteTimeUtc -ne $page) { throw 'l''interface a été recompilée' }
+          if ((Get-Content -LiteralPath $journal).Count -ne $lignes) { throw 'le journal de mise à jour a changé' }
+          git status --porcelain
+          if (git status --porcelain) { throw 'le dépôt paraît modifié (fins de ligne ?)' }
+
+      - name: Réparation (PowerShell 7) puis désinstallation (données conservées)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:LOCALAPPDATA 'Atelier Viz'
+          pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -SansBureau -DossierRaccourcis $env:RACCOURCIS
+          if ($LASTEXITCODE -ne 0) { throw "réparation en échec ($LASTEXITCODE)" }
+          if ((& (Join-Path $app 'venv\Scripts\python.exe') backend\app\launcher.py --plan) -ne 'ok') { throw 'la réparation ne doit rien refaire' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -Desinstaller -DossierRaccourcis $env:RACCOURCIS
+          if ($LASTEXITCODE -ne 0) { throw "désinstallation en échec ($LASTEXITCODE)" }
+          $menu = Join-Path $env:RACCOURCIS "Menu D$([char]0x00E9)marrer\Atelier\Atelier Viz.lnk"
+          foreach ($p in @((Join-Path $app 'Atelier Viz.lnk'), $menu, (Join-Path $app 'venv'), 'HKCU:\Software\Atelier\Apps\viz')) {
+            if (Test-Path -LiteralPath $p) { throw "encore présent après désinstallation : $p" }
+          }
+          if ((Get-Content -LiteralPath backend\data\temoin.txt) -ne 'donnees-utilisateur') { throw 'les données ont été touchées' }
+
+      - name: Journaux
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journaux-windows
+          path: ${{ env.LOCALAPPDATA }}\Atelier Viz\Logs
+          if-no-files-found: ignore
+          retention-days: 7
