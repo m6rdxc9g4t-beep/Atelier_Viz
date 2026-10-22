@@ -45,27 +45,49 @@ jobs:
 
       - name: Fins de ligne (un clone ne doit jamais paraître modifié, §9.3)
         run: |
-          git status --porcelain
+          mkdir -p "$RUNNER_TEMP/journaux"
+          git status --porcelain | tee "$RUNNER_TEMP/journaux/git-status.log"
           test -z "$(git status --porcelain)"
 
       - name: Backend (ruff, pytest)
         working-directory: backend
         run: |
-          python -m pip install -r requirements-dev.txt
-          ruff check .
-          python -m pytest -q
+          set -o pipefail
+          python -m pip install -q -r requirements-dev.txt
+          ruff check . 2>&1 | tee "$RUNNER_TEMP/journaux/ruff.log"
+          python -m pytest -q -rfE 2>&1 | tee "$RUNNER_TEMP/journaux/pytest.log"
 
       - name: Frontend (npm ci, tests, compilation)
+        if: success() || failure()  # même si le backend échoue : tous les problèmes en un passage
         working-directory: frontend
         run: |
-          npm ci --no-audit --no-fund
-          npm test
-          npm run build
+          set -o pipefail
+          npm ci --no-audit --no-fund 2>&1 | tee "$RUNNER_TEMP/journaux/npm-ci.log"
+          npm test 2>&1 | tail -n 200 | tee "$RUNNER_TEMP/journaux/vitest.log"
+          npm run build 2>&1 | tee "$RUNNER_TEMP/journaux/build.log"
 
       - name: Le dépôt reste propre
         run: |
-          git status --porcelain
+          git status --porcelain | tee "$RUNNER_TEMP/journaux/git-status.log"
           test -z "$(git status --porcelain)"
+
+      # Journaux des étapes en annotations : lisibles par l'API (les journaux bruts des travaux ne le sont pas
+      # toujours depuis un poste d'entreprise).
+      - name: Erreurs en annotations
+        if: failure()
+        shell: bash
+        run: |
+          python - "$RUNNER_TEMP/journaux" "${LOCALAPPDATA:-}" <<'PY'
+          import pathlib, sys
+          files = sorted(pathlib.Path(sys.argv[1]).glob("*.log"))
+          if len(sys.argv) > 2 and sys.argv[2]:
+              files += sorted((pathlib.Path(sys.argv[2]) / "Atelier Viz" / "Logs").glob("*.log"))
+          for f in files:
+              lines = f.read_text(encoding="utf-8", errors="replace").splitlines()[-70:]
+              text = "\n".join(line[:220] for line in lines)
+              text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title={f.name}::{text}")
+          PY
 
   installation:
     name: Installation Windows (install.ps1 + lanceur)
@@ -90,6 +112,7 @@ jobs:
       - name: Profil temporaire (espaces et accents dans le chemin, §9.2)
         run: |
           # Environnement Python, journaux et raccourcis hors du profil du runner.
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:RUNNER_TEMP 'journaux') | Out-Null
           $profil = Join-Path $env:RUNNER_TEMP "profil Fran$([char]0x00E7)ois"
           foreach ($d in @('AppData\Local', 'AppData\Roaming', 'Raccourcis')) {
             New-Item -ItemType Directory -Force -Path (Join-Path $profil $d) | Out-Null
@@ -116,7 +139,8 @@ jobs:
       - name: Installation (PowerShell 5.1, sans raccourci de Bureau)
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -SansBureau `
-            -Python "${{ steps.python.outputs.python-path }}" -DossierRaccourcis $env:RACCOURCIS
+            -Python "${{ steps.python.outputs.python-path }}" -DossierRaccourcis $env:RACCOURCIS *>&1 |
+            Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'journaux\install.log')
           if ($LASTEXITCODE -ne 0) { throw "install.ps1 a échoué ($LASTEXITCODE)" }
 
       - name: Vérifier l'installation
@@ -178,16 +202,36 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $app = Join-Path $env:LOCALAPPDATA 'Atelier Viz'
-          pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -SansBureau -DossierRaccourcis $env:RACCOURCIS
+          pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -SansBureau -DossierRaccourcis $env:RACCOURCIS *>&1 |
+            Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'journaux\reparation.log')
           if ($LASTEXITCODE -ne 0) { throw "réparation en échec ($LASTEXITCODE)" }
           if ((& (Join-Path $app 'venv\Scripts\python.exe') backend\app\launcher.py --plan) -ne 'ok') { throw 'la réparation ne doit rien refaire' }
-          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -Desinstaller -DossierRaccourcis $env:RACCOURCIS
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -Desinstaller -DossierRaccourcis $env:RACCOURCIS *>&1 |
+            Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'journaux\desinstallation.log')
           if ($LASTEXITCODE -ne 0) { throw "désinstallation en échec ($LASTEXITCODE)" }
           $menu = Join-Path $env:RACCOURCIS "Menu D$([char]0x00E9)marrer\Atelier\Atelier Viz.lnk"
           foreach ($p in @((Join-Path $app 'Atelier Viz.lnk'), $menu, (Join-Path $app 'venv'), 'HKCU:\Software\Atelier\Apps\viz')) {
             if (Test-Path -LiteralPath $p) { throw "encore présent après désinstallation : $p" }
           }
           if ((Get-Content -LiteralPath backend\data\temoin.txt) -ne 'donnees-utilisateur') { throw 'les données ont été touchées' }
+
+      # Journaux des étapes en annotations : lisibles par l'API (les journaux bruts des travaux ne le sont pas
+      # toujours depuis un poste d'entreprise).
+      - name: Erreurs en annotations
+        if: failure()
+        shell: bash
+        run: |
+          python - "$RUNNER_TEMP/journaux" "${LOCALAPPDATA:-}" <<'PY'
+          import pathlib, sys
+          files = sorted(pathlib.Path(sys.argv[1]).glob("*.log"))
+          if len(sys.argv) > 2 and sys.argv[2]:
+              files += sorted((pathlib.Path(sys.argv[2]) / "Atelier Viz" / "Logs").glob("*.log"))
+          for f in files:
+              lines = f.read_text(encoding="utf-8", errors="replace").splitlines()[-70:]
+              text = "\n".join(line[:220] for line in lines)
+              text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title={f.name}::{text}")
+          PY
 
       - name: Journaux
         if: always()
