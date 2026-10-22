@@ -184,7 +184,7 @@ if (-not $node) {
 }
 
 # Python 3.11+ : -Python, puis « py -3 », puis « python » (docs/SUITE.md §9.3). Jamais conda.
-$python = $null
+$pythonTrouve = $null  # (les variables PowerShell ignorent la casse : distinct du paramètre -Python)
 $candidatsPython = @()
 if ($Python) {
     $candidatsPython += , @($Python)
@@ -198,14 +198,14 @@ foreach ($candidat in $candidatsPython) {
     $r = Invoke-Natif $exe ($prefixe + @('-c', 'import sys; print(''%d.%d'' % sys.version_info[:2])'))
     if ($r.Code -eq 0 -and $r.Sortie -match '^(\d+)\.(\d+)$') {
         if ([version]$r.Sortie -ge [version]'3.11') {
-            $python = $candidat
+            $pythonTrouve = $candidat
             Write-Ok "Python $($r.Sortie) ($($candidat -join ' '))"
             break
         }
         Write-Attention "Python $($r.Sortie) est trop ancien ($($candidat -join ' '))."
     }
 }
-if (-not $python -and -not (Test-Path -LiteralPath $VenvPython)) {
+if (-not $pythonTrouve -and -not (Test-Path -LiteralPath $VenvPython)) {
     if ($Python) { Stop-Installation "Python 3.11+ introuvable à l'emplacement indiqué : $Python" }
     $manque += 'Python 3.11+ : winget install Python.Python.3.12   (puis ouvrez un nouveau terminal)'
 }
@@ -251,14 +251,14 @@ if (Test-Path -LiteralPath $VenvPython) {
     if ($recreer) { Write-Attention 'Environnement existant inutilisable ou d''un autre Python : il est recréé.' }
 }
 if ($recreer) {
-    if (-not $python) { Stop-Installation 'Python 3.11+ introuvable : winget install Python.Python.3.12' }
+    if (-not $pythonTrouve) { Stop-Installation 'Python 3.11+ introuvable : winget install Python.Python.3.12' }
     if (Test-Path -LiteralPath $Venv) {
         try { Remove-Item -LiteralPath $Venv -Recurse -Force }
         catch { Stop-Installation "impossible de remplacer $Venv (fermez Atelier Viz, puis relancez ce script)." }
     }
     New-Item -ItemType Directory -Force -Path $DossierApp | Out-Null
-    $exe = $python[0]
-    $prefixe = @($python | Select-Object -Skip 1)
+    $exe = $pythonTrouve[0]
+    $prefixe = @($pythonTrouve | Select-Object -Skip 1)
     $r = Invoke-Natif $exe ($prefixe + @('-m', 'venv', $Venv))
     if ($r.Code -ne 0 -or -not (Test-Path -LiteralPath $VenvPythonw)) {
         Stop-Installation "création de l'environnement Python impossible :`n$($r.Sortie)"
