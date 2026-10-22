@@ -72,7 +72,7 @@ lui-même) :
 | Outil | Commande |
 |---|---|
 | Git | `winget install --id Git.Git -e` |
-| Node.js 22.12+ ou 24+ | `winget install OpenJS.NodeJS.LTS` |
+| Node.js 22.12 ou plus récent | `winget install OpenJS.NodeJS.LTS` |
 | Python 3.11+ (python.org, pas besoin de conda) | `winget install Python.Python.3.12` |
 | Runtime WebView2 (déjà présent sur Windows 11 et Windows 10 à jour) | `winget install Microsoft.EdgeWebView2Runtime` |
 

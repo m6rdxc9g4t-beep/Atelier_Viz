@@ -6,13 +6,14 @@
     Depuis le dépôt cloné :
         powershell -ExecutionPolicy Bypass -File scripts\windows\install.ps1
 
-    1. Vérifie les prérequis (Windows 10 21H2+ ou 11, Git, Node.js 22.12+ ou 24+, Python 3.11+, runtime WebView2)
+    1. Vérifie les prérequis (Windows 10 21H2+ ou 11, Git, Node.js 22.12+, Python 3.11+, runtime WebView2)
        et indique la commande winget à lancer pour ce qui manque ; n'installe rien de système.
     2. Crée l'environnement Python dédié à l'application : %LOCALAPPDATA%\Atelier Viz\venv (jamais conda).
-    3. Crée le lanceur %LOCALAPPDATA%\Atelier Viz\Atelier Viz.lnk et ses raccourcis (menu Démarrer, dossier
-       « Atelier » ; Bureau sauf -SansBureau) : pythonw.exe du venv sur backend\desktop.py, aucune console.
+    3. Crée le lanceur : raccourci « Atelier Viz » du menu Démarrer (dossier « Atelier ») et du Bureau (sauf
+       -SansBureau) : pythonw.exe du venv sur backend\desktop.py, aucune console.
     4. Fait la première mise à jour (python -m app.launcher --mettre-a-jour : pip, npm ci, compilation).
-    5. Enregistre l'app dans HKCU\Software\Atelier\Apps\viz (Lanceur, Nom) pour les autres apps de la suite.
+    5. Enregistre l'app dans HKCU\Software\Atelier\Apps\viz (Lanceur = raccourci du menu Démarrer, Nom) pour
+       les autres apps de la suite (docs/SUITE.md §9.6).
 
     Relancer le script répare l'installation sans toucher aux données (backend\data). Ensuite, après un
     « git pull », il suffit de relancer Atelier Viz : il se met à jour tout seul (docs/SUITE.md §8).
@@ -51,7 +52,7 @@ $DossierApp = Join-Path $Local $NomApp
 $Venv = Join-Path $DossierApp 'venv'
 $VenvPython = Join-Path $Venv 'Scripts\python.exe'
 $VenvPythonw = Join-Path $Venv 'Scripts\pythonw.exe'
-$Lanceur = Join-Path $DossierApp "$NomApp.lnk"
+$AncienLanceur = Join-Path $DossierApp "$NomApp.lnk"  # versions précédentes : retiré à la réparation
 $Journal = Join-Path (Join-Path $DossierApp 'Logs') 'mise-a-jour.log'
 $Icone = Join-Path $PSScriptRoot 'atelier-viz.ico'
 $Tampon = Join-Path $Backend '.mise-a-jour.json'
@@ -66,6 +67,7 @@ if ($DossierRaccourcis) {
 }
 $RaccourciMenu = Join-Path $Menu "$NomApp.lnk"
 $RaccourciBureau = Join-Path $Bureau "$NomApp.lnk"
+$Lanceur = $RaccourciMenu  # §9.6 : le lanceur inscrit est le raccourci du menu Démarrer
 
 # Sortie des programmes Python en UTF-8 (chemins avec accents : C:\Users\François\…).
 $env:PYTHONIOENCODING = 'utf-8'
@@ -104,7 +106,7 @@ function Remove-CleVide([string]$Cle) {
 
 if ($Desinstaller) {
     Write-Etape "Désinstallation d'$NomApp (les données ne sont pas touchées)"
-    foreach ($chemin in @($RaccourciMenu, $RaccourciBureau, $Lanceur)) {
+    foreach ($chemin in @($RaccourciMenu, $RaccourciBureau, $AncienLanceur)) {
         if (Test-Path -LiteralPath $chemin) { Remove-Item -LiteralPath $chemin -Force; Write-Ok "Retiré : $chemin" }
     }
     if ((Test-Path -LiteralPath $Menu) -and -not (Get-ChildItem -LiteralPath $Menu -Force)) {
@@ -168,11 +170,11 @@ foreach ($candidat in $candidatsNode) {
     if ($r.Code -eq 0 -and $r.Sortie -match '^v(\d+)\.(\d+)') {
         $majeure = [int]$Matches[1]; $mineure = [int]$Matches[2]
         $dossierNode = Split-Path -Parent $candidat
-        $avecNpm = (Test-Path -LiteralPath (Join-Path $dossierNode 'npm.cmd')) -or (Test-Path -LiteralPath (Join-Path $dossierNode 'npm.exe'))
-        if (-not $avecNpm) { continue }
+        # npm est lancé par node.exe sur npm-cli.js (sans shell, §9.6) : il doit être à côté de node.exe.
+        $npmCli = Join-Path $dossierNode 'node_modules\npm\bin\npm-cli.js'
+        if (-not (Test-Path -LiteralPath $npmCli)) { continue }
         if (($majeure -eq 22 -and $mineure -ge 12) -or $majeure -ge 23) {
             $node = $candidat
-            if ($majeure -eq 23) { Write-Attention 'Node.js 23 n''est pas une version LTS : préférez Node.js 24 (winget install OpenJS.NodeJS.LTS).' }
             Write-Ok "Node.js $($r.Sortie) ($candidat)"
             break
         }
@@ -180,7 +182,7 @@ foreach ($candidat in $candidatsNode) {
     }
 }
 if (-not $node) {
-    $manque += 'Node.js 22.12+ ou 24+ : winget install OpenJS.NodeJS.LTS   (puis ouvrez un nouveau terminal)'
+    $manque += 'Node.js 22.12 ou plus récent : winget install OpenJS.NodeJS.LTS   (puis ouvrez un nouveau terminal)'
 }
 
 # Python 3.11+ : -Python, puis « py -3 », puis « python » (docs/SUITE.md §9.3). Jamais conda.
@@ -287,7 +289,7 @@ function New-Raccourci([string]$Chemin) {
     Write-Ok $Chemin
 }
 New-Item -ItemType Directory -Force -Path $DossierApp | Out-Null
-New-Raccourci $Lanceur
+if (Test-Path -LiteralPath $AncienLanceur) { Remove-Item -LiteralPath $AncienLanceur -Force }
 New-Raccourci $RaccourciMenu
 if ($SansBureau) {
     if (Test-Path -LiteralPath $RaccourciBureau) { Remove-Item -LiteralPath $RaccourciBureau -Force }

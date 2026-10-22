@@ -152,9 +152,9 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $app = Join-Path $env:LOCALAPPDATA 'Atelier Viz'
-          $lanceur = Join-Path $app 'Atelier Viz.lnk'
           $menu = Join-Path $env:RACCOURCIS "Menu D$([char]0x00E9)marrer\Atelier\Atelier Viz.lnk"
-          foreach ($p in @($lanceur, $menu, (Join-Path $app 'venv\Scripts\pythonw.exe'), 'frontend\dist\index.html', 'backend\.mise-a-jour.json')) {
+          $lanceur = $menu  # §9.6 : le lanceur inscrit est le raccourci du menu Démarrer
+          foreach ($p in @($menu, (Join-Path $app 'venv\Scripts\pythonw.exe'), 'frontend\dist\index.html', 'backend\.mise-a-jour.json')) {
             if (-not (Test-Path -LiteralPath $p)) { throw "absent : $p" }
           }
           if (Test-Path -LiteralPath (Join-Path $env:RACCOURCIS 'Bureau\Atelier Viz.lnk')) { throw 'raccourci de Bureau créé malgré -SansBureau' }
@@ -175,7 +175,7 @@ jobs:
           $plan = & $python backend\app\launcher.py --plan
           if ($plan -ne 'build') { throw "après un nouveau commit, seule la compilation est attendue : $plan" }
           $avant = (Get-Item backend\.mise-a-jour.json).LastWriteTimeUtc
-          $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $app 'Atelier Viz.lnk'))
+          $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut((Get-ItemProperty -LiteralPath 'HKCU:\Software\Atelier\Apps\viz').Lanceur)
           $p = Start-Process -FilePath $lnk.TargetPath -ArgumentList "$($lnk.Arguments) --mise-a-jour-seule" `
             -WorkingDirectory $lnk.WorkingDirectory -Wait -PassThru
           Get-Content -LiteralPath (Join-Path $app 'Logs\atelier-viz.log') -Tail 20
@@ -192,7 +192,7 @@ jobs:
           $page = (Get-Item frontend\dist\index.html).LastWriteTimeUtc
           $journal = Join-Path $app 'Logs\mise-a-jour.log'
           $lignes = (Get-Content -LiteralPath $journal).Count
-          $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $app 'Atelier Viz.lnk'))
+          $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut((Get-ItemProperty -LiteralPath 'HKCU:\Software\Atelier\Apps\viz').Lanceur)
           $p = Start-Process -FilePath $lnk.TargetPath -ArgumentList "$($lnk.Arguments) --mise-a-jour-seule" `
             -WorkingDirectory $lnk.WorkingDirectory -Wait -PassThru
           Get-Content -LiteralPath (Join-Path $app 'Logs\atelier-viz.log') -Tail 5
