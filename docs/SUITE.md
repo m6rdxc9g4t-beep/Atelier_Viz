@@ -1,7 +1,7 @@
 # Suite Atelier — contrat commun
 
 Ce document est **identique** dans les trois dépôts (`Atelier_Viz`, `atelier-tab`, `Atelier_Projets`), sous `docs/SUITE.md`.
-Il fixe ce que les trois applications partagent : identité visuelle, ports, navigation, échanges de données, et le contrat de nœud de workflow (§7) qu'Atelier Nexus utilise pour les enchaîner.
+Il fixe ce que les trois applications partagent : identité visuelle, ports, navigation, échanges de données, le contrat de nœud de workflow (§7) qu'Atelier Nexus utilise pour les enchaîner, et la mise à jour automatique des apps de bureau (§8).
 Toute modification se fait dans les trois dépôts à la fois.
 
 | Application | Rôle | Stack |
@@ -475,3 +475,46 @@ Ces règles complètent §7.1 à §7.5 ; Viz, Projets, Tab et Nexus les applique
 **Erreurs**
 - Codes communs ajoutés : `FORBIDDEN` (403 générique), `METHOD_NOT_ALLOWED` (405).
 - MCP (Tab) : un outil en échec renvoie `isError: true`, `structuredContent: {detail, code}` et le texte du message terminé par `[CODE]`.
+
+---
+
+## 8. Mise à jour automatique des apps de bureau
+
+Décision de l'utilisateur : **après un `git pull`, chaque app de bureau se met à jour toute seule à son lancement suivant**,
+comme Atelier Projets (`desktop/lib/prepare.cjs`, modèle de référence). Aucune commande à retaper, aucune app à reconstruire.
+
+### 8.1 Principe
+- L'app installée (`.app`) est un **lanceur** qui connaît le chemin du dépôt ; le code exécuté est celui du dépôt, pas une copie
+  figée. Le lanceur ne se reconstruit qu'une fois (ou si le dépôt change de place).
+- Au lancement, l'app calcule l'**état du dépôt** : empreinte du commit courant (`git rev-parse HEAD`) et du contenu des
+  fichiers suivis modifiés localement (`git diff --name-only HEAD`), et, à part, l'empreinte des **fichiers de dépendances**
+  (`package-lock.json`, `requirements*.txt`). Elle la compare au **tampon** de la dernière mise à jour réussie (fichier local,
+  ignoré par git).
+- Rien n'a changé → lancement direct, sans rien recompiler.
+- Quelque chose a changé → écran de démarrage « Mise à jour… » qui affiche l'étape en cours, puis, dans l'ordre et seulement
+  si nécessaire : installation des dépendances (**depuis le lockfile** : `npm ci`, ou `pip install -r` pour Python) si leurs
+  empreintes ont changé ou si elles manquent ; migrations de la base (s'il y en a) ; compilation. Le tampon n'est écrit
+  qu'après une mise à jour **entièrement** réussie.
+
+### 8.2 Garde-fous
+- **Jamais de `git pull` automatique** : seul l'utilisateur fait évoluer le dépôt.
+- **Les données ne sont jamais touchées** par la mise à jour : elles vivent hors du dépôt ou dans des fichiers ignorés par
+  git. Une app qui migre une base en fait d'abord une **copie de sauvegarde**.
+- Réseau pendant la mise à jour : uniquement les registres de paquets (npm, PyPI), et seulement pour l'étape d'installation.
+- **Échec** (réseau, compilation) : message clair en français dans l'écran de démarrage, avec le chemin du journal
+  (`~/Library/Logs/<App>/mise-a-jour.log`). Si une version compilée précédente existe, l'app propose de **s'ouvrir avec
+  elle** ; la compilation précédente n'est remplacée qu'après une compilation réussie. Le lancement suivant réessaie.
+- Une seule mise à jour à la fois (verrou), même si l'app est lancée deux fois.
+- Une modification locale non commitée compte comme un changement (l'app reflète toujours le dépôt tel qu'il est).
+
+### 8.3 Par application
+
+| App | Dépendances surveillées | Migrations | Compilation |
+|---|---|---|---|
+| Projets | `package-lock.json` | Prisma (`db:deploy`) + sauvegarde | API + interface |
+| Viz | `frontend/package-lock.json`, `backend/requirements*.txt` (environnement Python de l'app) | — | interface |
+| Tab | `package-lock.json` | — (fichiers JSON lus de façon tolérante) | interface + processus principal |
+| Nexus | `frontend/package-lock.json`, `backend/requirements*.txt` (venv de l'app) | Alembic, au démarrage du backend | interface (export statique) |
+
+Tab : le serveur MCP livré dans l'app (`/Applications/Atelier_Tab.app/Contents/Resources/atelier-mcp`) garde ce chemin et lance
+la version du dépôt.
