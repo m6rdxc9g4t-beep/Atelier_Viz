@@ -1,17 +1,37 @@
-"""Lanceur de « Atelier Viz.app » : jamais de `npm install` au lancement, seulement `npm run build` si possible."""
+"""Mise à jour automatique de « Atelier Viz.app » après un `git pull` (docs/SUITE.md §8, `app/launcher.py`).
+
+Faux dépôt git dans un dossier temporaire ; npm et pip simulés (exécutant injecté, ou faux exécutables pour le
+scénario complet) : aucun réseau, aucune vraie installation.
+"""
+
+from __future__ import annotations
 
 import json
 import os
 import re
+import shutil
+import stat
 import subprocess
 import sys
+import time
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
 
-from app.launcher import dependencies_current, interface_action, interface_stale, main
+from app import launcher
+from app.launcher import Updater, dependencies_current, main, plan_steps, read_stamp, repo_state
 
 ROOT = Path(__file__).resolve().parents[2]
+GIT = launcher.find_git()
+needs_git = pytest.mark.skipif(GIT is None, reason="git absent")
+
+GIT_ENV = {
+    "GIT_AUTHOR_NAME": "Test",
+    "GIT_AUTHOR_EMAIL": "test@example.invalid",
+    "GIT_COMMITTER_NAME": "Test",
+    "GIT_COMMITTER_EMAIL": "test@example.invalid",
+}
 
 
 def write_json(path: Path, data: object) -> None:
@@ -19,105 +39,505 @@ def write_json(path: Path, data: object) -> None:
     path.write_text(json.dumps(data), encoding="utf-8")
 
 
-def touch(path: Path, mtime: float) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
-        path.write_text("x", encoding="utf-8")
-    os.utime(path, (mtime, mtime))
+def git(repo: Path, *args: str) -> None:
+    assert GIT is not None
+    subprocess.run([GIT, "-C", str(repo), *args], check=True, capture_output=True, env={**os.environ, **GIT_ENV})
+
+
+def commit(repo: Path, message: str = "maj") -> None:
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", message)
+
+
+def lock_packages(react: str = "19.1.0") -> dict[str, object]:
+    deps = {"dependencies": {"react": "^19.0.0"}, "devDependencies": {"vite": "^7.0.0"}}
+    return {
+        "": {"name": "f", **deps},
+        "node_modules/react": {"version": react},
+        "node_modules/vite": {"version": "7.0.1", "dev": True},
+        "node_modules/fsevents": {"version": "2.3.3", "devOptional": True},
+    }
 
 
 @pytest.fixture
-def front(tmp_path: Path) -> Path:
-    """Dossier frontend installé et compilé, à jour."""
+def repo(tmp_path: Path) -> Path:
+    """Dépôt git minimal : interface (sources, lockfile), dépendances Python, données ignorées."""
+    root = tmp_path / "depot"
+    front = root / "frontend"
     deps = {"dependencies": {"react": "^19.0.0"}, "devDependencies": {"vite": "^7.0.0"}}
-    write_json(tmp_path / "package.json", {"name": "f", **deps})
-    packages = {
-        "": {"name": "f", **deps},
-        "node_modules/react": {"version": "19.1.0"},
-        "node_modules/vite": {"version": "7.0.1", "dev": True},
-        "node_modules/@esbuild/darwin-arm64": {"version": "0.25.0", "optional": True, "dev": True},
-        "node_modules/fsevents": {"version": "2.3.3", "devOptional": True},
-    }
-    write_json(tmp_path / "package-lock.json", {"lockfileVersion": 3, "packages": packages})
-    installed = {k: v for k, v in packages.items() if k and "esbuild" not in k and "fsevents" not in k}
-    write_json(tmp_path / "node_modules" / ".package-lock.json", {"lockfileVersion": 3, "packages": installed})
-    for name in ("package.json", "package-lock.json", "node_modules/.package-lock.json", "src/main.tsx", "index.html"):
-        touch(tmp_path / name, 1000.0)
-    touch(tmp_path / "dist" / "index.html", 2000.0)
-    return tmp_path
+    write_json(front / "package.json", {"name": "f", "scripts": {"build": "tsc --noEmit && vite build"}, **deps})
+    write_json(front / "package-lock.json", {"lockfileVersion": 3, "packages": lock_packages()})
+    (front / "src").mkdir()
+    (front / "src" / "main.tsx").write_text("export const v = 1\n", encoding="utf-8")
+    (root / "backend").mkdir()
+    (root / "backend" / "requirements.txt").write_text("fastapi>=0.132\n", encoding="utf-8")
+    (root / "backend" / "requirements-desktop.txt").write_text("pywebview>=5.3\n", encoding="utf-8")
+    (root / ".gitignore").write_text(
+        "node_modules/\ndist/\nbackend/data/\nbackend/.mise-a-jour.*\nfrontend/.dist-*/\n", encoding="utf-8"
+    )
+    data = root / "backend" / "data"
+    data.mkdir()
+    (data / "atelier.duckdb").write_bytes(b"donnees-utilisateur")
+    if GIT is not None:
+        git(root, "init", "-q")
+        commit(root, "initial")
+    return root
 
 
-def test_up_to_date_interface_needs_nothing(front: Path) -> None:
-    assert interface_stale(front) is False
-    assert dependencies_current(front) is True  # paquets facultatifs d'autres plateformes : absents, normal
-    assert interface_action(front) == "ok"
+class FakeRunner:
+    """Simule pip et npm : `npm ci` écrit node_modules, `npm run build -- --outDir X` écrit X/index.html."""
+
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+        self.fail: set[str] = set()
+        self.builds = 0
+
+    @staticmethod
+    def step_of(cmd: Sequence[str]) -> str:
+        if "pip" in cmd:
+            return "pip"
+        return "npm" if "ci" in cmd else "build"
+
+    @property
+    def steps(self) -> list[str]:
+        return [self.step_of(c) for c in self.calls]
+
+    def __call__(self, cmd: Sequence[str], *, cwd: Path, env: Mapping[str, str], log: Path, timeout: float) -> int:
+        self.calls.append(list(cmd))
+        step = self.step_of(cmd)
+        if step in self.fail:
+            return 1
+        if step == "npm":
+            lock = json.loads((cwd / "package-lock.json").read_text(encoding="utf-8"))
+            installed = {k: v for k, v in lock["packages"].items() if k and "fsevents" not in k}
+            write_json(cwd / "node_modules" / ".package-lock.json", {"packages": installed})
+        elif step == "build":
+            out = cwd / cmd[cmd.index("--outDir") + 1]
+            out.mkdir(parents=True, exist_ok=True)
+            self.builds += 1
+            (out / "index.html").write_text(f'<div id="root"></div> compilation {self.builds}', encoding="utf-8")
+        return 0
 
 
-def test_newer_sources_with_current_dependencies_only_rebuild(front: Path) -> None:
-    touch(front / "src" / "App.tsx", 3000.0)
-    assert interface_action(front) == "build"
+@pytest.fixture
+def runner() -> FakeRunner:
+    return FakeRunner()
 
 
-def test_missing_build_with_current_dependencies_rebuilds(front: Path) -> None:
-    (front / "dist" / "index.html").unlink()
-    assert interface_action(front) == "build"
+def make_updater(repo: Path, runner: FakeRunner, tmp_path: Path, python: str = "/env/bin/python") -> Updater:
+    npm = tmp_path / "node" / "bin" / "npm"
+    return Updater(
+        repo=repo,
+        python=python,
+        log=tmp_path / "logs" / "mise-a-jour.log",
+        runner=runner,
+        npm_finder=lambda: npm,
+        git=GIT,
+        env={"PATH": "/usr/bin:/bin"},
+        lock_timeout=0.3,
+    )
 
 
-def test_missing_node_modules_asks_for_build_app(front: Path) -> None:
-    touch(front / "src" / "App.tsx", 3000.0)
-    (front / "node_modules" / ".package-lock.json").unlink()
-    assert interface_action(front) == "install"
+def dist_text(repo: Path) -> str:
+    return (repo / "frontend" / "dist" / "index.html").read_text(encoding="utf-8")
 
 
-def test_changed_lockfile_asks_for_build_app(front: Path) -> None:
-    """git pull qui met React à jour : node_modules ne correspond plus, rien n'est installé au lancement."""
-    lock = json.loads((front / "package-lock.json").read_text())
-    lock["packages"]["node_modules/react"]["version"] = "19.2.0"
-    write_json(front / "package-lock.json", lock)
-    touch(front / "package-lock.json", 3000.0)
-    assert dependencies_current(front) is False
-    assert interface_action(front) == "install"
+# --- Décision ------------------------------------------------------------------------------------
 
 
-def test_new_required_package_asks_for_build_app(front: Path) -> None:
-    lock = json.loads((front / "package-lock.json").read_text())
-    lock["packages"]["node_modules/zustand"] = {"version": "5.0.0"}
-    write_json(front / "package-lock.json", lock)
-    touch(front / "src" / "App.tsx", 3000.0)
-    assert interface_action(front) == "install"
+@needs_git
+def test_first_update_then_nothing_to_do(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    assert updater.plan().steps == ("pip", "npm", "build")
+    result = updater.run()
+    assert result.ok and result.steps == ("pip", "npm", "build")
+    assert runner.steps == ["pip", "npm", "build"]
+    assert read_stamp(updater.stamp_path) == updater.plan().state
+    assert "compilation 1" in dist_text(repo)
+    # Rien n'a changé : aucune étape, aucune commande.
+    runner.calls.clear()
+    assert updater.plan().steps == ()
+    assert updater.run().ok and runner.calls == []
+    # Les données ne sont jamais touchées ; le tampon est ignoré par git.
+    assert (repo / "backend" / "data" / "atelier.duckdb").read_bytes() == b"donnees-utilisateur"
+    status = subprocess.run([GIT, "-C", str(repo), "status", "--porcelain"], capture_output=True, text=True)  # type: ignore[list-item]
+    assert status.stdout == ""
 
 
-def test_package_json_edited_without_install_asks_for_build_app(front: Path) -> None:
-    write_json(front / "package.json", {"name": "f", "dependencies": {"react": "^19.0.0", "zustand": "^5.0.0"}})
-    touch(front / "package.json", 3000.0)
-    assert interface_action(front) == "install"
+@needs_git
+def test_new_commit_only_rebuilds(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    assert updater.run().ok
+    (repo / "frontend" / "src" / "main.tsx").write_text("export const v = 2\n", encoding="utf-8")
+    commit(repo)  # git pull
+    runner.calls.clear()
+    assert updater.plan().steps == ("build",)
+    assert updater.run().ok and runner.steps == ["build"]
+    assert "compilation 2" in dist_text(repo)
 
 
-def test_unreadable_lockfile_is_not_current(front: Path) -> None:
-    (front / "node_modules" / ".package-lock.json").write_text("{pas du json", encoding="utf-8")
-    assert dependencies_current(front) is False
+@needs_git
+def test_changed_lockfile_runs_npm_ci_then_build(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    """Cas réel : la mise à jour ajoute un paquet (pdf-lib) à l'interface."""
+    updater = make_updater(repo, runner, tmp_path)
+    assert updater.run().ok
+    packages = lock_packages()
+    packages["node_modules/pdf-lib"] = {"version": "1.17.1"}
+    write_json(repo / "frontend" / "package-lock.json", {"lockfileVersion": 3, "packages": packages})
+    commit(repo)
+    runner.calls.clear()
+    assert updater.run().ok
+    assert runner.steps == ["npm", "build"]
+    assert runner.calls[0][1:] == ["ci", "--no-audit", "--no-fund", "--loglevel=error"]
+    assert "node_modules/pdf-lib" in (repo / "frontend" / "node_modules" / ".package-lock.json").read_text()
 
 
-def test_command_line_prints_the_action(front: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert main([str(front)]) == 0
+@needs_git
+def test_changed_requirements_run_pip_with_the_app_python(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    assert updater.run().ok
+    (repo / "backend" / "requirements.txt").write_text("fastapi>=0.132\nrich>=13\n", encoding="utf-8")
+    commit(repo)
+    runner.calls.clear()
+    assert updater.run().ok
+    assert runner.steps == ["pip", "build"]  # nouveau commit : l'interface est aussi recompilée
+    pip = runner.calls[0]
+    assert pip[:4] == ["/env/bin/python", "-m", "pip", "install"]
+    assert pip[-4:] == ["-r", "requirements.txt", "-r", "requirements-desktop.txt"]
+
+
+@needs_git
+def test_other_python_reinstalls_dependencies_only(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    """build_app.sh relancé avec un autre environnement Python : pip, sans recompiler."""
+    assert make_updater(repo, runner, tmp_path).run().ok
+    runner.calls.clear()
+    other = make_updater(repo, runner, tmp_path, python="/autre/bin/python3")
+    assert other.run().ok and runner.steps == ["pip"]
+    assert runner.calls[0][0] == "/autre/bin/python3"
+
+
+@needs_git
+def test_local_modification_counts_as_a_change(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    assert updater.run().ok
+    source = repo / "frontend" / "src" / "main.tsx"
+    source.write_text("export const v = 'local'\n", encoding="utf-8")  # non commité
+    assert updater.plan().steps == ("build",)
+    assert updater.run().ok and updater.plan().steps == ()
+    source.write_text("export const v = 'local 2'\n", encoding="utf-8")  # contenu, pas seulement le nom
+    assert updater.plan().steps == ("build",)
+    git(repo, "checkout", "--", "frontend/src/main.tsx")  # retour au commit
+    assert updater.plan().steps == ("build",)
+
+
+@needs_git
+def test_missing_build_or_node_modules_is_repaired(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    assert updater.run().ok
+    shutil.rmtree(repo / "frontend" / "dist")
+    assert updater.plan().steps == ("build",)
+    shutil.rmtree(repo / "frontend" / "node_modules")
+    assert updater.plan().steps == ("npm", "build")
+
+
+def test_without_stamp_current_node_modules_are_kept(repo: Path, tmp_path: Path) -> None:
+    """Premier lancement après cette version : node_modules conforme au lockfile → pas de npm ci."""
+    front = repo / "frontend"
+    installed = {k: v for k, v in lock_packages().items() if k and "fsevents" not in k}
+    write_json(front / "node_modules" / ".package-lock.json", {"packages": installed})
+    assert dependencies_current(front) is True
+    state = repo_state(repo, "/env/bin/python", None)
+    assert plan_steps(repo, state, None) == ("pip", "build")
+    installed["node_modules/react"] = {"version": "19.0.0"}
+    write_json(front / "node_modules" / ".package-lock.json", {"packages": installed})
+    assert plan_steps(repo, state, None) == ("pip", "npm", "build")
+
+
+def test_unreadable_stamp_means_full_update(repo: Path, tmp_path: Path) -> None:
+    stamp = repo / "backend" / launcher.STAMP_NAME
+    stamp.write_text("{pas du json", encoding="utf-8")
+    assert read_stamp(stamp) is None
+    write_json(stamp, {"code": "x"})
+    assert read_stamp(stamp) is None
+
+
+# --- Échecs, verrou --------------------------------------------------------------------------------
+
+
+@needs_git
+def test_failed_build_keeps_previous_build_and_stamp(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    assert updater.run().ok
+    stamp_before = updater.stamp_path.read_text(encoding="utf-8")
+    (repo / "frontend" / "src" / "main.tsx").write_text("export const v = 3\n", encoding="utf-8")
+    commit(repo)
+    runner.fail = {"build"}
+    result = updater.run()
+    assert not result.ok and result.failed_step == "build" and not result.network
+    assert result.previous_available and result.log == str(updater.log)
+    assert "compilation de l'interface a échoué" in (result.message or "")
+    assert "compilation 1" in dist_text(repo)  # l'ancienne compilation reste servie
+    assert not (repo / "frontend" / launcher.NEXT_DIST).exists()
+    assert updater.stamp_path.read_text(encoding="utf-8") == stamp_before
+    assert updater.plan().steps == ("build",)  # le lancement suivant réessaie
+    runner.fail = set()
+    assert updater.run().ok and "compilation 2" in dist_text(repo)
+
+
+@needs_git
+def test_failed_install_stops_before_build(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    runner.fail = {"pip"}
+    result = updater.run()
+    assert not result.ok and result.failed_step == "pip" and result.network
+    assert "connexion au réseau" in (result.message or "")
+    assert runner.steps == ["pip"] and not updater.stamp_path.exists()
+    assert result.previous_available is False  # jamais compilée : pas de version précédente
+
+
+@needs_git
+def test_missing_npm_is_a_clear_failure(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    updater.npm_finder = lambda: None
+    result = updater.run()
+    assert not result.ok and result.failed_step == "npm"
+    assert "Node.js (npm) est introuvable" in (result.message or "")
+
+
+@needs_git
+def test_lock_allows_a_single_update(repo: Path, runner: FakeRunner, tmp_path: Path) -> None:
+    updater = make_updater(repo, runner, tmp_path)
+    statuses: list[tuple[str, int, int]] = []
+    with launcher.update_lock(updater.lock_path, 0) as held:
+        assert held
+        result = updater.run(lambda label, i, n: statuses.append((label, i, n)))
+    assert not result.ok and result.busy and runner.calls == []
+    assert statuses and statuses[0][1:] == (0, 0) and "autre mise à jour" in statuses[0][0]
+    assert updater.run().ok  # verrou libéré
+
+
+def test_replace_dir_restores_the_previous_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    new, target, aside = tmp_path / "new", tmp_path / "dist", tmp_path / "old"
+    new.mkdir()
+    (new / "index.html").write_text("neuf", encoding="utf-8")
+    target.mkdir()
+    (target / "index.html").write_text("ancien", encoding="utf-8")
+    real = os.replace
+
+    def failing(src: object, dst: object) -> None:
+        if Path(str(src)) == new:
+            raise OSError("disque plein")
+        real(src, dst)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(launcher.os, "replace", failing)
+    with pytest.raises(OSError):
+        launcher.replace_dir(new, target, aside)
+    assert (target / "index.html").read_text(encoding="utf-8") == "ancien"
+    monkeypatch.setattr(launcher.os, "replace", real)
+    launcher.replace_dir(new, target, aside)
+    assert (target / "index.html").read_text(encoding="utf-8") == "neuf" and not aside.exists()
+
+
+# --- Exécution bornée -------------------------------------------------------------------------------
+
+
+def test_run_logged_writes_the_log_and_bounds_time(tmp_path: Path) -> None:
+    log = tmp_path / "logs" / "mise-a-jour.log"
+    env = {"PATH": os.environ.get("PATH", "")}
+    code = launcher.run_logged([sys.executable, "-c", "print('bonjour')"], cwd=tmp_path, env=env, log=log, timeout=30)
+    assert code == 0 and "bonjour" in log.read_text(encoding="utf-8")
+    code = launcher.run_logged(
+        [sys.executable, "-c", "raise SystemExit(3)"], cwd=tmp_path, env=env, log=log, timeout=30
+    )
+    assert code == 3
+    start = time.monotonic()
+    code = launcher.run_logged(
+        [sys.executable, "-c", "import time; time.sleep(30)"], cwd=tmp_path, env=env, log=log, timeout=0.5
+    )
+    assert code == -1 and time.monotonic() - start < 15
+    assert "délai" in log.read_text(encoding="utf-8")
+    flood = "import sys\nwhile True: sys.stdout.write('x' * 65536)"
+    code = launcher.run_logged(
+        [sys.executable, "-c", flood], cwd=tmp_path, env=env, log=log, timeout=30, max_log=200_000
+    )
+    assert code == -1 and "sortie trop longue" in log.read_text(encoding="utf-8")
+
+
+def test_log_location_per_platform(tmp_path: Path) -> None:
+    mac = launcher.log_path("darwin", tmp_path, {})
+    assert mac == tmp_path / "Library" / "Logs" / "Atelier Viz" / "mise-a-jour.log"
+    assert launcher.log_path("linux", tmp_path, {}) == tmp_path / ".local" / "state" / "atelier-viz" / "mise-a-jour.log"
+
+
+# --- Node / npm depuis le Finder ---------------------------------------------------------------------
+
+
+def fake_bin(folder: Path, *names: str) -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        exe = folder / name
+        exe.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
+    return folder
+
+
+@pytest.fixture
+def no_system_node(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ignore le Node éventuellement installé sur la machine de test."""
+    monkeypatch.setattr(launcher, "SYSTEM_BIN_DIRS", ())
+
+
+@pytest.mark.usefixtures("no_system_node")
+def test_npm_found_outside_the_finder_path(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    env = {"PATH": "/usr/bin:/bin:relatif:/x/node_modules/.bin"}
+    assert launcher.find_npm(env, home, lambda: None) is None
+    # Homebrew de l'utilisateur (~/.homebrew/bin)
+    brew = fake_bin(home / ".homebrew" / "bin", "node", "npm")
+    assert launcher.find_npm(env, home, lambda: None) == brew / "npm"
+    # Le PATH du shell de connexion passe avant les emplacements habituels.
+    login = fake_bin(tmp_path / "login-bin", "node", "npm")
+    assert launcher.find_npm(env, home, lambda: str(login)) == login / "npm"
+    # npm sans node à côté : ignoré.
+    lonely = fake_bin(tmp_path / "seul", "npm")
+    assert launcher.find_npm({"PATH": str(lonely)}, home, lambda: None) == brew / "npm"
+
+
+@pytest.mark.usefixtures("no_system_node")
+def test_npm_from_nvm_prefers_the_default_alias(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    versions = home / ".nvm" / "versions" / "node"
+    for v in ("v18.20.0", "v20.11.1", "v22.3.0"):
+        fake_bin(versions / v / "bin", "node", "npm")
+    assert launcher.find_npm({"PATH": ""}, home, lambda: None) == versions / "v22.3.0" / "bin" / "npm"
+    (home / ".nvm" / "alias").mkdir(parents=True)
+    (home / ".nvm" / "alias" / "default").write_text("20\n", encoding="utf-8")
+    assert launcher.find_npm({"PATH": ""}, home, lambda: None) == versions / "v20.11.1" / "bin" / "npm"
+
+
+def test_path_entries_are_filtered() -> None:
+    dirs = launcher.safe_path_dirs("/a:rel:./b::/a:/p/node_modules/.bin:/c")
+    assert dirs == ["/a", "/c"]
+
+
+def test_login_shell_path_is_read_between_marks(tmp_path: Path) -> None:
+    shell = tmp_path / "zsh"
+    shell.write_text(
+        '#!/bin/sh\necho "bienvenue"\nprintf "__ATELIER_PATH__/opt/homebrew/bin:/usr/bin__ATELIER_PATH__"\n',
+        encoding="utf-8",
+    )
+    shell.chmod(0o755)
+    assert launcher.login_shell_path(str(shell)) == "/opt/homebrew/bin:/usr/bin"
+    assert launcher.login_shell_path(str(tmp_path / "absent")) is None
+
+
+# --- Préférences, ligne de commande, scripts ------------------------------------------------------------
+
+
+def test_online_mode_is_read_without_dependencies(tmp_path: Path) -> None:
+    base = tmp_path / "backend"
+    base.mkdir()
+    assert launcher.local_data_dir(base, {}) == base / "data"
+    (base / ".env").write_text("CLAUDE_MODE=api\nDATA_DIR='/srv/viz'\n", encoding="utf-8")
+    assert launcher.local_data_dir(base, {}) == Path("/srv/viz")
+    assert launcher.local_data_dir(base, {"DATA_DIR": "ailleurs"}) == base / "ailleurs"
+    data = base / "data"
+    assert launcher.online_mode(data) is False
+    write_json(data / "settings.json", {"online_mode": True})
+    assert launcher.online_mode(data) is True
+    (data / "settings.json").write_text("{", encoding="utf-8")
+    assert launcher.online_mode(data) is False
+
+
+@needs_git
+def test_command_line(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # Anciens lanceurs (python -m app.launcher <frontend>) : « ok », desktop.py fait la mise à jour.
+    assert main([str(repo / "frontend")]) == 0
     assert capsys.readouterr().out.strip() == "ok"
-    assert main([]) == 2
+    assert main(["--plan", "--depot", str(repo)]) == 0
+    assert capsys.readouterr().out.strip() == "pip npm build"
     out = subprocess.run(
-        [sys.executable, "-m", "app.launcher", str(front)],
+        [sys.executable, "-m", "app.launcher", "--plan", "--depot", str(repo)],
         cwd=ROOT / "backend",
         capture_output=True,
         text=True,
         check=True,
     )
-    assert out.stdout.strip() == "ok"
+    assert out.stdout.strip() == "pip npm build"
 
 
-def test_generated_launcher_never_runs_npm_install() -> None:
-    """Le lanceur écrit par build_app.sh (entre les balises LAUNCHER) n'installe jamais de paquet."""
-    script = (ROOT / "scripts" / "macos" / "build_app.sh").read_text(encoding="utf-8")
-    launcher = re.search(r"cat <<'LAUNCHER'\n(.*?)\nLAUNCHER\n", script, re.S)
-    assert launcher is not None
-    body = launcher.group(1)
-    code = "\n".join(line for line in body.splitlines() if not line.lstrip().startswith("#"))
-    assert "npm install" not in code and "npm ci" not in code and "npm i " not in code
-    assert "-m app.launcher" in code and "npm run build" in code
+def test_frontend_build_script_ends_with_vite_build() -> None:
+    """`npm run build -- --outDir .dist-next` : les options doivent revenir à `vite build`."""
+    package = json.loads((ROOT / "frontend" / "package.json").read_text(encoding="utf-8"))
+    assert package["scripts"]["build"].rstrip().endswith("vite build")
+
+
+def test_update_files_are_ignored_by_git() -> None:
+    ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+    for pattern in ("backend/.mise-a-jour.*", "frontend/.dist-*/", "backend/data/"):
+        assert pattern in ignore
+
+
+# --- Scénario complet : vrais sous-processus, faux npm et faux Python -------------------------------------
+
+
+FAKE_NPM = """#!/bin/sh
+# Faux npm : journalise ses arguments, simule `ci` et `run build -- --outDir X`.
+echo "npm $*" >> "$FAKE_CALLS"
+command -v node >/dev/null || { echo "node introuvable" >&2; exit 9; }
+if [ "$1" = "ci" ]; then
+  mkdir -p node_modules && cp package-lock.json node_modules/.package-lock.json && exit 0
+fi
+if [ "$1" = "run" ] && [ "$2" = "build" ]; then
+  [ -f "$FAKE_FAIL_BUILD" ] && { echo "erreur de compilation" >&2; exit 2; }
+  out="$5"; mkdir -p "$out" && echo '<div id="root"></div> nouvelle' > "$out/index.html" && exit 0
+fi
+exit 1
+"""
+
+FAKE_PYTHON = """#!/bin/sh
+echo "python $*" >> "$FAKE_CALLS"
+exit 0
+"""
+
+
+@needs_git
+def test_full_update_with_real_processes(repo: Path, tmp_path: Path) -> None:
+    node_dir = fake_bin(tmp_path / "home" / ".homebrew" / "bin", "node")
+    (node_dir / "npm").write_text(FAKE_NPM, encoding="utf-8")
+    (node_dir / "npm").chmod(0o755)
+    python = tmp_path / "env" / "python"
+    python.parent.mkdir()
+    python.write_text(FAKE_PYTHON, encoding="utf-8")
+    python.chmod(0o755)
+    calls, fail = tmp_path / "calls.txt", tmp_path / "fail-build"
+    env = {"PATH": "/usr/bin:/bin", "FAKE_CALLS": str(calls), "FAKE_FAIL_BUILD": str(fail)}
+    # Interface déjà compilée par l'ancienne version.
+    (repo / "frontend" / "dist").mkdir()
+    (repo / "frontend" / "dist" / "index.html").write_text("ancienne", encoding="utf-8")
+    updater = Updater(
+        repo=repo,
+        python=str(python),
+        log=tmp_path / "logs" / "mise-a-jour.log",
+        npm_finder=lambda: launcher.find_npm(env, tmp_path / "home", lambda: None),
+        git=GIT,
+        env=env,
+    )
+    seen: list[tuple[str, int, int]] = []
+    result = updater.run(lambda label, i, n: seen.append((label, i, n)))
+    assert result.ok, (result.message, updater.log.read_text(encoding="utf-8"))
+    assert [s[1:] for s in seen] == [(1, 3), (2, 3), (3, 3)]
+    lines = calls.read_text(encoding="utf-8").splitlines()
+    assert lines[0].startswith("python -m pip install") and lines[0].endswith("-r requirements-desktop.txt")
+    assert lines[1].startswith("npm ci") and lines[2].startswith("npm run build -- --outDir .dist-next")
+    assert "nouvelle" in dist_text(repo)
+    # Échec de compilation au lancement suivant : ancienne compilation et tampon conservés.
+    (repo / "frontend" / "src" / "main.tsx").write_text("export const v = 9\n", encoding="utf-8")
+    commit(repo)
+    fail.touch()
+    stamp = updater.stamp_path.read_text(encoding="utf-8")
+    result = updater.run()
+    assert not result.ok and result.failed_step == "build" and result.previous_available
+    assert "nouvelle" in dist_text(repo) and updater.stamp_path.read_text(encoding="utf-8") == stamp
+    assert "erreur de compilation" in updater.log.read_text(encoding="utf-8")
+    assert (repo / "backend" / "data" / "atelier.duckdb").read_bytes() == b"donnees-utilisateur"
