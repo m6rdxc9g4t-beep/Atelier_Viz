@@ -190,7 +190,7 @@ class Event:
 class FakeWindow:
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
-        self.events = SimpleNamespace(closed=Event())
+        self.events = SimpleNamespace(closed=Event(), closing=Event())
         self.loaded: list[tuple[str, str]] = []
         self.destroyed = False
 
@@ -440,3 +440,57 @@ def test_windows_without_webview2_opens_in_the_browser(monkeypatch: pytest.Monke
     monkeypatch.setattr(desktop, "_run_window", lambda *a: pytest.fail("pas de fenêtre sans WebView2"))
     monkeypatch.setitem(sys.modules, "webview", SimpleNamespace())
     assert desktop.run([]) == 0 and opened == ["navigateur"]
+
+
+# --- « Quitter » sous macOS : arrêt propre puis sortie immédiate (jamais `exit()` d'AppKit) ------------------
+
+
+class Exited(Exception):
+    def __init__(self, code: int) -> None:
+        self.code = code
+
+
+class FakeServer:
+    def __init__(self) -> None:
+        self.stopped = 0
+
+    def stop(self) -> None:
+        self.stopped += 1
+
+
+def raise_exit(code: int) -> None:
+    raise Exited(code)
+
+
+def test_quit_handler_stops_servers_then_exits(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(desktop, "_hard_exit", raise_exit)
+    server = FakeServer()
+    session = desktop.UpdateSession("journal")
+    handler = desktop.quit_handler([server], {"code": 1}, session)  # type: ignore[list-item]
+    with pytest.raises(Exited) as exited:
+        handler()
+    assert exited.value.code == 1 and server.stopped == 1
+    assert session.wait_choice(0) == "quit"
+
+
+def test_closing_the_window_exits_on_macos(window_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(desktop, "EXIT_ON_CLOSING", True)
+    monkeypatch.setattr(desktop, "_hard_exit", raise_exit)
+    server = FakeServer()
+    dist = window_env
+    monkeypatch.setattr(desktop, "launch", lambda: ("http://127.0.0.1:9", server, None, dist))
+
+    def quit_now(window: FakeWindow) -> None:
+        assert len(window.events.closing.handlers) == 1
+        window.events.closing.handlers[0]()  # ⌘Q : `applicationShouldTerminate_` → événement « closing »
+
+    with pytest.raises(Exited) as exited:
+        desktop._run_window(fake_webview(quit_now), None, offline=True)
+    assert exited.value.code == 0 and server.stopped >= 1
+
+
+def test_no_hard_exit_outside_macos(window_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(desktop, "EXIT_ON_CLOSING", False)
+    webview = fake_webview()
+    assert desktop._run_window(webview, None, offline=True) == 0
+    assert webview.windows[0].events.closing.handlers == []

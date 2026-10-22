@@ -888,6 +888,43 @@ def _run_browser() -> int:
             server.stop()
 
 
+# macOS : « Quitter » (⌘Q, menu, Dock, fermeture de session) fait appeler `exit()` par AppKit pendant que
+# Python tourne encore ; les destructeurs C++ de DuckDB s'exécutent alors sans le verrou Python
+# (« Fatal Python error: PyEval_SaveThread ») et macOS affiche « Atelier Viz a quitté inopinément ».
+# On arrête donc tout proprement dès la demande de fermeture, puis on sort sans repasser par `exit()`.
+EXIT_ON_CLOSING = sys.platform == "darwin"
+_hard_exit: Callable[[int], None] = os._exit
+
+
+def stop_servers(servers: list[ServerThread]) -> None:
+    """Arrête les serveurs (la base DuckDB est fermée par le cycle de vie de l'application)."""
+    for server in list(servers):
+        log.info("Arrêt du serveur.")
+        server.stop()
+
+
+def quit_handler(
+    servers: list[ServerThread], outcome: dict[str, int], session: UpdateSession | None = None
+) -> Callable[[], None]:
+    """Demande de fermeture (fenêtre ou « Quitter ») : arrêt propre, journal vidé, sortie immédiate du processus."""
+
+    def on_closing() -> None:
+        if session is not None:
+            session.close()  # une attente de choix se termine par « quit »
+        stop_servers(servers)
+        log.info("Fermeture d'%s.", APP_NAME)
+        for handler in logging.getLogger().handlers:
+            with contextlib.suppress(Exception):
+                handler.flush()
+        for stream in (sys.stdout, sys.stderr):
+            with contextlib.suppress(Exception):
+                if stream is not None:
+                    stream.flush()
+        _hard_exit(outcome["code"])
+
+    return on_closing
+
+
 def _run_window(webview: Any, updater: launcher.Updater | None, offline: bool) -> int:
     """Fenêtre native ; avec une mise à jour, elle affiche d'abord l'écran « Mise à jour… » puis l'interface."""
     api = DesktopApi()
@@ -942,6 +979,8 @@ def _run_window(webview: Any, updater: launcher.Updater | None, offline: bool) -
                 else:
                     window.load_url(versioned_url(url, dist))
 
+        if EXIT_ON_CLOSING:
+            window.events.closing += quit_handler(servers, outcome, api._update)
         storage = launcher.local_data_dir(Path.cwd()).resolve() / "webview"
         storage.mkdir(parents=True, exist_ok=True)
         # Stockage persistant : thème, options d'export… conservés d'un lancement à l'autre.
@@ -951,6 +990,4 @@ def _run_window(webview: Any, updater: launcher.Updater | None, offline: bool) -
             webview.start(boot, private_mode=False, storage_path=str(storage), icon=icon)
         return outcome["code"]
     finally:
-        for server in servers:
-            log.info("Arrêt du serveur.")
-            server.stop()
+        stop_servers(servers)
