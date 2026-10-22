@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from collections.abc import Callable
@@ -291,6 +292,151 @@ def test_missing_python_modules_are_reported(monkeypatch: pytest.MonkeyPatch) ->
         raise ModuleNotFoundError("No module named 'rich'", name="rich")
 
     monkeypatch.setattr(desktop, "get_settings", broken)
+    forgotten: list[bool] = []
+    monkeypatch.setattr(launcher, "forget_stamp", lambda: forgotten.append(True))
     url, server, error, dist = desktop.launch()
+    assert forgotten == [True]  # la mise à jour (pip) sera vraiment retentée
     assert server is None and dist is None and error is not None
     assert "(rich)" in error and "Relancez l'application" in error
+
+
+# --- Windows et lanceur (docs/SUITE.md §9) ------------------------------------------------------------------
+
+
+def test_update_only_mode_reports_with_an_exit_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`desktop.py --mise-a-jour-seule` (lanceur, CI §9.5) : mise à jour sans fenêtre ni serveur, puis code."""
+    monkeypatch.setattr(desktop, "_run_browser", lambda: pytest.fail("aucun serveur en mise à jour seule"))
+    monkeypatch.setattr(desktop, "_run_window", lambda *a: pytest.fail("aucune fenêtre en mise à jour seule"))
+    done = FakeUpdater(UpdateResult(ok=True, steps=("build",)), steps=("build",))
+    assert desktop.run(["--mise-a-jour-seule"], auto_update=True, updater_factory=lambda: done) == 0  # type: ignore[arg-type,return-value]
+    assert "Application à jour." in capsys.readouterr().out and done.ran == 1
+    idle = FakeUpdater(UpdateResult(ok=True), steps=())
+    assert desktop.run(["--mise-a-jour-seule"], auto_update=True, updater_factory=lambda: idle) == 0  # type: ignore[arg-type,return-value]
+    assert "Rien à mettre à jour." in capsys.readouterr().out
+    broken = FakeUpdater(failed("npm"))
+    assert desktop.run(["--mise-a-jour-seule"], auto_update=True, updater_factory=lambda: broken) == 1  # type: ignore[arg-type,return-value]
+    assert "Mise à jour en échec : échec npm" in capsys.readouterr().err
+    assert desktop.update_only(lambda: broken, frozen=True) == 0  # type: ignore[arg-type,return-value]  # paquet autonome
+
+
+def test_desktop_launch_ignores_variables_of_other_apps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """§9.4 : lancée par une autre app, Viz ignore DATA_DIR, NODE_ENV… hérités (sa config : backend/.env)."""
+    monkeypatch.setattr(desktop, "_run_browser", lambda: 0)
+    monkeypatch.setenv("DATA_DIR", "/autre-app/data")
+    monkeypatch.setenv("NODE_ENV", "production")
+    monkeypatch.setenv("OLLAMA_MODEL", "llama3.2")
+    idle = FakeUpdater(UpdateResult(ok=True), steps=())
+    assert desktop.run(["--browser"], auto_update=True, updater_factory=lambda: idle) == 0  # type: ignore[arg-type,return-value]
+    assert "DATA_DIR" not in os.environ and "NODE_ENV" not in os.environ
+    assert os.environ["OLLAMA_MODEL"] == "llama3.2"
+    # Paquet autonome et tests : run() sans auto_update ne touche pas à l'environnement (DATA_DIR du paquet).
+    monkeypatch.setenv("DATA_DIR", "/paquet/data")
+    assert desktop.run(["--browser"]) == 0
+    assert os.environ["DATA_DIR"] == "/paquet/data"
+
+
+class StepUpdater(FakeUpdater):
+    """Accepte `only` comme `launcher.Updater` et note les appels."""
+
+    def __init__(self, results: list[UpdateResult], steps: tuple[launcher.Step, ...]) -> None:
+        super().__init__(results[0], steps)
+        self.results = results
+        self.only: list[Any] = []
+
+    def run(self, on_status: launcher.StatusCallback = lambda *a: None, only: Any = None) -> UpdateResult:  # type: ignore[override]
+        self.only.append(only)
+        return self.results[len(self.only) - 1]
+
+
+def test_windows_runs_pip_before_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    """§9.3 : pywebview charge des fichiers que pip ne pourrait plus remplacer → pip d'abord, puis la fenêtre."""
+    assert desktop.pip_before_window(("pip", "build"), "win32") is True
+    assert desktop.pip_before_window(("npm", "build"), "win32") is False
+    assert desktop.pip_before_window(("pip", "build"), "darwin") is False
+
+    def inline(task: Callable[[launcher.StatusCallback], Any]) -> Any:
+        return task(lambda *a: None)
+
+    ok = StepUpdater([UpdateResult(ok=True, steps=("pip",))], ("pip", "build"))
+    assert desktop.python_first(ok, progress=inline) is None and ok.only == [("pip",)]  # type: ignore[arg-type]
+    ko = StepUpdater([failed("pip")], ("pip", "build"))
+    result = desktop.python_first(ko, progress=inline)  # type: ignore[arg-type]
+    assert result is not None and result.failed_step == "pip"
+
+    # Dans run() : pip avant l'import de pywebview, puis l'échec s'affiche dans l'écran de démarrage.
+    order: list[str] = []
+    monkeypatch.setattr(desktop, "pip_before_window", lambda steps: True)
+    monkeypatch.setattr(desktop, "python_first", lambda updater: order.append("pip") or failed("pip"))
+    monkeypatch.setattr(desktop, "_name_macos_app", lambda: order.append("fenêtre"))
+    seen: dict[str, Any] = {}
+
+    def window(webview: Any, updater: Any, offline: bool) -> int:
+        seen["result"] = updater.run()
+        return 0
+
+    monkeypatch.setattr(desktop, "_run_window", window)
+    monkeypatch.setitem(sys.modules, "webview", SimpleNamespace())
+    pending = FakeUpdater(UpdateResult(ok=True), steps=("pip", "build"))
+    assert desktop.run([], auto_update=True, updater_factory=lambda: pending) == 0  # type: ignore[arg-type,return-value]
+    assert order == ["pip", "fenêtre"] and seen["result"].failed_step == "pip" and pending.ran == 0
+
+
+def test_tk_progress_without_display_still_runs_the_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    class NoDisplay:
+        @staticmethod
+        def Tk() -> None:  # noqa: N802 — comme tkinter
+            raise RuntimeError("pas d'affichage")
+
+    monkeypatch.setitem(sys.modules, "tkinter", NoDisplay)
+    assert desktop.tk_progress(lambda status: status("x", 1, 1) or "fait") == "fait"
+
+
+def test_without_console_output_goes_to_the_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`pythonw.exe` (Windows) : pas de sortie standard ; tout va dans atelier-viz.log (gardé une fois > 5 Mo)."""
+    log = tmp_path / "Logs" / "atelier-viz.log"
+    assert desktop.ensure_log_streams(log) is None  # terminal : rien à faire
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(sys, "stderr", None)
+    monkeypatch.setattr(launcher, "ROTATE_LOG_BYTES", 10)
+    log.parent.mkdir()
+    log.write_text("ancien journal trop long\n", encoding="utf-8")
+    assert desktop.ensure_log_streams(log) == log
+    print("bonjour")
+    sys.stderr.write("erreur\n")
+    stream = sys.stdout
+    monkeypatch.undo()
+    stream.close()
+    text = log.read_text(encoding="utf-8")
+    assert "lancement" in text and "bonjour" in text and "erreur" in text
+    assert "ancien" in (tmp_path / "Logs" / "atelier-viz.log.1").read_text(encoding="utf-8")
+
+
+def test_log_file_and_error_page_hint_per_platform(tmp_path: Path) -> None:
+    assert desktop.app_log_file("darwin", tmp_path) == tmp_path / "Library" / "Logs" / "Atelier Viz" / "atelier-viz.log"
+    win = desktop.app_log_file("win32", tmp_path)
+    assert win.parts[-3:] == ("Atelier Viz", "Logs", "atelier-viz.log")
+    assert "atelier-viz.log" in desktop.error_page("x")
+
+
+def test_webview2_detection_and_window_icon() -> None:
+    """Sans WebView2 (≥ 86), pywebview afficherait l'interface avec l'ancien moteur d'IE : navigateur à la place."""
+    found = {("HKEY_LOCAL_MACHINE", rf"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{desktop.WEBVIEW2_CLIENT}")}
+    assert desktop.webview2_available(lambda hive, key: "131.0.2903.70" if (hive, key) in found else None)
+    assert desktop.webview2_available(lambda hive, key: "0.0.0.0") is False
+    assert desktop.webview2_available(lambda hive, key: None) is False
+    assert desktop.webview2_available(lambda hive, key: "85.0.1") is False
+    # WinForms n'accepte qu'une icône .ico (le PNG de macOS ferait échouer la fenêtre).
+    assert (desktop.window_icon("win32") or "").endswith("atelier-viz.ico")
+    assert (desktop.window_icon("darwin") or "").endswith("icon.png")
+
+
+def test_windows_without_webview2_opens_in_the_browser(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened: list[str] = []
+    monkeypatch.setattr(desktop.sys, "platform", "win32")
+    monkeypatch.setattr(desktop, "webview2_available", lambda: False)
+    monkeypatch.setattr(desktop, "_run_browser", lambda: opened.append("navigateur") or 0)
+    monkeypatch.setattr(desktop, "_run_window", lambda *a: pytest.fail("pas de fenêtre sans WebView2"))
+    monkeypatch.setitem(sys.modules, "webview", SimpleNamespace())
+    assert desktop.run([]) == 0 and opened == ["navigateur"]

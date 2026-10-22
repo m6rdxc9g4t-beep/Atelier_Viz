@@ -22,9 +22,14 @@ Isolation de chaque appel (docs/SUITE.md §5.3) :
 Recherche de l'exécutable : `CLAUDE_CLI` (ou `CLAUDE_CLI_PATH`) en chemin absolu — un chemin relatif est
 refusé —, sinon le `PATH` (entrées absolues seulement, dossiers `node_modules/.bin` ignorés), puis
 `~/.local/bin`, `/opt/homebrew/bin` et `/usr/local/bin` — une application lancée depuis le Finder
-n'hérite pas du `PATH` du terminal. Disponibilité = exécutable trouvé et `claude auth status` réussi,
-mise en cache 60 s (avec la version) ; revérification forcée au plus toutes les 10 s. Une CLI introuvable
-est recherchée de nouveau au plus toutes les 60 s (installée après le lancement).
+n'hérite pas du `PATH` du terminal. Sous Windows (docs/SUITE.md §9.6) : `claude.exe` (PATH,
+`%USERPROFILE%\\.local\\bin`, liens de WinGet) ; un `claude.cmd` de npm (`%APPDATA%\\npm`) est résolu en
+`node.exe …\\@anthropic-ai\\claude-code\\cli.js` (`resolve_npm_shim`), sinon refusé : jamais `cmd.exe`, qui
+réinterpréterait le prompt et le schéma JSON ; liste blanche complétée des variables système de §9.6
+(`SystemRoot`, `USERPROFILE`, `APPDATA`…, aucune donnée ni secret), processus lancé sans console.
+Disponibilité = exécutable trouvé et `claude auth status` réussi, mise en cache 60 s (avec la version) ;
+revérification forcée au plus toutes les 10 s. Une CLI introuvable est recherchée de nouveau au plus toutes les
+60 s (installée après le lancement).
 
 Le sous-processus est lancé dans un thread plutôt qu'avec `asyncio.create_subprocess_exec` :
 sous Windows, `uvicorn --reload` utilise une boucle d'événements qui ne gère pas les sous-processus asynchrones.
@@ -35,6 +40,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -59,6 +65,17 @@ ROLE_LABELS = {"user": "Utilisateur", "assistant": "Assistant"}
 CLAUDE_MODELS = ["sonnet", "opus", "haiku"]
 """Alias proposés à l'utilisateur (docs/SUITE.md §5.2), Sonnet par défaut."""
 FALLBACK_DIRS = ("~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin")
+WINDOWS_FALLBACK_DIRS = (
+    "%USERPROFILE%/.local/bin",
+    "~/.local/bin",
+    "%LOCALAPPDATA%/Microsoft/WinGet/Links",
+    "%APPDATA%/npm",
+)
+"""Windows (docs/SUITE.md §9.6) : installateur natif (`%USERPROFILE%\\.local\\bin\\claude.exe`), WinGet, puis le
+`claude.cmd` de npm (résolu en `node.exe …\\cli.js`)."""
+NPM_PACKAGE = ("node_modules", "@anthropic-ai", "claude-code")
+WINDOWS = os.name == "nt"
+CREATE_NO_WINDOW = 0x08000000
 STATUS_TTL_SECONDS = 60.0
 """Durée de vie de l'état en cache (`claude auth status`) et de l'absence d'exécutable."""
 FORCED_REFRESH_SECONDS = 10.0
@@ -70,11 +87,30 @@ KILL_GRACE_SECONDS = 3.0
 
 ENV_ALLOWED = frozenset({"HOME", "USER", "LOGNAME", "PATH", "SHELL", "LANG", "TMPDIR", "TZ", "CLAUDE_CONFIG_DIR"})
 """Variables transmises à la CLI (docs/SUITE.md §5.3), avec les `LC_*` ; rien d'autre."""
+WINDOWS_ENV_ALLOWED = frozenset(
+    {
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "USERNAME",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "WINDIR",
+        "COMSPEC",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "PROGRAMDATA",
+    }
+)
+"""Windows (docs/SUITE.md §9.6) : liste de §5.3 plus ces variables (noms sans tenir compte de la casse), `Path`."""
 
 
 def _is_node_bin(folder: str) -> bool:
     """Vrai pour un dossier `…/node_modules/.bin` (exécutables d'un projet, pas de la machine)."""
-    parts = Path(folder).parts
+    parts = [part for part in re.split(r"[\\/]", folder) if part]  # « / » et « \\ » (Windows)
     return any(a == "node_modules" and b == ".bin" for a, b in zip(parts, parts[1:], strict=False))
 
 
@@ -82,8 +118,53 @@ def _has_separator(value: str) -> bool:
     return value.startswith("~") or os.sep in value or bool(os.altsep and os.altsep in value)
 
 
+def resolve_npm_shim(shim: Path, find_node: Callable[[], Path | None] | None = None) -> list[str] | None:
+    """Windows : commande réelle d'un `claude.cmd` installé par npm, sans `cmd.exe` (docs/SUITE.md §9.6).
+
+    `<dossier du .cmd>\\node_modules\\@anthropic-ai\\claude-code\\cli.js` lancé par `node.exe` (à côté du `.cmd`,
+    sinon cherché comme pour la mise à jour), ou le binaire natif du paquet (`bin\\claude.exe`). None si le
+    `.cmd` ne se résout pas : il est alors refusé (cmd.exe réinterpréterait le prompt et le schéma JSON).
+    """
+    if not shim.is_file():
+        return None
+    package = shim.parent.joinpath(*NPM_PACKAGE)
+    native = package / "bin" / "claude.exe"
+    if native.is_file():
+        return [str(native)]
+    script = package / "cli.js"
+    if not script.is_file():
+        return None
+    node = shim.parent / "node.exe"
+    if not node.is_file():
+        from app import launcher
+
+        node = (find_node or launcher.find_node)() or Path()
+    return [str(node), str(script)] if node.name.lower() == "node.exe" and node.is_file() else None
+
+
+def cli_command(executable: str, windows: bool = WINDOWS) -> list[str] | None:
+    """Début de la commande de la CLI : `[claude]`, ou sous Windows `[node.exe, cli.js]` pour un `.cmd` de npm.
+
+    None : `.cmd` / `.bat` qui ne se résout pas (jamais lancé par `cmd.exe`).
+    """
+    if windows and Path(executable).suffix.lower() in {".cmd", ".bat"}:
+        return resolve_npm_shim(Path(executable))
+    return [executable]
+
+
 def _executable_file(path: Path) -> bool:
+    if WINDOWS:
+        if path.suffix.lower() == ".exe":
+            return path.is_file()
+        return path.suffix.lower() == ".cmd" and cli_command(str(path)) is not None
     return path.is_file() and os.access(path, os.X_OK)
+
+
+def _windows_candidates(folder: Path, name: str) -> list[Path]:
+    """`claude.exe`, puis `claude.cmd` (npm, résolu) dans un dossier."""
+    if Path(name).suffix.lower() in {".exe", ".cmd"}:
+        return [folder / name]
+    return [folder / f"{name}.exe", folder / f"{name}.cmd"]
 
 
 def find_claude_cli(
@@ -91,7 +172,7 @@ def find_claude_cli(
     *,
     env: Mapping[str, str] | None = None,
     which: Callable[..., str | None] = shutil.which,
-    fallback_dirs: Sequence[str] = FALLBACK_DIRS,
+    fallback_dirs: Sequence[str] | None = None,
 ) -> str | None:
     """Chemin **absolu** de la CLI `claude`, ou None (docs/SUITE.md §5.3).
 
@@ -118,29 +199,57 @@ def find_claude_cli(
         if not folder or not os.path.isabs(folder) or _is_node_bin(folder):
             continue
         for name in names:
+            if WINDOWS:
+                for candidate in _windows_candidates(Path(folder), name):
+                    if _executable_file(candidate):
+                        return str(candidate)
+                continue
             found = which(name, path=folder)
             if found and os.path.isabs(found):
                 return found
+    if fallback_dirs is None:
+        fallback_dirs = WINDOWS_FALLBACK_DIRS if WINDOWS else FALLBACK_DIRS
     for folder in fallback_dirs:
-        path = Path(folder).expanduser() / "claude"
-        if path.is_absolute() and _executable_file(path):
-            return str(path)
+        base = Path(os.path.expandvars(folder)).expanduser()
+        for path in _windows_candidates(base, "claude") if WINDOWS else [base / "claude"]:
+            if path.is_absolute() and _executable_file(path):
+                return str(path)
     return None
 
 
-def cli_environment(executable: str, source: Mapping[str, str] | None = None) -> dict[str, str]:
+def cli_environment(
+    executable: str, source: Mapping[str, str] | None = None, windows: bool = WINDOWS
+) -> dict[str, str]:
     """Environnement de la CLI, en liste blanche ; le dossier de l'exécutable en tête du `PATH`.
 
     Une CLI installée par npm (`#!/usr/bin/env node`) doit trouver `node` depuis le Finder : il est
     d'ordinaire à côté d'elle. Les entrées relatives et `node_modules/.bin` du `PATH` sont écartées.
+    Windows (§9.6) : noms comparés sans tenir compte de la casse, variables système de `WINDOWS_ENV_ALLOWED`,
+    `PATH` transmis sous le nom `Path`.
     """
     source = os.environ if source is None else source
-    env = {k: v for k, v in source.items() if k in ENV_ALLOWED or k.startswith("LC_")}
+    if windows:
+        allowed = (ENV_ALLOWED - {"PATH"}) | WINDOWS_ENV_ALLOWED
+        env = {k: v for k, v in source.items() if k.upper() in allowed or k.upper().startswith("LC_")}
+        raw = next((v for k, v in source.items() if k.upper() == "PATH"), "")
+        sep, name = ";", "Path"
+        absolute = [p for p in raw.split(sep) if _absolute(p, "win32")]
+    else:
+        env = {k: v for k, v in source.items() if (k in ENV_ALLOWED and k != "PATH") or k.startswith("LC_")}
+        raw, sep, name = source.get("PATH", ""), os.pathsep, "PATH"
+        absolute = [p for p in raw.split(sep) if p and os.path.isabs(p)]
     folder = str(Path(executable).parent)
-    rest = [p for p in source.get("PATH", "").split(os.pathsep) if p and os.path.isabs(p) and not _is_node_bin(p)]
-    env["PATH"] = os.pathsep.join(dict.fromkeys([folder, *rest]))
+    rest = [p for p in absolute if not _is_node_bin(p)]
+    env[name] = sep.join(dict.fromkeys([folder, *rest]))
     env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
     return env
+
+
+def _absolute(entry: str, platform: str) -> bool:
+    """Entrée de PATH absolue selon `platform` (Windows : `C:\\…`, `\\\\serveur\\…`)."""
+    from app import launcher
+
+    return bool(entry) and launcher.is_absolute_path(entry, platform)
 
 
 class OutputTooLarge(Exception):
@@ -200,6 +309,7 @@ def run_bounded(
         cwd=cwd,
         env=dict(env) if env is not None else None,
         start_new_session=posix,
+        creationflags=0 if posix else CREATE_NO_WINDOW,  # Windows : jamais de console (app sans console)
     )
     out, err = bytearray(), bytearray()
     size = [0]
@@ -449,15 +559,18 @@ class ClaudeCliProvider:
     async def _run(self, args: Sequence[str], *, stdin: str | None, timeout: float) -> subprocess.CompletedProcess[str]:
         """Exécute la CLI dans un dossier vide, avec l'environnement en liste blanche et une sortie bornée."""
         path = str(self._path)
+        command = cli_command(path)
+        if command is None:  # .cmd de npm qui ne se résout pas : jamais lancé par cmd.exe (§9.6)
+            raise AIProviderError("anthropic", f"CLI Claude non utilisable ({path}) : installez claude.exe.", 400)
         with tempfile.TemporaryDirectory(prefix="atelier-viz-claude-") as cwd:
             try:
                 return await asyncio.to_thread(
                     self._runner,
-                    [path, *args],
+                    [*command, *args],
                     input=stdin,
                     timeout=timeout,
                     cwd=cwd,
-                    env=cli_environment(path),
+                    env=cli_environment(command[0]),
                     max_output=self.max_output,
                 )
             except subprocess.TimeoutExpired as exc:

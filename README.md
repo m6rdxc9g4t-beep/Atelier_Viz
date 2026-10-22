@@ -60,6 +60,55 @@ fenêtre (⌘Q) arrête tout.
 - Relancez `./scripts/macos/build_app.sh` seulement si le dépôt ou l'environnement Python changent de place.
 - En cas de souci : `~/Library/Logs/Atelier Viz/atelier-viz.log`. Sans fenêtre native, `python desktop.py --browser` (dans `backend/`) ouvre l'application dans le navigateur.
 
+### Installer sur Windows
+
+Windows 10 (21H2 ou plus récent) ou Windows 11, x64 (ARM64 : non vérifié par l'intégration continue), **sans droits
+d'administrateur**. L'application installée est un lanceur du dépôt, comme sur le Mac : elle se met à jour toute seule
+après un `git pull`.
+
+**Prérequis** (le script les vérifie et donne la commande à lancer pour ce qui manque, sans rien installer
+lui-même) :
+
+| Outil | Commande |
+|---|---|
+| Git | `winget install --id Git.Git -e` |
+| Node.js 22.12 ou plus récent | `winget install OpenJS.NodeJS.LTS` |
+| Python 3.11+ (python.org, pas besoin de conda) | `winget install Python.Python.3.12` |
+| Runtime WebView2 (déjà présent sur Windows 11 et Windows 10 à jour) | `winget install Microsoft.EdgeWebView2Runtime` |
+
+**Installer** (une fois, dans PowerShell, depuis le dépôt cloné) :
+
+```powershell
+git clone https://github.com/m6rdxc9g4t-beep/Atelier_Viz.git
+cd Atelier_Viz
+powershell -ExecutionPolicy Bypass -File scripts\windows\install.ps1
+```
+
+Le script crée l'environnement Python **dédié à l'application** (`%LOCALAPPDATA%\Atelier Viz\venv`, à partir de
+`py -3` ou `python`), fait la première mise à jour (dépendances Python, `npm ci`, compilation de l'interface), puis
+les raccourcis **« Atelier Viz »** du menu Démarrer (dossier « Atelier ») et du Bureau (`-SansBureau` pour s'en
+passer), et enregistre l'app pour les autres apps de la suite (`HKCU\Software\Atelier\Apps\viz`).
+
+- **Ouvrir** : menu Démarrer → Atelier → Atelier Viz. Aucune console : le raccourci lance `pythonw.exe` de
+  l'environnement de l'app sur `backend\desktop.py`, dans une fenêtre WebView2 (sans WebView2 : navigateur par défaut).
+- **Mettre à jour** : `git pull`, puis relancez l'application. Elle se met à jour toute seule (écran « Mise à jour… »),
+  comme sur macOS. Seule différence : quand les dépendances Python changent, leur installation a lieu juste avant
+  l'ouverture de la fenêtre (petite fenêtre « Mise à jour d'Atelier Viz… »), car Windows ne laisse pas remplacer les
+  bibliothèques de la fenêtre pendant qu'elle est ouverte.
+- **Réparer** (dépôt déplacé, autre Python, raccourci supprimé) : relancez la même commande ; vos données ne sont pas
+  touchées. Autre Python : `install.ps1 -Python C:\chemin\vers\python.exe` (l'environnement est recréé).
+- **Désinstaller** : `powershell -ExecutionPolicy Bypass -File scripts\windows\install.ps1 -Desinstaller` retire les
+  raccourcis, le lanceur, l'enregistrement et l'environnement Python ; **jamais les données** (`backend\data`).
+- **Journaux** : `%LOCALAPPDATA%\Atelier Viz\Logs\` (`mise-a-jour.log`, `atelier-viz.log`).
+- Vérifier sans ouvrir de fenêtre : `backend\desktop.py --mise-a-jour-seule` (avec le Python de l'app : mise à jour
+  puis code de sortie 0 ou 1).
+
+**Paquet autonome ou installation depuis le dépôt ?** Le paquet autonome Windows (`Atelier-Viz-<version>-Windows.zip`,
+ci-dessous) est une **version figée** à télécharger : rien à installer, mais il ne se met jamais à jour (on remplace
+le dossier par une version plus récente) et ses données vivent dans `%LOCALAPPDATA%\Atelier Viz\data`.
+L'installation depuis le dépôt (`install.ps1`) suit le dépôt : **elle se met à jour après chaque `git pull`** et ses
+données sont dans `backend\data`, comme sur le Mac. Les deux peuvent cohabiter (pas en même temps : port 8000).
+
 ### Application autonome (sans Python ni conda)
 
 Pour installer Atelier Viz sur un poste qui n'a ni Python, ni conda, ni Node :
@@ -77,6 +126,7 @@ python scripts/standalone/build.py --self-test   # dans un venv Python 3.11+, su
 - L'intégration continue (« Application autonome », GitHub Actions) construit et auto-teste les trois paquets ; les
   archives sont dans les artefacts du workflow (lancement manuel ou étiquette `v*`).
 - Paquets non signés : au premier lancement, macOS demande clic droit → **Ouvrir** ; Windows SmartScreen → « Informations complémentaires » → **Exécuter quand même**.
+- Version figée, sans mise à jour automatique : pour suivre le dépôt sous Windows, voir « Installer sur Windows ».
 
 ### Activer Claude
 
