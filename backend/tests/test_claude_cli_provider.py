@@ -414,7 +414,8 @@ def test_provider_passes_the_allow_list_to_the_cli(monkeypatch: pytest.MonkeyPat
     asyncio.run(ClaudeCliProvider(executable="/x/bin/claude", runner=runner).chat(MSG))
     env = runner.calls[0]["env"]
     assert "CLAUDE_CODE_USE_BEDROCK" not in env and "GITHUB_TOKEN" not in env
-    assert env["PATH"].split(os.pathsep)[0] == str(Path("/x/bin/claude").parent)
+    path = next(v for k, v in env.items() if k.upper() == "PATH")  # « Path » sous Windows (§9.6)
+    assert path.split(os.pathsep)[0] == str(Path("/x/bin/claude").parent)
 
 
 def test_json_schema_argument_never_carries_data_enums() -> None:
