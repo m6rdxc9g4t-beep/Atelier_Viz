@@ -204,46 +204,108 @@ def test_find_claude_cli_falls_back_to_install_dirs(tmp_path) -> None:
     assert find_claude_cli("claude", env={}, which=lambda _: None, fallback_dirs=dirs[:2]) is None
 
 
+def npm_shim(folder: Path, *, node: bool = True, script: bool = True, native: bool = False) -> Path:
+    """Installation npm simulée : claude.cmd, node_modules\\@anthropic-ai\\claude-code\\cli.js, node.exe."""
+    folder.mkdir(parents=True, exist_ok=True)
+    shim = folder / "claude.cmd"
+    shim.write_text("@echo off\n", encoding="utf-8")
+    package = folder / "node_modules" / "@anthropic-ai" / "claude-code"
+    (package / "bin").mkdir(parents=True, exist_ok=True)
+    if script:
+        (package / "cli.js").write_text("// cli", encoding="utf-8")
+    if native:
+        (package / "bin" / "claude.exe").write_bytes(b"MZ")
+    if node:
+        (folder / "node.exe").write_bytes(b"MZ")
+    return shim
+
+
+def test_npm_claude_cmd_is_resolved_never_run_by_cmd(tmp_path: Path) -> None:
+    """§9.6 : `claude.cmd` de npm → `node.exe …\\cli.js` (ou le binaire du paquet) ; sinon refusé."""
+    from app.services.ai.claude_cli import cli_command, resolve_npm_shim
+
+    shim = npm_shim(tmp_path / "npm")
+    package = tmp_path / "npm" / "node_modules" / "@anthropic-ai" / "claude-code"
+    assert resolve_npm_shim(shim) == [str(tmp_path / "npm" / "node.exe"), str(package / "cli.js")]
+    # node.exe ailleurs (Program Files) : trouvé comme pour la mise à jour.
+    other = npm_shim(tmp_path / "npm2", node=False)
+    node = tmp_path / "Program Files" / "nodejs" / "node.exe"
+    node.parent.mkdir(parents=True)
+    node.write_bytes(b"MZ")
+    assert resolve_npm_shim(other, find_node=lambda: node) == [
+        str(node),
+        str(tmp_path / "npm2" / "node_modules" / "@anthropic-ai" / "claude-code" / "cli.js"),
+    ]
+    assert resolve_npm_shim(other, find_node=lambda: None) is None
+    # Binaire natif livré par le paquet : lancé directement.
+    native = npm_shim(tmp_path / "npm3", script=False, native=True)
+    binary = tmp_path / "npm3" / "node_modules" / "@anthropic-ai" / "claude-code" / "bin" / "claude.exe"
+    assert resolve_npm_shim(native) == [str(binary)]
+    # Rien à résoudre : refusé (jamais cmd.exe).
+    bare = npm_shim(tmp_path / "npm4", script=False)
+    assert resolve_npm_shim(bare) is None
+    assert cli_command(str(bare), windows=True) is None
+    assert cli_command(str(tmp_path / "x.bat"), windows=True) is None
+    assert cli_command(str(shim), windows=True) == resolve_npm_shim(shim)
+    exe = r"C:\Users\F\.local\bin\claude.exe"
+    assert cli_command(exe, windows=True) == [exe]
+    assert cli_command("/opt/homebrew/bin/claude", windows=False) == ["/opt/homebrew/bin/claude"]
+
+
 @windows_only
-def test_find_claude_cli_on_windows_only_accepts_exe(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Windows : claude.exe seulement (un .cmd ferait passer le prompt système par cmd.exe), PATH puis ~/.local/bin."""
+def test_find_claude_cli_on_windows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows : claude.exe, ou claude.cmd de npm résolu ; un .cmd non résolu est ignoré ; ~/.local/bin."""
     from app.services.ai.claude_cli import find_claude_cli
 
-    shim = tmp_path / "npm"
-    shim.mkdir()
-    (shim / "claude.cmd").write_text("@echo off\n")
-    assert find_claude_cli("claude", env={"PATH": str(shim)}, fallback_dirs=()) is None
-    assert find_claude_cli(str(shim / "claude.cmd"), env={"PATH": ""}, fallback_dirs=()) is None
+    bare = npm_shim(tmp_path / "seul", script=False)
+    assert find_claude_cli("claude", env={"PATH": str(bare.parent)}, fallback_dirs=()) is None
+    assert find_claude_cli(str(bare), env={"PATH": ""}, fallback_dirs=()) is None
+    npm = npm_shim(tmp_path / "npm")
+    path = f"relatif;{bare.parent};{npm.parent}"
+    assert find_claude_cli("claude", env={"PATH": path}, fallback_dirs=()) == str(npm)
     native = tmp_path / "Fran\u00e7ois" / ".local" / "bin"
     native.mkdir(parents=True)
     (native / "claude.exe").write_bytes(b"MZ")
-    assert find_claude_cli("claude", env={"PATH": f"relatif;{shim};{native}"}, fallback_dirs=()) == str(
-        native / "claude.exe"
-    )
-    assert find_claude_cli("claude", env={"PATH": ""}, fallback_dirs=(str(native),)) == str(native / "claude.exe")
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "Fran\u00e7ois"))
-    dirs = ("%LOCALAPPDATA%/.local/bin",)
-    assert find_claude_cli("claude", env={"PATH": ""}, fallback_dirs=dirs) == str(native / "claude.exe")
+    path = f"{native};{npm.parent}"
+    assert find_claude_cli("claude", env={"PATH": path}, fallback_dirs=()) == str(native / "claude.exe")
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "Fran\u00e7ois"))
+    found = find_claude_cli("claude", env={"PATH": ""}, fallback_dirs=("%USERPROFILE%/.local/bin",))
+    assert found == str(native / "claude.exe")
 
 
-@windows_only
-def test_cli_environment_on_windows_keeps_the_system_variables() -> None:
+def test_cli_environment_on_windows_is_the_contract_list() -> None:
+    """§9.6 : liste de §5.3 + variables système de Windows (casse quelconque), `Path` ; rien d'autre."""
     from app.services.ai.claude_cli import cli_environment
 
     source = {
-        "USERPROFILE": r"C:\Users\Fran\u00e7ois",
-        "APPDATA": r"C:\Users\Fran\u00e7ois\AppData\Roaming",
-        "SYSTEMROOT": r"C:\Windows",
+        "USERPROFILE": r"C:\Users\François",
+        "HOMEDRIVE": "C:",
+        "HomePath": r"\Users\François",
+        "USERNAME": "francois",
+        "APPDATA": r"C:\Users\François\AppData\Roaming",
+        "LOCALAPPDATA": r"C:\Users\François\AppData\Local",
+        "SystemRoot": r"C:\Windows",
+        "SystemDrive": "C:",
+        "windir": r"C:\Windows",
+        "ComSpec": r"C:\Windows\system32\cmd.exe",
+        "PATHEXT": ".COM;.EXE",
         "TEMP": r"C:\Temp",
-        "PATH": r"C:\Windows\system32;relatif",
+        "TMP": r"C:\Temp",
+        "ProgramData": r"C:\ProgramData",
+        "LANG": "fr_FR.UTF-8",
+        "Path": r"C:\Windows\system32;relatif;C:\p\node_modules\.bin;C:\Program Files\Git\cmd",
         "ANTHROPIC_API_KEY": "sk-secret",
         "GITHUB_TOKEN": "ghp_secret",
         "DATA_DIR": r"C:\depot\backend\data",
+        "ProgramFiles": r"C:\Program Files",
+        "NUMBER_OF_PROCESSORS": "8",
     }
-    env = cli_environment(r"C:\Users\Fran\u00e7ois\.local\bin\claude.exe", source)
-    assert {"USERPROFILE", "APPDATA", "SYSTEMROOT", "TEMP", "PATH"} <= set(env)
-    assert not {"ANTHROPIC_API_KEY", "GITHUB_TOKEN", "DATA_DIR"} & set(env)
-    assert env["PATH"].split(";") == [r"C:\Users\Fran\u00e7ois\.local\bin", r"C:\Windows\system32"]
+    exe = r"C:\Users\François\.local\bin\claude.exe"
+    env = cli_environment(exe, source, windows=True)
+    dropped = {"ANTHROPIC_API_KEY", "GITHUB_TOKEN", "DATA_DIR", "ProgramFiles", "NUMBER_OF_PROCESSORS"}
+    assert set(env) == (set(source) - dropped) | {"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"}
+    rest = [r"C:\Windows\system32", r"C:\Program Files\Git\cmd"]
+    assert env["Path"].split(";") == [str(Path(exe).parent), *rest]
 
 
 def test_claude_cli_env_variable_is_read_by_settings(monkeypatch: pytest.MonkeyPatch) -> None:
