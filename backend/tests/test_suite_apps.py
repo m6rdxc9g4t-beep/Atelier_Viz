@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from app import desktop, launcher, suite_apps
+from app import desktop, suite_apps
 
 windows_only = pytest.mark.skipif(sys.platform != "win32", reason="Windows seulement")
 
@@ -80,67 +80,58 @@ def test_macos_opens_the_bundle_with_the_minimal_environment() -> None:
     assert suite_apps.open_macos_app("fr.atelier.tab", run=run, platform="win32") is False
 
 
-def test_registry_launcher_values_are_validated(tmp_path: Path) -> None:
-    present = {Path(r"C:\Users\François\AppData\Local\Atelier_Tab\Atelier Tab.lnk"), Path(r"C:\Apps\Tab\tab.exe")}
+def test_registry_launcher_values_are_validated() -> None:
+    lnk = r"C:\Users\François\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Atelier\Atelier Tab.lnk"
+    present = {Path(lnk), Path(r"C:\Apps\Tab\tab.exe")}
 
     def exists(path: Path) -> bool:
         return path in present
 
-    lnk = r"C:\Users\François\AppData\Local\Atelier_Tab\Atelier Tab.lnk"
     assert suite_apps.valid_launcher(lnk, exists) == Path(lnk)
     assert suite_apps.valid_launcher(f'"{lnk}"', exists) == Path(lnk)  # guillemets tolérés
     assert suite_apps.valid_launcher(r"C:\Apps\Tab\tab.exe", exists) == Path(r"C:\Apps\Tab\tab.exe")
-    for bad in (None, 3, "", r"Atelier Tab.lnk", r"\Apps\tab.exe", r"C:\Apps\absent.exe", r"C:\Apps\Tab\script.ps1"):
+    for bad in (None, 3, "", r"Atelier Tab.lnk", r"\Apps\tab.lnk", r"C:\Apps\absent.lnk"):
         assert suite_apps.valid_launcher(bad, exists) is None
 
 
-class FakeProcess:
-    def __init__(self, code: int = 0) -> None:
-        self.code = code
-
-    def wait(self, timeout: float | None = None) -> int:
-        return self.code
-
-
-def test_windows_starts_the_registered_launcher_with_a_clean_environment() -> None:
+def test_windows_always_opens_the_launcher_through_explorer() -> None:
+    """§9.6 : `explorer.exe "<Lanceur>"` avec l'environnement minimal, quelle que soit l'extension."""
     spawned: list[dict[str, Any]] = []
 
-    def spawn(cmd: list[str], **kwargs: Any) -> FakeProcess:
+    def spawn(cmd: list[str], **kwargs: Any) -> None:
         spawned.append({"cmd": cmd, **kwargs})
-        return FakeProcess(0)
 
-    clean = {"USERPROFILE": r"C:\Users\François", "PATH": r"C:\Windows\system32"}
+    clean = {"SystemRoot": r"C:\Windows", "USERPROFILE": r"C:\Users\François", "PATH": r"C:\Windows\system32"}
+    lnk = Path(r"C:\Users\François\Start Menu\Programs\Atelier\Atelier Projets & Co.lnk")
     exe = Path(r"C:\Program Files\Atelier Tab\Atelier Tab.exe")
-    assert suite_apps.open_windows_app("tab", read=lambda app: exe, spawn=spawn, env=clean, frozen=False)
-    assert spawned[0]["cmd"] == [str(exe)] and spawned[0]["env"] == clean and spawned[0]["cwd"] == str(exe.parent)
-    assert spawned[0]["flags"] & suite_apps.DETACHED_PROCESS
-
-    # Raccourci : relais Python sans console, chemin en argument (jamais dans une ligne interprétée).
-    lnk = Path(r"C:\Users\François\AppData\Local\Atelier_Projets\Atelier Projets & Co.lnk")
-    assert suite_apps.open_windows_app(
-        "projets", read=lambda app: lnk, spawn=spawn, env=clean, python=r"C:\venv\pythonw.exe", frozen=False
-    )
-    relay = spawned[1]
-    assert relay["cmd"][:4] == [r"C:\venv\pythonw.exe", "-I", "-S", "-c"] and relay["cmd"][-1] == str(lnk)
-    assert relay["env"] == clean and relay["flags"] == launcher.CREATE_NO_WINDOW
-    # Le relais échoue (fichier introuvable…) : False, donc navigateur.
-    failing = suite_apps.open_windows_app(
-        "projets", read=lambda app: lnk, spawn=lambda cmd, **kw: FakeProcess(1), env=clean, frozen=False
-    )
-    assert failing is False
-    # Paquet autonome : ouverture directe par le shell.
-    opened: list[str] = []
-    assert suite_apps.open_windows_app(
-        "projets", read=lambda app: lnk, frozen=True, shell_open=opened.append, env=clean
-    )
-    assert opened == [str(lnk)]
-    # Pas d'app enregistrée, ou lancement impossible : False.
+    for target in (lnk, exe):
+        assert suite_apps.open_windows_app("projets", read=lambda app, t=target: t, spawn=spawn, env=clean)
+    assert [c["cmd"] for c in spawned] == [
+        [suite_apps.explorer_path(clean), str(lnk)],
+        [suite_apps.explorer_path(clean), str(exe)],
+    ]
+    assert all(c["env"] == clean for c in spawned)
+    # Pas d'app enregistrée, ou lancement impossible : False (donc navigateur).
     assert suite_apps.open_windows_app("tab", read=lambda app: None, spawn=spawn) is False
 
-    def broken(cmd: list[str], **kwargs: Any) -> FakeProcess:
+    def broken(cmd: list[str], **kwargs: Any) -> None:
         raise OSError("introuvable")
 
     assert suite_apps.open_windows_app("tab", read=lambda app: exe, spawn=broken, env=clean) is False
+    assert suite_apps.explorer_path({"systemroot": r"D:\Win"}) == str(Path(r"D:\Win") / "explorer.exe")
+
+
+def test_minimal_environment_matches_the_contract_list() -> None:
+    """Liste de §9.6, sans tenir compte de la casse (Windows écrit `SystemRoot`, `windir`, `ProgramFiles(x86)`…)."""
+    names = [
+        "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "USER", "USERNAME", "USERDOMAIN", "LOGNAME", "LANG", "TZ",
+        "TMPDIR", "TEMP", "TMP", "SystemRoot", "SystemDrive", "windir", "ComSpec", "PATHEXT", "APPDATA",
+        "LOCALAPPDATA", "ProgramData", "ProgramFiles", "ProgramFiles(x86)", "ProgramW6432",
+    ]  # fmt: skip
+    assert {n.upper() for n in names} == suite_apps.ENV_WHITELIST
+    source = {n: "x" for n in names} | {"LC_TIME": "fr", "NUMBER_OF_PROCESSORS": "8", "COMPUTERNAME": "PC", "OS": "W"}
+    env = suite_apps.minimal_env(source, "win32", registry=lambda: r"C:\Windows\system32")
+    assert set(env) == {*names, "LC_TIME", "PATH"}
 
 
 def test_suite_app_ids_and_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -4,18 +4,17 @@
   `ATELIER_*`…), seulement une liste blanche (utilisateur, dossier personnel, langue, fuseau, dossiers temporaires et
   système) et le `PATH` du système (`minimal_env`).
 - macOS : `open -b <identifiant>` (inchangé).
-- Windows : le lanceur de l'app est lu dans `HKCU\\Software\\Atelier\\Apps\\<viz|tab|projets|nexus>` (valeur
-  `Lanceur`, chemin complet). Un `.exe` est lancé directement ; un raccourci (`.lnk`) ou un script est ouvert par
-  le shell de Windows depuis un petit processus relais qui a lui-même l'environnement minimal (le chemin lui est
-  passé en argument, jamais dans une ligne de commande interprétée). Absent ou invalide : l'appelant ouvre
-  l'adresse de l'app dans le navigateur par défaut.
+- Windows (§9.6) : le lanceur de l'app est lu dans `HKCU\\Software\\Atelier\\Apps\\<viz|tab|projets|nexus>`
+  (valeur `Lanceur` : raccourci `.lnk` du menu Démarrer) et ouvert **toujours** par le shell :
+  `explorer.exe "<Lanceur>"`, lancé avec l'environnement minimal ; l'Explorateur démarre l'app avec son propre
+  environnement de session. Jamais d'exécution directe du chemin, quelle que soit son extension. Absent ou
+  introuvable : l'appelant ouvre l'adresse de l'app dans le navigateur par défaut.
 
 Bibliothèque standard seulement.
 """
 
 from __future__ import annotations
 
-import contextlib
 import os
 import subprocess
 import sys
@@ -35,58 +34,38 @@ WINDOWS_APP_IDS = {
 }
 """Identifiant de l'app macOS → nom de l'app dans le registre Windows (Atelier Cuisine n'en a pas : navigateur)."""
 
-LAUNCHER_SUFFIXES = frozenset({".exe", ".lnk", ".cmd", ".bat", ".vbs"})
-"""Types de lanceurs acceptés dans le registre ; tout autre fichier (`.ps1` ouvert dans le Bloc-notes…) est ignoré."""
-
 ENV_WHITELIST = frozenset(
     {
-        # Utilisateur, dossier personnel, langue, fuseau, dossiers temporaires (§9.4).
+        # docs/SUITE.md §9.6 : liste complète (noms comparés sans tenir compte de la casse), plus `LC_*` et `PATH`.
         "HOME",
         "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
         "USER",
         "USERNAME",
+        "USERDOMAIN",
         "LOGNAME",
         "LANG",
-        "LANGUAGE",
         "TZ",
         "TMPDIR",
         "TEMP",
         "TMP",
-        "SHELL",
-        # Windows : dossiers et identité du système, indispensables à tout programme.
         "SYSTEMROOT",
+        "SYSTEMDRIVE",
         "WINDIR",
         "COMSPEC",
         "PATHEXT",
-        "SYSTEMDRIVE",
-        "HOMEDRIVE",
-        "HOMEPATH",
         "APPDATA",
         "LOCALAPPDATA",
         "PROGRAMDATA",
-        "ALLUSERSPROFILE",
-        "PUBLIC",
         "PROGRAMFILES",
         "PROGRAMFILES(X86)",
         "PROGRAMW6432",
-        "COMMONPROGRAMFILES",
-        "COMMONPROGRAMFILES(X86)",
-        "COMMONPROGRAMW6432",
-        "PROCESSOR_ARCHITECTURE",
-        "NUMBER_OF_PROCESSORS",
-        "OS",
-        "COMPUTERNAME",
-        "USERDOMAIN",
-        "USERDOMAIN_ROAMINGPROFILE",
     }
 )
-"""Variables transmises à l'app ouverte (comparées sans tenir compte de la casse), plus `LC_*` et `PATH`."""
+"""Variables transmises à l'app ouverte, plus `LC_*` et `PATH` (celui du système)."""
 
 POSIX_SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
-
-DETACHED_PROCESS = 0x00000008
-_SHELL_OPEN = "import os, sys; os.startfile(sys.argv[1])"
-"""Relais Windows : ouvre le fichier passé en argument avec le shell (comme un double-clic)."""
 
 
 def system_path(platform: str | None = None, registry: Callable[[], str | None] = launcher.registry_path) -> str:
@@ -143,15 +122,13 @@ def open_macos_app(
 
 
 def valid_launcher(value: object, exists: Callable[[Path], bool] = Path.is_file) -> Path | None:
-    """Chemin de lanceur lu dans le registre s'il est utilisable : absolu (Windows), existant, type accepté."""
+    """Chemin de lanceur lu dans le registre s'il est utilisable : absolu (Windows) et existant."""
     if not isinstance(value, str) or not value.strip():
         return None
     text = value.strip().strip('"')
     if not launcher.is_absolute_path(text, "win32"):
         return None
     path = Path(text)
-    if Path(text.replace("\\", "/")).suffix.lower() not in LAUNCHER_SUFFIXES:
-        return None
     return path if exists(path) else None
 
 
@@ -171,19 +148,22 @@ def registry_launcher(app_id: str, root: str = REGISTRY_ROOT) -> Path | None:
     return valid_launcher(value)
 
 
-Spawn = Callable[..., Any]
+def explorer_path(env: Mapping[str, str] | None = None) -> str:
+    """`explorer.exe` du système (`%SystemRoot%\\explorer.exe`)."""
+    env = os.environ if env is None else env
+    root = next((v for k, v in env.items() if k.upper() == "SYSTEMROOT" and v), r"C:\Windows")
+    return str(Path(root) / "explorer.exe")
 
 
-def _detached(cmd: Sequence[str], *, env: Mapping[str, str], cwd: str | None, flags: int) -> Any:
-    return subprocess.Popen(  # noqa: S603 — exécutable absolu lu dans le registre, sans shell
+def _spawn(cmd: Sequence[str], *, env: Mapping[str, str]) -> Any:
+    return subprocess.Popen(  # noqa: S603 — explorer.exe du système, chemin du lanceur en argument, sans shell
         list(cmd),
         env=dict(env),
-        cwd=cwd,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         close_fds=True,
-        creationflags=flags,
+        creationflags=launcher.CREATE_NO_WINDOW | launcher.CREATE_NEW_PROCESS_GROUP,
     )
 
 
@@ -191,46 +171,23 @@ def open_windows_app(
     app_id: str,
     *,
     read: Callable[[str], Path | None] = registry_launcher,
-    spawn: Spawn = _detached,
+    spawn: Callable[..., Any] = _spawn,
     env: Mapping[str, str] | None = None,
-    python: str | None = None,
-    frozen: bool | None = None,
-    shell_open: Callable[[str], None] | None = None,
 ) -> bool:
-    """Démarre le lanceur enregistré d'une app de la suite avec l'environnement minimal ; False si aucun.
+    """Ouvre le lanceur enregistré d'une app de la suite par `explorer.exe "<Lanceur>"` (§9.6) ; False si aucun.
 
-    `.exe` : lancé directement (détaché). Autre type (`.lnk`…) : relais `python -I -S -c os.startfile(argv[1])`
-    lancé sans console avec l'environnement minimal, qui l'ouvre comme un double-clic. Dans le paquet autonome
-    (sans interpréteur séparé), `os.startfile` directement.
+    `explorer.exe` est lancé avec l'environnement minimal ; il délègue l'ouverture à l'Explorateur de la session,
+    qui démarre l'app avec son propre environnement. Le chemin est un argument (jamais une ligne interprétée).
     """
     target = read(app_id)
     if target is None:
         return False
     clean = minimal_env() if env is None else dict(env)
-    frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
     try:
-        if target.suffix.lower() == ".exe":
-            flags = DETACHED_PROCESS | launcher.CREATE_NEW_PROCESS_GROUP
-            spawn([str(target)], env=clean, cwd=str(target.parent), flags=flags)
-            return True
-        if frozen:
-            (shell_open or _startfile)(str(target))
-            return True
-        helper = spawn(
-            [python or sys.executable, "-I", "-S", "-c", _SHELL_OPEN, str(target)],
-            env=clean,
-            cwd=None,
-            flags=launcher.CREATE_NO_WINDOW,
-        )
-        with contextlib.suppress(subprocess.TimeoutExpired, AttributeError):
-            return helper.wait(15) == 0
-        return True
+        spawn([explorer_path(clean), str(target)], env=clean)
     except OSError:
         return False
-
-
-def _startfile(path: str) -> None:
-    os.startfile(path)  # type: ignore[attr-defined]  # Windows seulement
+    return True
 
 
 # --- Toutes plateformes -------------------------------------------------------------------------------
