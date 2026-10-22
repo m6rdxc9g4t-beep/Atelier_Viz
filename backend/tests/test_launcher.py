@@ -478,6 +478,20 @@ def test_update_files_are_ignored_by_git() -> None:
         assert pattern in ignore
 
 
+def test_build_app_delegates_the_update() -> None:
+    """build_app.sh fait la première mise à jour par app.launcher ; le lanceur généré ouvre desktop.py."""
+    script = (ROOT / "scripts" / "macos" / "build_app.sh").read_text(encoding="utf-8")
+    assert "-m app.launcher --mettre-a-jour" in script
+    body = re.search(r"cat <<'LAUNCHER'\n(.*?)\nLAUNCHER\n", script, re.S)
+    assert body is not None
+    code = "\n".join(line for line in body.group(1).splitlines() if not line.lstrip().startswith("#"))
+    assert "desktop.py" in code and "npm " not in code and "pip " not in code  # tout passe par app.launcher
+    # Jamais de git pull automatique : le lanceur n'appelle pas git, la mise à jour ne fait que lire le dépôt.
+    assert "git" not in code
+    source = (ROOT / "backend" / "app" / "launcher.py").read_text(encoding="utf-8")
+    assert '"pull"' not in source and '"fetch"' not in source
+
+
 # --- Scénario complet : vrais sous-processus, faux npm et faux Python -------------------------------------
 
 

@@ -6,10 +6,12 @@
 #     ./scripts/macos/build_app.sh    # → ~/Applications/Atelier Viz.app
 #
 # Options : ./scripts/macos/build_app.sh [dossier de destination]   (défaut : ~/Applications)
-# Relancez le script après un « git pull » : il recompile l'interface et met l'application à jour.
 #
-# L'application utilise ce dépôt et cet environnement Python (rien n'est copié) : vos données
-# restent dans backend/data, partagées avec le mode développement (uvicorn + npm run dev).
+# L'application est un lanceur : elle exécute ce dépôt avec cet environnement Python (rien n'est copié) ;
+# vos données restent dans backend/data, partagées avec le mode développement (uvicorn + npm run dev).
+# Après un « git pull », relancez simplement l'application : elle se met à jour toute seule
+# (docs/SUITE.md §8, backend/app/launcher.py). Ce script ne sert plus qu'à la construire une fois, ou à
+# changer d'environnement Python ou d'emplacement du dépôt ; il fait aussi la première mise à jour.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -27,17 +29,15 @@ fi
 PY="$("$PY" -c 'import sys; print(sys.executable)')"
 "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' \
   || fail "Python 3.11 ou plus récent requis ($("$PY" --version 2>&1)). Activez l'environnement : conda activate atelier"
-command -v npm >/dev/null || fail "npm introuvable : installez Node.js (https://nodejs.org)."
 
-say "1/4 · Dépendances Python ($("$PY" --version 2>&1), $PY)"
-"$PY" -m pip install --quiet --disable-pip-version-check \
-  -r "$ROOT/backend/requirements.txt" -r "$ROOT/backend/requirements-desktop.txt"
+# Première mise à jour, comme au lancement de l'application : dépendances Python (ce Python), npm ci,
+# compilation de l'interface ; seulement ce qui est nécessaire, puis tampon (backend/.mise-a-jour.json).
+say "1/3 · Mise à jour (dépendances et interface, $("$PY" --version 2>&1), $PY)"
+(cd "$ROOT/backend" && "$PY" -m app.launcher --mettre-a-jour) \
+  || fail "la mise à jour a échoué (journal : ~/Library/Logs/Atelier Viz/mise-a-jour.log)."
+[[ -f "$ROOT/frontend/dist/index.html" ]] || fail "l'interface n'est pas compilée."
 
-say "2/4 · Interface (npm run build)"
-(cd "$ROOT/frontend" && npm install --no-audit --no-fund --loglevel=error && npm run build --silent)
-[[ -f "$ROOT/frontend/dist/index.html" ]] || fail "la compilation de l'interface a échoué."
-
-say "3/4 · Application ($APP)"
+say "2/3 · Application ($APP)"
 VERSION="$("$PY" -c "import re,sys; print(re.search(r'__version__ = \"([^\"]+)\"', open(sys.argv[1]).read()).group(1))" "$ROOT/backend/app/__init__.py")"
 mkdir -p "$DEST"
 rm -rf "$APP"
@@ -66,10 +66,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 # Lanceur : chemins et PATH figés au moment de la construction (une application lancée depuis le
-# Finder n'hérite pas du PATH du terminal : sans cela, la CLI « claude » serait introuvable).
+# Finder n'hérite pas du PATH du terminal : sans cela, la CLI « claude » serait introuvable ; Node / npm
+# sont de plus cherchés par app/launcher.py dans le shell de connexion, Homebrew et nvm).
 {
   echo '#!/bin/bash'
-  echo '# Généré par scripts/macos/build_app.sh — relancez ce script pour mettre à jour.'
+  echo '# Généré par scripts/macos/build_app.sh — à relancer seulement si le dépôt ou le Python changent de place.'
   printf 'ROOT=%q\n' "$ROOT"
   printf 'PY=%q\n' "$PY"
   printf 'export PATH=%q\n' "$PATH"
@@ -87,36 +88,9 @@ if [[ ! -f "$ROOT/backend/desktop.py" || ! -x "$PY" ]]; then
   alert "Le dépôt ($ROOT) ou son environnement Python a changé de place. Relancez scripts/macos/build_app.sh."
   exit 1
 fi
-# Interface compilée plus ancienne que ses sources (git pull sans relancer ce script) : la fenêtre
-# afficherait l'ancienne interface. Local d'abord : jamais de « npm install » au lancement (réseau,
-# scripts des paquets). app/launcher.py décide : « ok », « build » (node_modules à jour : npm run build,
-# hors ligne) ou « install » (dépendances changées : relancer build_app.sh, ancienne interface en attendant).
-FRONT="$ROOT/frontend"
-ACTION="$(cd "$ROOT/backend" && "$PY" -m app.launcher "$FRONT" 2>>"$LOG")" || ACTION="ok"
-case "$ACTION" in
-  build)
-    echo "--- $(date '+%F %T') : interface plus ancienne que ses sources, recompilation (npm run build)" >>"$LOG"
-    if command -v npm >/dev/null; then
-      /usr/bin/osascript -e 'display notification "Mise à jour de l’interface…" with title "Atelier Viz"' >/dev/null 2>&1 || true
-      if ! (cd "$FRONT" && npm run build --silent) >>"$LOG" 2>&1; then
-        alert "La mise à jour de l'interface a échoué (voir ~/Library/Logs/Atelier Viz/atelier-viz.log). L'ancienne interface est utilisée ; relancez scripts/macos/build_app.sh."
-      fi
-    else
-      alert "L'interface n'est plus à jour et npm est introuvable. L'ancienne interface est utilisée ; relancez scripts/macos/build_app.sh."
-    fi
-    ;;
-  install)
-    echo "--- $(date '+%F %T') : dépendances de l'interface absentes ou modifiées : rien n'est installé au lancement" >>"$LOG"
-    # Sans interface compilée, la fenêtre affiche déjà « Interface introuvable … relancez build_app.sh ».
-    if [[ -f "$FRONT/dist/index.html" ]]; then
-      alert "Les dépendances de l'interface ont changé (mise à jour du code). Relancez scripts/macos/build_app.sh pour les installer ; en attendant, l'ancienne interface est utilisée."
-    fi
-    ;;
-esac
-if ! "$PY" -c 'import importlib.util as u, sys; sys.exit(0 if all(u.find_spec(m) for m in ("fastapi", "uvicorn", "duckdb", "webview")) else 1)'; then
-  alert "Des modules Python manquent dans $PY. Relancez scripts/macos/build_app.sh."
-  exit 1
-fi
+# Mise à jour automatique (docs/SUITE.md §8) : desktop.py compare l'état du dépôt au tampon de la dernière
+# mise à jour réussie et, si besoin, affiche « Mise à jour… » (pip, npm ci, compilation) avant l'interface.
+# Journal : ~/Library/Logs/Atelier Viz/mise-a-jour.log. Jamais de git pull, données jamais touchées.
 cd "$ROOT/backend" || exit 1
 echo "--- $(date '+%F %T') : lancement" >>"$LOG"
 # exec : le processus Python reste celui de l'application (une seule icône dans le Dock).
@@ -125,7 +99,7 @@ LAUNCHER
 } > "$APP/Contents/MacOS/atelier-viz"
 chmod +x "$APP/Contents/MacOS/atelier-viz"
 
-say "4/4 · Icône"
+say "3/3 · Icône"
 ICON_SRC="$ROOT/scripts/macos/icon.png"
 if command -v iconutil >/dev/null && command -v sips >/dev/null; then
   SET="$(mktemp -d)/AtelierViz.iconset"
@@ -149,9 +123,9 @@ cat <<EOF
   • Double-cliquez sur « Atelier Viz » dans le Finder (dossier Applications de votre compte),
     ou lancez-la avec Spotlight (⌘ Espace, « Atelier Viz »).
   • Pour la garder dans le Dock : clic droit sur son icône pendant qu'elle tourne → Options → Garder dans le Dock.
-  • Journal en cas de souci : ~/Library/Logs/Atelier Viz/atelier-viz.log
-  • Après une mise à jour du code (git pull) : l’interface est recompilée au lancement si besoin
-    (npm run build, sans réseau) ; relancez ce script si des dépendances (npm ou Python) ont changé :
-    l’application ne télécharge jamais rien au lancement.
+  • Journal en cas de souci : ~/Library/Logs/Atelier Viz/atelier-viz.log (mise à jour : mise-a-jour.log)
+  • Après un git pull : relancez simplement l’application. Elle se met à jour toute seule (écran
+    « Mise à jour… » : dépendances depuis package-lock.json / requirements*.txt, compilation de l’interface).
+    Relancez ce script seulement si le dépôt ou l’environnement Python changent de place.
 EOF
 if [[ "$(uname)" == "Darwin" ]]; then open -R "$APP" || true; fi
