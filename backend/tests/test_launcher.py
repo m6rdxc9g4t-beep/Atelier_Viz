@@ -553,8 +553,17 @@ def win_bin(folder: Path, *names: str) -> Path:
     return folder
 
 
+def win_node(folder: Path) -> Path:
+    """Faux Node pour Windows : node.exe et node_modules\\npm\\bin\\npm-cli.js ; renvoie npm-cli.js."""
+    win_bin(folder, "node.exe", "npm.cmd")
+    cli = folder.joinpath(*launcher.WINDOWS_NPM_CLI)
+    cli.parent.mkdir(parents=True)
+    cli.write_text("// npm", encoding="utf-8")
+    return cli
+
+
 def test_npm_found_in_the_usual_windows_places(tmp_path: Path) -> None:
-    """docs/SUITE.md §9.3 : PATH, PATH du registre, Program Files, nvm-windows, Volta, fnm, LOCALAPPDATA."""
+    """docs/SUITE.md §9.3 et §9.6 : Program Files, nvm-windows, Volta, fnm, LOCALAPPDATA ; npm-cli.js + node.exe."""
     home = tmp_path / "Users" / "Fran\u00e7ois"
     local, roaming, program = tmp_path / "Local", tmp_path / "Roaming", tmp_path / "Program Files"
     env = {
@@ -564,40 +573,46 @@ def test_npm_found_in_the_usual_windows_places(tmp_path: Path) -> None:
         "ProgramFiles": str(program),
     }
 
-    def find(extra: dict[str, str] | None = None, login: str | None = None) -> Path | None:
-        return launcher.find_npm({**env, **(extra or {})}, home, lambda: login, platform="win32")
+    def find(extra: dict[str, str] | None = None) -> Path | None:
+        return launcher.find_npm({**env, **(extra or {})}, home, lambda: None, platform="win32")
 
     assert find() is None
-    # Installateur nodejs.org dans le dossier de l'utilisateur.
-    user_node = win_bin(local / "Programs" / "nodejs", "node.exe", "npm.cmd")
-    assert find() == user_node / "npm.cmd"
-    # fnm, puis Volta (npm.exe), puis nvm-windows passent avant (ordre §9.3).
-    fnm = win_bin(roaming / "fnm" / "aliases" / "default", "node.exe", "npm.cmd")
-    assert find() == fnm / "npm.cmd"
-    volta = win_bin(local / "Volta" / "bin", "node.exe", "npm.exe")
-    assert find() == volta / "npm.exe"
-    nvm = win_bin(tmp_path / "nvm4w" / "nodejs", "node.exe", "npm.cmd")
-    assert find({"NVM_SYMLINK": str(nvm)}) == nvm / "npm.cmd"
-    machine = win_bin(program / "nodejs", "node.exe", "npm.cmd")
-    assert find({"NVM_SYMLINK": str(nvm)}) == machine / "npm.cmd"
-    # npm sans node.exe à côté : ignoré.
-    lonely = win_bin(tmp_path / "seul", "npm.cmd")
-    assert find({"NVM_SYMLINK": str(lonely)}) == machine / "npm.cmd"
+    # npm.cmd seul (sans npm-cli.js) : jamais utilisé.
+    win_bin(local / "Programs" / "nodejs", "node.exe", "npm.cmd")
+    assert find() is None
+    user_node = win_node(local / "Programs" / "nodejs")
+    assert find() == user_node
+    assert launcher.npm_command(user_node) == [str(local / "Programs" / "nodejs" / "node.exe"), str(user_node)]
+    assert launcher.node_dir(user_node) == local / "Programs" / "nodejs"
+    # fnm, puis Volta (versions installées, la plus récente d'abord), puis nvm-windows passent avant (ordre §9.3).
+    fnm = win_node(roaming / "fnm" / "aliases" / "default")
+    assert find() == fnm
+    images = local / "Volta" / "tools" / "image" / "node"
+    win_node(images / "22.12.0")
+    volta = win_node(images / "24.1.0")
+    win_bin(local / "Volta" / "bin", "node.exe", "npm.exe")  # raccourcis de Volta : pas de npm-cli.js
+    assert find() == volta
+    nvm = win_node(tmp_path / "nvm4w" / "nodejs")
+    assert find({"NVM_SYMLINK": str(nvm.parents[3])}) == nvm
+    machine = win_node(program / "nodejs")
+    assert find({"NVM_SYMLINK": str(nvm.parents[3])}) == machine
+    assert launcher.find_node({**env}, home, lambda: None, "win32") == program / "nodejs" / "node.exe"
 
 
 @windows_only
 def test_windows_path_and_registry_path_come_first(tmp_path: Path) -> None:
     """PATH du processus, puis PATH du registre (Node installé après l'ouverture de session), puis le reste."""
-    machine = win_bin(tmp_path / "Program Files" / "nodejs", "node.exe", "npm.cmd")
+    machine = win_node(tmp_path / "Program Files" / "nodejs")
     env = {"PATH": r"C:\Windows\system32;relatif", "ProgramFiles": str(tmp_path / "Program Files")}
     home = tmp_path / "home"
-    registry = win_bin(tmp_path / "registre", "node.exe", "npm.cmd")
-    assert launcher.find_npm(env, home, lambda: f"C:\\Windows;{registry}", "win32") == registry / "npm.cmd"
-    first = win_bin(tmp_path / "chemin avec espaces", "node.exe", "npm.cmd")
-    found = launcher.find_npm({**env, "PATH": f"{first};{registry}"}, home, lambda: str(registry), "win32")
-    assert found == first / "npm.cmd"
-    project = win_bin(tmp_path / "projet" / "node_modules" / ".bin", "node.exe", "npm.cmd")
-    assert launcher.find_npm({**env, "PATH": str(project)}, home, lambda: None, "win32") == machine / "npm.cmd"
+    registry = win_node(tmp_path / "registre")
+    reg = str(registry.parents[3])
+    assert launcher.find_npm(env, home, lambda: f"C:\\Windows;{reg}", "win32") == registry
+    first = win_node(tmp_path / "chemin avec espaces")
+    found = launcher.find_npm({**env, "PATH": f"{first.parents[3]};{reg}"}, home, lambda: reg, "win32")
+    assert found == first
+    project = win_node(tmp_path / "projet" / "node_modules" / ".bin")
+    assert launcher.find_npm({**env, "PATH": str(project.parents[3])}, home, lambda: None, "win32") == machine
 
 
 def test_git_found_in_the_usual_windows_places(tmp_path: Path) -> None:
@@ -784,22 +799,23 @@ echo "python $*" >> "$FAKE_CALLS"
 exit 0
 """
 
-# Windows : npm.cmd à côté de node.exe (installateur nodejs.org), lancé sans shell avec des arguments fixes.
-FAKE_NPM_CMD = r"""@echo off
-echo npm %*>> "%FAKE_CALLS%"
-where node.exe >nul 2>nul || (echo node introuvable 1>&2 & exit /b 9)
-if "%1"=="ci" (
-  if not exist node_modules mkdir node_modules
-  copy /y package-lock.json node_modules\.package-lock.json >nul
-  exit /b 0
-)
-if "%1"=="run" if "%2"=="build" (
-  if exist "%FAKE_FAIL_BUILD%" (echo erreur de compilation 1>&2 & exit /b 2)
-  if not exist "%5" mkdir "%5"
-  echo ^<div id="root"^>^</div^> nouvelle> "%5\index.html"
-  exit /b 0
-)
-exit /b 1
+# Windows (§9.6) : npm lancé par node.exe sur node_modules\npm\bin\npm-cli.js, sans shell.
+FAKE_NPM_CLI = r"""const fs = require("fs"), path = require("path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_CALLS, "npm " + args.join(" ") + "\n");
+if (args[0] === "ci") {
+  fs.mkdirSync("node_modules", { recursive: true });
+  fs.copyFileSync("package-lock.json", path.join("node_modules", ".package-lock.json"));
+  process.exit(0);
+}
+if (args[0] === "run" && args[1] === "build") {
+  if (fs.existsSync(process.env.FAKE_FAIL_BUILD)) { console.error("erreur de compilation"); process.exit(2); }
+  const out = args[args.indexOf("--outDir") + 1];
+  fs.mkdirSync(out, { recursive: true });
+  fs.writeFileSync(path.join(out, "index.html"), '<div id="root"></div> nouvelle');
+  process.exit(0);
+}
+process.exit(1);
 """
 
 FAKE_PYTHON_CMD = r"""@echo off
@@ -812,9 +828,15 @@ def fake_tools(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
     """(dossier personnel, faux Python, environnement) : faux npm + node dans un dossier avec espaces et accents."""
     home = tmp_path / "home"
     if os.name == "nt":
+        real_node = shutil.which("node")
+        if real_node is None:
+            pytest.skip("Node.js absent : scénario Windows sans vrai node.exe")
         node_dir = tmp_path / "Program Files" / "Node JS \u00e9t\u00e9"
-        win_bin(node_dir, "node.exe")
-        (node_dir / "npm.cmd").write_bytes(FAKE_NPM_CMD.replace("\n", "\r\n").encode("ascii"))
+        node_dir.mkdir(parents=True)
+        shutil.copy2(real_node, node_dir / "node.exe")  # vrai node.exe, faux npm-cli.js
+        cli = node_dir.joinpath(*launcher.WINDOWS_NPM_CLI)
+        cli.parent.mkdir(parents=True)
+        cli.write_text(FAKE_NPM_CLI, encoding="utf-8")
         python = tmp_path / "env" / "python.cmd"
         python.parent.mkdir()
         python.write_bytes(FAKE_PYTHON_CMD.replace("\n", "\r\n").encode("ascii"))
@@ -838,7 +860,7 @@ def fake_tools(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
 
 @needs_git
 def test_full_update_with_real_processes(tmp_path: Path) -> None:
-    """Vrais sous-processus (npm.cmd sous Windows) ; dépôt dans un dossier avec espaces et accents (§9.2)."""
+    """Vrais sous-processus (node.exe npm-cli.js sous Windows) ; dépôt dans un dossier avec espaces et accents."""
     repo = make_repo(tmp_path / "Mes d\u00e9p\u00f4ts" / "atelier viz")
     home, python, base_env = fake_tools(tmp_path)
     calls, fail = tmp_path / "calls.txt", tmp_path / "fail-build"

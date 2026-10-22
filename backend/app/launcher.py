@@ -25,7 +25,7 @@ Sous-processus : commandes fixes (aucune donnée en argument), délai borné pui
 Démarrer : `PATH`, puis macOS : `PATH` du shell de connexion zsh, `~/.homebrew/bin`, `/opt/homebrew/bin`,
 `/usr/local/bin`, nvm, Volta ; Windows (§9.3) : `PATH` de l'utilisateur et du système lu dans le registre,
 `%ProgramFiles%\\nodejs`, nvm-windows (`%NVM_SYMLINK%`), Volta, fnm, Scoop, `%LOCALAPPDATA%\\Programs\\nodejs`
-(`npm.cmd` à côté de `node.exe`, lancé sans shell avec des arguments fixes).
+(`node.exe …\\node_modules\\npm\\bin\\npm-cli.js`, sans shell, avec des arguments fixes : §9.6).
 
 Au lancement de l'application de bureau, `scrub_inherited_env` retire les variables héritées d'une autre app qui
 tromperaient Viz (docs/SUITE.md §9.4 : `DATA_DIR`, `NODE_ENV`, `PYTHONPATH`…) : sa configuration vient de
@@ -467,8 +467,7 @@ def windows_node_dirs(env: Mapping[str, str], home: Path) -> list[str]:
         *under("ProgramW6432", "nodejs"),
         *under("NVM_SYMLINK"),
         *under("VOLTA_HOME", "bin"),
-        *under("LOCALAPPDATA", "Volta", "bin"),
-        *under("ProgramFiles", "Volta"),
+        *volta_node_dirs(env),
         *fnm,
         *under("APPDATA", "fnm", "aliases", "default"),
         *under("LOCALAPPDATA", "fnm", "aliases", "default"),
@@ -477,6 +476,20 @@ def windows_node_dirs(env: Mapping[str, str], home: Path) -> list[str]:
         str(home / "scoop" / "apps" / "nodejs" / "current"),
         *under("ProgramFiles(x86)", "nodejs"),
     ]
+
+
+def volta_node_dirs(env: Mapping[str, str]) -> list[str]:
+    """Windows : versions de Node installées par Volta (les raccourcis de `Volta\\bin` n'ont pas `npm-cli.js`)."""
+    base = env.get("VOLTA_HOME") or (str(Path(env["LOCALAPPDATA"]) / "Volta") if env.get("LOCALAPPDATA") else "")
+    images = Path(base) / "tools" / "image" / "node" if base else None
+    if images is None or not images.is_dir():
+        return []
+    versions = sorted((d for d in images.iterdir() if d.is_dir()), key=lambda d: _version_key(d.name), reverse=True)
+    return [str(d) for d in versions]
+
+
+WINDOWS_NPM_CLI = ("node_modules", "npm", "bin", "npm-cli.js")
+"""Windows : script de npm à côté de `node.exe`, lancé par `node.exe` (docs/SUITE.md §9.6, jamais `npm.cmd`)."""
 
 
 def npm_search_dirs(
@@ -512,21 +525,50 @@ def find_npm(
 ) -> Path | None:
     """`npm` absolu dont le dossier contient aussi `node` (npm est un script `node`), ou None.
 
-    Windows : `npm.cmd` (ou le `npm.exe` de Volta) à côté de `node.exe`.
+    Windows (docs/SUITE.md §9.6) : `…\\node_modules\\npm\\bin\\npm-cli.js` d'un dossier qui contient `node.exe` ;
+    il est lancé par `node.exe` (`npm_command`), jamais par `npm.cmd` ni un shell.
     """
     env = os.environ if env is None else env
     platform = platform or sys.platform
     for folder in npm_search_dirs(env, home or Path.home(), login_path, platform):
         base = Path(folder)
         if platform == "win32":
-            node = base / "node.exe"
-            npm = next((base / n for n in ("npm.cmd", "npm.exe") if (base / n).is_file()), None)
-            if npm is not None and node.is_file():
-                return npm
+            cli = base.joinpath(*WINDOWS_NPM_CLI)
+            if cli.is_file() and (base / "node.exe").is_file():
+                return cli
             continue
         npm, node = base / "npm", base / "node"
         if npm.is_file() and os.access(npm, os.X_OK) and node.is_file() and os.access(node, os.X_OK):
             return npm
+    return None
+
+
+def npm_command(npm: Path) -> list[str]:
+    """Début de la commande npm : `[node.exe, npm-cli.js]` (Windows, sans shell), sinon `[npm]`."""
+    if npm.name == "npm-cli.js":
+        return [str(npm.parents[3] / "node.exe"), str(npm)]
+    return [str(npm)]
+
+
+def node_dir(npm: Path) -> Path:
+    """Dossier de `node` pour une commande npm (mis en tête du PATH de npm et de ses scripts)."""
+    return npm.parents[3] if npm.name == "npm-cli.js" else npm.parent
+
+
+def find_node(
+    env: Mapping[str, str] | None = None,
+    home: Path | None = None,
+    login_path: Callable[[], str | None] = system_login_path,
+    platform: str | None = None,
+) -> Path | None:
+    """Exécutable `node` absolu (`node.exe` sous Windows), cherché comme npm ; None s'il est introuvable."""
+    env = os.environ if env is None else env
+    platform = platform or sys.platform
+    name = "node.exe" if platform == "win32" else "node"
+    for folder in npm_search_dirs(env, home or Path.home(), login_path, platform):
+        node = Path(folder) / name
+        if node.is_file() and (platform == "win32" or os.access(node, os.X_OK)):
+            return node
     return None
 
 
@@ -553,7 +595,7 @@ def app_python(executable: str, platform: str | None = None) -> str:
 def _stop_group(proc: subprocess.Popen[bytes], grace: float = 5.0) -> None:
     """SIGTERM au groupe du processus (enfants compris), puis SIGKILL après `grace` secondes.
 
-    Windows : `taskkill /T /F` arrête l'arbre des processus (npm.cmd → node → esbuild…).
+    Windows : `taskkill /T /F` arrête l'arbre des processus (node → esbuild…).
     """
     if WINDOWS:
         _taskkill(proc.pid)
@@ -867,8 +909,8 @@ class Updater:
                 "puis relancez l'application."
             )
         env = self._base_env()
-        # Dossier de npm en tête : `npm` est un script `#!/usr/bin/env node` (Windows : `npm.cmd` appelle `node.exe`).
-        env["PATH"] = os.pathsep.join([str(npm.parent), *safe_path_dirs(env.get("PATH", ""))])
+        # Dossier de node en tête : `npm` est un script `#!/usr/bin/env node` ; ses scripts (`vite`…) aussi.
+        env["PATH"] = os.pathsep.join([str(node_dir(npm)), *safe_path_dirs(env.get("PATH", ""))])
         return npm, env
 
     def _run_step(self, step: Step) -> None:
@@ -880,7 +922,7 @@ class Updater:
             self._exec(step, cmd, self.repo / "backend", self._base_env(), "L'installation des dépendances Python")
         elif step == "npm":
             npm, env = self._npm()
-            cmd = [str(npm), "ci", "--no-audit", "--no-fund", "--loglevel=error"]
+            cmd = [*npm_command(npm), "ci", "--no-audit", "--no-fund", "--loglevel=error"]
             self._exec(step, cmd, self.front, env, "L'installation des dépendances de l'interface (npm ci)")
         else:
             self._build()
@@ -892,7 +934,7 @@ class Updater:
         for leftover in (nxt, *self.front.glob(f"{OLD_DIST}*")):
             remove_tree(leftover)
         # Le script `build` se termine par `vite build` : les options suivantes lui reviennent (chemin relatif).
-        cmd = [str(npm), "run", "build", "--", "--outDir", NEXT_DIST, "--emptyOutDir"]
+        cmd = [*npm_command(npm), "run", "build", "--", "--outDir", NEXT_DIST, "--emptyOutDir"]
         try:
             self._exec("build", cmd, self.front, env, "La compilation de l'interface")
             if not (nxt / "index.html").is_file():
