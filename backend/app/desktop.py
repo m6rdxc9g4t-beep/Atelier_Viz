@@ -1,15 +1,19 @@
 """Application de bureau : le serveur local et l'interface dans une fenêtre native.
 
-Lancée par « Atelier Viz.app » (voir scripts/macos/build_app.sh), ou à la main :
-    python desktop.py              # fenêtre native (pywebview), sinon navigateur
-    python desktop.py --browser    # dans le navigateur par défaut
+Lancée par « Atelier Viz.app » (macOS, scripts/macos/build_app.sh), par le raccourci « Atelier Viz » du menu
+Démarrer (Windows, scripts/windows/install.ps1 : `pythonw.exe desktop.py`, sans console), ou à la main :
+    python desktop.py                       # fenêtre native (pywebview), sinon navigateur
+    python desktop.py --browser             # dans le navigateur par défaut
+    python desktop.py --mise-a-jour-seule   # mise à jour depuis le dépôt puis arrêt (code de sortie), sans fenêtre
 
 - Le serveur écoute sur 127.0.0.1 uniquement (jamais sur le réseau), port 8000 s'il est libre.
 - Un serveur Atelier Viz déjà lancé (par exemple `uvicorn` en développement) est réutilisé :
   la base DuckDB n'accepte qu'un seul processus à la fois.
 - Fermer la fenêtre (ou ⌘Q) arrête le serveur proprement.
 - Pont JavaScript (`window.pywebview.api`) : enregistrement de fichiers par une vraie boîte
-  « Enregistrer sous » et ouverture des liens externes dans le navigateur.
+  « Enregistrer sous » et ouverture des liens externes dans le navigateur (une autre app de la suite installée
+  s'ouvre elle-même, avec un environnement minimal : app/suite_apps.py, docs/SUITE.md §9.4).
+- Sans console (`pythonw.exe` sous Windows), la sortie va dans `atelier-viz.log` du dossier des journaux.
 """
 
 from __future__ import annotations
@@ -21,9 +25,9 @@ import contextlib
 import html
 import json
 import logging
+import os
 import signal
 import socket
-import subprocess
 import sys
 import threading
 import time
@@ -36,6 +40,9 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 from urllib.parse import urlsplit
 
 from app import launcher
+from app.suite_apps import open_macos_app, open_suite_app
+
+__all__ = ["open_macos_app", "open_suite_app"]  # réexportés (anciens appels)
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -49,6 +56,8 @@ PREFERRED_PORT = 8000
 WINDOW_SIZE = (1440, 900)
 MIN_SIZE = (1024, 640)
 ICON = Path(__file__).resolve().parents[2] / "scripts" / "macos" / "icon.png"
+WINDOWS_ICON = Path(__file__).resolve().parents[2] / "scripts" / "windows" / "atelier-viz.ico"
+APP_LOG_NAME = "atelier-viz.log"
 
 log = logging.getLogger("atelier.desktop")
 
@@ -204,23 +213,13 @@ def suite_bundle_for(url: str) -> str | None:
     return SUITE_ONLINE_BUNDLES.get(parts.hostname)
 
 
-def open_macos_app(bundle_id: str) -> bool:
-    """Ouvre une application installée par son identifiant (`open -b`) ; False si absente ou hors macOS."""
-    if sys.platform != "darwin":
-        return False
-    try:
-        return subprocess.run(["/usr/bin/open", "-b", bundle_id], capture_output=True, timeout=10).returncode == 0
-    except (OSError, subprocess.SubprocessError):
-        return False
-
-
 class DesktopApi:
     """Fonctions appelables depuis la page : `window.pywebview.api.<nom>(...)` (promesses)."""
 
     def __init__(
         self,
         open_url: Callable[[str], Any] = webbrowser.open,
-        open_app: Callable[[str], bool] = open_macos_app,
+        open_app: Callable[[str], bool] = open_suite_app,
     ) -> None:
         self.window: SaveWindow | None = None
         self.save_dialog: Any = None  # webview.FileDialog.SAVE, renseigné au lancement
@@ -262,7 +261,7 @@ class DesktopApi:
         """Ouvre un lien http(s) ou mailto dans le navigateur par défaut (jamais un fichier local).
 
         L'adresse d'une autre app de la Suite Atelier ouvre son application de bureau quand elle est
-        installée (docs/SUITE.md §3), sinon le navigateur.
+        installée (docs/SUITE.md §3 ; macOS `open -b`, Windows lanceur enregistré, §9.4), sinon le navigateur.
         """
         if urlsplit(str(url)).scheme not in {"http", "https", "mailto"}:
             return False
@@ -279,17 +278,56 @@ class DesktopApi:
 _PAGE_STYLE = (
     "font:15px -apple-system,system-ui,sans-serif;display:grid;place-items:center;height:90vh;margin:0;color:#1f2328"
 )
-_LOG_HINT = "Journal : ~/Library/Logs/Atelier Viz/atelier-viz.log"
+
+
+def app_log_file(platform: str | None = None, home: Path | None = None) -> Path:
+    """Journal de l'application de bureau (`atelier-viz.log`) dans le dossier des journaux du système (§9.2)."""
+    return launcher.logs_dir(platform, home) / APP_LOG_NAME
+
+
+def _shown_path(path: Path, home: Path | None = None) -> str:
+    """Chemin affiché : `~/…` sous macOS et Linux quand il est dans le dossier personnel."""
+    home = home or Path.home()
+    if sys.platform != "win32":
+        with contextlib.suppress(ValueError):
+            return "~/" + path.relative_to(home).as_posix()
+    return str(path)
 
 
 def error_page(message: str) -> str:
     """Page affichée dans la fenêtre quand le démarrage échoue."""
+    hint = html.escape(f"Journal : {_shown_path(app_log_file())}")
     return (
         f'<!doctype html><meta charset="utf-8"><title>{APP_NAME}</title>'
         f'<body style="{_PAGE_STYLE}"><div style="max-width:34rem;padding:2rem">'
         f'<h1 style="font-size:18px">{APP_NAME} ne peut pas démarrer</h1><p>{html.escape(message)}</p>'
-        f'<p style="color:#656d76;font-size:13px">{_LOG_HINT}</p></div>'
+        f'<p style="color:#656d76;font-size:13px">{hint}</p></div>'
     )
+
+
+def ensure_log_streams(path: Path | None = None) -> Path | None:
+    """Sans console (`pythonw.exe` sous Windows : `sys.stdout` vaut None), sortie dans `atelier-viz.log`.
+
+    L'ancien journal est gardé une fois (`atelier-viz.log.1`) au-delà de 5 Mo, comme le lanceur macOS.
+    Renvoie le journal ouvert, ou None si les sorties existent déjà (terminal, lanceur macOS qui redirige).
+    """
+    if sys.stdout is not None and sys.stderr is not None:
+        return None
+    path = path or app_log_file()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with contextlib.suppress(OSError):
+            if path.stat().st_size > launcher.ROTATE_LOG_BYTES:
+                os.replace(path, path.with_name(path.name + ".1"))
+        stream = open(path, "a", encoding="utf-8", errors="replace", buffering=1)  # noqa: SIM115 — gardé ouvert
+    except OSError:
+        return None
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
+    print(f"--- {time.strftime('%Y-%m-%d %H:%M:%S')} : lancement", flush=True)
+    return path
 
 
 # --- Mise à jour au lancement (docs/SUITE.md §8) ------------------------------------------------
@@ -354,6 +392,111 @@ class UpdateSession:
         self._chosen.wait(timeout)
         with self._lock:
             return self._choice
+
+
+class PresetResult:
+    """Mise à jour déjà tentée (Windows : `pip` avant la fenêtre) : `run` rend son échec sans rien relancer."""
+
+    def __init__(self, updater: launcher.Updater, result: launcher.UpdateResult) -> None:
+        self.updater = updater
+        self.result = result
+        self.log = updater.log
+
+    def previous_available(self) -> bool:
+        return self.updater.previous_available()
+
+    def run(self, on_status: launcher.StatusCallback = lambda label, index, total: None) -> launcher.UpdateResult:
+        return self.result
+
+
+def pip_before_window(steps: tuple[launcher.Step, ...], platform: str | None = None) -> bool:
+    """Windows : l'étape `pip` se fait avant l'ouverture de la fenêtre.
+
+    La fenêtre charge des bibliothèques de l'environnement Python (pywebview, pythonnet, cffi) ; Windows interdit de
+    remplacer un fichier chargé : pip ne pourrait pas les mettre à jour pendant que l'écran « Mise à jour… »
+    s'affiche (docs/SUITE.md §9.3).
+    """
+    return (platform or sys.platform) == "win32" and "pip" in steps
+
+
+def python_first(
+    updater: launcher.Updater, progress: Callable[[Callable[[launcher.StatusCallback], Any]], Any] | None = None
+) -> launcher.UpdateResult | None:
+    """Fait l'étape `pip` seule (petite fenêtre Tk « Mise à jour… » si possible) ; l'échec éventuel, sinon None."""
+
+    def task(status: launcher.StatusCallback) -> launcher.UpdateResult:
+        try:
+            return updater.run(status, only=("pip",))
+        except Exception as exc:  # noqa: BLE001 — affiché ensuite dans l'écran de démarrage
+            log.exception("Mise à jour des dépendances Python impossible")
+            return launcher.UpdateResult(
+                ok=False,
+                failed_step="pip",
+                message=f"Mise à jour impossible : {exc}",
+                previous_available=updater.previous_available(),
+                log=str(updater.log),
+            )
+
+    result: launcher.UpdateResult = (progress or tk_progress)(task)
+    return None if result.ok else result
+
+
+def tk_progress(task: Callable[[launcher.StatusCallback], Any], title: str = APP_NAME) -> Any:
+    """Exécute `task(status)` dans un fil pendant qu'une petite fenêtre Tk affiche l'étape ; sans Tk, sans fenêtre.
+
+    Tk (bibliothèque standard) ne charge rien de l'environnement Python que pip pourrait remplacer.
+    """
+    try:
+        import tkinter as tk
+
+        root = tk.Tk()
+    except Exception:  # noqa: BLE001 — Tk absent ou sans affichage : la mise à jour se fait quand même
+        return task(lambda label, index, total: None)
+    state: dict[str, Any] = {"label": "Préparation de la mise à jour…", "done": False}
+
+    def status(label: str, index: int, total: int) -> None:
+        state["label"] = f"{label}  ({index}/{total})" if total else label
+
+    def work() -> None:
+        try:
+            state["result"] = task(status)
+        except BaseException as exc:  # noqa: BLE001 — relancée dans le fil principal
+            state["error"] = exc
+        finally:
+            state["done"] = True
+
+    try:
+        root.title(title)
+        root.resizable(False, False)
+        root.protocol("WM_DELETE_WINDOW", lambda: None)  # la mise à jour continue : pas de fermeture à moitié
+        frame = tk.Frame(root, padx=28, pady=22)
+        frame.pack()
+        tk.Label(frame, text=f"Mise à jour d'{title}…", font=("Segoe UI", 12, "bold")).pack(anchor="w")
+        text = tk.StringVar(value=state["label"])
+        tk.Label(frame, textvariable=text, width=58, anchor="w", justify="left").pack(anchor="w", pady=(8, 0))
+        root.update_idletasks()
+        x = (root.winfo_screenwidth() - root.winfo_width()) // 2
+        y = (root.winfo_screenheight() - root.winfo_height()) // 3
+        root.geometry(f"+{max(0, x)}+{max(0, y)}")
+        worker = threading.Thread(target=work, name="atelier-update-python", daemon=True)
+        worker.start()
+
+        def poll() -> None:
+            text.set(state["label"])
+            if state["done"]:
+                root.quit()
+            else:
+                root.after(200, poll)
+
+        root.after(200, poll)
+        root.mainloop()
+        worker.join()
+    finally:
+        with contextlib.suppress(Exception):
+            root.destroy()
+    if "error" in state:
+        raise state["error"]
+    return state["result"]
 
 
 def run_update(
@@ -483,6 +626,25 @@ def update_wanted(auto_update: bool, skip_flag: bool, frozen: bool | None = None
     return auto_update and not skip_flag and not frozen
 
 
+def update_only(updater_factory: Callable[[], launcher.Updater], frozen: bool | None = None) -> int:
+    """`--mise-a-jour-seule` : mise à jour depuis le dépôt sans fenêtre ni serveur, puis arrêt.
+
+    Code 0 : à jour (rien à faire ou mise à jour réussie) ; 1 : échec (journal `mise-a-jour.log`). Sert à
+    l'intégration continue (docs/SUITE.md §9.5) et aux vérifications à la main.
+    """
+    frozen = bool(getattr(sys, "frozen", False)) if frozen is None else frozen
+    if frozen:
+        print("Le paquet autonome ne se met pas à jour depuis un dépôt.")
+        return 0
+    updater = updater_factory()
+    result = updater.run(lambda label, i, n: print(f"{i}/{n} · {label}" if n else label, flush=True))
+    if result.ok:
+        print("Application à jour." if result.steps else "Rien à mettre à jour.", flush=True)
+        return 0
+    print(f"Mise à jour en échec : {result.message}\nJournal : {result.log}", file=sys.stderr, flush=True)
+    return 1
+
+
 def _console_update(updater: launcher.Updater, offline: bool) -> bool:
     """Mise à jour sans fenêtre (mode navigateur) : étapes et erreurs sur la sortie standard."""
     session = UpdateSession(str(updater.log))
@@ -577,6 +739,32 @@ def launch() -> tuple[str, ServerThread | None, str | None, Path | None]:
     return url, server, error, settings.frontend_dist
 
 
+def set_windows_icon(window: Any, ico: Path = WINDOWS_ICON) -> bool:
+    """Windows : icône d'Atelier Viz sur la fenêtre et dans la barre des tâches (sinon celle de Python).
+
+    pywebview (WinForms) prend l'icône de l'exécutable, `pythonw.exe` ; on pose celle de l'app sur le formulaire,
+    depuis le fil de l'interface (`BeginInvoke`). Sans effet ailleurs ou en cas d'échec.
+    """
+    if sys.platform != "win32" or not ico.is_file():
+        return False
+    try:
+        from System import Action  # type: ignore[import-not-found]  # pythonnet, chargé par pywebview
+        from System.Drawing import Icon  # type: ignore[import-not-found]
+
+        form = window.native
+        form.BeginInvoke(Action(lambda: setattr(form, "Icon", Icon(str(ico)))))
+    except Exception:  # noqa: BLE001 — simple confort visuel
+        log.debug("Icône de fenêtre non appliquée.", exc_info=True)
+        return False
+    return True
+
+
+def _watch_icon(window: Any) -> None:
+    shown = getattr(getattr(window, "events", None), "shown", None)
+    if sys.platform == "win32" and shown is not None:
+        shown += lambda: set_windows_icon(window)
+
+
 def _window_options() -> dict[str, Any]:
     return {
         "width": WINDOW_SIZE[0],
@@ -603,10 +791,26 @@ def run(
     parser.add_argument(
         "--sans-mise-a-jour", dest="no_update", action="store_true", help="ne pas vérifier la mise à jour au lancement"
     )
+    parser.add_argument(
+        "--mise-a-jour-seule",
+        dest="update_only",
+        action="store_true",
+        help="faire la mise à jour depuis le dépôt puis s'arrêter (code de sortie), sans fenêtre",
+    )
+    ensure_log_streams()
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s : %(message)s")
+    if auto_update:
+        # docs/SUITE.md §9.4 : variables héritées d'une autre app (DATA_DIR, NODE_ENV…) ignorées ; réglages de
+        # Viz dans backend/.env.
+        ignored = launcher.scrub_inherited_env()
+        if ignored:
+            log.info("Variables héritées ignorées : %s", ", ".join(ignored))
+    if args.update_only:
+        return update_only(updater_factory) if auto_update else 0
 
     updater: launcher.Updater | None = None
+    steps: tuple[launcher.Step, ...] = ()
     offline = True
     if update_wanted(auto_update, args.no_update):
         try:
@@ -620,6 +824,10 @@ def run(
                 updater = candidate
                 offline = not launcher.online_mode(launcher.local_data_dir(Path.cwd()))
 
+    first: launcher.UpdateResult | None = None
+    if updater is not None and not args.browser and pip_before_window(steps):
+        first = python_first(updater)  # avant d'importer pywebview (fichiers chargés non remplaçables)
+
     webview: Any = None
     if not args.browser:
         _name_macos_app()
@@ -628,6 +836,8 @@ def run(
         except ImportError:
             log.warning("pywebview absent : navigateur utilisé (pip install -r requirements-desktop.txt).")
 
+    if updater is not None and first is not None:
+        updater = PresetResult(updater, first)  # type: ignore[assignment]  # l'échec s'affiche comme les autres
     if webview is None:
         if updater is not None and not _console_update(updater, offline):
             return 1
@@ -679,6 +889,7 @@ def _run_window(webview: Any, updater: launcher.Updater | None, offline: bool) -
                 **_window_options(),
             )
             api.window = window
+            _watch_icon(window)
             outcome["code"] = 1 if error else 0
             boot: Callable[[], None] | None = None
         else:
@@ -686,6 +897,7 @@ def _run_window(webview: Any, updater: launcher.Updater | None, offline: bool) -
             api._update = session
             window = webview.create_window(APP_NAME, html=splash_page(), js_api=api, **_window_options())
             api.window = window
+            _watch_icon(window)
             closed = threading.Event()
 
             def on_closed() -> None:
