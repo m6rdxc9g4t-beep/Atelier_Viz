@@ -195,6 +195,8 @@ Correspondance des colonnes (`atelier_mapping`) :
 | `workflow_state` | `status` (règles §1.4 ; inconnu → `OPEN` + avertissement) |
 | `start_date` / `due_date` | `startDate` / `dueDate` (ISO `AAAA-MM-JJ`) |
 | `description` | début de `description` |
+| `item_type` | `type` : `Feature` / `Task` / `Bug` (codes, libellés français ou anglais) ; autre libellé (Epic, Story…) → type du paramètre `type`, un seul avertissement récapitulatif |
+| `time_spent` | temps passé **en heures** : une saisie de temps (`TimeEntry`, commentaire « Import Atelier Tab ») datée de `due_date`, sinon `start_date`, sinon du jour ; un réimport la met à jour ou la retire (valeur vide), sans toucher aux temps saisis à la main ; valeur illisible, négative ou > 100 000 h → ignorée + avertissement |
 | autres (`assignee`, `financial_ht`, `financial_ttc`, `quantity`, `flag`, `custom`) | tableau Markdown « Données Atelier Tab » ajouté à `description` |
 
 Identité : chaque élément importé garde `externalRef = "atelier-tab:<source_table.id ?? project.id>:<record_id>"` ; un réimport **met à jour** l'élément au lieu d'en créer un autre.
