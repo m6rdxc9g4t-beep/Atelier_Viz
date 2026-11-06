@@ -107,7 +107,7 @@ describe("design system de la Suite Atelier (copies verbatim, docs/SUITE.md §1.
   });
 
   it("la marque commune définit la signature de chaque app du sélecteur de la suite (§1.7, §3)", () => {
-    const signatures = { viz: "#996c00", tab: "#1c8742", projets: "#568100", cuisine: "#3a6c97" };
+    const signatures = { viz: "#996c00", tab: "#1c8742", projets: "#568100", cuisine: "#9b84dc" };
     for (const [app, hex] of Object.entries(signatures)) {
       expect(brand).toMatch(new RegExp(`--atelier-sig-${app}: ${hex};`, "i"));
       expect(brand).toContain(`[data-atelier-app="${app}"] { --atelier-signature: var(--atelier-sig-${app});`);
