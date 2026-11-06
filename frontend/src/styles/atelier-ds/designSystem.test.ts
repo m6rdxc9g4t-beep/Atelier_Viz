@@ -12,9 +12,13 @@ const colors = read("./colors.css");
 const dark = read("./dark.css");
 const light = read("./light.css");
 const brand = read("../atelier-brand/atelier-brand.css");
+const themeJs = read("../atelier-brand/atelier-theme.js");
 const indexHtml = read("../../../index.html");
-/** Source de la marque commune (dépôt voisin `atelier_projets`), comparée quand elle est présente. */
-const BRAND_REFERENCE = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../../atelier_projets/design-system/brand/atelier-brand.css");
+const viteConfig = read("../../../vite.config.ts");
+/** Design system de référence (dépôt voisin `atelier_projets`), comparé quand il est présent. */
+const HERE = dirname(fileURLToPath(import.meta.url));
+const DS_REFERENCE = resolve(HERE, "../../../../../atelier_projets/design-system");
+const BRAND_REFERENCE = resolve(DS_REFERENCE, "brand/atelier-brand.css");
 
 /** Variables déclarées dans une feuille (`--nom:`). */
 const declared = (css: string) => new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
@@ -80,8 +84,11 @@ describe("design system de la Suite Atelier (copies verbatim, docs/SUITE.md §1.
       ["--accent-soft", "var(--atelier-signature-soft)"],
     ];
     for (const [token, value] of map) expect(indexCss).toContain(`${token}: ${value};`);
-    expect(indexCss).toContain("background: var(--atelier-backdrop), var(--bg);");
-    expect(indexCss).not.toMatch(/background-image:\s*var\(--atelier-backdrop\)/);
+    // Charte v2 « Linear » : fond uni, ni grille ni lueur ; police Inter de la marque ; rayons 5 / 7 / 10 px.
+    expect(indexCss).toMatch(/body \{[^}]*background: var\(--bg\);/);
+    expect(indexCss).not.toContain("--atelier-backdrop");
+    expect(indexCss).toContain("--ds-font-sans: var(--atelier-font);");
+    expect(indexCss).toContain("--ds-radius-md: var(--atelier-radius-md);");
     expect(indexCss).toMatch(/--positive: color-mix\(in oklab, var\(--status-closed\)/);
     expect(indexCss).toMatch(/--negative: color-mix\(in oklab, var\(--status-rejected\)/);
     // Exception dataviz : la palette des données reste en hexadécimal validé.
@@ -90,9 +97,9 @@ describe("design system de la Suite Atelier (copies verbatim, docs/SUITE.md §1.
     expect(indexCss).not.toMatch(/@font-face|fonts\.googleapis|Inter Variable/);
   });
 
-  it("charte néon monochrome : Atelier Viz est tout en jaune, sans bleu nuit ni cyan (§1.7)", () => {
+  it("charte v2 « Linear » : Atelier Viz a la signature or #996c00 sur une structure neutre (§1.7)", () => {
     expect(indexHtml).toMatch(/<html[^>]*data-atelier-app="viz"/);
-    expect(brand).toMatch(/--atelier-sig-viz: #f2c811;/i);
+    expect(brand).toMatch(/--atelier-sig-viz: #996c00;/i);
     expect(brand).toContain('[data-atelier-app="viz"] { --atelier-signature: var(--atelier-sig-viz);');
     // Jetons de la v1 (base cyan, bleu nuit) : plus aucun usage dans l'habillage.
     expect(indexCss).not.toMatch(/--atelier-(neon|night|glass|edge|signature-light)\b/);
@@ -100,14 +107,34 @@ describe("design system de la Suite Atelier (copies verbatim, docs/SUITE.md §1.
   });
 
   it("la marque commune définit la signature de chaque app du sélecteur de la suite (§1.7, §3)", () => {
-    const signatures = { viz: "#f2c811", tab: "#21a366", projets: "#94d82d", cuisine: "#e056e2" };
+    const signatures = { viz: "#996c00", tab: "#1c8742", projets: "#568100", cuisine: "#8568a7" };
     for (const [app, hex] of Object.entries(signatures)) {
       expect(brand).toMatch(new RegExp(`--atelier-sig-${app}: ${hex};`, "i"));
       expect(brand).toContain(`[data-atelier-app="${app}"] { --atelier-signature: var(--atelier-sig-${app});`);
     }
   });
 
-  it.skipIf(!existsSync(BRAND_REFERENCE))("atelier-brand.css est une copie à l'octet près de celle d'Atelier Projets", () => {
+  it("la marque embarque Inter (licence comprise) et plus Nunito ; le thème commun est chargé avant l'affichage (§1.3, §1.5)", () => {
+    for (const f of ["inter-latin-wght-normal.woff2", "inter-latin-ext-wght-normal.woff2", "LICENSE-Inter.txt"]) {
+      expect(existsSync(resolve(HERE, "../atelier-brand", f)), f).toBe(true);
+    }
+    expect(existsSync(resolve(HERE, "../atelier-brand/nunito-latin-wght-normal.woff2"))).toBe(false);
+    expect(brand).toContain('url("./inter-latin-wght-normal.woff2")');
+    expect(themeJs).toContain("window.atelierTheme = {");
+    // Script bloquant injecté en tête de <head> par vite.config.ts (atelierTheme), pas de clé de thème propre à Viz.
+    expect(viteConfig).toContain('"./src/styles/atelier-brand/atelier-theme.js"');
+    expect(viteConfig).toContain('injectTo: "head-prepend"');
+    expect(indexHtml).not.toMatch(/localStorage\.getItem\("theme"\)/);
+  });
+
+  it.skipIf(!existsSync(BRAND_REFERENCE))("atelier-brand.css et atelier-theme.js sont des copies à l'octet près de celles d'Atelier Projets", () => {
     expect(brand).toBe(readFileSync(BRAND_REFERENCE, "utf8"));
+    expect(themeJs).toBe(readFileSync(resolve(DS_REFERENCE, "brand/atelier-theme.js"), "utf8"));
+  });
+
+  it.skipIf(!existsSync(DS_REFERENCE))("les thèmes et les couleurs sont des copies à l'octet près (§1.1)", () => {
+    expect(light).toBe(readFileSync(resolve(DS_REFERENCE, "themes/light.css"), "utf8"));
+    expect(dark).toBe(readFileSync(resolve(DS_REFERENCE, "themes/dark.css"), "utf8"));
+    expect(colors).toBe(readFileSync(resolve(DS_REFERENCE, "tokens/colors.css"), "utf8"));
   });
 });
