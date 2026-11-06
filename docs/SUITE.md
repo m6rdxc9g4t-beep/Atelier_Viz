@@ -125,12 +125,14 @@ Règles complètes : `Atelier_Deploy/DESIGN.md`. Résumé pour le code :
 | Ops Lab | `ops` | `#895bd5` améthyste |
 | Mission | `mission` | `#b55d00` ambre |
 | DataMind | `datamind` | `#6967e1` indigo |
-| Suivi | `suivi` | `#008295` cyan |
+| Suivi | `suivi` | `#8a5fb8` lilas |
 | Dates | `dates` | `#db373a` rouge |
-| Cuisine | `cuisine` | `#8568a7` lavande |
+| Cuisine | `cuisine` | `#3a6c97` bleu acier |
 | Dressing | `dressing` | `#a16464` vieux rose |
 
 Toutes passent 4,5:1 avec du texte blanc (bouton plein). Les couleurs de **données** (types, statuts, séries Viz, positif / négatif) ne changent pas.
+
+Apps du foyer (Dates, Suivi, Cuisine) : même charte, mais la structure neutre est **crème** en clair et **bleu nuit** en sombre (`atelier-brand.css` §3 bis, active seulement avec `data-atelier-app` sur `<html>`).
 
 ---
 
