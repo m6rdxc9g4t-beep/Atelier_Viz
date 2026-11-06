@@ -26,12 +26,12 @@ export function Topbar(props: TopbarProps) {
   const online = prefs?.online_mode ?? false;
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-sidebar px-4">
+    <header className="flex h-(--top-h) shrink-0 items-center justify-between gap-3 border-b border-line bg-bg px-3 lg:px-5">
       <div className="flex min-w-0 items-center gap-2">
         <SuiteSwitcher />
-        <h1 className="atelier-title min-w-0 truncate text-sm font-semibold">{title}</h1>
+        <h1 className="atelier-title min-w-0 truncate text-sm">{title}</h1>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <button
           type="button"
           role="switch"
@@ -41,14 +41,14 @@ export function Topbar(props: TopbarProps) {
           }}
           title={online ? "En ligne : Claude et webhooks Internet autorisés. Cliquer pour repasser en local." : "Hors ligne : tout reste sur la machine. Cliquer pour activer Claude."}
           className={clsx(
-            "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-            online ? "border-accent-ink/40 bg-accent-soft text-accent-ink" : "border-border text-muted hover:text-fg",
+            "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+            online ? "bg-accent-soft text-accent-ink" : "text-muted hover:bg-surface-2 hover:text-fg",
           )}
         >
           {online ? <Cloud className="size-3.5" aria-hidden /> : <HardDrive className="size-3.5" aria-hidden />}
           {online ? "En ligne" : "Hors ligne"}
         </button>
-        <div className="hidden md:block">
+        <div className="mr-1 hidden md:block">
           <ProviderBadges providers={props.providers} loading={props.providersLoading} error={props.providersError} onRefresh={props.onRefreshProviders} />
         </div>
         <NotificationBell />
@@ -58,7 +58,7 @@ export function Topbar(props: TopbarProps) {
           aria-pressed={assistantOpen}
           aria-label="Assistant IA"
           title="Assistant IA"
-          className={clsx("rounded-md p-2 hover:bg-surface-2 hover:text-fg", assistantOpen ? "text-accent-ink" : "text-muted")}
+          className={clsx("grid size-[30px] place-items-center rounded-md hover:bg-surface-2 hover:text-fg", assistantOpen ? "bg-surface-3 text-fg" : "text-muted")}
         >
           <Sparkles className="size-4" aria-hidden />
         </button>
@@ -66,7 +66,7 @@ export function Topbar(props: TopbarProps) {
           type="button"
           onClick={onToggleTheme}
           aria-label={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
-          className="rounded-md p-2 text-muted hover:bg-surface-2 hover:text-fg"
+          className="grid size-[30px] place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"
         >
           {theme === "dark" ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}
         </button>

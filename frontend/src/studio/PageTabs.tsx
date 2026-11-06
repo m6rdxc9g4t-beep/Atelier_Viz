@@ -16,7 +16,7 @@ export function PageTabs() {
   const editing = mode === "edit";
 
   return (
-    <nav className="flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-t border-border bg-surface px-2" aria-label="Pages du rapport">
+    <nav className="flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-t border-line bg-bg px-2" aria-label="Pages du rapport">
       {report.pages.map((p) =>
         renaming === p.id ? (
           <input
@@ -32,7 +32,7 @@ export function PageTabs() {
               if (e.key === "Enter") e.currentTarget.blur();
               if (e.key === "Escape") setRenaming(null);
             }}
-            className="w-32 rounded border border-accent-ink bg-field px-2 py-1 text-xs"
+            className="h-7 w-32 rounded-md border border-border bg-field px-2 text-xs"
           />
         ) : (
           <div key={p.id} className="group flex shrink-0 items-center">
@@ -43,11 +43,11 @@ export function PageTabs() {
               onDoubleClick={() => editing && setRenaming(p.id)}
               title={`${p.drillthrough ? `Page d'extraction (${p.drillthrough.fields.join(", ")}) — ` : ""}${editing ? "Double-cliquez pour renommer" : p.name}`}
               className={clsx(
-                "flex items-center gap-1 rounded-md px-3 py-1.5 text-xs",
-                p.id === pageId ? "bg-accent-soft font-medium text-fg shadow-[inset_0_-2px_0_var(--accent),0_0_14px_-4px_var(--accent)]" : "text-muted hover:bg-surface-2 hover:text-fg",
+                "flex h-7 items-center gap-1 rounded-md px-2.5 text-xs",
+                p.id === pageId ? "atelier-nav-active font-medium" : "text-muted hover:bg-surface-2 hover:text-fg",
               )}
             >
-              {p.drillthrough && <CornerDownRight className="size-3 text-accent-ink" aria-label="Page d'extraction" />}
+              {p.drillthrough && <CornerDownRight className="size-3 text-muted" aria-label="Page d'extraction" />}
               {p.name}
             </button>
             {editing && p.id === pageId && (

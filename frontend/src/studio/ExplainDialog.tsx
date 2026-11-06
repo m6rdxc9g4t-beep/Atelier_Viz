@@ -96,8 +96,8 @@ export function ExplainDialog({ page, visual, selection, onClose }: { page: Page
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[88vh] w-full max-w-xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Lightbulb className="size-4 text-accent-ink" aria-hidden />
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <Lightbulb className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 truncate text-sm font-semibold">
             {t ? `Pourquoi « ${label(t.current)} » ?` : "Expliquer cette valeur"}
           </h2>
@@ -154,7 +154,7 @@ export function ExplainDialog({ page, visual, selection, onClose }: { page: Page
                 const max = Math.max(...d.items.map((i) => Math.abs(i.delta)), 1e-9);
                 return (
                   <section key={d.dimension} aria-label={`Contributions par ${d.dimension}`}>
-                    <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
+                    <h3 className="mb-1.5 text-2xs font-medium text-faint">
                       Par {d.dimension} {t.mode === "previous" ? "· contribution à l'écart" : "· écart de part (points)"}
                     </h3>
                     <ul className="space-y-1">

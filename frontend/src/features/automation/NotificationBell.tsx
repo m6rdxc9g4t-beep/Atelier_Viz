@@ -59,18 +59,18 @@ export function NotificationBell() {
         aria-expanded={open}
         aria-label={unread ? `Notifications : ${unread} non lue${unread > 1 ? "s" : ""}` : "Notifications"}
         title="Notifications des alertes"
-        className={clsx("relative rounded-md p-2 hover:bg-surface-2 hover:text-fg", unread ? "text-fg" : "text-muted")}
+        className={clsx("relative grid size-[30px] place-items-center rounded-md hover:bg-surface-2 hover:text-fg", unread ? "text-fg" : "text-muted")}
       >
         <Icon className="size-4" aria-hidden />
         {unread > 0 && (
-          <span className="absolute top-1 right-1 flex min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[9px] leading-4 font-semibold text-white tabular-nums">
+          <span className="absolute top-0.5 right-0.5 flex min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[9px] leading-4 font-semibold text-white tabular-nums">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
       </button>
       {open && (
         <div role="dialog" aria-label="Notifications" className="atelier-pop absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden rounded-lg border border-border bg-surface shadow-xl">
-          <header className="flex items-center justify-between border-b border-border px-3 py-2">
+          <header className="flex items-center justify-between border-b border-line px-3 py-2">
             <h2 className="text-xs font-semibold">Alertes déclenchées</h2>
             {unread > 0 && (
               <button
@@ -92,7 +92,7 @@ export function NotificationBell() {
           ) : (
             <ul className="max-h-80 overflow-y-auto">
               {notes.slice(0, 30).map((n) => (
-                <li key={n.id} className={clsx("border-b border-border/60 px-3 py-2 last:border-0", !n.read && "bg-accent/5")}>
+                <li key={n.id} className={clsx("border-b border-line/60 px-3 py-2 last:border-0", !n.read && "bg-surface-2/60")}>
                   <p className="flex items-start gap-1.5 text-xs">
                     {!n.read && <span className="mt-1 size-1.5 shrink-0 rounded-full bg-negative" aria-label="Non lue" />}
                     <span className="min-w-0">{n.message}</span>
@@ -102,7 +102,7 @@ export function NotificationBell() {
               ))}
             </ul>
           )}
-          <footer className="border-t border-border px-3 py-2">
+          <footer className="border-t border-line px-3 py-2">
             <button
               type="button"
               onClick={() => {

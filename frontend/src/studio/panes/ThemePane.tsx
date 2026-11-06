@@ -66,7 +66,7 @@ export function ThemePane() {
                   onClick={() => set(p.theme)}
                   aria-pressed={theme.preset === p.id}
                   title={p.description}
-                  className={clsx("rounded-md border p-1.5 text-left text-[11px]", theme.preset === p.id ? "border-accent-ink ring-1 ring-accent-ink" : "border-border hover:bg-surface-2")}
+                  className={clsx("rounded-md border p-1.5 text-left text-[11px]", theme.preset === p.id ? "border-accent-ink/40 bg-accent-soft" : "border-border hover:bg-surface-2")}
                 >
                   <PresetPreview t={p.theme} />
                   <span className="mt-1 block font-medium">{p.label}</span>

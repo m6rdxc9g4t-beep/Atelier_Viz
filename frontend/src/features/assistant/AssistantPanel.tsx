@@ -63,10 +63,10 @@ export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
   }
 
   return (
-    <aside className="atelier-pop fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col border-l border-border bg-surface shadow-xl lg:static lg:z-auto lg:w-80 lg:shadow-none">
-      <header className="flex h-12 items-center justify-between gap-2 border-b border-border px-4">
+    <aside className="atelier-pop fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col border-l border-line bg-surface shadow-xl lg:static lg:z-auto lg:w-80 lg:shadow-none">
+      <header className="flex h-12 items-center justify-between gap-2 border-b border-line px-4">
         <h2 className="mr-auto flex items-center gap-2 text-sm font-semibold">
-          <Sparkles className="size-4 text-accent-ink" aria-hidden />
+          <Sparkles className="size-4 text-muted" aria-hidden />
           Assistant
         </h2>
         {onClose && (
@@ -76,7 +76,7 @@ export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
         )}
       </header>
 
-      <div className="border-b border-border px-4 py-3">
+      <div className="border-b border-line px-4 py-3">
         <EnginePicker
           engine={engine}
           note={
@@ -88,7 +88,7 @@ export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
       </div>
 
       {dataset && (
-        <label className="flex cursor-pointer items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted">
+        <label className="flex cursor-pointer items-center gap-2 border-b border-line px-4 py-2 text-xs text-muted">
           <input
             type="checkbox"
             checked={useDataset}
@@ -113,14 +113,14 @@ export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
             key={i}
             className={clsx(
               "max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm",
-              m.role === "user" && "self-end bg-accent-soft text-fg ring-1 ring-inset ring-border",
+              m.role === "user" && "self-end bg-surface-2 text-fg",
               m.role === "assistant" && !m.error && "self-start bg-surface-2",
               m.error && "self-start border border-negative/40 text-negative",
             )}
           >
             {m.role === "assistant" && !m.error ? <RichText text={m.content} /> : m.content}
             {m.provider && (
-              <span className="mt-1 block text-[10px] uppercase tracking-wide text-muted">
+              <span className="mt-1 block text-2xs text-faint">
                 via {m.provider === "ollama" ? "Ollama" : "Claude"}
               </span>
             )}
@@ -129,7 +129,7 @@ export function AssistantPanel({ dataset, onClose }: AssistantPanelProps) {
         {pending && <p className="text-xs text-muted">Réflexion…</p>}
       </div>
 
-      <form onSubmit={send} className="flex gap-2 border-t border-border p-3">
+      <form onSubmit={send} className="flex gap-2 border-t border-line p-3">
         <label htmlFor="assistant-input" className="sr-only">
           Message à l'assistant
         </label>

@@ -39,8 +39,8 @@ export function SchedulesSection() {
 
   return (
     <section className="atelier-card rounded-xl border border-border bg-surface" aria-labelledby="schedules-title">
-      <header className="flex items-center gap-2 border-b border-border px-5 py-3">
-        <CalendarClock className="size-4 text-accent-ink" aria-hidden />
+      <header className="flex items-center gap-2 border-b border-line px-5 py-3">
+        <CalendarClock className="size-4 text-muted" aria-hidden />
         <h2 id="schedules-title" className="flex-1 text-sm font-semibold">
           Actualisations planifiées
         </h2>
@@ -56,7 +56,7 @@ export function SchedulesSection() {
       ) : states.length === 0 ? (
         <p className="p-5 text-xs text-muted">Aucun jeu actualisable : importez des données depuis Données → « Se connecter à une source ».</p>
       ) : (
-        <ul className="divide-y divide-border p-2">
+        <ul className="divide-y divide-line p-2">
           {states.map((s) => {
             const last = s.runs[0];
             const Icon = last ? STATUS_ICON[last.status] : null;

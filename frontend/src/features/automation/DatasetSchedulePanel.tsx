@@ -25,7 +25,7 @@ export function DatasetSchedulePanel({ datasetId, refreshedAt }: { datasetId: st
   return (
     <section aria-label="Actualisation planifiée" className="atelier-card rounded-lg border border-border bg-surface px-4 py-3">
       <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
-        <CalendarClock className="size-3.5 text-accent-ink" aria-hidden /> Actualisation planifiée
+        <CalendarClock className="size-3.5 text-muted" aria-hidden /> Actualisation planifiée
       </h3>
       {error ? (
         <p className="text-xs text-negative">{error}</p>

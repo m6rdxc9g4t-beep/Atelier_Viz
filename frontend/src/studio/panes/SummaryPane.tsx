@@ -185,7 +185,7 @@ export function SummaryPane() {
                           key={id}
                           type="button"
                           onClick={() => focusVisual(id)}
-                          className="max-w-full truncate rounded border border-border px-1.5 py-0.5 text-[10px] text-muted hover:border-accent-ink hover:text-accent-ink"
+                          className="max-w-full truncate rounded border border-border px-1.5 py-0.5 text-[10px] text-muted hover:bg-surface-2 hover:text-fg"
                           title="Afficher le visuel"
                         >
                           {titleOf(id)}

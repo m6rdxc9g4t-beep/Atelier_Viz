@@ -26,12 +26,19 @@ describe("sélecteur « Suite Atelier »", () => {
     await userEvent.click(button);
     expect(button).toHaveAttribute("aria-expanded", "true");
     const items = screen.getAllByRole("menuitemradio");
-    // Affichage dans la marque commune (« atelier_Viz »), noms accessibles inchangés (docs/SUITE.md §3).
+    // Affichage dans la marque commune v2 (« Atelier Viz »), noms accessibles inchangés (docs/SUITE.md §1.6, §3).
     expect(items.map((i) => i.textContent)).toEqual([
-      expect.stringContaining("atelier_Viz"),
-      expect.stringContaining("atelier_Tab"),
-      expect.stringContaining("atelier_Projets"),
-      expect.stringContaining("atelier_Cuisine"),
+      expect.stringContaining("Atelier Viz"),
+      expect.stringContaining("Atelier Tab"),
+      expect.stringContaining("Atelier Projets"),
+      expect.stringContaining("Atelier Cuisine"),
+    ]);
+    // Icônes Lucide de chaque app, comme le portail : chart-column, table, kanban, utensils.
+    expect(items.map((i) => i.querySelector(".atelier-brand__tile svg")?.getAttribute("class"))).toEqual([
+      expect.stringContaining("lucide-chart-column"),
+      expect.stringContaining("lucide-table"),
+      expect.stringContaining("lucide-kanban"),
+      expect.stringContaining("lucide-utensils"),
     ]);
     expect(items.map((i) => i.getAttribute("aria-label"))).toEqual([
       expect.stringContaining("Atelier Viz"),

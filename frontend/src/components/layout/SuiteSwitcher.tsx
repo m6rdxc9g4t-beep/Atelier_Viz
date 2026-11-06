@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { BarChart3, CalendarCheck, Check, CookingPot, LayoutGrid, type LucideIcon, Table2 } from "lucide-react";
+import { ChartColumn, Check, Kanban, LayoutGrid, type LucideIcon, Table, Utensils } from "lucide-react";
 import { type KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { openExternal } from "../../lib/desktop";
@@ -8,8 +8,8 @@ import { CURRENT_APP, type SuiteAppId, type SuiteStatus, checkAnyHealth, statusL
 /** Mention des apps en ligne de la suite, jamais sondées (docs/SUITE.md §3). */
 const ONLINE_LABEL = "En ligne";
 
-/** Icônes de la marque commune (docs/SUITE.md §1.6). */
-const ICONS: Record<SuiteAppId, LucideIcon> = { viz: BarChart3, tab: Table2, projets: CalendarCheck, cuisine: CookingPot };
+/** Icônes Lucide de la marque commune (docs/SUITE.md §1.6), mêmes dessins que le portail. */
+const ICONS: Record<SuiteAppId, LucideIcon> = { viz: ChartColumn, tab: Table, projets: Kanban, cuisine: Utensils };
 
 /**
  * Sélecteur « Suite Atelier » (docs/SUITE.md §3) : les applications de la suite, la courante cochée,
@@ -92,7 +92,7 @@ export function SuiteSwitcher() {
             setOpen(true);
           }
         }}
-        className={clsx("rounded-md p-1.5 hover:bg-surface-2 hover:text-fg", open ? "bg-surface-2 text-fg" : "text-muted")}
+        className={clsx("grid size-[30px] place-items-center rounded-md hover:bg-surface-2 hover:text-fg", open ? "bg-surface-3 text-fg" : "text-muted")}
       >
         <LayoutGrid className="size-4" aria-hidden />
       </button>
@@ -102,9 +102,9 @@ export function SuiteSwitcher() {
           role="menu"
           aria-label="Suite Atelier"
           onKeyDown={onMenuKey}
-          className="atelier-pop absolute top-full left-0 z-50 mt-1.5 w-80 rounded-lg border border-border bg-surface p-1.5 text-fg shadow-xl"
+          className="atelier-pop absolute top-full left-0 z-50 mt-1.5 w-80 rounded-lg border bg-surface p-1 text-fg"
         >
-          <p className="px-2 pt-1 pb-1.5 text-[10px] font-medium tracking-wide text-muted uppercase" aria-hidden>
+          <p className="px-2 pt-1.5 pb-1 text-2xs font-medium text-faint" aria-hidden>
             Suite Atelier
           </p>
           {apps.map((app, i) => {
@@ -130,8 +130,8 @@ export function SuiteSwitcher() {
                   if (!current) openExternal(app.url);
                 }}
                 className={clsx(
-                  "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left outline-none hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-focus",
-                  current && "bg-accent-soft",
+                  "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left outline-none hover:bg-surface-2 focus-visible:bg-surface-2",
+                  current && "bg-accent-soft hover:bg-accent-soft focus-visible:bg-accent-soft",
                 )}
               >
                 <span className="atelier-brand__tile atelier-brand__tile--sm" data-atelier-app={app.id} aria-hidden>
@@ -140,12 +140,12 @@ export function SuiteSwitcher() {
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
                     <span className="atelier-brand__name atelier-brand__name--sm">
-                      <span className="atelier-brand__prefix">atelier_</span>
+                      <span className="atelier-brand__prefix">Atelier </span>
                       {app.short}
                     </span>
                     {st && <StatusDot status={st} />}
                     {online && (
-                      <span className="text-[11px] font-normal text-muted" aria-hidden>
+                      <span className="text-2xs font-normal text-muted" aria-hidden>
                         {ONLINE_LABEL}
                       </span>
                     )}
@@ -162,11 +162,19 @@ export function SuiteSwitcher() {
   );
 }
 
-/** Pastille d'état + libellé court (la couleur n'est jamais seule porteuse de sens). */
+/**
+ * Pastille d'état + libellé court (la couleur n'est jamais seule porteuse de sens) : « en marche » reste neutre
+ * (état nominal muet, docs/SUITE.md §1.7), « arrêtée » en atténué, vérification en cercle vide.
+ */
 function StatusDot({ status }: { status: SuiteStatus }) {
   return (
-    <span className="flex items-center gap-1 text-[11px] font-normal text-muted" aria-hidden>
-      <span className={clsx("size-1.5 rounded-full", status === "up" ? "bg-positive" : status === "down" ? "bg-negative" : "animate-pulse bg-muted/60")} />
+    <span className={clsx("flex items-center gap-1 text-2xs font-normal", status === "up" ? "text-muted" : "text-faint")} aria-hidden>
+      <span
+        className={clsx(
+          "size-1.5 rounded-full",
+          status === "up" ? "bg-fg/60" : status === "down" ? "bg-faint/50" : "animate-pulse border border-faint",
+        )}
+      />
       {statusLabel(status)}
     </span>
   );

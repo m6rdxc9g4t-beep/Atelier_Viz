@@ -55,8 +55,8 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex h-[min(46rem,92vh)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Cable className="size-4 text-accent-ink" aria-hidden />
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <Cable className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             Se connecter à une source
           </h2>
@@ -69,8 +69,8 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
         </header>
 
         <div className="flex min-h-0 flex-1">
-          <nav aria-label="Connexions enregistrées" className="flex w-60 shrink-0 flex-col border-r border-border bg-bg/40">
-            <p className="px-3 pt-3 pb-1 text-[10px] font-medium tracking-wide text-muted uppercase">Connexions</p>
+          <nav aria-label="Connexions enregistrées" className="flex w-60 shrink-0 flex-col border-r border-line bg-bg/40">
+            <p className="px-3 pt-3 pb-1 text-2xs font-medium text-faint">Connexions</p>
             <div className="min-h-0 flex-1 overflow-y-auto px-2">
               {connections === null && !error && <Loader2 className="mx-auto mt-4 size-4 animate-spin text-muted" aria-label="Chargement" />}
               {connections?.length === 0 && <p className="px-1 py-2 text-xs text-muted">Aucune connexion enregistrée.</p>}
@@ -94,12 +94,12 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
                 );
               })}
             </div>
-            <div className="border-t border-border p-2">
+            <div className="border-t border-line p-2">
               <button
                 type="button"
                 onClick={() => setView({ kind: "pick" })}
                 aria-pressed={view.kind === "pick"}
-                className={clsx("flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium", view.kind === "pick" ? "bg-accent-soft text-accent-ink ring-1 ring-inset ring-border-strong" : "text-accent-ink hover:bg-accent-soft")}
+                className={clsx("flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium", view.kind === "pick" ? "bg-accent-soft text-accent-ink" : "text-accent-ink hover:bg-accent-soft")}
               >
                 <Plus className="size-3.5" aria-hidden /> Nouvelle connexion
               </button>
@@ -163,9 +163,9 @@ function ConnectorPicker({ connectors, online, onPick }: { connectors: Connector
       <p className="mt-1 text-xs text-muted">Applications de la Suite Atelier, bases de l'entreprise, fichiers synchronisés depuis OneDrive ou SharePoint, ou SharePoint Online directement.</p>
       {suite.length > 0 && (
         <>
-          <p className="mt-4 text-[10px] font-medium tracking-wide text-muted uppercase">Suite Atelier</p>
+          <p className="mt-4 text-2xs font-medium text-faint">Suite Atelier</p>
           <ConnectorGrid connectors={suite} online={online} onPick={onPick} />
-          <p className="mt-4 text-[10px] font-medium tracking-wide text-muted uppercase">Bases et fichiers</p>
+          <p className="mt-4 text-2xs font-medium text-faint">Bases et fichiers</p>
         </>
       )}
       <ConnectorGrid connectors={others} online={online} onPick={onPick} />
@@ -190,10 +190,10 @@ function ConnectorGrid({ connectors, online, onPick }: { connectors: ConnectorIn
               key={info.kind}
               type="button"
               onClick={() => onPick(info.kind)}
-              className="flex items-start gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:border-accent-ink/60 hover:bg-accent/5"
+              className="flex items-start gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:bg-surface-2"
             >
               <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-2">
-                <Icon className="size-4.5 text-accent-ink" aria-hidden />
+                <Icon className="size-4.5 text-muted" aria-hidden />
               </span>
               <span className="min-w-0">
                 <span className="block text-sm font-medium">{info.label}</span>

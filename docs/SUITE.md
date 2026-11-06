@@ -10,7 +10,7 @@ Toute modification se fait dans les trois dépôts à la fois.
 | **Atelier Tab** | Tableur + base typée | React · Electron (bureau) |
 | **Atelier Projets** | Projets agiles, Git, temps passé | Fastify + Prisma/SQLite · React |
 
-Principes partagés : **local d'abord** (rien ne quitte la machine hors ligne), interface **en français**, IA locale par Ollama (`http://localhost:11434`), clair + sombre (« néon monochrome » dans la couleur de chaque app, §1.7).
+Principes partagés : **local d'abord** (rien ne quitte la machine hors ligne), interface **en français**, IA locale par Ollama (`http://localhost:11434`), clair + sombre (charte v2 « Linear » : structure neutre commune, couleur signature de chaque app pour l’accent, §1.7).
 
 ---
 
@@ -49,9 +49,10 @@ Les dérivés (`--accent-soft`, mélanges) utilisent `color-mix(in oklab, …)` 
 (palette validée daltonisme/contraste). Seul l'habillage de l'application suit le design system.
 
 ### 1.3 Forme et typographie
-- Rayons : 6 / 10 / 16 px (`--ds-radius-sm|md|lg`).
-- Police : pile système (`ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, …`), mono `ui-monospace, "SF Mono", …`.
-  Aucune police téléchargée (pas de CDN, pas de Google Fonts). Exception : la police de marque embarquée (§1.6).
+- Rayons : 5 / 7 / 10 px (`--ds-radius-sm|md|lg`, `--atelier-radius-sm|md|lg`).
+- Police : **Inter** variable, embarquée dans `design-system/brand/` (`inter-latin-wght-normal.woff2`, `inter-latin-ext-wght-normal.woff2`, licence OFL),
+  exposée par `--atelier-font`. Aucune requête réseau (pas de CDN, pas de Google Fonts). Taille de base 13 px sur ordinateur, chiffres tabulaires dans les données.
+  Mono `--atelier-font-mono` (pile système) pour le code et les mesures seulement.
 
 ### 1.4 Statuts et types
 Les 8 statuts et leurs libellés français sont communs. Toute interface qui affiche un statut de workflow utilise ces couleurs.
@@ -74,50 +75,62 @@ synonymes acceptés : « Ouvert », « Nouveau » → `OPEN` ; « Fait », « Te
 Sur `<html>`, chaque application pose **les deux marqueurs** :
 - sombre : `class="dark"` **et** `data-theme="dark"` ;
 - clair : pas de classe `dark` et `data-theme="light"`.
-Choix proposés : Clair, Sombre, Système. Chaque application garde sa propre clé de préférence.
+Choix proposés : Système, Clair, Sombre. **La préférence est commune à la suite** : `design-system/brand/atelier-theme.js`
+(copie verbatim, chargé avant l'affichage) la lit et l'écrit dans le cookie `atelier_theme` sur le domaine de la suite quand l'app tourne sur le VPS
+(`<app>.atelier.<domaine>`), sinon dans `localStorage["atelier:theme"]`. Le sélecteur de thème de chaque app appelle `window.atelierTheme.set(pref)`.
 
-### 1.6 Marque (logo + nom)
-Les neuf applications Atelier (Projets, Viz, Tab, Ciné, Savoir, Trésorerie, Nexus, Dates, Cuisine) affichent leur marque de la même façon,
-comme sur leurs logos : tuile en verre cerclée de la **couleur signature** de l'app (§1.7), icône Lucide dans cette couleur,
-puis `atelier_` atténué et le nom en gras.
+### 1.6 Marque (icône + nom)
+Toutes les applications Atelier affichent leur marque de la même façon, comme le portail du VPS :
+**icône carrée arrondie** en dégradé de la **couleur signature** de l'app (§1.7), glyphe Lucide **blanc**, puis le nom « Atelier Nom »
+(« Atelier » en gris, le nom en gras, police de l'interface).
 
-- Source : `Atelier_Projets/design-system/brand/` (`atelier-brand.css`, police Nunito variable embarquée, licence OFL).
-  Copies verbatim : `frontend/src/styles/atelier-brand/` (Viz), `src/styles/atelier-brand/` (Tab),
-  `frontend/src/brand/` (Ciné), `static/brand/` (Savoir, Trésorerie), `frontend/src/styles/atelier-brand/` (Cuisine), et dans Nexus et Dates.
-- Balisage : `button.atelier-brand` > `.atelier-brand__tile` (icône) + `.atelier-brand__name` > `.atelier-brand__prefix` (« atelier_ ») + nom.
-- Icônes : Projets `calendar-check`, Viz `chart-column`, Tab `table-2`, Ciné `play`, Savoir `graduation-cap`, Trésorerie `landmark`, Cuisine `cooking-pot`.
-- La police de marque ne sert qu'à la marque ; le reste de l'interface garde la pile système.
-- Clic sur la marque : fenêtre « À propos » (`<dialog class="atelier-about">`) avec le logo complet de l'application en grand, son nom et une phrase de présentation. Identique partout, toujours sombre.
-- Icônes : l'icône d'application (Dock, `.app`, Electron) est le logo complet ; le favicon (`favicon-64.png`, `apple-touch-icon.png`) est la tuile de l'étiquette du logo.
+- Source : `Atelier_Projets/design-system/brand/` (`atelier-brand.css`, `atelier-theme.js`, police Inter). Copies verbatim dans chaque app
+  (mêmes emplacements qu'avant : `src/styles/atelier-brand/`, `frontend/src/brand/`, `static/brand/`…).
+- Balisage : `button.atelier-brand` > `.atelier-brand__tile` (icône) + `.atelier-brand__name` > `.atelier-brand__prefix` (« Atelier ») + nom.
+- Icônes Lucide : Nexus `workflow`, Viz `chart-column`, Tab `table`, Projets `kanban` (colonnes), Wiki `book-open`, Formulaire `clipboard-list`,
+  Trésorerie `wallet`, Savoir `graduation-cap`, Ciné `clapperboard`, Convert `arrow-left-right`, Portfolio `briefcase`, Ops Lab `truck`,
+  Mission `receipt`, DataMind `sparkles`, Suivi `list-checks`, Dates `heart`, Cuisine `utensils`, Dressing `shirt`.
+  Mêmes dessins que `Atelier_Deploy/portail/public/atelier-icons.svg`.
+- Clic sur la marque : fenêtre « À propos » (`<dialog class="atelier-about">`) avec la grande icône de l'app (`.atelier-about__icon`), son nom
+  et une phrase de présentation. Elle suit le thème de l'app.
+- Icônes : favicon et icône d'app (Dock, Electron, PWA) = l'icône carrée de l'app.
 
-### 1.7 Charte « néon monochrome » et couleurs signature
-Charte complète : document « Charte graphique : style néon holographique 3D » (piste C validée). Résumé pour le code :
+### 1.7 Charte v2 « Linear » et couleurs signature (6 nov. 2026)
+Règles complètes : `Atelier_Deploy/DESIGN.md`. Résumé pour le code :
 
-- **Chaque application est entièrement dans sa couleur signature** : fond, barre latérale, surfaces, bordures, textes,
-  halos et grille dérivent de `--atelier-signature` par mélange (`color-mix`) et transparence. Pas de couleur de structure commune.
+- **Une seule structure neutre pour toute la suite** (gris froids), identique dans toutes les apps, en clair comme en sombre :
+  fonds, barre latérale, surfaces, textes et traits viennent des jetons `--atelier-*`, qui ne dépendent plus de la signature.
+- **La signature ne sert qu'à ce qui a un sens** : bouton principal (plein, dans les deux thèmes), sélection (`--atelier-signature-soft`),
+  focus, liens, icône de l'app, données neutres d'une seule mesure (`--atelier-chart-*`).
+- **Plat au repos** : pas de halo, pas de grille ni de lueur de fond, traits de 1 px ; une ombre seulement pour ce qui flotte
+  (menus, dialogues : `--atelier-glow-strong`). Les jetons de halo v1 existent encore et valent une ombre discrète ou `none`.
+- **Navigation** : l'entrée courante a un fond neutre (`--atelier-surface-3`), jamais de barre de couleur sur le côté.
+- **États** : seuls les états anormaux sont colorés (`--atelier-warn`, `--atelier-down`) ; un état nominal reste neutre.
+- Densité « Linear » : barre latérale 232 px, barre haute 44 px, lignes de liste 40 px.
 - Activation : `data-atelier-app="<app>"` sur `<html>` (ou sur un élément, ex. chaque entrée du sélecteur de la suite, qui prend SA couleur).
 
 | App | `data-atelier-app` | Signature |
 |---|---|---|
-| Dates | `dates` | `#E03131` rouge |
-| Cuisine | `cuisine` | `#E056E2` orchidée |
-| Nexus | `nexus` | `#E8590C` orange foncé |
-| Viz | `viz` | `#F2C811` jaune |
-| Projets | `projets` | `#94D82D` vert citron |
-| Tab | `tab` | `#21A366` vert |
-| Trésorerie | `tresorerie` | `#3B5BDB` bleu roi |
-| Savoir | `savoir` | `#9B5DE5` violet |
-| Ciné | `cine` | `#E64980` magenta |
+| Nexus | `nexus` | `#c84f00` orange |
+| Viz | `viz` | `#996c00` or |
+| Tab | `tab` | `#1c8742` vert |
+| Projets | `projets` | `#568100` vert olive |
+| Wiki | `wiki` | `#007cbb` bleu |
+| Formulaire | `formulaire` | `#008478` sarcelle |
+| Trésorerie | `tresorerie` | `#3c72da` bleu roi |
+| Savoir | `savoir` | `#a853c1` violet |
+| Ciné | `cine` | `#cd3d83` magenta |
+| Convert | `convert` | `#9d6d1c` ocre |
+| Portfolio | `portfolio` | `#4a5468` ardoise |
+| Ops Lab | `ops` | `#895bd5` améthyste |
+| Mission | `mission` | `#b55d00` ambre |
+| DataMind | `datamind` | `#6967e1` indigo |
+| Suivi | `suivi` | `#008295` cyan |
+| Dates | `dates` | `#db373a` rouge |
+| Cuisine | `cuisine` | `#8568a7` lavande |
+| Dressing | `dressing` | `#a16464` vieux rose |
 
-- `brand/atelier-brand.css` fournit, pour le thème clair et le thème sombre, les jetons que chaque application branche sur ses
-  propres variables (§1.2) : `--atelier-bg`, `--atelier-sidebar`, `--atelier-surface`, `--atelier-surface-2|3`, `--atelier-field`,
-  `--atelier-text`, `--atelier-muted`, `--atelier-ink` (signature lisible en texte), `--atelier-border`, `--atelier-border-soft`,
-  `--atelier-line`, `--atelier-signature-soft|faint`, `--atelier-glow`, `--atelier-glow-strong`, `--atelier-signature-glow`,
-  `--atelier-text-glow`, `--atelier-focus`, `--atelier-backdrop` (grille + lueur), `--atelier-chart-1..3`, `--atelier-chart-fill`.
-- **Sombre** : fond quasi noir teinté, fine grille, cartes cerclées d'un trait néon de la couleur avec halo, bouton principal en contour néon.
-- **Clair** : fond très clair teinté, même grille, cartes blanches cerclées de la couleur avec léger halo, bouton principal plein.
-- `themes/dark.css` reste une base neutre quasi noire (CSS pur, copiable) : la teinte vient des jetons `--atelier-*`.
-- Les couleurs de **données** (types, statuts, séries Viz, positif / négatif) ne changent pas.
+Toutes passent 4,5:1 avec du texte blanc (bouton plein). Les couleurs de **données** (types, statuts, séries Viz, positif / négatif) ne changent pas.
 
 ---
 
@@ -137,8 +150,8 @@ Charte complète : document « Charte graphique : style néon holographique 3D �
 
 Chaque en-tête d'application porte un **sélecteur « Suite Atelier »** (icône grille, à gauche du nom de l'app) :
 - quatre entrées, dans la marque commune (§1.6, variante compacte `atelier-brand__tile--sm` / `atelier-brand__name--sm`) :
-  tuile néon (chaque entrée porte son `data-atelier-app`, donc sa couleur signature) + icône, puis « atelier_Viz » (`BarChart3`), « atelier_Tab » (`Table2`), « atelier_Projets » (`CalendarCheck`),
-  « atelier_Cuisine » (`CookingPot`), avec une ligne de description ; le nom accessible reste « Atelier Viz », « Atelier Tab », « Atelier Projets », « Atelier Cuisine » ;
+  icône carrée (chaque entrée porte son `data-atelier-app`, donc sa couleur signature), puis « Atelier Viz » (`ChartColumn`), « Atelier Tab » (`Table`), « Atelier Projets » (`Kanban`),
+  « Atelier Cuisine » (`Utensils`), avec une ligne de description ; le nom accessible reste « Atelier Viz », « Atelier Tab », « Atelier Projets », « Atelier Cuisine » ;
 - l'application courante est cochée ;
 - un clic ouvre l'adresse de l'application (colonne « Interface (aperçu / app) » ci-dessus) :
   - dans un navigateur : nouvel onglet ;
@@ -163,7 +176,7 @@ Les adresses sont des constantes dans un module dédié (`suite.ts`), surchargea
 (`VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`, et, dans Tab, `VITE_ATELIER_PROJETS_API_URL` pour l'adresse de santé de Projets).
 Dans une app, l'état de l'app courante se vérifie sur sa propre origine (`/api/health`), pas à l'adresse fixe.
 
-Nom affiché : **Atelier Viz**, **Atelier Tab**, **Atelier Projets** (avec une espace) dans les titres de fenêtre et noms accessibles ; « atelier_Nom » dans la marque (§1.6).
+Nom affiché : **Atelier Viz**, **Atelier Tab**, **Atelier Projets** (avec une espace) dans les titres de fenêtre et noms accessibles ; « Atelier Nom » dans la marque (§1.6 : « Atelier » en gris, le nom en gras).
 Les noms techniques (dépôts, dossier `~/Atelier_Tab`, paquets) ne changent pas.
 
 ---

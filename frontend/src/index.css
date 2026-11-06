@@ -4,14 +4,14 @@
 @import "./styles/atelier-ds/light.css";
 @import "./styles/atelier-ds/dark.css";
 
-/* Le mode sombre suit la classe .dark posée sur <html> (avec data-theme="dark", voir useTheme). */
+/* Le mode sombre suit la classe .dark posée sur <html> (avec data-theme="dark", voir atelier-theme.js et useTheme). */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Habillage de l'application (docs/SUITE.md §1.2 et §1.7, charte « néon monochrome ») : les noms de jetons
- * d'Atelier Viz ne changent pas ; leurs valeurs viennent des jetons --atelier-* d'atelier-brand.css, tous dérivés
- * de la signature jaune (#F2C811, data-atelier-app="viz" sur <html>), dans les deux thèmes. Les fondations du design
- * system (light.css, dark.css) restent des bases neutres ; seules les couleurs de statut (succès / danger) en dérivent.
+ * Habillage de l'application (docs/SUITE.md §1.2 et §1.7, charte v2 « Linear ») : les noms de jetons d'Atelier Viz
+ * ne changent pas ; leurs valeurs viennent des jetons --atelier-* d'atelier-brand.css. Structure neutre gris froid,
+ * commune à la suite, en clair comme en sombre ; la signature or (#996c00, data-atelier-app="viz" sur <html>) ne sert
+ * qu'à l'accent : bouton principal plein, sélection, focus, liens.
  * Redéclaré sur chaque racine de thème ([data-theme], .theme-light / .theme-dark du Studio) ; dans le Studio, le thème
  * du rapport redéfinit ces variables en ligne sur sa racine : le contenu du rapport garde ses couleurs.
  */
@@ -26,29 +26,34 @@
   --surface-2: var(--atelier-surface-2);
   --surface-3: var(--atelier-surface-3);
   --field: var(--atelier-field);
-  /* Trait par défaut (champs, boutons secondaires, panneaux) ; contour des cartes : --border-strong ; séparateurs : --line. */
+  /* Trait par défaut (champs, boutons secondaires) ; contour des cartes et panneaux : --border-strong ; séparateurs : --line. */
   --border: var(--atelier-border-soft);
   --border-strong: var(--atelier-border);
   --line: var(--atelier-line);
   --fg: var(--atelier-text);
   --muted: var(--atelier-muted);
+  /* Texte discret (compteurs, icônes de navigation au repos, indications). */
+  --faint: var(--atelier-faint);
   --grid: var(--atelier-line);
-  /* Fond autour de la page du Studio : fond de l'application, légèrement teinté pour détacher la page. */
-  --canvas: color-mix(in oklab, var(--atelier-bg) 60%, var(--atelier-surface-3));
+  /* Fond autour de la page du Studio : un cran sous le fond de l'application, pour détacher la page. */
+  --canvas: var(--atelier-sidebar);
   /* Succès / danger : couleurs de statut rapprochées de l'encre (comme le bouton « danger » du design system), ≥ 4,5:1. */
   --positive: color-mix(in oklab, var(--status-closed) 72%, var(--text-primary));
   --negative: color-mix(in oklab, var(--status-rejected) 72%, var(--text-primary));
+  /* Attention (états anormaux seulement : avertissement, échec partiel). */
+  --warn: var(--atelier-warn);
 
   /*
-   * Accent = signature : fonds pleins (sélection, barre de progression), --accent-fg = encre posée dessus (quasi noir).
-   * Texte, icônes fines et bordures de sélection : --accent-ink (assombri en clair, ≥ 4,5:1 ; éclairci en sombre).
-   * Fond actif : --accent-soft ; survol : --accent-faint ; focus : trait signature (+ halo --atelier-focus sur les champs).
+   * Accent = signature : fonds pleins (bouton principal, case cochée, barre de progression), --accent-fg = texte posé
+   * dessus (blanc). Texte, icônes fines et bordures de sélection : --accent-ink (≥ 4,5:1 dans les deux thèmes).
+   * Sélection : --accent-soft ; survol teinté (rare) : --accent-faint ; focus : anneau signature de 2 px.
    */
   --accent: var(--atelier-signature);
   --accent-fg: var(--atelier-signature-contrast);
   --accent-ink: var(--atelier-ink);
   --accent-soft: var(--atelier-signature-soft);
   --accent-faint: var(--atelier-signature-faint);
+  --accent-hover: var(--atelier-signature-hover);
   --focus: var(--atelier-signature);
 }
 
@@ -129,17 +134,69 @@
   --page-bg: var(--bg);
   --visual-bg: var(--surface);
   --visual-border: 1px solid var(--border);
-  --visual-radius: var(--ds-radius-md);
+  --visual-radius: 10px;
   --visual-shadow: none;
 }
 
-/* Forme et typographie (docs/SUITE.md §1.3) : pile système, aucune police téléchargée. */
+/*
+ * Forme et typographie (docs/SUITE.md §1.3) : rayons 5 / 7 / 10 px, Inter embarquée (atelier-brand.css), base 13 px
+ * sur ordinateur, 14 px sur téléphone (tailles d'interface variables, voir @theme).
+ */
 :root {
-  --ds-radius-sm: 6px;
-  --ds-radius-md: 10px;
-  --ds-radius-lg: 16px;
-  --ds-font-sans: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --ds-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --ds-radius-sm: var(--atelier-radius-sm);
+  --ds-radius-md: var(--atelier-radius-md);
+  --ds-radius-lg: var(--atelier-radius-lg);
+  --ds-font-sans: var(--atelier-font);
+  --ds-font-mono: var(--atelier-font-mono);
+  /* Gabarits de la coquille (docs/SUITE.md §1.7) */
+  --side-w: 232px;
+  --top-h: 44px;
+  --row-h: 40px;
+  /* Tailles d'interface : 11.5 / 12 / 13 / 14 / 15 / 20 px (ordinateur). */
+  --ui-text-2xs: 0.71875rem;
+  --ui-text-xs: 0.75rem;
+  --ui-text-sm: 0.8125rem;
+  --ui-text-base: 0.875rem;
+  --ui-text-lg: 0.9375rem;
+  --ui-text-xl: 1.25rem;
+  --ui-lh-2xs: 1.35;
+  --ui-lh-xs: 1.4;
+  --ui-lh-sm: 1.45;
+  --ui-lh-base: 1.45;
+  --ui-lh-lg: 1.45;
+  --ui-lh-xl: 1.35;
+}
+
+/*
+ * Contenu du rapport (racine .bg-canvas : Studio, présentation, export) : tailles et interlignes d'origine
+ * (échelle Tailwind par défaut), pour que la mise en page des visuels ne bouge pas (exception dataviz, §1.2).
+ */
+.bg-canvas {
+  --ui-text-2xs: 0.6875rem;
+  --ui-text-xs: 0.75rem;
+  --ui-text-sm: 0.875rem;
+  --ui-text-base: 1rem;
+  --ui-text-lg: 1.125rem;
+  --ui-text-xl: 1.25rem;
+  --ui-lh-2xs: 1.35;
+  --ui-lh-xs: calc(1 / 0.75);
+  --ui-lh-sm: calc(1.25 / 0.875);
+  --ui-lh-base: 1.5;
+  --ui-lh-lg: calc(1.75 / 1.125);
+  --ui-lh-xl: calc(1.75 / 1.25);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --ui-text-2xs: 0.75rem;
+    --ui-text-xs: 0.8125rem;
+    --ui-text-sm: 0.875rem;
+    --ui-text-base: 0.9375rem;
+    --ui-text-lg: 1rem;
+    --ui-text-xl: 1.25rem;
+  }
 }
 
 @theme inline {
@@ -154,38 +211,107 @@
   --color-line: var(--line);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
+  --color-faint: var(--faint);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
   --color-accent-faint: var(--accent-faint);
+  --color-accent-hover: var(--accent-hover);
   --color-focus: var(--focus);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
+  --color-warn: var(--warn);
   --color-canvas: var(--canvas);
   --font-sans: var(--ds-font-sans);
   --font-mono: var(--ds-font-mono);
-  --radius-md: var(--ds-radius-sm);
-  --radius-lg: var(--ds-radius-md);
+  --radius-sm: var(--ds-radius-sm);
+  --radius: var(--ds-radius-sm);
+  --radius-md: var(--ds-radius-md);
+  --radius-lg: var(--ds-radius-lg);
   --radius-xl: var(--ds-radius-lg);
+  --radius-2xl: var(--ds-radius-lg);
+  --text-2xs: var(--ui-text-2xs);
+  --text-2xs--line-height: var(--ui-lh-2xs);
+  --text-xs: var(--ui-text-xs);
+  --text-xs--line-height: var(--ui-lh-xs);
+  --text-sm: var(--ui-text-sm);
+  --text-sm--line-height: var(--ui-lh-sm);
+  --text-base: var(--ui-text-base);
+  --text-base--line-height: var(--ui-lh-base);
+  --text-lg: var(--ui-text-lg);
+  --text-lg--line-height: var(--ui-lh-lg);
+  --text-xl: var(--ui-text-xl);
+  --text-xl--line-height: var(--ui-lh-xl);
+  /* Plat au repos : seules les surfaces qui flottent (menus, popovers, dialogues) ont une ombre, celle du système. */
+  --shadow-sm: none;
+  --shadow: none;
+  --shadow-md: var(--atelier-glow-strong);
+  --shadow-lg: var(--atelier-glow-strong);
+  --shadow-xl: var(--atelier-glow-strong);
+  --shadow-2xl: var(--atelier-glow-strong);
+}
+
+html {
+  font-size: 16px;
 }
 
 body {
-  /* Fine grille + lueur en haut, dans la couleur de l'app (les deux thèmes). --atelier-backdrop contient des
-     tailles de motif : il ne s'utilise que dans le raccourci `background`, jamais dans `background-image`. */
-  background: var(--atelier-backdrop), var(--bg);
-  background-attachment: fixed;
+  background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans);
+  font-size: var(--ui-text-sm);
+  line-height: 1.45;
+  font-feature-settings: "cv11", "ss03";
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Les contrôles natifs héritent de la police de l'interface (Inter). */
+button,
+input,
+select,
+textarea {
+  font-feature-settings: inherit;
+}
+
+/* Données : chiffres tabulaires dans les colonnes de nombres (cellules alignées à droite) ; pas sur tout le tableau :
+   le `tnum` d'Inter élargit aussi le trait d'union (« Île-de-France »). */
+:is(td, th).text-right,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Surfaces du navigateur : sélection, curseur, barres de défilement aux couleurs du système. */
+::selection {
+  background: color-mix(in oklab, var(--atelier-signature) 30%, transparent);
+}
+
+:root {
+  caret-color: var(--accent-ink);
+  scrollbar-color: var(--atelier-border-soft) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--atelier-border-soft) padding-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /*
- * Charte « néon monochrome » (docs/SUITE.md §1.7), classes d'habillage :
- * - cartes et panneaux flottants : `atelier-card` (atelier-brand.css : surface, trait néon, halo) ;
- * - menus, popovers, modales : `atelier-pop` (trait néon, halo fort) ;
- * - bouton principal : `atelier-btn-primary` (atelier-brand.css : plein en clair, contour néon en sombre) ;
- * - navigation active : `atelier-nav-active` (atelier-brand.css) ; titre de page : `atelier-title`.
+ * Charte v2 « Linear » (docs/SUITE.md §1.7), classes d'habillage :
+ * - cartes et panneaux : `atelier-card` (atelier-brand.css : surface, trait 1 px, plat au repos) ;
+ * - menus, popovers, modales : `atelier-pop` (trait 1 px, ombre de surgissement) ;
+ * - bouton principal : `atelier-btn-primary` (atelier-brand.css : plein dans les deux thèmes) ;
+ * - navigation active : `atelier-nav-active` (atelier-brand.css : fond neutre) ; titre de vue : `atelier-title`.
  * Ces règles hors couche l'emportent sur les utilitaires Tailwind (ombres, bordures) des mêmes éléments.
  */
 .atelier-pop {
@@ -194,18 +320,42 @@ body {
 }
 
 .atelier-title {
-  text-shadow: var(--atelier-text-glow);
+  font-weight: 600;
+  letter-spacing: -0.005em;
 }
 
-.atelier-btn-primary:is(:hover, :focus-visible):not(:disabled) {
-  filter: brightness(1.08);
+.atelier-btn-primary:disabled {
+  background: var(--atelier-signature);
 }
 
-/* Champs de l'interface : trait signature et halo au focus (hors contenu du rapport, qui garde son thème). */
-:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), textarea, select):focus-visible:not(.bg-canvas *) {
+/* Focus clavier : anneau signature de 2 px décalé de 2 px, commun à tout élément focalisable
+   (couche base : un composant qui dessine son propre focus garde la main avec `outline-none`). */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+/* Champs de l'interface : bord signature et halo au focus (hors contenu du rapport, qui garde son thème, et hors champs
+   sans cadre posés dans une étiquette bordée, qui porte alors le halo par focus-within). */
+:is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), textarea, select):focus-visible:not(.bg-canvas *, .bg-transparent) {
   outline: none;
   border-color: var(--atelier-signature);
   box-shadow: var(--atelier-focus);
+}
+
+::placeholder {
+  color: var(--atelier-faint);
+  opacity: 1;
+}
+
+/* Cases à cocher, boutons radio, curseurs : couleur signature. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--accent);
 }
 
 /* Pas de cadre de focus après un clic souris dans un graphique (le clavier garde l'info-bulle). */
@@ -220,4 +370,13 @@ body {
 }
 [data-snapshot] *::-webkit-scrollbar {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

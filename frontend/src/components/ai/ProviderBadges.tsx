@@ -12,10 +12,10 @@ interface ProviderBadgesProps {
   onRefresh: () => void;
 }
 
-/** Pastilles d'état des fournisseurs IA (vert = prêt, gris = indisponible, détail au survol). */
+/** État des fournisseurs IA : pastille pleine = prêt, cercle vide = indisponible (sans couleur : état nominal muet), détail au survol. */
 export function ProviderBadges({ providers, loading, error, onRefresh }: ProviderBadgesProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-0.5">
       {error ? (
         <span className="text-xs text-negative" title={error}>
           API hors ligne
@@ -25,12 +25,9 @@ export function ProviderBadges({ providers, loading, error, onRefresh }: Provide
           <span
             key={p.name}
             title={p.detail ?? `${LABELS[p.name]} prêt — ${p.model}`}
-            className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs"
+            className={clsx("flex h-7 items-center gap-1.5 rounded-md px-2 text-xs", p.available ? "text-fg" : "text-muted")}
           >
-            <span
-              aria-hidden
-              className={clsx("size-1.5 rounded-full", p.available ? "bg-positive" : "bg-muted/50")}
-            />
+            <span aria-hidden className={clsx("size-1.5 rounded-full", p.available ? "bg-fg/70" : "border border-faint")} />
             {LABELS[p.name]}
             <span className="sr-only">{p.available ? "disponible" : "indisponible"}</span>
           </span>
@@ -40,7 +37,7 @@ export function ProviderBadges({ providers, loading, error, onRefresh }: Provide
         type="button"
         onClick={onRefresh}
         aria-label="Revérifier les fournisseurs IA"
-        className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg"
+        className="grid size-[30px] place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg"
       >
         <RefreshCw className={clsx("size-3.5", loading && "animate-spin")} aria-hidden />
       </button>

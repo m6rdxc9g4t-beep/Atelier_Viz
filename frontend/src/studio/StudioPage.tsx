@@ -173,8 +173,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
   return (
     <StudioDataContext.Provider value={{ datasets, profiles, activeDatasetId, setActiveDatasetId }}>
       <div className="flex h-full flex-col">
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
-          <button type="button" onClick={() => navigate("/")} aria-label="Retour aux rapports" className="rounded p-1.5 text-muted hover:bg-surface-2 hover:text-fg">
+        <div className="flex h-(--top-h) shrink-0 items-center gap-2 border-b border-line bg-bg px-3">
+          <button type="button" onClick={() => navigate("/")} aria-label="Retour aux rapports" className="grid size-7 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg">
             <ArrowLeft className="size-4" aria-hidden />
           </button>
           <input
@@ -182,16 +182,16 @@ export function StudioPage({ reportId }: { reportId: string }) {
             value={report.name}
             readOnly={!editing}
             onChange={(e) => s().mutate((r) => (r.name = e.target.value || "Sans titre"))}
-            className="min-w-0 max-w-72 flex-1 rounded px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field focus:outline-none focus:ring-1 focus:ring-focus"
+            className="min-w-0 max-w-72 flex-1 rounded-md px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field"
           />
           <SaveBadge state={saveState} error={saveError} />
           <div className="ml-auto flex items-center gap-1">
             {selection && (
-              <button type="button" onClick={() => s().setSelection(null)} className="flex items-center gap-1 rounded-md bg-accent-soft px-2 py-1 text-xs text-accent-ink hover:bg-accent/20">
+              <button type="button" onClick={() => s().setSelection(null)} className="flex h-7 items-center gap-1 rounded-md bg-accent-soft px-2 text-xs font-medium text-accent-ink">
                 <X className="size-3" aria-hidden /> Sélection
               </button>
             )}
-            <button type="button" onClick={() => s().resetFilters()} title="Réinitialiser segments, filtres de page et sélection" className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-fg">
+            <button type="button" onClick={() => s().resetFilters()} title="Réinitialiser segments, filtres de page et sélection" className="flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted hover:bg-surface-2 hover:text-fg">
               <FilterX className="size-3.5" aria-hidden /> <span className="hidden md:inline">Réinitialiser</span>
             </button>
             {editing && (
@@ -200,8 +200,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
                 onClick={() => toggleSide("ai")}
                 aria-pressed={side === "ai"}
                 className={clsx(
-                  "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium",
-                  side === "ai" ? "bg-accent-soft text-accent-ink ring-1 ring-inset ring-border-strong" : "bg-accent-soft text-accent-ink hover:bg-accent/20",
+                  "flex h-7 items-center gap-1 rounded-md px-2 text-xs whitespace-nowrap",
+                  side === "ai" ? "bg-surface-3 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg",
                 )}
               >
                 <Sparkles className="size-3.5" aria-hidden /> Créer avec l'IA
@@ -212,17 +212,17 @@ export function StudioPage({ reportId }: { reportId: string }) {
                 type="button"
                 onClick={() => toggleSide("theme")}
                 aria-pressed={side === "theme"}
-                className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "theme" ? "text-accent-ink" : "text-muted hover:text-fg")}
+                className={clsx("flex h-7 items-center gap-1 rounded-md px-2 text-xs", side === "theme" ? "bg-surface-3 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg")}
               >
                 <Palette className="size-3.5" aria-hidden /> <span className="hidden md:inline">Thème</span>
               </button>
             )}
             {editing && (
               <>
-                <button type="button" disabled={!canUndo} onClick={() => s().undo()} aria-label="Annuler (Ctrl+Z)" title="Annuler (Ctrl+Z)" className="rounded p-1.5 text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30">
+                <button type="button" disabled={!canUndo} onClick={() => s().undo()} aria-label="Annuler (Ctrl+Z)" title="Annuler (Ctrl+Z)" className="grid size-7 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30">
                   <Undo2 className="size-4" aria-hidden />
                 </button>
-                <button type="button" disabled={!canRedo} onClick={() => s().redo()} aria-label="Rétablir (Ctrl+Y)" title="Rétablir (Ctrl+Y)" className="rounded p-1.5 text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30">
+                <button type="button" disabled={!canRedo} onClick={() => s().redo()} aria-label="Rétablir (Ctrl+Y)" title="Rétablir (Ctrl+Y)" className="grid size-7 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30">
                   <Redo2 className="size-4" aria-hidden />
                 </button>
               </>
@@ -232,7 +232,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
               onClick={() => toggleSide("bookmarks")}
               aria-pressed={side === "bookmarks"}
               title="Signets : enregistrer et rappeler un état du rapport (page, filtres, segments)"
-              className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "bookmarks" ? "text-accent-ink" : "text-muted hover:text-fg")}
+              className={clsx("flex h-7 items-center gap-1 rounded-md px-2 text-xs", side === "bookmarks" ? "bg-surface-3 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg")}
             >
               <Bookmark className="size-3.5" aria-hidden /> <span className="hidden md:inline">Signets</span>
             </button>
@@ -241,7 +241,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
               onClick={() => toggleSide("ask")}
               aria-pressed={side === "ask"}
               title="Poser une question en français : un visuel et une réponse aux chiffres vérifiés"
-              className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "ask" ? "text-accent-ink" : "text-muted hover:text-fg")}
+              className={clsx("flex h-7 items-center gap-1 rounded-md px-2 text-xs", side === "ask" ? "bg-surface-3 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg")}
             >
               <CircleHelp className="size-3.5" aria-hidden /> <span className="hidden md:inline">Demander</span>
             </button>
@@ -250,7 +250,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
               onClick={() => toggleSide("summary")}
               aria-pressed={side === "summary"}
               title="Synthèse de la page par l'IA, chiffres vérifiés"
-              className={clsx("flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-surface-2", side === "summary" ? "text-accent-ink" : "text-muted hover:text-fg")}
+              className={clsx("flex h-7 items-center gap-1 rounded-md px-2 text-xs", side === "summary" ? "bg-surface-3 text-fg" : "text-muted hover:bg-surface-2 hover:text-fg")}
             >
               <ScrollText className="size-3.5" aria-hidden /> <span className="hidden md:inline">Résumer</span>
             </button>
@@ -263,7 +263,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
               aria-haspopup="menu"
               aria-expanded={exportMenu !== null}
               title="Exporter : PowerPoint, PDF, image ou rapport HTML"
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-fg"
+              className="flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted hover:bg-surface-2 hover:text-fg"
             >
               <Download className="size-3.5" aria-hidden /> <span className="hidden md:inline">Exporter</span>
             </button>
@@ -271,18 +271,21 @@ export function StudioPage({ reportId }: { reportId: string }) {
               type="button"
               onClick={startPresenting}
               title="Présenter en plein écran : flèches pour changer de page, diaporama de pages ou de signets, Échap pour quitter"
-              className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-fg"
+              className="flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted hover:bg-surface-2 hover:text-fg"
             >
               <MonitorPlay className="size-3.5" aria-hidden /> <span className="hidden md:inline">Présenter</span>
             </button>
-            <div className="ml-1 flex rounded-md border border-border p-0.5 text-xs" role="group" aria-label="Mode">
+            <div className="ml-1 flex rounded-md bg-surface-2 p-0.5 text-xs" role="group" aria-label="Mode">
               {(["edit", "view"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
                   aria-pressed={mode === m}
                   onClick={() => s().setMode(m)}
-                  className={clsx("flex items-center gap-1 rounded px-2 py-1", mode === m ? "bg-surface-2 font-medium text-fg" : "text-muted hover:text-fg")}
+                  className={clsx(
+                    "flex h-6 items-center gap-1 rounded-sm px-2",
+                    mode === m ? "bg-surface font-medium text-fg shadow-[0_1px_2px_rgb(0_0_0/0.08),0_0_0_1px_var(--line)]" : "text-muted hover:text-fg",
+                  )}
                 >
                   {m === "edit" ? <Pencil className="size-3" aria-hidden /> : <Eye className="size-3" aria-hidden />}
                   {m === "edit" ? "Édition" : "Lecture"}
@@ -322,7 +325,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
             </>
           )}
           {notice && (
-            <div role="status" className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-md bg-fg px-3 py-2 text-xs text-bg shadow-lg">
+            <div role="status" className="atelier-pop absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-md border bg-surface px-3 py-2 text-xs text-fg">
               {notice}
             </div>
           )}

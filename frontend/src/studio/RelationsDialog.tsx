@@ -9,7 +9,7 @@ import type { DatasetModel, DatasetProfile, DatasetSummary, ModelIssue, Relation
 import { checkMessages, relationName, relationSummary, suggestRelation } from "./relations";
 
 const field = "w-full rounded-md border border-border bg-field px-2 py-1.5 text-xs outline-none focus:border-focus";
-const label = "mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted";
+const label = "mb-1 block text-2xs font-medium text-faint";
 
 interface Props {
   profile: DatasetProfile;
@@ -78,8 +78,8 @@ export function RelationsDialog({ profile, datasets, onClose, onSaved }: Props) 
       onClick={(e) => e.stopPropagation()}
     >
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Link2 className="size-4 text-accent-ink" aria-hidden />
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <Link2 className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             Relations · {profile.name}
           </h2>
@@ -95,10 +95,10 @@ export function RelationsDialog({ profile, datasets, onClose, onSaved }: Props) 
           </p>
 
           {relations.length > 0 && (
-            <ul className="divide-y divide-border rounded-lg border border-border" aria-label="Relations existantes">
+            <ul className="divide-y divide-line rounded-lg border border-border" aria-label="Relations existantes">
               {relations.map((r, i) => (
                 <li key={r.name} className={clsx("flex items-center gap-2 px-3 py-2 text-xs", editing?.index === i && "bg-accent-faint")}>
-                  <Link2 className="size-3.5 shrink-0 text-accent-ink" aria-hidden />
+                  <Link2 className="size-3.5 shrink-0 text-muted" aria-hidden />
                   <span className="font-medium">{r.name}</span>
                   <span className="min-w-0 flex-1 truncate text-muted">{relationSummary(r, datasets)}</span>
                   <span className="shrink-0 text-[11px] text-muted">{r.columns ? `${r.columns.length} col.` : "toutes les colonnes"}</span>
@@ -298,7 +298,7 @@ function RelationForm({ profile, targets, initial, takenNames, saving, onCancel,
               {m.tone === "ok" ? (
                 <Check className="mt-0.5 size-3.5 shrink-0" aria-hidden />
               ) : (
-                <TriangleAlert className={clsx("mt-0.5 size-3.5 shrink-0", m.tone === "warn" ? "text-accent-ink" : "")} aria-hidden />
+                <TriangleAlert className={clsx("mt-0.5 size-3.5 shrink-0", m.tone === "warn" ? "text-warn" : "")} aria-hidden />
               )}
               {m.text}
             </p>
@@ -316,7 +316,7 @@ function RelationForm({ profile, targets, initial, takenNames, saving, onCancel,
                 key={c.name}
                 className={clsx(
                   "flex cursor-pointer items-center gap-1 rounded border px-1.5 py-0.5 text-[11px]",
-                  picked.includes(c.name) ? "border-accent-ink bg-accent-soft" : "border-border text-muted hover:bg-accent-faint",
+                  picked.includes(c.name) ? "border-accent-ink/40 bg-accent-soft" : "border-border text-muted hover:bg-surface-2",
                 )}
               >
                 <input type="checkbox" checked={picked.includes(c.name)} onChange={() => togglePicked(c.name)} className="sr-only" />

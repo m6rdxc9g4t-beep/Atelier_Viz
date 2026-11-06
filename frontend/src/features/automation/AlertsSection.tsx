@@ -66,8 +66,8 @@ export function AlertsSection() {
   const first = datasets[0];
   return (
     <section className="atelier-card rounded-xl border border-border bg-surface" aria-labelledby="alerts-title">
-      <header className="flex items-center gap-2 border-b border-border px-5 py-3">
-        <BellRing className="size-4 text-accent-ink" aria-hidden />
+      <header className="flex items-center gap-2 border-b border-line px-5 py-3">
+        <BellRing className="size-4 text-muted" aria-hidden />
         <h2 id="alerts-title" className="flex-1 text-sm font-semibold">
           Alertes sur seuil
         </h2>
@@ -81,7 +81,7 @@ export function AlertsSection() {
               editing: null,
             })
           }
-          className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
+          className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
         >
           <Plus className="size-3.5" aria-hidden /> Nouvelle alerte
         </button>
@@ -101,7 +101,7 @@ export function AlertsSection() {
       ) : alerts.length === 0 ? (
         <p className="p-5 text-xs text-muted">{first ? "Aucune alerte pour l'instant." : "Importez d'abord un jeu de données."}</p>
       ) : (
-        <ul className="divide-y divide-border p-2">
+        <ul className="divide-y divide-line p-2">
           {alerts.map((a) => {
             const status = alertStatus(a);
             const Icon = STATUS_ICON[status];
@@ -200,7 +200,7 @@ function AlertHistory({ alert }: { alert: Alert }) {
     <table className="mt-2 w-full text-left text-[11px]">
       <caption className="sr-only">Historique de l'alerte {alert.name}</caption>
       <thead className="text-muted">
-        <tr className="border-b border-border">
+        <tr className="border-b border-line">
           <th scope="col" className="py-1 pr-2 font-medium">Évaluation</th>
           <th scope="col" className="py-1 pr-2 text-right font-medium">Valeur</th>
           <th scope="col" className="py-1 pr-2 font-medium">Résultat</th>
@@ -209,7 +209,7 @@ function AlertHistory({ alert }: { alert: Alert }) {
       </thead>
       <tbody>
         {alert.history.slice(0, 15).map((e, i) => (
-          <tr key={`${e.at}-${i}`} className="border-b border-border/60 last:border-0">
+          <tr key={`${e.at}-${i}`} className="border-b border-line/60 last:border-0">
             <td className="py-1 pr-2 whitespace-nowrap tabular-nums">
               {whenLabel(e.at)} <span className="text-muted">· {TRIGGER[e.trigger]}</span>
             </td>

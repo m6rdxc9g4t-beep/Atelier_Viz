@@ -120,8 +120,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && !running && onClose()}>
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop w-full max-w-md rounded-xl border border-border bg-surface text-fg shadow-2xl">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Presentation className="size-4 text-accent-ink" aria-hidden />
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <Presentation className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             Exporter en PowerPoint
           </h2>
@@ -220,7 +220,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
               </p>
             )}
 
-            <footer className="flex justify-end gap-2 border-t border-border px-4 py-3">
+            <footer className="flex justify-end gap-2 border-t border-line px-4 py-3">
               {running ? (
                 <button type="button" onClick={() => abort.current?.abort()} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-surface-2">
                   <Loader2 className="size-3.5 animate-spin" aria-hidden /> Annuler
@@ -230,7 +230,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
                   <button type="button" onClick={onClose} className="rounded-md px-3 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
                     Fermer
                   </button>
-                  <button type="button" onClick={() => void run()} className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
+                  <button type="button" onClick={() => void run()} className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg">
                     <Download className="size-3.5" aria-hidden /> Exporter
                   </button>
                 </>
@@ -299,11 +299,11 @@ function Summary({
           </details>
         )}
       </div>
-      <footer className="flex justify-end gap-2 border-t border-border px-4 py-3">
+      <footer className="flex justify-end gap-2 border-t border-line px-4 py-3">
         <button type="button" onClick={onDownload} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted hover:bg-surface-2 hover:text-fg">
           <Download className="size-3.5" aria-hidden /> {saved?.kind === "downloaded" || !saved ? "Télécharger à nouveau" : "Enregistrer à nouveau"}
         </button>
-        <button type="button" onClick={onClose} className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
+        <button type="button" onClick={onClose} className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg">
           Terminé
         </button>
       </footer>
@@ -324,7 +324,7 @@ function Stat({ value, label }: { value: number; label: string }) {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="mb-1.5 text-2xs font-medium text-faint">{label}</p>
       {children}
     </div>
   );
@@ -369,7 +369,7 @@ function Choice({ checked, onSelect, icon, title, text }: { checked: boolean; on
       onClick={onSelect}
       className={clsx(
         "flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left",
-        checked ? "border-accent-ink bg-accent/5" : "border-border hover:bg-surface-2",
+        checked ? "border-accent-ink/40 bg-accent-soft" : "border-border hover:bg-surface-2",
       )}
     >
       <span className={clsx("flex items-center gap-1.5 text-xs font-medium", checked ? "text-accent-ink" : "text-fg")}>

@@ -48,7 +48,7 @@ export function SettingsView() {
               onClick={() => void toggle(o.value)}
               className={clsx(
                 "rounded-lg border p-4 text-left transition-colors",
-                online === o.value ? "border-accent-ink bg-accent/5 ring-1 ring-accent-ink" : "border-border hover:bg-surface-2",
+                online === o.value ? "border-accent-ink/40 bg-accent-soft" : "border-border hover:bg-surface-2",
               )}
             >
               <span className="flex items-center gap-2 text-sm font-medium">
@@ -85,11 +85,11 @@ export function SettingsView() {
               aria-checked={preference === o.value}
               onClick={() => setPreference(o.value)}
               className={clsx(
-                "flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm",
-                preference === o.value ? "border-accent-ink bg-accent/5 font-medium ring-1 ring-accent-ink" : "border-border hover:bg-surface-2",
+                "flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border px-2 text-sm",
+                preference === o.value ? "border-accent-ink/40 bg-accent-soft font-medium" : "border-border hover:bg-surface-2",
               )}
             >
-              <o.icon className="size-4" aria-hidden /> {o.label}
+              <o.icon className="hidden size-4 shrink-0 text-muted sm:block" aria-hidden /> <span className="truncate">{o.label}</span>
             </button>
           ))}
         </div>
@@ -102,7 +102,7 @@ export function SettingsView() {
             <RefreshCw className={clsx("size-4", providers.loading && "animate-spin")} aria-hidden />
           </button>
         </div>
-        <ul className="mt-3 divide-y divide-border">
+        <ul className="mt-3 divide-y divide-line">
           {providers.providers.map((p) => (
             <li key={p.name} className="flex items-start gap-3 py-3 text-sm">
               <span className={clsx("mt-1.5 size-2 shrink-0 rounded-full", p.available ? "bg-positive" : "bg-muted/50")} aria-hidden />
