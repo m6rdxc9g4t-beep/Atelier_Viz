@@ -125,14 +125,14 @@ Règles complètes : `Atelier_Deploy/DESIGN.md`. Résumé pour le code :
 | Ops Lab | `ops` | `#895bd5` améthyste |
 | Mission | `mission` | `#b55d00` ambre |
 | DataMind | `datamind` | `#6967e1` indigo |
-| Suivi | `suivi` | `#8a5fb8` lilas |
+| Suivi | `suivi` | `#15aabf` cyan |
 | Dates | `dates` | `#db373a` rouge |
-| Cuisine | `cuisine` | `#3a6c97` bleu acier |
+| Cuisine | `cuisine` | `#9b84dc` lilas |
 | Dressing | `dressing` | `#a16464` vieux rose |
 
-Toutes passent 4,5:1 avec du texte blanc (bouton plein). Les couleurs de **données** (types, statuts, séries Viz, positif / négatif) ne changent pas.
+Toutes passent 4,5:1 avec du texte blanc (bouton plein), sauf Suivi et Cuisine, plus claires, qui portent un texte quasi noir (`--atelier-signature-contrast: #0b0b0f`, §3 bis). Les couleurs de **données** (types, statuts, séries Viz, positif / négatif) ne changent pas.
 
-Apps du foyer (Dates, Suivi, Cuisine) : même charte, mais la structure neutre est **crème** en clair et **bleu nuit** en sombre (`atelier-brand.css` §3 bis, active seulement avec `data-atelier-app` sur `<html>`).
+Apps du foyer (Dates, Suivi, Cuisine) : même charte, mais toute la structure (fonds, surfaces, texte, traits) est **teintée de la signature**, comme avant la v2, en restant plate (`atelier-brand.css` §3 bis, active seulement avec `data-atelier-app` sur `<html>`). Cuisine passe à un lilas plus lumineux (`#c8b5f2`) en sombre.
 
 ---
 
