@@ -69,8 +69,8 @@ export function VersionsDialog({ report, onClose, onRestored }: { report: { id: 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[88vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <History className="size-4 text-accent-ink" aria-hidden />
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <History className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 truncate text-sm font-semibold">
             Historique GitHub · {report.name}
           </h2>
@@ -92,7 +92,7 @@ export function VersionsDialog({ report, onClose, onRestored }: { report: { id: 
                   type="button"
                   onClick={() => setPicked(v.sha)}
                   aria-current={picked === v.sha ? "true" : undefined}
-                  className={clsx("flex w-full flex-col gap-0.5 rounded-md px-2.5 py-2 text-left text-xs", picked === v.sha ? "bg-accent-soft" : "hover:bg-accent-faint")}
+                  className={clsx("flex w-full flex-col gap-0.5 rounded-md px-2.5 py-2 text-left text-xs", picked === v.sha ? "bg-accent-soft" : "hover:bg-surface-2")}
                 >
                   <span className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate font-medium">{v.message || "(sans message)"}</span>
@@ -133,7 +133,7 @@ export function VersionsDialog({ report, onClose, onRestored }: { report: { id: 
                 {confirm ? (
                   <div className="space-y-2 rounded-md border border-border p-2">
                     <p className="flex items-start gap-1.5 text-[11px]">
-                      <TriangleAlert className="mt-px size-3.5 shrink-0 text-accent-ink" aria-hidden />
+                      <TriangleAlert className="mt-px size-3.5 shrink-0 text-warn" aria-hidden />
                       Le rapport de ce poste sera remplacé par cette version (vos filtres et sélections sont gardés). Pour publier ce retour en arrière, envoyez-le ensuite.
                     </p>
                     <div className="flex gap-2">

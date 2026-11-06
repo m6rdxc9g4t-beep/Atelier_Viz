@@ -19,14 +19,17 @@ const NAV: NavItem[] = [
   { label: "Réglages", icon: Settings, path: "/reglages", match: ["settings"] },
 ];
 
-/** Navigation principale ; icônes seules dans le Studio et sous 1024px. */
+/**
+ * Navigation principale, à la forme du portail (docs/SUITE.md §1.7) : barre latérale neutre de 232 px, marque en haut,
+ * entrées de 30 px, entrée courante sur fond neutre. Icônes seules dans le Studio et sous 1024 px.
+ */
 export function Sidebar({ route, compact }: { route: Route; compact: boolean }) {
   return (
-    <aside className={clsx("flex shrink-0 flex-col border-r border-border bg-sidebar", compact ? "w-12" : "w-12 lg:w-52")}>
-      <div className={clsx("flex h-12 items-center border-b border-border px-2", !compact && "lg:px-3")}>
+    <aside className={clsx("flex shrink-0 flex-col border-r border-line bg-sidebar", compact ? "w-12" : "w-12 lg:w-(--side-w)")}>
+      <div className={clsx("flex h-(--top-h) shrink-0 items-center justify-center", !compact && "lg:justify-start lg:px-3")}>
         <AtelierBrand showName={!compact} nameClassName="hidden lg:inline" />
       </div>
-      <nav className="flex flex-col gap-1 p-1.5" aria-label="Navigation principale">
+      <nav className={clsx("flex flex-col gap-px px-2 pt-1", !compact && "lg:px-2")} aria-label="Navigation principale">
         {NAV.map(({ label, icon: Icon, path, match }) => {
           const current = match.includes(route.name);
           return (
@@ -37,11 +40,12 @@ export function Sidebar({ route, compact }: { route: Route; compact: boolean }) 
               onClick={() => navigate(path)}
               aria-current={current ? "page" : undefined}
               className={clsx(
-                "flex h-9 items-center gap-3 rounded-md px-2.5 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-focus",
-                current ? "atelier-nav-active font-medium [&>svg]:text-accent-ink" : "text-muted hover:bg-accent-faint hover:text-fg",
+                "flex h-[30px] items-center justify-center gap-2.5 rounded-md px-2 text-sm font-medium transition-colors duration-100",
+                !compact && "lg:justify-start",
+                current ? "atelier-nav-active [&>svg]:text-fg" : "text-fg/80 hover:bg-surface-2 hover:text-fg [&>svg]:text-faint",
               )}
             >
-              <Icon className="size-4 shrink-0" aria-hidden />
+              <Icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
               {!compact && <span className="hidden lg:inline">{label}</span>}
             </button>
           );

@@ -102,7 +102,7 @@ export function ScheduleEditor({ state, onChange, compact = false }: { state: Sc
           type="button"
           disabled={!dirty || !!invalid || saving}
           onClick={() => void save()}
-          className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40"
+          className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40"
         >
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
@@ -126,7 +126,7 @@ export function ScheduleEditor({ state, onChange, compact = false }: { state: Sc
             {describeSchedule(state.schedule)} · prochaine : <span className="font-medium text-fg">{state.next_run ? whenLabel(state.next_run) : "—"}</span>
           </>
         )}
-        {dirty && <span className="text-accent-ink"> (modification non enregistrée)</span>}
+        {dirty && <span className="text-warn"> (modification non enregistrée)</span>}
       </p>
       {invalid && <p className="text-[11px] text-negative">{invalid}</p>}
       {warning && (
@@ -155,7 +155,7 @@ export function RunLog({ runs }: { runs: RefreshRun[] }) {
     <table className="w-full text-left text-[11px]">
       <caption className="sr-only">Dernières exécutions</caption>
       <thead className="text-muted">
-        <tr className="border-b border-border">
+        <tr className="border-b border-line">
           <th scope="col" className="py-1 pr-2 font-medium">Exécution</th>
           <th scope="col" className="py-1 pr-2 font-medium">Statut</th>
           <th scope="col" className="py-1 pr-2 text-right font-medium">Durée</th>
@@ -167,7 +167,7 @@ export function RunLog({ runs }: { runs: RefreshRun[] }) {
         {runs.map((r) => {
           const Icon = STATUS_ICON[r.status];
           return (
-            <tr key={`${r.started_at}-${r.trigger}`} className="border-b border-border/60 last:border-0">
+            <tr key={`${r.started_at}-${r.trigger}`} className="border-b border-line/60 last:border-0">
               <td className="py-1 pr-2 whitespace-nowrap tabular-nums">
                 {whenLabel(r.started_at)} <span className="text-muted">· {r.trigger === "manual" ? "manuelle" : "planifiée"}</span>
               </td>

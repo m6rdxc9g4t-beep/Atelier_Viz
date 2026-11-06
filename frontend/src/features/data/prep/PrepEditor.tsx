@@ -168,8 +168,8 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" onMouseDown={(e) => e.target === e.currentTarget && !dirty && onClose()}>
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex h-[min(52rem,96vh)] w-full max-w-7xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Wand2 className="size-4 text-accent-ink" aria-hidden />
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <Wand2 className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             Préparer les données · {profile.name}
           </h2>
@@ -179,8 +179,8 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
         </header>
 
         <div className="grid min-h-0 flex-1 grid-cols-[16rem_minmax(0,1fr)]">
-          <aside className="flex min-h-0 flex-col border-r border-border" aria-label="Étapes appliquées">
-            <p className="px-3 pt-3 text-[11px] font-medium uppercase tracking-wide text-muted">Étapes appliquées</p>
+          <aside className="flex min-h-0 flex-col border-r border-line" aria-label="Étapes appliquées">
+            <p className="px-3 pt-3 text-2xs font-medium text-faint">Étapes appliquées</p>
             <ol className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
               <li>
                 <button
@@ -190,9 +190,9 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                     setForm(null);
                   }}
                   aria-current={at === -1 && !form ? "step" : undefined}
-                  className={clsx("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs", at === -1 ? "bg-accent-soft" : "hover:bg-accent-faint")}
+                  className={clsx("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs", at === -1 ? "bg-accent-soft" : "hover:bg-surface-2")}
                 >
-                  <Database className="size-3.5 shrink-0 text-accent-ink" aria-hidden />
+                  <Database className="size-3.5 shrink-0 text-muted" aria-hidden />
                   <span className="flex-1 font-medium">Source</span>
                 </button>
               </li>
@@ -201,7 +201,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                 const after = failing !== null && i > failing.step;
                 return (
                   <li key={i} className="group/step">
-                    <div className={clsx("flex items-start gap-1 rounded-md px-2 py-1.5 text-xs", at === i ? "bg-accent-soft" : "hover:bg-accent-faint", after && "opacity-50")}>
+                    <div className={clsx("flex items-start gap-1 rounded-md px-2 py-1.5 text-xs", at === i ? "bg-accent-soft" : "hover:bg-surface-2", after && "opacity-50")}>
                       <button
                         type="button"
                         onClick={() => {
@@ -229,7 +229,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                 );
               })}
             </ol>
-            <p className="border-t border-border px-3 py-2 text-[11px] leading-snug text-muted">
+            <p className="border-t border-line px-3 py-2 text-[11px] leading-snug text-muted">
               Les étapes sont rejouées sur la source à chaque actualisation. Une nouvelle étape s'insère après celle affichée.
             </p>
           </aside>
@@ -245,10 +245,10 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                   title={needsColumn && !selected ? "Sélectionnez d'abord une colonne (clic sur son en-tête)" : undefined}
                   className={clsx(
                     "flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium disabled:opacity-40",
-                    form?.index === null && form.step.kind === kind ? "border-accent-ink bg-accent-soft text-accent-ink" : "border-border hover:bg-accent-faint",
+                    form?.index === null && form.step.kind === kind ? "border-accent-ink/40 bg-accent-soft text-accent-ink" : "border-border hover:bg-surface-2",
                   )}
                 >
-                  <Icon className="size-3.5 text-accent-ink" aria-hidden /> {STEP_LABELS[kind]}
+                  <Icon className="size-3.5 text-muted" aria-hidden /> {STEP_LABELS[kind]}
                 </button>
               ))}
             </div>
@@ -290,7 +290,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                       const { icon: Icon, label } = TYPE_META[c.type];
                       const on = c.name === column;
                       return (
-                        <th key={c.name} scope="col" aria-sort={undefined} className={clsx("border-b border-border p-0 font-medium", on && "bg-accent-soft")}>
+                        <th key={c.name} scope="col" aria-sort={undefined} className={clsx("border-b border-line p-0 font-medium", on && "bg-accent-soft")}>
                           <button
                             type="button"
                             onClick={() => setColumn(on ? null : c.name)}
@@ -298,7 +298,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                             title={`${label} · ${formatCount(c.distinct)} valeurs distinctes · ${formatCount(c.nulls)} vides`}
                             className={clsx("flex w-full items-center gap-1.5 whitespace-nowrap px-3 py-2 text-left", on ? "text-fg" : "text-muted hover:text-fg")}
                           >
-                            <Icon className="size-3.5 shrink-0 text-accent-ink" aria-label={label} />
+                            <Icon className="size-3.5 shrink-0 text-muted" aria-label={label} />
                             {c.name}
                             {c.nulls > 0 && <span className="text-[10px] font-normal text-muted">({formatCount(c.nulls)} vides)</span>}
                           </button>
@@ -309,7 +309,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                 </thead>
                 <tbody>
                   {(preview?.sample ?? []).map((row, i) => (
-                    <tr key={i} className="border-b border-border/60">
+                    <tr key={i} className="border-b border-line/60">
                       {columns.map((c) => {
                         const v = row[c.name];
                         return (
@@ -331,7 +331,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
             {error}
           </p>
         )}
-        <footer className="flex items-center gap-2 border-t border-border px-4 py-3">
+        <footer className="flex items-center gap-2 border-t border-line px-4 py-3">
           <span className="text-[11px] text-muted">
             {steps.length} étape{steps.length > 1 ? "s" : ""}
             {dirty ? " · modifications non appliquées" : ""}

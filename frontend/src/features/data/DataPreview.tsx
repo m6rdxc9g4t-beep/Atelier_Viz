@@ -37,7 +37,7 @@ export function DataPreview({ datasetId, columns, total }: DataPreviewProps) {
 
   return (
     <section aria-labelledby="preview-title" className="atelier-card flex min-h-0 flex-1 flex-col rounded-lg border border-border bg-surface">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
+      <header className="flex items-center justify-between border-b border-line px-4 py-3">
         <h2 id="preview-title" className="text-sm font-medium">
           Aperçu
         </h2>
@@ -55,7 +55,7 @@ export function DataPreview({ datasetId, columns, total }: DataPreviewProps) {
                   key={c.name}
                   scope="col"
                   className={clsx(
-                    "whitespace-nowrap border-b border-border px-3 py-2 text-xs font-medium text-muted",
+                    "whitespace-nowrap border-b border-line px-3 py-2 text-xs font-medium text-muted",
                     c.type === "number" ? "text-right" : "text-left",
                   )}
                 >
@@ -73,7 +73,7 @@ export function DataPreview({ datasetId, columns, total }: DataPreviewProps) {
                     <td
                       key={c.name}
                       className={clsx(
-                        "whitespace-nowrap border-b border-border/60 px-3 py-1.5",
+                        "whitespace-nowrap border-b border-line/60 px-3 py-1.5",
                         c.type === "number" && "text-right tabular-nums",
                         value === null && "text-muted",
                       )}
@@ -88,7 +88,7 @@ export function DataPreview({ datasetId, columns, total }: DataPreviewProps) {
         </table>
       </div>
       {rows.length < total && (
-        <footer className="border-t border-border px-4 py-2">
+        <footer className="border-t border-line px-4 py-2">
           <button
             type="button"
             onClick={() => load(rows.length)}

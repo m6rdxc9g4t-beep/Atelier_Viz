@@ -75,7 +75,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
     >
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         <div className="flex items-center gap-2">
-          <meta.icon className="size-5 text-accent-ink" aria-hidden />
+          <meta.icon className="size-5 text-muted" aria-hidden />
           <h3 className="text-sm font-semibold">{editing ? `Modifier « ${editing.name} »` : `Nouvelle connexion ${meta.label}`}</h3>
         </div>
 
@@ -124,7 +124,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
               </label>
             )}
             <p className="flex items-start gap-1.5 rounded-md bg-surface-2 px-3 py-2 text-[11px] text-muted">
-              <ShieldCheck className="mt-px size-3.5 shrink-0 text-accent-ink" aria-hidden />
+              <ShieldCheck className="mt-px size-3.5 shrink-0 text-muted" aria-hidden />
               <span>
                 Le mot de passe est rangé dans le trousseau de votre système, jamais dans les fichiers de l'application. Les données sont lues en lecture seule ; un compte
                 limité à la lecture reste conseillé.
@@ -219,7 +219,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
         )}
       </div>
 
-      <footer className="flex items-center gap-2 border-t border-border px-5 py-3">
+      <footer className="flex items-center gap-2 border-t border-line px-5 py-3">
         {editing &&
           (confirmDelete ? (
             <span className="flex items-center gap-2 text-xs">

@@ -78,28 +78,28 @@ export function ReportsHome() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 lg:p-8">
+    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 lg:px-8 lg:py-8">
       {reports !== null && (reports.length === 0 || !datasets.length) && (
-        <section className="flex flex-col gap-4 rounded-xl border border-accent-ink/30 bg-accent/5 p-5 sm:flex-row sm:items-center">
-          <Wand2 className="size-6 shrink-0 text-accent-ink" aria-hidden />
+        <section className="atelier-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
+          <Wand2 className="size-5 shrink-0 text-muted" aria-hidden />
           <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold">Découvrir avec un exemple</h2>
-            <p className="mt-1 text-xs text-muted">
+            <h2 className="text-sm font-semibold">Découvrir avec un exemple</h2>
+            <p className="mt-0.5 text-xs text-muted">
               Importe les données d'exemple du dépôt (573 ventes 2026 et 30 magasins) et ouvre un rapport prêt à explorer : filtres, carte, export PowerPoint, IA.
             </p>
           </div>
-          <button type="button" disabled={busy} onClick={() => void openExample()} className="atelier-btn-primary flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg disabled:opacity-50">
+          <button type="button" disabled={busy} onClick={() => void openExample()} className="atelier-btn-primary flex h-[30px] items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium disabled:opacity-50">
             {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Wand2 className="size-4" aria-hidden />}
             Ouvrir l'exemple
           </button>
         </section>
       )}
-      <section className="atelier-card rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold">Nouveau rapport</h2>
-        <p className="mt-1 text-xs text-muted">Partez d'une page vide, ou laissez l'application proposer une première mise en page à partir de vos données.</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto]">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom du rapport" aria-label="Nom du rapport" className="rounded-md border border-border bg-field px-3 py-2 text-sm" />
-          <select value={datasetId} onChange={(e) => setDatasetId(e.target.value)} aria-label="Jeu de données" className="rounded-md border border-border bg-field px-3 py-2 text-sm">
+      <section className="atelier-card p-4">
+        <h2 className="text-sm font-semibold">Nouveau rapport</h2>
+        <p className="mt-0.5 text-xs text-muted">Partez d'une page vide, ou laissez l'application proposer une première mise en page à partir de vos données.</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nom du rapport" aria-label="Nom du rapport" className="h-[34px] rounded-md border border-border bg-field px-3 text-sm" />
+          <select value={datasetId} onChange={(e) => setDatasetId(e.target.value)} aria-label="Jeu de données" className="h-[34px] rounded-md border border-border bg-field px-2.5 text-sm">
             {!datasets.length && <option value="">Aucun jeu de données</option>}
             {datasets.map((d) => (
               <option key={d.id} value={d.id}>
@@ -107,10 +107,10 @@ export function ReportsHome() {
               </option>
             ))}
           </select>
-          <button type="button" disabled={busy} onClick={() => void create(false)} className="flex items-center justify-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-surface-2 disabled:opacity-50">
-            <Plus className="size-4" aria-hidden /> Page vide
+          <button type="button" disabled={busy} onClick={() => void create(false)} className="flex h-[34px] items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 text-sm font-medium hover:bg-surface-2 disabled:opacity-50">
+            <Plus className="size-4 text-muted" aria-hidden /> Page vide
           </button>
-          <button type="button" disabled={busy || !datasetId} onClick={() => void create(true)} className="atelier-btn-primary flex items-center justify-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg disabled:opacity-50">
+          <button type="button" disabled={busy || !datasetId} onClick={() => void create(true)} className="atelier-btn-primary flex h-[34px] items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium disabled:opacity-50">
             {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
             Rapport de démarrage
           </button>
@@ -118,7 +118,7 @@ export function ReportsHome() {
         {datasets.length > 0 && reports !== null && reports.length > 0 && (
           <p className="mt-3 text-xs text-muted">
             Ou{" "}
-            <button type="button" disabled={busy} onClick={() => void openExample()} className="text-accent-ink underline disabled:opacity-50">
+            <button type="button" disabled={busy} onClick={() => void openExample()} className="text-accent-ink underline underline-offset-2 disabled:opacity-50">
               ouvrir le rapport d'exemple
             </button>{" "}
             (données du dossier samples/ du dépôt).
@@ -127,41 +127,46 @@ export function ReportsHome() {
         {!datasets.length && (
           <p className="mt-3 text-xs text-muted">
             Importez d'abord un fichier dans{" "}
-            <button type="button" onClick={() => navigate("/donnees")} className="text-accent-ink underline">
+            <button type="button" onClick={() => navigate("/donnees")} className="text-accent-ink underline underline-offset-2">
               Données
             </button>
             .
           </p>
         )}
-        {error && <p className="mt-3 text-xs text-negative">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-3 text-xs text-negative">
+            {error}
+          </p>
+        )}
       </section>
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold">Mes rapports</h2>
+      <section aria-labelledby="mes-rapports">
+        <h2 id="mes-rapports" className="mb-2 flex items-baseline gap-2 text-sm font-semibold">
+          Mes rapports
+          {reports !== null && reports.length > 0 && <span className="text-2xs font-medium text-faint tabular-nums">{reports.length}</span>}
+        </h2>
         {reports === null ? (
           <Loader2 className="size-4 animate-spin text-muted" aria-label="Chargement" />
         ) : reports.length === 0 ? (
           <p className="text-sm text-muted">Aucun rapport pour l'instant.</p>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="atelier-card overflow-hidden">
             {reports.map((r) => (
-              <li key={r.id} className="atelier-card group relative rounded-lg border border-border bg-surface p-4 hover:border-fg/20">
-                <button type="button" onClick={() => navigate(`/rapports/${r.id}`)} className="flex w-full items-start gap-3 text-left">
-                  <FileBarChart2 className="mt-0.5 size-5 shrink-0 text-accent-ink" aria-hidden />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">{r.name}</span>
-                    <span className="block text-xs text-muted">
-                      {r.pages} page{r.pages > 1 ? "s" : ""} · {r.visuals} visuel{r.visuals > 1 ? "s" : ""}
-                    </span>
-                    <span className="block text-[11px] text-muted">Modifié le {dateFmt.format(new Date(r.updated_at))}</span>
+              <li key={r.id} className="group relative flex min-h-(--row-h) items-center border-b border-line last:border-b-0 hover:bg-surface-2">
+                <button type="button" onClick={() => navigate(`/rapports/${r.id}`)} className="flex min-h-(--row-h) min-w-0 flex-1 items-center gap-3 py-2 pr-12 pl-4 text-left outline-offset-[-2px]">
+                  <FileBarChart2 className="size-4 shrink-0 text-faint" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.name}</span>
+                  <span className="hidden shrink-0 text-xs text-muted tabular-nums sm:block">
+                    {r.pages} page{r.pages > 1 ? "s" : ""} · {r.visuals} visuel{r.visuals > 1 ? "s" : ""}
                   </span>
+                  <span className="hidden w-48 shrink-0 text-right text-xs text-faint tabular-nums md:block">Modifié le {dateFmt.format(new Date(r.updated_at))}</span>
                 </button>
                 {confirm === r.id ? (
-                  <span className="absolute right-3 top-3 flex gap-2 text-xs">
-                    <button type="button" onClick={() => void remove(r.id)} className="font-medium text-negative">
+                  <span className="absolute right-2 flex gap-1 text-xs">
+                    <button type="button" onClick={() => void remove(r.id)} className="rounded-md px-1.5 py-1 font-medium text-negative hover:bg-surface-3">
                       Supprimer
                     </button>
-                    <button type="button" onClick={() => setConfirm(null)} className="text-muted">
+                    <button type="button" onClick={() => setConfirm(null)} className="rounded-md px-1.5 py-1 text-muted hover:bg-surface-3 hover:text-fg">
                       Annuler
                     </button>
                   </span>
@@ -170,7 +175,7 @@ export function ReportsHome() {
                     type="button"
                     onClick={() => setConfirm(r.id)}
                     aria-label={`Supprimer ${r.name}`}
-                    className="absolute right-3 top-3 rounded p-1 text-muted opacity-0 hover:text-negative focus:opacity-100 group-hover:opacity-100"
+                    className="absolute right-2 grid size-7 place-items-center rounded-md text-muted opacity-0 hover:bg-surface-3 hover:text-negative focus:opacity-100 group-hover:opacity-100"
                   >
                     <Trash2 className="size-3.5" aria-hidden />
                   </button>

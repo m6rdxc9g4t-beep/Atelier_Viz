@@ -50,7 +50,7 @@ export function StepForm({ step, columns, editing, onChange, onSubmit, onCancel 
         {columns.map((c) => {
           const on = picked.includes(c.name);
           return (
-            <label key={c.name} className={`flex cursor-pointer items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] ${on ? "border-accent-ink bg-accent-soft" : "border-border text-muted hover:bg-accent-faint"}`}>
+            <label key={c.name} className={`flex cursor-pointer items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] ${on ? "border-accent-ink/40 bg-accent-soft" : "border-border text-muted hover:bg-surface-2"}`}>
               <input type="checkbox" className="sr-only" checked={on} onChange={() => onPick(on ? picked.filter((n) => n !== c.name) : [...picked, c.name])} />
               {c.name}
             </label>
@@ -223,7 +223,7 @@ export function StepForm({ step, columns, editing, onChange, onSubmit, onCancel 
                   type="button"
                   aria-pressed={step.separator === sep}
                   onClick={() => set({ separator: sep })}
-                  className={`rounded border px-1.5 py-0.5 text-[11px] ${step.separator === sep ? "border-accent-ink bg-accent-soft text-fg" : "border-border hover:bg-accent-faint"}`}
+                  className={`rounded border px-1.5 py-0.5 text-[11px] ${step.separator === sep ? "border-accent-ink/40 bg-accent-soft text-fg" : "border-border hover:bg-surface-2"}`}
                 >
                   {name}
                 </button>

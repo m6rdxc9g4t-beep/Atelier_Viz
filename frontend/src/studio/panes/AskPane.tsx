@@ -70,7 +70,7 @@ export function AskPane() {
 
   return (
     <Pane title="Demander" width="w-96">
-      <div className="space-y-2 border-b border-border p-3">
+      <div className="space-y-2 border-b border-line p-3">
         <div className="flex items-center gap-2">
           <select
             aria-label="Jeu de données interrogé"
@@ -120,7 +120,7 @@ export function AskPane() {
         {!entries.length && (
           <div className="flex flex-wrap gap-1">
             {suggestions(profile).map((s) => (
-              <button key={s} type="button" disabled={engine.down} onClick={() => void submit(s)} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted hover:border-accent-ink hover:text-accent-ink disabled:opacity-40">
+              <button key={s} type="button" disabled={engine.down} onClick={() => void submit(s)} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-40">
                 {s}
               </button>
             ))}
@@ -135,7 +135,7 @@ export function AskPane() {
         {entries.map((e) => (
           <li key={e.id} className="atelier-card rounded-lg border border-border bg-surface p-2.5">
             <p className="flex items-start gap-1.5 text-xs font-medium">
-              <CircleHelp className="mt-px size-3.5 shrink-0 text-accent-ink" aria-hidden /> {e.question}
+              <CircleHelp className="mt-px size-3.5 shrink-0 text-muted" aria-hidden /> {e.question}
             </p>
             {e.status === "pending" && (
               <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted">

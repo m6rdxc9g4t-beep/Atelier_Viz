@@ -86,8 +86,8 @@ export function DocumentDialog({ initial, onClose }: { initial: DocumentFormat; 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && !running && onClose()}>
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop w-full max-w-md rounded-xl border border-border bg-surface text-fg shadow-2xl">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Download className="size-4 text-accent-ink" aria-hidden />
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <Download className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             Exporter en PDF, image ou HTML
           </h2>
@@ -108,10 +108,10 @@ export function DocumentDialog({ initial, onClose }: { initial: DocumentFormat; 
                   setFormat(f.value);
                   setResult(null);
                 }}
-                className={clsx("flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left", format === f.value ? "border-accent-ink bg-accent-soft" : "border-border hover:bg-accent-faint")}
+                className={clsx("flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left", format === f.value ? "border-accent-ink/40 bg-accent-soft" : "border-border hover:bg-surface-2")}
               >
                 <span className="flex items-center gap-1.5 text-xs font-medium">
-                  <f.icon className="size-4 text-accent-ink" aria-hidden /> {f.label}
+                  <f.icon className="size-4 text-muted" aria-hidden /> {f.label}
                 </span>
                 <span className="text-[11px] leading-snug text-muted">{f.text}</span>
               </button>
@@ -167,7 +167,7 @@ export function DocumentDialog({ initial, onClose }: { initial: DocumentFormat; 
           </p>
         )}
 
-        <footer className="flex justify-end gap-2 border-t border-border px-4 py-3">
+        <footer className="flex justify-end gap-2 border-t border-line px-4 py-3">
           {running ? (
             <button type="button" onClick={() => abort.current?.abort()} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-surface-2">
               <Loader2 className="size-3.5 animate-spin" aria-hidden /> Annuler
@@ -182,7 +182,7 @@ export function DocumentDialog({ initial, onClose }: { initial: DocumentFormat; 
                   <Download className="size-3.5" aria-hidden /> Enregistrer de nouveau
                 </button>
               ) : null}
-              <button type="button" onClick={() => void run()} className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110">
+              <button type="button" onClick={() => void run()} className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg">
                 <Download className="size-3.5" aria-hidden /> Exporter
               </button>
             </>

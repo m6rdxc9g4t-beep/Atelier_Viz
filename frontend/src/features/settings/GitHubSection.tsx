@@ -97,7 +97,7 @@ export function GitHubSection() {
   return (
     <section className="atelier-card rounded-xl border border-border bg-surface p-5" aria-labelledby={`${id}-title`}>
       <div className="flex items-center gap-2">
-        <GitBranch className="size-4 text-accent-ink" aria-hidden />
+        <GitBranch className="size-4 text-muted" aria-hidden />
         <h2 id={`${id}-title`} className="flex-1 text-base font-semibold">
           Synchronisation GitHub
         </h2>
@@ -184,7 +184,7 @@ export function GitHubSection() {
         </button>
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button type="button" disabled={!!invalid || !dirty || busy !== null} onClick={() => void save()} className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
+        <button type="button" disabled={!!invalid || !dirty || busy !== null} onClick={() => void save()} className="atelier-btn-primary rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40">
           {busy === "save" ? "Enregistrement…" : "Enregistrer"}
         </button>
         <button
@@ -215,13 +215,13 @@ export function GitHubSection() {
       )}
 
       {ready && state && (
-        <div className="mt-5 border-t border-border pt-4">
+        <div className="mt-5 border-t border-line pt-4">
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex min-w-48 flex-1 flex-col gap-1 text-[11px] text-muted">
               Message du commit (facultatif)
               <input value={commitMessage} onChange={(e) => setCommitMessage(e.target.value)} maxLength={500} placeholder="Atelier Viz : N rapport(s) mis à jour" className={input} />
             </label>
-            <button type="button" disabled={!online || busy !== null} onClick={() => void push()} className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110 disabled:opacity-40">
+            <button type="button" disabled={!online || busy !== null} onClick={() => void push()} className="atelier-btn-primary flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg disabled:opacity-40">
               {busy === "push" ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <CloudUpload className="size-3.5" aria-hidden />} Envoyer{pending ? ` (${pending})` : ""}
             </button>
             <button type="button" disabled={!online || busy !== null} onClick={() => void pull()} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2 disabled:opacity-40">
@@ -259,7 +259,7 @@ export function GitHubSection() {
             <table className="mt-3 w-full text-left text-[11px]">
               <caption className="sr-only">État des rapports</caption>
               <thead className="text-muted">
-                <tr className="border-b border-border">
+                <tr className="border-b border-line">
                   <th scope="col" className="py-1 font-medium">Rapport</th>
                   <th scope="col" className="py-1 font-medium">Modifié</th>
                   <th scope="col" className="py-1 text-right font-medium">Par rapport à GitHub</th>
@@ -270,7 +270,7 @@ export function GitHubSection() {
               </thead>
               <tbody>
                 {state.reports.map((r) => (
-                  <tr key={r.id} className="border-b border-border/60 last:border-0">
+                  <tr key={r.id} className="border-b border-line/60 last:border-0">
                     <td className="py-1 pr-2">{r.name}</td>
                     <td className="py-1 pr-2 text-muted tabular-nums">{whenLabel(r.updated_at)}</td>
                     <td className={clsx("py-1 text-right", r.state === "synced" ? "text-positive" : "text-fg")}>{STATE_LABEL[r.state]}</td>

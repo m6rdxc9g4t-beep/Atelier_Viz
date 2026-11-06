@@ -66,7 +66,7 @@ export function UploadDropzone({ onFile, uploading, variant = "large" }: UploadD
       onDrop={onDrop}
       className={clsx(
         "flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-6 py-16 text-center transition-colors",
-        over ? "border-accent-ink bg-accent/5" : "border-border bg-surface",
+        over ? "border-accent-ink/40 bg-accent-soft" : "border-border bg-surface",
       )}
     >
       {hiddenInput}

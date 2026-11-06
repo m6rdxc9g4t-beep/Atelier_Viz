@@ -304,7 +304,7 @@ export function AIBuilderPane() {
       )}
 
       {previous.length > 0 && (
-        <section className="border-b border-border px-3 py-3">
+        <section className="border-b border-line px-3 py-3">
           <Disclosure open={historyOpen} onToggle={() => setHistoryOpen((o) => !o)} icon={History} label={`Demandes précédentes (${previous.length})`} />
           {historyOpen && (
             <ul className="mt-2 space-y-1.5">
@@ -345,7 +345,7 @@ function ProposalCard({ visual, state, disabled, onAdd }: { visual: ProposedVisu
   return (
     <li className="rounded-md border border-border p-2.5">
       <div className="flex items-start gap-2">
-        <def.icon className="mt-0.5 size-4 shrink-0 text-accent-ink" aria-hidden />
+        <def.icon className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium" title={title}>
             {title}
@@ -412,7 +412,7 @@ function HistoryItem({
         </span>
       </button>
       {open && (
-        <div className="border-t border-border p-2">
+        <div className="border-t border-line p-2">
           <ul className="space-y-2">
             {entry.result.visuals.map((v, i) => (
               <ProposalCard key={i} visual={v} state={placement(entry, i, ids)} disabled={disabled} onAdd={() => onAdd([i])} />

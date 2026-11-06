@@ -71,9 +71,9 @@ export function ContextMenu({ x, y, title, items, onClose }: Props) {
             item.onSelect?.();
             onClose();
           }}
-          className={clsx("flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left", item.disabled ? "cursor-default text-muted" : "hover:bg-accent-faint focus:bg-accent-faint focus:outline-none")}
+          className={clsx("flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left", item.disabled ? "cursor-default text-muted" : "hover:bg-surface-2 focus:bg-surface-2 focus:outline-none")}
         >
-          {item.icon && <item.icon className={clsx("mt-px size-3.5 shrink-0", !item.disabled && "text-accent-ink")} aria-hidden />}
+          {item.icon && <item.icon className={clsx("mt-px size-3.5 shrink-0", !item.disabled && "text-muted")} aria-hidden />}
           <span className="min-w-0 flex-1">
             <span className="block">{item.label}</span>
             {item.hint && <span className="block text-[11px] text-muted">{item.hint}</span>}

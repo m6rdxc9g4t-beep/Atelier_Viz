@@ -124,8 +124,8 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-center gap-3 border-b border-border px-5 py-3">
-        <meta.icon className="size-5 shrink-0 text-accent-ink" aria-hidden />
+      <header className="flex items-center gap-3 border-b border-line px-5 py-3">
+        <meta.icon className="size-5 shrink-0 text-muted" aria-hidden />
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-sm font-semibold">{c.name}</h3>
           <p className="truncate text-xs text-muted">
@@ -163,9 +163,9 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
 
       <div className="grid min-h-0 flex-1 grid-cols-[16rem_minmax(0,1fr)]">
         {/* Colonne de gauche : ce qu'on lit */}
-        <div className="flex min-h-0 flex-col border-r border-border">
+        <div className="flex min-h-0 flex-col border-r border-line">
           {sql && (
-            <div className="flex border-b border-border text-xs" role="tablist">
+            <div className="flex border-b border-line text-xs" role="tablist">
               {(["tables", "query"] as const).map((m) => (
                 <button
                   key={m}
@@ -173,7 +173,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                   role="tab"
                   aria-selected={mode === m}
                   onClick={() => setMode(m)}
-                  className={clsx("flex-1 py-2 font-medium", mode === m ? "border-b-2 border-accent text-fg" : "text-muted hover:text-fg")}
+                  className={clsx("flex-1 py-2 font-medium", mode === m ? "border-b-2 border-fg text-fg" : "text-muted hover:text-fg")}
                 >
                   {m === "tables" ? "Tables" : "Requête SQL"}
                 </button>
@@ -183,7 +183,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
 
           {sql && mode === "tables" && (
             <>
-              <label className="m-2 flex items-center gap-1.5 rounded-md border border-border bg-field px-2 py-1 text-xs focus-within:ring-1 focus-within:ring-focus">
+              <label className="m-2 flex items-center gap-1.5 rounded-md border border-border bg-field px-2 py-1 text-xs focus-within:border-focus focus-within:shadow-[var(--atelier-focus)]">
                 <Search className="size-3.5 text-muted" aria-hidden />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher une table" aria-label="Rechercher une table" className="min-w-0 flex-1 bg-transparent outline-none" />
               </label>
@@ -193,7 +193,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                 {tables &&
                   groupTables(tables, search).map(([schema, list]) => (
                     <div key={schema} className="mb-1">
-                      {schema && <p className="px-2 pt-2 pb-0.5 text-[10px] font-medium tracking-wide text-muted uppercase">{schema}</p>}
+                      {schema && <p className="px-2 pt-2 pb-0.5 text-2xs font-medium text-faint">{schema}</p>}
                       {list.map((t) => {
                         const active = source?.table?.name === t.name && source.table.schema === t.schema;
                         return (
@@ -257,7 +257,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
 
           {c.kind === "atelier_tab" && (
             <>
-              <label className="m-2 flex items-center gap-1.5 rounded-md border border-border bg-field px-2 py-1 text-xs focus-within:ring-1 focus-within:ring-focus">
+              <label className="m-2 flex items-center gap-1.5 rounded-md border border-border bg-field px-2 py-1 text-xs focus-within:border-focus focus-within:shadow-[var(--atelier-focus)]">
                 <Search className="size-3.5 text-muted" aria-hidden />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher une table" aria-label="Rechercher une table" className="min-w-0 flex-1 bg-transparent outline-none" />
               </label>
@@ -269,7 +269,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                 {tables &&
                   groupSnapshots(tables, search).map(([project, list]) => (
                     <div key={project} className="mb-1">
-                      <p className="truncate px-2 pt-2 pb-0.5 text-[10px] font-medium tracking-wide text-muted uppercase" title={project}>
+                      <p className="truncate px-2 pt-2 pb-0.5 text-2xs font-medium text-faint" title={project}>
                         {project}
                       </p>
                       {list.map((t) => (
@@ -279,7 +279,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                   ))}
               </div>
               {location && (
-                <p className="truncate border-t border-border px-3 py-1.5 font-mono text-[10px] text-muted" title={location}>
+                <p className="truncate border-t border-line px-3 py-1.5 font-mono text-[10px] text-muted" title={location}>
                   {location}
                 </p>
               )}
@@ -306,7 +306,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                   ))}
                 </select>
               </label>
-              <p className="px-3 pt-1 pb-0.5 text-[10px] font-medium tracking-wide text-muted uppercase">Jeux de données</p>
+              <p className="px-3 pt-1 pb-0.5 text-2xs font-medium text-faint">Jeux de données</p>
               <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
                 {loading === "tables" && <Loader2 className="mx-auto mt-6 size-4 animate-spin text-muted" aria-label="Chargement des jeux de données" />}
                 {tables?.map((t) => (
@@ -390,7 +390,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
             {preview && loading !== "preview" && <PreviewTable preview={preview} />}
           </div>
           {preview && (
-            <footer className="flex flex-wrap items-end gap-3 border-t border-border px-4 py-3">
+            <footer className="flex flex-wrap items-end gap-3 border-t border-line px-4 py-3">
               <label className="min-w-48 flex-1 space-y-1">
                 <span className="text-[11px] text-muted">Nom du jeu de données</span>
                 <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-md border border-border bg-field px-2.5 py-1.5 text-sm outline-none focus:ring-1 focus:ring-focus" />
@@ -455,7 +455,7 @@ function cell(v: string | number | boolean): string {
 function PreviewTable({ preview }: { preview: PreviewResult }) {
   return (
     <div>
-      <p className="sticky top-0 left-0 z-10 border-b border-border bg-surface px-4 py-1.5 text-[11px] text-muted">
+      <p className="sticky top-0 left-0 z-10 border-b border-line bg-surface px-4 py-1.5 text-[11px] text-muted">
         {preview.rows.length} ligne{preview.rows.length > 1 ? "s" : ""}
         {preview.truncated ? ` affichée${preview.rows.length > 1 ? "s" : ""} (aperçu) — la source en contient davantage` : ""} · {preview.columns.length} colonnes
       </p>
@@ -463,7 +463,7 @@ function PreviewTable({ preview }: { preview: PreviewResult }) {
         <thead>
           <tr>
             {preview.columns.map((col) => (
-              <th key={col} className="sticky top-[29px] border-b border-border bg-surface-2 px-3 py-1.5 text-left font-medium whitespace-nowrap">
+              <th key={col} className="sticky top-[29px] border-b border-line bg-surface-2 px-3 py-1.5 text-left font-medium whitespace-nowrap">
                 {col}
               </th>
             ))}
@@ -475,7 +475,7 @@ function PreviewTable({ preview }: { preview: PreviewResult }) {
               {preview.columns.map((col) => {
                 const v = row[col];
                 return (
-                  <td key={col} className={clsx("max-w-64 truncate border-b border-border/60 px-3 py-1 whitespace-nowrap", typeof v === "number" && "text-right tabular-nums")}>
+                  <td key={col} className={clsx("max-w-64 truncate border-b border-line/60 px-3 py-1 whitespace-nowrap", typeof v === "number" && "text-right tabular-nums")}>
                     {v === null || v === undefined ? <span className="text-muted/60">—</span> : cell(v)}
                   </td>
                 );
@@ -541,7 +541,7 @@ function MicrosoftLogin({ connection: c, online, onChanged }: { connection: Conn
 
   if (start) {
     return (
-      <div className="space-y-2 rounded-md border border-accent-ink/40 bg-accent/5 p-3 text-xs">
+      <div className="space-y-2 rounded-md border border-line bg-surface-2 p-3 text-xs">
         <p>1. Ouvrez la page de connexion Microsoft :</p>
         <a href={start.verification_uri} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-medium text-accent-ink hover:underline">
           {start.verification_uri.replace(/^https:\/\//, "")} <ExternalLink className="size-3" aria-hidden />

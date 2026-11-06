@@ -162,8 +162,8 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop w-full max-w-2xl rounded-xl border border-border bg-surface text-fg shadow-2xl">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Icon className="size-4 text-accent-ink" aria-hidden />
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <Icon className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             {initial ? "Modifier" : "Nouvelle"} {kind === "measure" ? "mesure calculée" : "colonne calculée"} · {profile.name}
           </h2>
@@ -175,7 +175,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
         <div className="grid gap-4 p-4 md:grid-cols-[1fr_12rem]">
           <div className="space-y-3">
             <label className="block text-xs">
-              <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted">Nom</span>
+              <span className="mb-1 block text-2xs font-medium text-faint">Nom</span>
               <input
                 autoFocus
                 value={name}
@@ -185,7 +185,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
               />
             </label>
             <label className="block text-xs">
-              <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted">Expression</span>
+              <span className="mb-1 block text-2xs font-medium text-faint">Expression</span>
               <textarea
                 ref={area}
                 value={expression}
@@ -234,14 +234,14 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
 
           <aside className="space-y-3 text-xs" aria-label="Aide à la saisie">
             <div>
-              <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">Fonctions</p>
+              <p className="mb-1 text-2xs font-medium text-faint">Fonctions</p>
               <div className="flex flex-wrap gap-1">
                 {FUNCTIONS.filter((f) => f.kinds.includes(kind)).map((f) => (
                   <button
                     key={f.name}
                     type="button"
                     onClick={() => insert(f.syntax, f.syntax.length - f.syntax.indexOf("(") - 1)}
-                    className="rounded border border-border px-1.5 py-0.5 font-mono text-[11px] hover:border-accent-ink hover:text-accent-ink"
+                    className="rounded border border-border px-1.5 py-0.5 font-mono text-[11px] hover:bg-surface-2 hover:text-fg"
                   >
                     {f.name}
                   </button>
@@ -249,7 +249,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
               </div>
             </div>
             <div>
-              <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">Champs</p>
+              <p className="mb-1 text-2xs font-medium text-faint">Champs</p>
               <ul className="max-h-48 space-y-0.5 overflow-y-auto">
                 {fields.map((f) => (
                   <li key={`${f.measure}-${f.name}`}>
@@ -259,7 +259,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
                       className="flex w-full items-center gap-1.5 truncate rounded px-1.5 py-0.5 text-left hover:bg-surface-2"
                       title={f.measure ? "Mesure calculée" : "Colonne"}
                     >
-                      {f.measure && <Calculator className="size-3 shrink-0 text-accent-ink" aria-hidden />}
+                      {f.measure && <Calculator className="size-3 shrink-0 text-muted" aria-hidden />}
                       <span className="truncate">{f.name}</span>
                     </button>
                   </li>
@@ -280,7 +280,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
             {error}
           </p>
         )}
-        <footer className="flex items-center gap-2 border-t border-border px-4 py-3">
+        <footer className="flex items-center gap-2 border-t border-line px-4 py-3">
           {initial &&
             (confirmDelete ? (
               <span className="flex items-center gap-2 text-xs">

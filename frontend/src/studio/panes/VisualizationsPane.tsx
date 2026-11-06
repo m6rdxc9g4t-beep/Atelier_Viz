@@ -31,10 +31,10 @@ export function VisualizationsPane() {
 
   return (
     <Pane title="Visualisations" width="w-64">
-      <div className="border-b border-border p-2">
+      <div className="border-b border-line p-2">
         {VISUAL_GROUPS.map(({ group, items }) => (
           <div key={group} className="mb-1.5">
-            <p className="px-1 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted">{group}</p>
+            <p className="px-1 pb-1 text-2xs font-medium text-faint">{group}</p>
             <div className="grid grid-cols-6 gap-0.5">
               {items.map((d) => (
                 <button
@@ -46,7 +46,7 @@ export function VisualizationsPane() {
                   aria-pressed={visual?.type === d.type}
                   className={clsx(
                     "flex aspect-square items-center justify-center rounded-md transition-colors",
-                    visual?.type === d.type ? "bg-accent-soft text-accent-ink ring-1 ring-inset ring-border-strong" : "text-muted hover:bg-surface-2 hover:text-fg",
+                    visual?.type === d.type ? "bg-accent-soft text-accent-ink" : "text-muted hover:bg-surface-2 hover:text-fg",
                   )}
                 >
                   <d.icon className="size-4" aria-hidden />
@@ -65,7 +65,7 @@ export function VisualizationsPane() {
         </>
       ) : (
         <>
-          <div className="flex border-b border-border text-xs" role="tablist">
+          <div className="flex border-b border-line text-xs" role="tablist">
             {(["build", "format"] as const).map((t) => (
               <button
                 key={t}
@@ -73,7 +73,7 @@ export function VisualizationsPane() {
                 role="tab"
                 aria-selected={tab === t}
                 onClick={() => setTab(t)}
-                className={clsx("flex-1 py-2 font-medium", tab === t ? "border-b-2 border-accent text-fg" : "text-muted hover:text-fg")}
+                className={clsx("flex-1 py-2 font-medium", tab === t ? "border-b-2 border-fg text-fg" : "text-muted hover:text-fg")}
               >
                 {t === "build" ? "Champs" : "Format"}
               </button>
@@ -144,7 +144,7 @@ function RoleWell({ visual, role }: { visual: Visual; role: RoleDef }) {
           const column = findField(profiles.get(d.datasetId), d.field, d.measure);
           if (column) s().dropField(visual.id, column, d.datasetId, role.id);
         }}
-        className={clsx("min-h-8 space-y-1 rounded-md border border-dashed p-1", over ? "border-accent-ink bg-accent/5" : "border-border")}
+        className={clsx("min-h-8 space-y-1 rounded-md border border-dashed p-1", over ? "border-accent-ink/40 bg-accent-soft" : "border-border")}
       >
         {!bindings.length && <p className="px-1.5 py-1 text-[11px] text-muted/70">Glissez un champ</p>}
         {bindings.map((b, i) => {

@@ -200,7 +200,7 @@ export function ExtractionBar({ label, from, dark = false }: { label: string; fr
       <button
         type="button"
         onClick={() => useStudio.getState().backFromExtraction()}
-        className={clsx("flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 font-medium", dark ? "bg-white/15 hover:bg-white/25" : "bg-accent-soft text-accent-ink hover:bg-accent-faint")}
+        className={clsx("flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 font-medium", dark ? "bg-white/15 hover:bg-white/25" : "bg-accent-soft text-accent-ink hover:bg-surface-2")}
       >
         <CornerUpLeft className="size-3.5" aria-hidden /> Retour{from ? ` à « ${from} »` : ""}
       </button>

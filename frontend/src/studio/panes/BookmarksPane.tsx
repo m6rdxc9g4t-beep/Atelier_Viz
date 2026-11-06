@@ -33,11 +33,11 @@ export function BookmarksPane() {
 
   return (
     <Pane title="Signets" width="w-64">
-      <div className="space-y-2 border-b border-border p-3">
+      <div className="space-y-2 border-b border-line p-3">
         <button
           type="button"
           onClick={add}
-          className="atelier-btn-primary flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:brightness-110"
+          className="atelier-btn-primary flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg"
         >
           <BookmarkPlus className="size-3.5" aria-hidden /> Ajouter un signet
         </button>
@@ -116,13 +116,13 @@ export function BookmarksPane() {
                     <MenuItem icon={ArrowUp} label="Monter" disabled={i === 0} onClick={() => s().moveBookmark(b.id, -1)} />
                     <MenuItem icon={ArrowDown} label="Descendre" disabled={i === bookmarks.length - 1} onClick={() => s().moveBookmark(b.id, 1)} />
                   </div>
-                  <fieldset className="space-y-1 border-t border-border px-1.5 pt-1.5">
+                  <fieldset className="space-y-1 border-t border-line px-1.5 pt-1.5">
                     <legend className="sr-only">Ce que le signet applique</legend>
                     <Toggle label="Page affichée" checked={b.apply_page} onChange={(v) => s().setBookmarkFlags(b.id, { apply_page: v })} />
                     <Toggle label="Données (filtres, segments, exploration)" checked={b.apply_data} onChange={(v) => s().setBookmarkFlags(b.id, { apply_data: v })} />
                   </fieldset>
                   {confirmDelete === b.id ? (
-                    <div className="flex items-center gap-2 border-t border-border px-1.5 pt-1.5">
+                    <div className="flex items-center gap-2 border-t border-line px-1.5 pt-1.5">
                       <span className="flex-1 text-muted">Supprimer ?</span>
                       <button
                         type="button"
@@ -177,7 +177,7 @@ function RenameField({ bookmark, onDone }: { bookmark: Bookmark; onDone: (name: 
         onFocus={(e) => e.currentTarget.select()}
         onBlur={() => onDone(value)}
         onKeyDown={(e) => e.key === "Escape" && onDone(null)}
-        className="min-w-0 flex-1 rounded border border-accent-ink bg-field px-2 py-1 text-xs"
+        className="min-w-0 flex-1 rounded-md border border-border bg-field px-2 py-1 text-xs"
       />
       <button type="submit" aria-label="Valider le nom" className="rounded p-1 text-accent-ink hover:bg-surface-2">
         <Check className="size-3.5" aria-hidden />

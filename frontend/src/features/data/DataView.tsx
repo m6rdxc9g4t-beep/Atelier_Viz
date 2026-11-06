@@ -29,7 +29,7 @@ export function DataView({ state }: { state: DatasetsState }) {
       onClick={() => setConnecting(true)}
       className="flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2"
     >
-      <Cable className="size-3.5 text-accent-ink" aria-hidden /> Se connecter à une source
+      <Cable className="size-3.5 text-muted" aria-hidden /> Se connecter à une source
     </button>
   );
 
@@ -118,7 +118,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                   const { icon: Icon, label } = TYPE_META[t];
                   return (
                     <span key={t} className="flex items-center gap-1.5 text-xs text-muted" title={label}>
-                      <Icon className="size-3.5 text-accent-ink" aria-hidden />
+                      <Icon className="size-3.5 text-muted" aria-hidden />
                       {n} <span className="sr-only">{label}</span>
                     </span>
                   );
@@ -129,7 +129,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                   title="Renommer, changer les types, filtrer, nettoyer… (étapes rejouées à chaque actualisation)"
                   className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2"
                 >
-                  <Wand2 className="size-3.5 text-accent-ink" aria-hidden />
+                  <Wand2 className="size-3.5 text-muted" aria-hidden />
                   Préparer{selected.steps?.length ? ` (${selected.steps.length})` : ""}
                 </button>
                 {datasets.length > 1 && (
@@ -139,7 +139,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                     title="Relier ce jeu à un autre (ex. ventes → régions)"
                     className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2"
                   >
-                    <Link2 className="size-3.5 text-accent-ink" aria-hidden />
+                    <Link2 className="size-3.5 text-muted" aria-hidden />
                     Relations{selected.model?.relations?.length ? ` (${selected.model.relations.length})` : ""}
                   </button>
                 )}
@@ -161,7 +161,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                     onClick={() => setPlanning((p) => !p)}
                     aria-expanded={planning}
                     title="Actualiser automatiquement (toutes les N minutes / heures, ou chaque jour)"
-                    className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2 aria-expanded:border-accent-ink aria-expanded:text-accent-ink"
+                    className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2 aria-expanded:bg-surface-3"
                   >
                     <CalendarClock className="size-3.5" aria-hidden /> Planifier
                   </button>
