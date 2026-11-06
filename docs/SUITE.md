@@ -151,7 +151,7 @@ Toutes passent 4,5:1 avec du texte blanc (bouton plein). Les couleurs de **donn�
 Chaque en-tête d'application porte un **sélecteur « Suite Atelier »** (icône grille, à gauche du nom de l'app) :
 - quatre entrées, dans la marque commune (§1.6, variante compacte `atelier-brand__tile--sm` / `atelier-brand__name--sm`) :
   icône carrée (chaque entrée porte son `data-atelier-app`, donc sa couleur signature), puis « Atelier Viz » (`ChartColumn`), « Atelier Tab » (`Table`), « Atelier Projets » (`Kanban`),
-  « atelier_Cuisine » (`CookingPot`), avec une ligne de description ; le nom accessible reste « Atelier Viz », « Atelier Tab », « Atelier Projets », « Atelier Cuisine » ;
+  « Atelier Cuisine » (`Utensils`), avec une ligne de description ; le nom accessible reste « Atelier Viz », « Atelier Tab », « Atelier Projets », « Atelier Cuisine » ;
 - l'application courante est cochée ;
 - un clic ouvre l'adresse de l'application (colonne « Interface (aperçu / app) » ci-dessus) :
   - dans un navigateur : nouvel onglet ;
@@ -176,7 +176,7 @@ Les adresses sont des constantes dans un module dédié (`suite.ts`), surchargea
 (`VITE_ATELIER_VIZ_URL`, `VITE_ATELIER_TAB_URL`, `VITE_ATELIER_PROJETS_URL`, et, dans Tab, `VITE_ATELIER_PROJETS_API_URL` pour l'adresse de santé de Projets).
 Dans une app, l'état de l'app courante se vérifie sur sa propre origine (`/api/health`), pas à l'adresse fixe.
 
-Nom affiché : **Atelier Viz**, **Atelier Tab**, **Atelier Projets** (avec une espace) dans les titres de fenêtre et noms accessibles ; « atelier_Nom » dans la marque (§1.6).
+Nom affiché : **Atelier Viz**, **Atelier Tab**, **Atelier Projets** (avec une espace) dans les titres de fenêtre et noms accessibles ; « Atelier Nom » dans la marque (§1.6 : « Atelier » en gris, le nom en gras).
 Les noms techniques (dépôts, dossier `~/Atelier_Tab`, paquets) ne changent pas.
 
 ---
