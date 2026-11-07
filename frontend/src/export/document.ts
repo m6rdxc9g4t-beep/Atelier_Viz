@@ -93,6 +93,7 @@ export function htmlReport(report: Pick<Report, "name">, pages: HtmlPage[], expo
 </section>`;
     })
     .join("\n");
+  // Habillage autonome (sans variable externe) : valeurs de la structure de la suite, crème en clair, bleu nuit en sombre.
   return `<!doctype html>
 <html lang="fr">
 <head>
@@ -101,8 +102,8 @@ export function htmlReport(report: Pick<Report, "name">, pages: HtmlPage[], expo
 <meta name="generator" content="Atelier Viz">
 <title>${escapeHtml(report.name)}</title>
 <style>
-:root{--bg:#f6f6f4;--fg:#1d1d1b;--muted:#6b6b66;--line:#deded8;--card:#fff;color-scheme:light dark}
-@media (prefers-color-scheme:dark){:root{--bg:#141413;--fg:#ececea;--muted:#a3a39d;--line:#34342f;--card:#1e1e1c}}
+:root{--bg:#f8f4ec;--fg:#1f1b16;--muted:#5f574b;--line:#e4dac8;--card:#fffdf8;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1220;--fg:#e6eaf2;--muted:#a3aec2;--line:#1f2a40;--card:#121b2d}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 header{position:sticky;top:0;z-index:1;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 24px}
 h1{font-size:18px;margin:0}nav{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:13px}nav a{color:inherit}

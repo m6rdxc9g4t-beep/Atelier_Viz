@@ -9,8 +9,8 @@
 
 /*
  * Habillage de l'application (docs/SUITE.md §1.2 et §1.7, charte v2 « Linear ») : les noms de jetons d'Atelier Viz
- * ne changent pas ; leurs valeurs viennent des jetons --atelier-* d'atelier-brand.css. Structure neutre gris froid,
- * commune à la suite, en clair comme en sombre ; la signature or (#996c00, data-atelier-app="viz" sur <html>) ne sert
+ * ne changent pas ; leurs valeurs viennent des jetons --atelier-* d'atelier-brand.css. Structure commune à la suite,
+ * crème en clair, bleu nuit en sombre ; la signature or (#996c00, data-atelier-app="viz" sur <html>) ne sert
  * qu'à l'accent : bouton principal plein, sélection, focus, liens.
  * Redéclaré sur chaque racine de thème ([data-theme], .theme-light / .theme-dark du Studio) ; dans le Studio, le thème
  * du rapport redéfinit ces variables en ligne sur sa racine : le contenu du rapport garde ses couleurs.
@@ -37,8 +37,9 @@
   --grid: var(--atelier-line);
   /* Fond autour de la page du Studio : un cran sous le fond de l'application, pour détacher la page. */
   --canvas: var(--atelier-sidebar);
-  /* Succès / danger : couleurs de statut rapprochées de l'encre (comme le bouton « danger » du design system), ≥ 4,5:1. */
-  --positive: color-mix(in oklab, var(--status-closed) 72%, var(--text-primary));
+  /* Succès / danger : couleurs de statut rapprochées de l'encre (comme le bouton « danger » du design system), ≥ 4,5:1
+     jusque sur --surface-2 (crème : le vert un cran plus foncé). */
+  --positive: color-mix(in oklab, var(--status-closed) 66%, var(--text-primary));
   --negative: color-mix(in oklab, var(--status-rejected) 72%, var(--text-primary));
   /* Attention (états anormaux seulement : avertissement, échec partiel). */
   --warn: var(--atelier-warn);

@@ -98,12 +98,17 @@ Toutes les applications Atelier affichent leur marque de la même façon, comme 
 ### 1.7 Charte v2 « Linear » et couleurs signature (6 nov. 2026)
 Règles complètes : `Atelier_Deploy/DESIGN.md`. Résumé pour le code :
 
-- **Une seule structure neutre pour toute la suite** (gris froids), identique dans toutes les apps, en clair comme en sombre :
-  fonds, barre latérale, surfaces, textes et traits viennent des jetons `--atelier-*`, qui ne dépendent plus de la signature.
+- **Une seule structure pour toute la suite**, identique dans toutes les apps : **crème** en clair (fond `#f8f4ec`, surfaces `#fffdf8`),
+  **bleu nuit** en sombre (fond `#0b1220`, surfaces `#121b2d`) ; fonds, barre latérale, surfaces, textes et traits viennent des
+  jetons `--atelier-*`, qui ne dépendent pas de la signature (sauf le foyer — Dates, Suivi, Cuisine —, teinté de sa signature).
+  Une valeur fixe hors CSS (fenêtre de bureau, `theme-color`, manifeste, page d'attente) reprend `#f8f4ec` / `#0b1220`.
 - **La signature ne sert qu'à ce qui a un sens** : bouton principal (plein, dans les deux thèmes), sélection (`--atelier-signature-soft`),
   focus, liens, icône de l'app, données neutres d'une seule mesure (`--atelier-chart-*`).
 - **Plat au repos** : pas de halo, pas de grille ni de lueur de fond, traits de 1 px ; une ombre seulement pour ce qui flotte
   (menus, dialogues : `--atelier-glow-strong`). Les jetons de halo v1 existent encore et valent une ombre discrète ou `none`.
+- **Cartes de chiffres** (indicateurs, totaux, compteurs, soldes) : `.atelier-kpi` (`__label`, `__value`, `__note`) ou la même forme
+  propre à l'app — plate, trait de 1 px, surface, coins de 12 px (`--atelier-radius-xl`), chiffre tabulaire. Un bandeau de chiffres
+  devient une rangée de cartes espacées ; les tableaux et les listes ne deviennent pas des cartes.
 - **Navigation** : l'entrée courante a un fond neutre (`--atelier-surface-3`), jamais de barre de couleur sur le côté.
 - **États** : seuls les états anormaux sont colorés (`--atelier-warn`, `--atelier-down`) ; un état nominal reste neutre.
 - Densité « Linear » : barre latérale 232 px, barre haute 44 px, lignes de liste 40 px.

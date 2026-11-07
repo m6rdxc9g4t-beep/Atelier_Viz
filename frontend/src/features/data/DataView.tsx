@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, Link2, RefreshCw, Trash2, TriangleAlert, Wand2, Workflow, X } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import type { DatasetsState } from "../../hooks/useDatasets";
 import { formatCount } from "../../lib/format";
@@ -110,19 +110,6 @@ export function DataView({ state }: { state: DatasetsState }) {
                     </p>
                   )}
                 </div>
-                <Stat label="Lignes" value={formatCount(selected.rows)} />
-                <Stat label="Colonnes" value={formatCount(selected.columns_count)} />
-                {(["number", "date", "string", "boolean"] as const).map((t) => {
-                  const n = selected.columns.filter((c) => c.type === t).length;
-                  if (!n) return null;
-                  const { icon: Icon, label } = TYPE_META[t];
-                  return (
-                    <span key={t} className="flex items-center gap-1.5 text-xs text-muted" title={label}>
-                      <Icon className="size-3.5 text-muted" aria-hidden />
-                      {n} <span className="sr-only">{label}</span>
-                    </span>
-                  );
-                })}
                 <button
                   type="button"
                   onClick={() => setPreparing(true)}
@@ -195,6 +182,17 @@ export function DataView({ state }: { state: DatasetsState }) {
                 )}
               </div>
 
+              <dl className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-6" aria-label="Profil du jeu de données">
+                <Kpi label="Lignes" value={formatCount(selected.rows)} />
+                <Kpi label="Colonnes" value={formatCount(selected.columns_count)} />
+                {(["number", "date", "string", "boolean"] as const).map((t) => {
+                  const n = selected.columns.filter((c) => c.type === t).length;
+                  if (!n) return null;
+                  const { icon: Icon, label } = TYPE_META[t];
+                  return <Kpi key={t} label={`${label}${n > 1 ? "s" : ""}`} value={formatCount(n)} icon={<Icon className="size-3.5 shrink-0 text-faint" aria-hidden />} />;
+                })}
+              </dl>
+
               {planning && isConnectionOrigin(selected.origin) && <DatasetSchedulePanel datasetId={selected.id} refreshedAt={selected.origin.refreshed_at} />}
 
               <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:min-h-[24rem] lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
@@ -223,10 +221,15 @@ function SourceIcon({ dataset }: { dataset: DatasetSummary }) {
   return <Icon className="size-3.5" aria-label={kind ? KIND_META[kind].label : undefined} aria-hidden={!kind} />;
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/** Carte de chiffre (`atelier-kpi`, coins de 12 px) du profil du jeu : lignes, colonnes, colonnes par type. */
+function Kpi({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
   return (
-    <span className="text-xs text-muted">
-      {label} <span className="font-medium tabular-nums text-fg">{value}</span>
-    </span>
+    <div className="atelier-kpi">
+      <dt className="atelier-kpi__label flex min-w-0 items-center gap-1.5 truncate">
+        {icon}
+        {label}
+      </dt>
+      <dd className="atelier-kpi__value">{value}</dd>
+    </div>
   );
 }
