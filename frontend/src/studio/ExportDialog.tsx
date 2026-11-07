@@ -311,12 +311,13 @@ function Summary({
   );
 }
 
+/** Carte de chiffre du bilan d'export (`atelier-kpi` : surface, trait 1 px, coins de 12 px). */
 function Stat({ value, label }: { value: number; label: string }) {
   return (
-    <div className="rounded-md bg-surface-2 px-2 py-2">
+    <div className="atelier-kpi items-center">
       <dt className="sr-only">{label}</dt>
-      <dd className="text-lg font-semibold tabular-nums">{value}</dd>
-      <dd className="text-[10px] text-muted">{label}</dd>
+      <dd className="atelier-kpi__value">{value}</dd>
+      <dd className="atelier-kpi__label">{label}</dd>
     </div>
   );
 }
