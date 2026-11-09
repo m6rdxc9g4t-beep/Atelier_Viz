@@ -1,0 +1,3837 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "app-ecommerce",
+  "titre": "App E-Commerce v2",
+  "sous_titre": "Une boutique en ligne lance la v2 de son app",
+  "secteur": "Produit",
+  "resume": "Verveine & Co, boutique de thés en ligne, sort la v2 de son app en octobre : backlog et sprints, commandes du back-office, virements Stripe ; la pub du lancement dépasse son budget."
+ },
+ "jeux": [
+  {
+   "nom": "App E-Commerce v2 — opérations août-oct. 2026",
+   "cle": "exemple:app-ecommerce:operations",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "operations",
+    "label": "Opérations",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "libelle",
+      "label": "Libellé",
+      "type": "string"
+     },
+     {
+      "key": "debit",
+      "label": "Débit",
+      "type": "number"
+     },
+     {
+      "key": "credit",
+      "label": "Crédit",
+      "type": "number"
+     },
+     {
+      "key": "montant",
+      "label": "Montant",
+      "type": "number"
+     },
+     {
+      "key": "categorie",
+      "label": "Catégorie",
+      "type": "string"
+     },
+     {
+      "key": "mois",
+      "label": "Mois",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-02",
+      "libelle": "PRLV SEPA SCALINGO HEBERGEMENT",
+      "debit": 389,
+      "credit": null,
+      "montant": -389.0,
+      "categorie": "Hébergement",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-05",
+      "libelle": "VIR SEPA EMIS SALAIRES AOÛT",
+      "debit": 9800,
+      "credit": null,
+      "montant": -9800.0,
+      "categorie": "Salaires",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-07",
+      "libelle": "VIR SEPA RECU STRIPE PAYOUTS",
+      "debit": null,
+      "credit": 2463.46,
+      "montant": 2463.46,
+      "categorie": "Ventes",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-08",
+      "libelle": "PRLV SEPA COLISSIMO EXPEDITIONS",
+      "debit": 589.69,
+      "credit": null,
+      "montant": -589.69,
+      "categorie": "Logistique",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-12",
+      "libelle": "VIR SEPA EMIS JARDINS DE NILGIRI ACHAT THES",
+      "debit": 2850,
+      "credit": null,
+      "montant": -2850.0,
+      "categorie": "Achats marchandises",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-15",
+      "libelle": "PRLV SEPA FIGMA GITHUB SENTRY",
+      "debit": 212,
+      "credit": null,
+      "montant": -212.0,
+      "categorie": "Outils",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-19",
+      "libelle": "CARTE META ADS",
+      "debit": 420,
+      "credit": null,
+      "montant": -420.0,
+      "categorie": "Publicité",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-21",
+      "libelle": "VIR SEPA RECU STRIPE PAYOUTS",
+      "debit": null,
+      "credit": 2566.1,
+      "montant": 2566.1,
+      "categorie": "Ventes",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 24,
+      "credit": null,
+      "montant": -24.0,
+      "categorie": "Banque",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-09-02",
+      "libelle": "PRLV SEPA SCALINGO HEBERGEMENT",
+      "debit": 389,
+      "credit": null,
+      "montant": -389.0,
+      "categorie": "Hébergement",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-04",
+      "libelle": "VIR SEPA RECU STRIPE PAYOUTS",
+      "debit": null,
+      "credit": 2745.94,
+      "montant": 2745.94,
+      "categorie": "Ventes",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-05",
+      "libelle": "VIR SEPA EMIS SALAIRES SEPTEMBRE",
+      "debit": 9800,
+      "credit": null,
+      "montant": -9800.0,
+      "categorie": "Salaires",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-08",
+      "libelle": "PRLV SEPA COLISSIMO EXPEDITIONS",
+      "debit": 648.49,
+      "credit": null,
+      "montant": -648.49,
+      "categorie": "Logistique",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-10",
+      "libelle": "VIR SEPA EMIS JARDINS DE NILGIRI ACHAT THES",
+      "debit": 3120,
+      "credit": null,
+      "montant": -3120.0,
+      "categorie": "Achats marchandises",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-15",
+      "libelle": "PRLV SEPA FIGMA GITHUB SENTRY",
+      "debit": 212,
+      "credit": null,
+      "montant": -212.0,
+      "categorie": "Outils",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-18",
+      "libelle": "VIR SEPA RECU STRIPE PAYOUTS",
+      "debit": null,
+      "credit": 2979.64,
+      "montant": 2979.64,
+      "categorie": "Ventes",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-23",
+      "libelle": "CARTE META ADS",
+      "debit": 510,
+      "credit": null,
+      "montant": -510.0,
+      "categorie": "Publicité",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 24,
+      "credit": null,
+      "montant": -24.0,
+      "categorie": "Banque",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-30",
+      "libelle": "VIR SEPA EMIS STUDIO PIXEL FREELANCE DESIGN V2",
+      "debit": 2400,
+      "credit": null,
+      "montant": -2400.0,
+      "categorie": "Prestataires",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-10-02",
+      "libelle": "VIR SEPA RECU STRIPE PAYOUTS",
+      "debit": null,
+      "credit": 2975.34,
+      "montant": 2975.34,
+      "categorie": "Ventes",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-02",
+      "libelle": "PRLV SEPA SCALINGO HEBERGEMENT",
+      "debit": 389,
+      "credit": null,
+      "montant": -389.0,
+      "categorie": "Hébergement",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-05",
+      "libelle": "VIR SEPA EMIS SALAIRES OCTOBRE",
+      "debit": 9800,
+      "credit": null,
+      "montant": -9800.0,
+      "categorie": "Salaires",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-06",
+      "libelle": "CARTE META ADS LANCEMENT V2",
+      "debit": 1180,
+      "credit": null,
+      "montant": -1180.0,
+      "categorie": "Publicité",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-08",
+      "libelle": "PRLV SEPA COLISSIMO EXPEDITIONS",
+      "debit": 615.03,
+      "credit": null,
+      "montant": -615.03,
+      "categorie": "Logistique",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-08",
+      "libelle": "CARTE GOOGLE ADS LANCEMENT V2",
+      "debit": 760,
+      "credit": null,
+      "montant": -760.0,
+      "categorie": "Publicité",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-13",
+      "libelle": "VIR SEPA EMIS JARDINS DE NILGIRI ACHAT THES",
+      "debit": 3990,
+      "credit": null,
+      "montant": -3990.0,
+      "categorie": "Achats marchandises",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-15",
+      "libelle": "PRLV SEPA FIGMA GITHUB SENTRY",
+      "debit": 212,
+      "credit": null,
+      "montant": -212.0,
+      "categorie": "Outils",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-16",
+      "libelle": "VIR SEPA RECU STRIPE PAYOUTS",
+      "debit": null,
+      "credit": 3363.42,
+      "montant": 3363.42,
+      "categorie": "Ventes",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-22",
+      "libelle": "CARTE META ADS",
+      "debit": 540,
+      "credit": null,
+      "montant": -540.0,
+      "categorie": "Publicité",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 24,
+      "credit": null,
+      "montant": -24.0,
+      "categorie": "Banque",
+      "mois": "2026-10"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "App E-Commerce v2 — Backlog v2",
+   "cle": "exemple:app-ecommerce:backlog_v2",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "backlog_v2",
+    "label": "Backlog v2",
+    "columns": [
+     {
+      "key": "recit",
+      "label": "Récit",
+      "type": "string"
+     },
+     {
+      "key": "type",
+      "label": "Type",
+      "type": "string"
+     },
+     {
+      "key": "sprint",
+      "label": "Sprint",
+      "type": "string"
+     },
+     {
+      "key": "points",
+      "label": "Points",
+      "type": "number"
+     },
+     {
+      "key": "statut",
+      "label": "Statut",
+      "type": "string"
+     },
+     {
+      "key": "responsable",
+      "label": "Responsable",
+      "type": "string"
+     },
+     {
+      "key": "echeance",
+      "label": "Échéance",
+      "type": "date"
+     },
+     {
+      "key": "temps_passe_h",
+      "label": "Temps passé (h)",
+      "type": "number"
+     }
+    ],
+    "rows": [
+     {
+      "recit": "Paiement en un clic (Apple Pay, Google Pay)",
+      "type": "Feature",
+      "sprint": "Sprint 7",
+      "points": 8,
+      "statut": "Terminée",
+      "responsable": "Inès Garnier",
+      "echeance": "2026-09-12",
+      "temps_passe_h": 26
+     },
+     {
+      "recit": "Nouveau tunnel de commande en 3 étapes",
+      "type": "Feature",
+      "sprint": "Sprint 7",
+      "points": 13,
+      "statut": "Terminée",
+      "responsable": "Hugo Petit",
+      "echeance": "2026-09-12",
+      "temps_passe_h": 41
+     },
+     {
+      "recit": "Fiches produit : notes de dégustation",
+      "type": "Feature",
+      "sprint": "Sprint 8",
+      "points": 5,
+      "statut": "Terminée",
+      "responsable": "Inès Garnier",
+      "echeance": "2026-09-26",
+      "temps_passe_h": 14
+     },
+     {
+      "recit": "Abonnement mensuel « Thé du mois »",
+      "type": "Feature",
+      "sprint": "Sprint 8",
+      "points": 13,
+      "statut": "En revue",
+      "responsable": "Hugo Petit",
+      "echeance": "2026-10-10",
+      "temps_passe_h": 38
+     },
+     {
+      "recit": "Panier perdu après mise en veille (iOS)",
+      "type": "Bug",
+      "sprint": "Sprint 8",
+      "points": 3,
+      "statut": "Terminée",
+      "responsable": "Lina Haddad",
+      "echeance": "2026-09-30",
+      "temps_passe_h": 7
+     },
+     {
+      "recit": "Mise en production v2 (stores)",
+      "type": "Task",
+      "sprint": "Sprint 9",
+      "points": 5,
+      "statut": "Terminée",
+      "responsable": "Lina Haddad",
+      "echeance": "2026-10-05",
+      "temps_passe_h": 12
+     },
+     {
+      "recit": "Relances paniers abandonnés par notification",
+      "type": "Feature",
+      "sprint": "Sprint 9",
+      "points": 8,
+      "statut": "En cours",
+      "responsable": "Inès Garnier",
+      "echeance": "2026-10-24",
+      "temps_passe_h": 15
+     },
+     {
+      "recit": "Panier moyen en baisse depuis la v2 : analyser",
+      "type": "Task",
+      "sprint": "Sprint 9",
+      "points": 3,
+      "statut": "À faire",
+      "responsable": "Hugo Petit",
+      "echeance": "2026-10-31",
+      "temps_passe_h": 0
+     }
+    ]
+   }
+  },
+  {
+   "nom": "App E-Commerce v2 — Commandes",
+   "cle": "exemple:app-ecommerce:commandes",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "commandes_du_back_office",
+    "label": "Commandes du back-office",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "commande",
+      "label": "Commande",
+      "type": "string"
+     },
+     {
+      "key": "premier_produit",
+      "label": "Premier produit",
+      "type": "string"
+     },
+     {
+      "key": "articles",
+      "label": "Articles",
+      "type": "number"
+     },
+     {
+      "key": "montant_ttc",
+      "label": "Montant TTC",
+      "type": "number"
+     },
+     {
+      "key": "canal",
+      "label": "Canal",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-01",
+      "commande": "VV-080001",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 53.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-01",
+      "commande": "VV-080013",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-01",
+      "commande": "VV-080034",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-02",
+      "commande": "VV-080011",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-02",
+      "commande": "VV-080050",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 67.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-02",
+      "commande": "VV-080058",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-02",
+      "commande": "VV-080068",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 41.4,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-02",
+      "commande": "VV-080069",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 42.7,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-02",
+      "commande": "VV-080085",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 54.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-02",
+      "commande": "VV-080117",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-03",
+      "commande": "VV-080074",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-03",
+      "commande": "VV-080118",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080007",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080025",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 25.1,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080027",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 14.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080028",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080036",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 68.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080043",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 42.7,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080046",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 62.8,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080070",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 27.7,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080091",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-04",
+      "commande": "VV-080114",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 14.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-05",
+      "commande": "VV-080004",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 58.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-05",
+      "commande": "VV-080012",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-05",
+      "commande": "VV-080032",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 122.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-05",
+      "commande": "VV-080063",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 81.7,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-05",
+      "commande": "VV-080100",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 52.2,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-05",
+      "commande": "VV-080103",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 104.9,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-06",
+      "commande": "VV-080022",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 14.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-06",
+      "commande": "VV-080029",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 65.4,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-07",
+      "commande": "VV-080008",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 13.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-07",
+      "commande": "VV-080010",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 83.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-07",
+      "commande": "VV-080080",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 26.4,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-08",
+      "commande": "VV-080005",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 68.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-08",
+      "commande": "VV-080054",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 13.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-08",
+      "commande": "VV-080056",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 68.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-08",
+      "commande": "VV-080073",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 93.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-09",
+      "commande": "VV-080033",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 52.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-09",
+      "commande": "VV-080092",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 89.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-09",
+      "commande": "VV-080096",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 26.4,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-09",
+      "commande": "VV-080102",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 98.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-10",
+      "commande": "VV-080035",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 26.4,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-10",
+      "commande": "VV-080055",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 39.6,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-10",
+      "commande": "VV-080059",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 29.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-10",
+      "commande": "VV-080072",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 14.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-11",
+      "commande": "VV-080016",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 65.4,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-11",
+      "commande": "VV-080017",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 13.2,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-11",
+      "commande": "VV-080077",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-11",
+      "commande": "VV-080088",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 26.4,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-11",
+      "commande": "VV-080108",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-12",
+      "commande": "VV-080009",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 23.8,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-12",
+      "commande": "VV-080023",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 83.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-12",
+      "commande": "VV-080052",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-12",
+      "commande": "VV-080107",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 50.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-12",
+      "commande": "VV-080116",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 52.2,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-13",
+      "commande": "VV-080018",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 59.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-13",
+      "commande": "VV-080026",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 54.0,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-13",
+      "commande": "VV-080040",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 54.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-13",
+      "commande": "VV-080047",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-13",
+      "commande": "VV-080060",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 13.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-13",
+      "commande": "VV-080062",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-13",
+      "commande": "VV-080067",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 77.8,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-13",
+      "commande": "VV-080079",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 54.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-14",
+      "commande": "VV-080006",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 54.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-15",
+      "commande": "VV-080057",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 54.6,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-15",
+      "commande": "VV-080075",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-15",
+      "commande": "VV-080078",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 14.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-15",
+      "commande": "VV-080082",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 41.4,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-15",
+      "commande": "VV-080087",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 13.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-15",
+      "commande": "VV-080089",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 66.7,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-15",
+      "commande": "VV-080101",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 67.2,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-16",
+      "commande": "VV-080031",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 83.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-16",
+      "commande": "VV-080065",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-16",
+      "commande": "VV-080110",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-17",
+      "commande": "VV-080066",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 13.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-17",
+      "commande": "VV-080083",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-17",
+      "commande": "VV-080093",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 13.2,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-17",
+      "commande": "VV-080099",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 65.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-17",
+      "commande": "VV-080106",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-18",
+      "commande": "VV-080003",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-18",
+      "commande": "VV-080039",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 137.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-18",
+      "commande": "VV-080051",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 39.0,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-18",
+      "commande": "VV-080084",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 14.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-18",
+      "commande": "VV-080097",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 13.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-19",
+      "commande": "VV-080045",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 14.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-19",
+      "commande": "VV-080064",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 39.6,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-19",
+      "commande": "VV-080112",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 25.1,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-19",
+      "commande": "VV-080115",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-20",
+      "commande": "VV-080021",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 42.7,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-20",
+      "commande": "VV-080030",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 26.4,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-21",
+      "commande": "VV-080090",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 13.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-22",
+      "commande": "VV-080002",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-22",
+      "commande": "VV-080076",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 73.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-22",
+      "commande": "VV-080109",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-23",
+      "commande": "VV-080038",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 54.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-23",
+      "commande": "VV-080041",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 52.2,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-23",
+      "commande": "VV-080095",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 50.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-23",
+      "commande": "VV-080098",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 95.4,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-23",
+      "commande": "VV-080111",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-24",
+      "commande": "VV-080071",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 50.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-25",
+      "commande": "VV-080113",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 79.1,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-26",
+      "commande": "VV-080015",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 42.7,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-26",
+      "commande": "VV-080020",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-08-27",
+      "commande": "VV-080042",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 25.1,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-27",
+      "commande": "VV-080053",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 68.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-27",
+      "commande": "VV-080104",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 80.4,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-28",
+      "commande": "VV-080014",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 41.4,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-28",
+      "commande": "VV-080081",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 44.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-28",
+      "commande": "VV-080086",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 53.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-28",
+      "commande": "VV-080094",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 52.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-29",
+      "commande": "VV-080037",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-29",
+      "commande": "VV-080048",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 121.2,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-29",
+      "commande": "VV-080061",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 54.0,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-30",
+      "commande": "VV-080024",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-30",
+      "commande": "VV-080049",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-31",
+      "commande": "VV-080019",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-31",
+      "commande": "VV-080044",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 29.5,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-08-31",
+      "commande": "VV-080105",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.9,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-01",
+      "commande": "VV-090076",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 78.85,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-01",
+      "commande": "VV-090077",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-01",
+      "commande": "VV-090101",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-01",
+      "commande": "VV-090102",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 62.13,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-01",
+      "commande": "VV-090117",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-01",
+      "commande": "VV-090123",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 88.35,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-02",
+      "commande": "VV-090002",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 13.77,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-02",
+      "commande": "VV-090027",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-02",
+      "commande": "VV-090058",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-02",
+      "commande": "VV-090081",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-02",
+      "commande": "VV-090087",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 25.08,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-02",
+      "commande": "VV-090116",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-03",
+      "commande": "VV-090023",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 22.61,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-03",
+      "commande": "VV-090036",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-03",
+      "commande": "VV-090043",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-03",
+      "commande": "VV-090069",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 77.61,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-03",
+      "commande": "VV-090096",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 41.8,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-04",
+      "commande": "VV-090010",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-04",
+      "commande": "VV-090035",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-04",
+      "commande": "VV-090042",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 65.08,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-05",
+      "commande": "VV-090003",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 40.56,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-05",
+      "commande": "VV-090009",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 107.35,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-05",
+      "commande": "VV-090108",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-06",
+      "commande": "VV-090012",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-06",
+      "commande": "VV-090094",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 102.6,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-07",
+      "commande": "VV-090114",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-08",
+      "commande": "VV-090005",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 49.59,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-08",
+      "commande": "VV-090021",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 41.8,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-08",
+      "commande": "VV-090051",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 22.61,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-08",
+      "commande": "VV-090086",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 49.59,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-08",
+      "commande": "VV-090104",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-08",
+      "commande": "VV-090113",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-09",
+      "commande": "VV-090007",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 93.1,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-09",
+      "commande": "VV-090071",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-09",
+      "commande": "VV-090128",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-10",
+      "commande": "VV-090034",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-10",
+      "commande": "VV-090064",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 40.56,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-10",
+      "commande": "VV-090075",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-10",
+      "commande": "VV-090111",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 91.86,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-11",
+      "commande": "VV-090033",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-11",
+      "commande": "VV-090074",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-12",
+      "commande": "VV-090013",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-12",
+      "commande": "VV-090014",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 62.13,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-12",
+      "commande": "VV-090057",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-12",
+      "commande": "VV-090103",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-13",
+      "commande": "VV-090029",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-13",
+      "commande": "VV-090044",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-13",
+      "commande": "VV-090054",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 77.61,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-14",
+      "commande": "VV-090006",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 56.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-14",
+      "commande": "VV-090079",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 125.4,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-14",
+      "commande": "VV-090083",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 79.33,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-14",
+      "commande": "VV-090093",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 99.66,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-14",
+      "commande": "VV-090129",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-15",
+      "commande": "VV-090017",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 63.84,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-15",
+      "commande": "VV-090038",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-15",
+      "commande": "VV-090052",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-15",
+      "commande": "VV-090119",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 25.08,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-16",
+      "commande": "VV-090011",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-16",
+      "commande": "VV-090037",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-16",
+      "commande": "VV-090055",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-16",
+      "commande": "VV-090060",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-16",
+      "commande": "VV-090120",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-17",
+      "commande": "VV-090001",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-17",
+      "commande": "VV-090031",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 56.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-17",
+      "commande": "VV-090040",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 13.77,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-17",
+      "commande": "VV-090090",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 90.63,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-17",
+      "commande": "VV-090097",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-17",
+      "commande": "VV-090125",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-18",
+      "commande": "VV-090020",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 65.08,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-18",
+      "commande": "VV-090030",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-18",
+      "commande": "VV-090112",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-18",
+      "commande": "VV-090124",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 77.61,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-19",
+      "commande": "VV-090016",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 41.8,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-19",
+      "commande": "VV-090041",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-19",
+      "commande": "VV-090050",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-19",
+      "commande": "VV-090072",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 41.8,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-19",
+      "commande": "VV-090089",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 63.37,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-19",
+      "commande": "VV-090130",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 26.31,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-20",
+      "commande": "VV-090019",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 116.38,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-20",
+      "commande": "VV-090024",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-20",
+      "commande": "VV-090053",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-20",
+      "commande": "VV-090091",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-20",
+      "commande": "VV-090095",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-21",
+      "commande": "VV-090015",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 48.35,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-21",
+      "commande": "VV-090028",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 13.77,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-21",
+      "commande": "VV-090092",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-21",
+      "commande": "VV-090126",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-22",
+      "commande": "VV-090025",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 22.61,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-22",
+      "commande": "VV-090026",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 115.14,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-22",
+      "commande": "VV-090056",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 88.35,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-22",
+      "commande": "VV-090061",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-22",
+      "commande": "VV-090063",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-22",
+      "commande": "VV-090084",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-22",
+      "commande": "VV-090085",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-22",
+      "commande": "VV-090118",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 48.35,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-22",
+      "commande": "VV-090122",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 62.61,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-23",
+      "commande": "VV-090039",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-23",
+      "commande": "VV-090062",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 13.77,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-23",
+      "commande": "VV-090066",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 116.38,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-23",
+      "commande": "VV-090070",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 115.14,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-23",
+      "commande": "VV-090110",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-24",
+      "commande": "VV-090078",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-24",
+      "commande": "VV-090080",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 76.38,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-25",
+      "commande": "VV-090032",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-26",
+      "commande": "VV-090048",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 113.91,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-26",
+      "commande": "VV-090068",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 99.66,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-26",
+      "commande": "VV-090115",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-26",
+      "commande": "VV-090131",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 41.8,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-27",
+      "commande": "VV-090018",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 50.82,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-27",
+      "commande": "VV-090045",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-27",
+      "commande": "VV-090049",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 13.77,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-27",
+      "commande": "VV-090073",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 48.35,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-27",
+      "commande": "VV-090098",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 100.89,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-27",
+      "commande": "VV-090100",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-27",
+      "commande": "VV-090105",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-27",
+      "commande": "VV-090106",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 62.13,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-27",
+      "commande": "VV-090121",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 75.14,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-28",
+      "commande": "VV-090022",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-28",
+      "commande": "VV-090046",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-09-28",
+      "commande": "VV-090067",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 91.86,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-28",
+      "commande": "VV-090109",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-28",
+      "commande": "VV-090127",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 40.56,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-29",
+      "commande": "VV-090004",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-29",
+      "commande": "VV-090047",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 39.33,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-29",
+      "commande": "VV-090065",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-29",
+      "commande": "VV-090082",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-29",
+      "commande": "VV-090088",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 28.02,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-29",
+      "commande": "VV-090107",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 37.05,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-30",
+      "commande": "VV-090008",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 51.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-30",
+      "commande": "VV-090059",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 11.3,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-09-30",
+      "commande": "VV-090099",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 12.54,
+      "canal": "App v1"
+     },
+     {
+      "date": "2026-10-01",
+      "commande": "VV-100032",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-01",
+      "commande": "VV-100035",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 48.38,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-01",
+      "commande": "VV-100046",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 33.54,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-01",
+      "commande": "VV-100054",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 24.19,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-01",
+      "commande": "VV-100061",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-01",
+      "commande": "VV-100116",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-01",
+      "commande": "VV-100125",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 63.8,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-02",
+      "commande": "VV-100074",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-02",
+      "commande": "VV-100080",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-02",
+      "commande": "VV-100152",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-03",
+      "commande": "VV-100060",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 63.96,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-03",
+      "commande": "VV-100081",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 24.19,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-03",
+      "commande": "VV-100119",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 22.71,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-03",
+      "commande": "VV-100132",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-03",
+      "commande": "VV-100147",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-04",
+      "commande": "VV-100020",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 36.08,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-04",
+      "commande": "VV-100099",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 65.93,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-04",
+      "commande": "VV-100100",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-04",
+      "commande": "VV-100144",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 44.28,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-05",
+      "commande": "VV-100015",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 44.28,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-05",
+      "commande": "VV-100086",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-05",
+      "commande": "VV-100106",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-05",
+      "commande": "VV-100126",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 68.06,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-05",
+      "commande": "VV-100139",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 68.47,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-05",
+      "commande": "VV-100145",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 86.02,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-05",
+      "commande": "VV-100153",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 66.99,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-06",
+      "commande": "VV-100003",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 41.74,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-06",
+      "commande": "VV-100057",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-06",
+      "commande": "VV-100059",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 55.1,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-06",
+      "commande": "VV-100072",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 76.26,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-06",
+      "commande": "VV-100095",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 78.23,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-06",
+      "commande": "VV-100115",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 43.87,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100002",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100018",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 56.17,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100024",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 100.45,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100040",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 54.69,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100044",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100050",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 23.78,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100077",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 78.23,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100133",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 86.02,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100136",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-07",
+      "commande": "VV-100140",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 64.86,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-08",
+      "commande": "VV-100127",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 22.71,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-08",
+      "commande": "VV-100159",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 32.47,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-08",
+      "commande": "VV-100161",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 44.28,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-09",
+      "commande": "VV-100010",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-09",
+      "commande": "VV-100026",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 68.47,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-09",
+      "commande": "VV-100120",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-09",
+      "commande": "VV-100164",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 45.84,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-10",
+      "commande": "VV-100033",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-10",
+      "commande": "VV-100048",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 78.23,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-10",
+      "commande": "VV-100154",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 68.06,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-11",
+      "commande": "VV-100042",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 76.26,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-11",
+      "commande": "VV-100058",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 68.47,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-11",
+      "commande": "VV-100068",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-11",
+      "commande": "VV-100092",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-11",
+      "commande": "VV-100105",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-11",
+      "commande": "VV-100117",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 24.19,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-11",
+      "commande": "VV-100124",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-11",
+      "commande": "VV-100143",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 54.69,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-12",
+      "commande": "VV-100013",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 68.47,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-12",
+      "commande": "VV-100022",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 43.87,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-12",
+      "commande": "VV-100083",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-12",
+      "commande": "VV-100137",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 68.47,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-12",
+      "commande": "VV-100141",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 21.65,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-12",
+      "commande": "VV-100162",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 42.8,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-13",
+      "commande": "VV-100011",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 80.36,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-13",
+      "commande": "VV-100066",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 24.19,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-13",
+      "commande": "VV-100075",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 24.19,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-13",
+      "commande": "VV-100148",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 68.06,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-13",
+      "commande": "VV-100163",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 41.74,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-14",
+      "commande": "VV-100005",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 33.95,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-14",
+      "commande": "VV-100053",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 68.06,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-14",
+      "commande": "VV-100055",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-14",
+      "commande": "VV-100096",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 24.19,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-14",
+      "commande": "VV-100129",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 66.99,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-15",
+      "commande": "VV-100012",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 100.45,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-15",
+      "commande": "VV-100017",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 24.19,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-15",
+      "commande": "VV-100094",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 48.38,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-15",
+      "commande": "VV-100107",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 88.15,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-15",
+      "commande": "VV-100121",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-15",
+      "commande": "VV-100128",
+      "premier_produit": "Coffret découverte",
+      "articles": 3.0,
+      "montant_ttc": 52.56,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-15",
+      "commande": "VV-100151",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-16",
+      "commande": "VV-100037",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 80.36,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-16",
+      "commande": "VV-100047",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 76.26,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-16",
+      "commande": "VV-100051",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 36.08,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-16",
+      "commande": "VV-100082",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 21.65,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-16",
+      "commande": "VV-100084",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 66.99,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-16",
+      "commande": "VV-100109",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 66.99,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-17",
+      "commande": "VV-100112",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 21.65,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-17",
+      "commande": "VV-100113",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-17",
+      "commande": "VV-100123",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 100.45,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-17",
+      "commande": "VV-100149",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 68.47,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-18",
+      "commande": "VV-100028",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-18",
+      "commande": "VV-100030",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-18",
+      "commande": "VV-100091",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 33.95,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-18",
+      "commande": "VV-100146",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-19",
+      "commande": "VV-100087",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-19",
+      "commande": "VV-100088",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 36.08,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-19",
+      "commande": "VV-100098",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 3.0,
+      "montant_ttc": 80.36,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-19",
+      "commande": "VV-100103",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 21.65,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-20",
+      "commande": "VV-100023",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 36.08,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-20",
+      "commande": "VV-100071",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 20.58,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-20",
+      "commande": "VV-100090",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 72.57,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-20",
+      "commande": "VV-100158",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-21",
+      "commande": "VV-100045",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-21",
+      "commande": "VV-100065",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-21",
+      "commande": "VV-100067",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 42.8,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-21",
+      "commande": "VV-100102",
+      "premier_produit": "Rooibos vanille",
+      "articles": 3.0,
+      "montant_ttc": 51.5,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-21",
+      "commande": "VV-100111",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 44.28,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-21",
+      "commande": "VV-100142",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 19.52,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-21",
+      "commande": "VV-100157",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 1.0,
+      "montant_ttc": 24.19,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-21",
+      "commande": "VV-100160",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 22.71,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-22",
+      "commande": "VV-100021",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 56.17,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-22",
+      "commande": "VV-100093",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 41.74,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-22",
+      "commande": "VV-100101",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 21.65,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-23",
+      "commande": "VV-100008",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 44.28,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-23",
+      "commande": "VV-100038",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-23",
+      "commande": "VV-100062",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 56.17,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-23",
+      "commande": "VV-100064",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-23",
+      "commande": "VV-100079",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 20.58,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-23",
+      "commande": "VV-100089",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 78.23,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-23",
+      "commande": "VV-100135",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 41.74,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-24",
+      "commande": "VV-100009",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-24",
+      "commande": "VV-100104",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-24",
+      "commande": "VV-100110",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 56.17,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-24",
+      "commande": "VV-100131",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 54.04,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-24",
+      "commande": "VV-100134",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 2.0,
+      "montant_ttc": 54.04,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-24",
+      "commande": "VV-100150",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-25",
+      "commande": "VV-100006",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 44.28,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-25",
+      "commande": "VV-100031",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 99.38,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-25",
+      "commande": "VV-100073",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-25",
+      "commande": "VV-100118",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 2.0,
+      "montant_ttc": 43.87,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-26",
+      "commande": "VV-100052",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-26",
+      "commande": "VV-100069",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 45.84,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-26",
+      "commande": "VV-100097",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 22.71,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-27",
+      "commande": "VV-100036",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 2.0,
+      "montant_ttc": 42.8,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-27",
+      "commande": "VV-100039",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 65.93,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-27",
+      "commande": "VV-100078",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-28",
+      "commande": "VV-100007",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 41.74,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-28",
+      "commande": "VV-100029",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-28",
+      "commande": "VV-100041",
+      "premier_produit": "Coffret découverte",
+      "articles": 2.0,
+      "montant_ttc": 43.87,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-28",
+      "commande": "VV-100056",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-28",
+      "commande": "VV-100108",
+      "premier_produit": "Coffret découverte",
+      "articles": 1.0,
+      "montant_ttc": 31.98,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-28",
+      "commande": "VV-100130",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-28",
+      "commande": "VV-100138",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 44.28,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-28",
+      "commande": "VV-100156",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-29",
+      "commande": "VV-100004",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-29",
+      "commande": "VV-100019",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 43.71,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-29",
+      "commande": "VV-100034",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 1.0,
+      "montant_ttc": 10.82,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-29",
+      "commande": "VV-100049",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-29",
+      "commande": "VV-100076",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 1.0,
+      "montant_ttc": 44.28,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-29",
+      "commande": "VV-100085",
+      "premier_produit": "Earl Grey fleurs bleues",
+      "articles": 3.0,
+      "montant_ttc": 64.86,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-29",
+      "commande": "VV-100122",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-30",
+      "commande": "VV-100016",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-31",
+      "commande": "VV-100001",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 2.0,
+      "montant_ttc": 35.01,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-31",
+      "commande": "VV-100014",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-31",
+      "commande": "VV-100025",
+      "premier_produit": "Théière fonte 0,8 L",
+      "articles": 3.0,
+      "montant_ttc": 120.54,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-31",
+      "commande": "VV-100027",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-31",
+      "commande": "VV-100043",
+      "premier_produit": "Rooibos vanille",
+      "articles": 1.0,
+      "montant_ttc": 9.76,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-31",
+      "commande": "VV-100063",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-31",
+      "commande": "VV-100070",
+      "premier_produit": "Rooibos vanille",
+      "articles": 2.0,
+      "montant_ttc": 21.65,
+      "canal": "App v2"
+     },
+     {
+      "date": "2026-10-31",
+      "commande": "VV-100114",
+      "premier_produit": "Matcha cérémonie",
+      "articles": 3.0,
+      "montant_ttc": 58.14,
+      "canal": "Site web"
+     },
+     {
+      "date": "2026-10-31",
+      "commande": "VV-100155",
+      "premier_produit": "Thé vert Sencha",
+      "articles": 1.0,
+      "montant_ttc": 11.89,
+      "canal": "Site web"
+     }
+    ]
+   }
+  }
+ ],
+ "alerte": {
+  "nom": "Publicité du mois — App E-Commerce v2",
+  "jeu_cle": "exemple:app-ecommerce:operations",
+  "mesure": {
+   "field": "Débit",
+   "agg": "sum"
+  },
+  "filtres": [
+   {
+    "field": "Catégorie",
+    "op": "eq",
+    "values": [
+     "Publicité"
+    ]
+   },
+   {
+    "field": "Mois",
+    "op": "eq",
+    "values": [
+     "2026-10"
+    ]
+   }
+  ],
+  "comparaison": "gt",
+  "seuil": 1500,
+  "valeur_attendue": 2480
+ }
+}

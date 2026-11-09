@@ -5,6 +5,7 @@ import type { BuildRequest, BuildResponse, RepairRequest, RepairResponse } from 
 import type { AnswerRequest, AnswerResponse, SummaryRequest, SummaryResponse } from "../types/summary";
 import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult, PrepPreview, PrepStep, Relation, RelationCheck, SampleFile, SamplesImport } from "../types/dataset";
 import type { QueryRequest, QueryResponse } from "../types/query";
+import type { ExempleCharge, ExempleHistoire } from "../types/exemples";
 import type {
   AuthStatus,
   Connection,
@@ -90,6 +91,13 @@ export const api = {
     request<SummaryResponse>("/ai/summary", { method: "POST", body: JSON.stringify(body), signal }),
   /** Réponse vérifiée à une question (ou explication d'un écart) à partir de faits calculés ici. */
   answer: (body: AnswerRequest, signal?: AbortSignal) => request<AnswerResponse>("/ai/answer", { method: "POST", body: JSON.stringify(body), signal }),
+
+  exemples: {
+    list: () => request<ExempleHistoire[]>("/exemples-suite"),
+    /** Crée ou met à jour les jeux de l'histoire et son alerte (jamais de doublon). */
+    load: (id: string) => request<ExempleCharge>(`/exemples-suite/${encodeURIComponent(id)}`, { method: "POST" }),
+    remove: (id: string) => request<void>(`/exemples-suite/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  },
 
   samples: {
     list: () => request<SampleFile[]>("/samples"),

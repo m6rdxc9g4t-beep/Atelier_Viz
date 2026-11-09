@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     serve_frontend: bool = True
     # Jeux d'exemple livrés avec le dépôt (bouton « Charger l'exemple »)
     samples_dir: Path = Path(__file__).resolve().parents[3] / "samples"
+    # Exemples de la suite : histoires fictives communes à toutes les apps (exemples-suite/, généré par Atelier_Deploy).
+    exemples_dir: Path = Path(__file__).resolve().parents[3] / "exemples-suite"
 
     # Connecteurs (SQL Server, PostgreSQL, MySQL, SQLite, fichiers, SharePoint)
     secrets_backend: Literal["auto", "keyring", "file"] = "auto"  # trousseau système, sinon data/secrets.json (0600)

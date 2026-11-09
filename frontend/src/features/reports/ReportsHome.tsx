@@ -6,6 +6,7 @@ import { navigate } from "../../lib/router";
 import { starterPages } from "../../studio/starter";
 import type { DatasetSummary } from "../../types/dataset";
 import type { ReportSummary } from "../../types/report";
+import { SuiteExamples } from "./SuiteExamples";
 
 const dateFmt = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" });
 
@@ -22,6 +23,7 @@ export function ReportsHome() {
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
 
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     Promise.all([api.reports.list(), api.datasets.list()])
       .then(([r, d]) => {
@@ -30,7 +32,7 @@ export function ReportsHome() {
         setDatasetId(d[0]?.id ?? "");
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [version]);
 
   const create = async (starter: boolean) => {
     setBusy(true);
@@ -139,6 +141,7 @@ export function ReportsHome() {
           </p>
         )}
       </section>
+      <SuiteExamples reports={reports} onChanged={() => setVersion((v) => v + 1)} />
 
       <section aria-labelledby="mes-rapports">
         <h2 id="mes-rapports" className="mb-2 flex items-baseline gap-2 text-sm font-semibold">
