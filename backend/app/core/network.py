@@ -7,6 +7,24 @@ import ipaddress
 
 LOOPBACK_NAMES = frozenset({"localhost"})
 
+#: Plages IPv6 qui **traduisent** vers IPv4 (donc vers Internet) bien que `ipaddress` les dise « privées » :
+#: NAT64 (RFC 6052 et 8215), 6to4 (RFC 3056), Teredo (RFC 4380). Jamais considérées comme locales.
+TRANSLATED_V6 = tuple(ipaddress.ip_network(n) for n in ("64:ff9b::/96", "64:ff9b:1::/48", "2002::/16", "2001::/32"))
+
+
+def is_local_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Machine ou réseau privé (entreprise, VPN) ; une adresse IPv6 qui traduit vers IPv4 ne l'est jamais.
+
+    Une IPv4 mappée (`::ffff:a.b.c.d`) est jugée sur son adresse IPv4. Règle commune aux webhooks,
+    aux connecteurs SQL et au fichier web en mode hors ligne.
+    """
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            return is_local_ip(ip.ipv4_mapped)
+        if any(ip in net for net in TRANSLATED_V6):
+            return False
+    return ip.is_private or ip.is_loopback
+
 
 def is_loopback_ip(raw: str) -> bool:
     """Vrai si `raw` est une adresse IP de bouclage (127.0.0.0/8, ::1, ::ffff:127.x.x.x)."""

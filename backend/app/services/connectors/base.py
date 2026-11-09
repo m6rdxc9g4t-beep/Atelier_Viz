@@ -10,7 +10,7 @@ from typing import Any
 
 import pandas as pd
 
-from app.core.network import LOOPBACK_NAMES, is_loopback_ip, loopback_refusal
+from app.core.network import LOOPBACK_NAMES, is_local_ip, is_loopback_ip, loopback_refusal
 from app.schemas.connection import PreviewResult
 from app.services.data.profiling import to_json
 
@@ -69,7 +69,7 @@ def check_server(host: str, online: bool) -> None:
     except (socket.gaierror, UnicodeError) as exc:
         raise ConnectorError(f"Serveur « {name} » introuvable : vérifiez le nom (ou le VPN de l'entreprise).") from exc
     ips = [ipaddress.ip_address(str(a).split("%")[0]) for a in addresses]
-    if not all(ip.is_private or ip.is_loopback for ip in ips):
+    if not all(is_local_ip(ip) for ip in ips):
         raise ConnectorError(
             f"Mode hors ligne : « {name} » est une adresse Internet. Activez le mode « En ligne » "
             "pour vous y connecter, ou passez par le réseau de l'entreprise.",
