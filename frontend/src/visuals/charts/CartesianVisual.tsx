@@ -13,13 +13,9 @@ import {
   YAxis,
 } from "recharts";
 
-import { useMemo } from "react";
-
-import { AXIS, Legend, TOOLTIP_ROLE, TooltipBox, VisualMessage, dimmed, first, numberFormat, role, toggleSelection, tooltipQuery, valueKey } from "../common";
-import { bindingKey, bindingLabel } from "../fields";
+import { AXIS, Legend, TooltipBox, VisualMessage, dimmed, first, numberFormat, toggleSelection } from "../common";
 import { formatNumber } from "../format";
-import { withParameters } from "../interactive/parameters";
-import { useQueryResult } from "../useQueryResult";
+import { useTooltipExtras } from "../tooltips";
 import { opt, type VisualProps } from "../types";
 import { useStableColors } from "../useStableColors";
 import { columnType, shapeSeries } from "./series";
@@ -33,18 +29,7 @@ export function CartesianVisual(props: VisualProps) {
   const isCombo = visual.type === "combo";
   const colors = useStableColors(visual, first(visual, "series"), first(visual, "values"));
   // Info-bulles : mesures en plus, une valeur par élément de l'axe (requête à part).
-  const tipRequest = useMemo(
-    () => withParameters(tooltipQuery(visual, props.filters), props.parameters, dataset),
-    [visual, props.filters, props.parameters, dataset],
-  );
-  const tips = useQueryResult(tipRequest).result;
-  const tipBindings = role(visual, TOOLTIP_ROLE);
-  const tipRows = useMemo(() => {
-    const cat = first(visual, "category");
-    const map = new Map<string, Record<string, unknown>>();
-    if (tips && cat) for (const r of tips.rows) map.set(valueKey(r[bindingKey(cat)] ?? null), r);
-    return map;
-  }, [tips, visual]);
+  const tooltipExtras = useTooltipExtras(props);
   if (!result) return null;
 
   const horizontal = visual.type === "bar";
@@ -139,10 +124,7 @@ export function CartesianVisual(props: VisualProps) {
                 });
                 if (!p.active || !entries.length) return null;
                 const datum = all[0]?.payload;
-                const tipRow = datum && !future ? tipRows.get(valueKey(datum.__cat)) : undefined;
-                const extra = tipRow
-                  ? tipBindings.map((b) => ({ label: bindingLabel(b), value: formatNumber((tipRow[bindingKey(b)] ?? null) as number | null, numberFormat(visual, b)) }))
-                  : [];
+                const extra = datum && !future ? tooltipExtras(datum.__cat) : [];
                 return (
                   <TooltipBox
                     title={future ? `${String(p.label ?? "")} (prévision)` : String(p.label ?? "")}

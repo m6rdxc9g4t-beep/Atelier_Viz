@@ -45,6 +45,7 @@ import { opt, type VisualProps } from "../types";
 import type { QueryResult } from "../useQueryResult";
 import { type ColorMap, colorDomain, useStableColors } from "../useStableColors";
 import { columnType } from "./series";
+import { useTooltipExtras } from "../tooltips";
 
 export interface Slice {
   value: number;
@@ -111,6 +112,7 @@ function SliceLabel({ cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius
 export function PieVisual(props: VisualProps) {
   const { visual, def, selection, onSelect } = props;
   const colors = useStableColors(visual, first(visual, "category"), first(visual, "values"));
+  const tooltipExtras = useTooltipExtras(props);
   const data = slices(props.visual, props.result, props.dataset, true, colors);
   if (!data.length) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
   const fmt = numberFormat(visual);
@@ -159,6 +161,7 @@ export function PieVisual(props: VisualProps) {
                       { label: "Valeur", value: formatNumber(s.value, fmt) },
                       { label: "Part", value: `${((s.value / total) * 100).toFixed(1).replace(".", ",")} %` },
                     ]}
+                    extra={s.other ? [] : tooltipExtras(s.raw)}
                   />
                 );
               }}
@@ -185,6 +188,7 @@ const HALO = { fill: "#ffffff", stroke: "rgba(0,0,0,0.45)", strokeWidth: 2.5, pa
 export function TreemapVisual(props: VisualProps) {
   const { visual, selection, onSelect } = props;
   const colors = useStableColors(visual, first(visual, "category"), first(visual, "values"));
+  const tooltipExtras = useTooltipExtras(props);
   // Au-delà de 8 rectangles, la couleur n'identifie plus : rampe séquentielle (voir slices).
   const data = slices(props.visual, props.result, props.dataset, false, colors).map((s) => ({ ...s, name: s.label }));
   if (!data.length) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
@@ -227,7 +231,7 @@ export function TreemapVisual(props: VisualProps) {
           content={(p) => {
             const s = (p.payload?.[0] as { payload?: Slice } | undefined)?.payload;
             if (!p.active || !s) return null;
-            return <TooltipBox title={s.label} rows={[{ label: "Valeur", value: formatNumber(s.value, fmt) }]} />;
+            return <TooltipBox title={s.label} rows={[{ label: "Valeur", value: formatNumber(s.value, fmt) }]} extra={s.other ? [] : tooltipExtras(s.raw)} />;
           }}
         />
       </Treemap>

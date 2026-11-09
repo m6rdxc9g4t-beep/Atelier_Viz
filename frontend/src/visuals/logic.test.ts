@@ -80,6 +80,11 @@ describe("requêtes des visuels", () => {
     // Changement de type : les info-bulles restent des info-bulles, jamais tracées.
     expect(convertRoles(v, "line")).toEqual({ category: [{ field: "region", agg: null }], values: [{ field: "ca", agg: "sum" }], tooltips: [{ field: "produit", agg: "count_distinct" }] });
     expect(convertRoles(v, "pie").values).toEqual([{ field: "ca", agg: "sum" }]);
+    // Secteurs, treemap, cartes : même puits, sur leur propre dimension.
+    for (const t of ["pie", "donut", "treemap", "map"] as const) expect(VISUALS[t].roles.some((r) => r.id === "tooltips" && r.inQuery === false)).toBe(true);
+    const m = visual("map", { location: [{ field: "region" }], values: [{ field: "ca", agg: "sum" }], tooltips: [{ field: "ca", agg: "avg" }] });
+    expect(tooltipQuery(m, [], "location")?.dimensions).toEqual([{ field: "region", bin: null }]);
+    expect(genericQuery(m, VISUALS.map, [])?.measures).toEqual([{ field: "ca", agg: "sum" }]);
     // Un clic sur une mesure remplit les Valeurs, pas les Info-bulles.
     expect(bestRole(v, { ...col("ca", "number"), measure: false })?.id).toBe("values");
   });
