@@ -185,7 +185,9 @@ def test_systemd_units_quote_paths(tmp_path: Path) -> None:
     j = job(tmp_path, "linux", run)
     state = j.apply(BackgroundJobInput(enabled=True, interval_minutes=60))
     assert state.installed and state.interval_minutes == 60
-    service = (tmp_path / "home" / ".config" / "systemd" / "user" / "atelier-viz-refresh.service").read_text(encoding="utf-8")
+    service = (tmp_path / "home" / ".config" / "systemd" / "user" / "atelier-viz-refresh.service").read_text(
+        encoding="utf-8"
+    )
     assert 'ExecStart="' in service and "Atelier Viz é" in service
     assert "WorkingDirectory" not in service  # systemd ne retire pas les guillemets de WorkingDirectory=
     assert ["systemctl", "--user", "enable", "--now", "atelier-viz-refresh.timer"] in run.calls
