@@ -545,7 +545,6 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | POST | `/api/atelier/reports/duplicate` · `/api/atelier/alerts` | Copie de rapport · création d'alerte (`Idempotency-Key`) |
 | POST | `/api/atelier/alerts/{id}/enabled` · `/evaluate` | Activer / mettre en pause · évaluer |
 | GET | `/api/atelier/events/stream` | Flux SSE des événements (`since`, `types`, `timeout`, `Last-Event-ID`) |
-
 | GET | `/api/atelier/manifest` | Manifeste du nœud Atelier (docs/SUITE.md §7.1) : actions, événements, schémas JSON |
 | GET | `/api/atelier/datasets/{id}/table` | Lignes d'un jeu en `atelier-table/1` (`offset`, `limit` ≤ 5 000, défaut 1 000) |
 | POST | `/api/atelier/query` | Corps `QueryRequest`, résultat `atelier-table/1` (clés snake_case, libellés français) |
