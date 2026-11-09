@@ -168,8 +168,9 @@ def _actions() -> list[ManifestAction]:
         _action(
             "reports.duplicate",
             "Dupliquer un rapport",
-            "Copie d'un rapport modèle, rebranchée au besoin sur un autre jeu (par exemple le jeu du mois créé par "
-            "datasets.upsert_table) ; signale les champs absents du nouveau jeu. Les signets personnels ne suivent pas.",
+            "Copie d'un rapport modèle, rebranchée au besoin sur un autre jeu (par exemple le jeu du mois créé "
+            "par datasets.upsert_table) ; signale les champs absents du nouveau jeu. "
+            "Les signets personnels ne suivent pas.",
             "write",
             "POST",
             "/api/atelier/reports/duplicate",
