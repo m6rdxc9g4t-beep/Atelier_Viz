@@ -7,6 +7,7 @@ import { readTheme, themeVars } from "../theme/reportTheme";
 import { Canvas } from "./Canvas";
 import { extractionLabel, presentationPages, step } from "./extraction";
 import { useStudio } from "./store";
+import { bookmarkGroup } from "./bookmarks";
 
 const DELAYS = [5, 10, 20, 30, 60];
 const HUD_IDLE_MS = 2500;
@@ -19,7 +20,10 @@ export function Presentation({ report, onExit }: { report: Report; onExit: () =>
   const pageId = useStudio((s) => s.pageId);
   const extraction = useStudio((s) => s.extraction);
   const rootRef = useRef<HTMLDivElement>(null);
-  const bookmarks = report.bookmarks ?? [];
+  const allBookmarks = report.bookmarks ?? [];
+  const groups = [...new Set(allBookmarks.map((b) => bookmarkGroup(b)).filter((g): g is string => g !== null))];
+  const [group, setGroup] = useState<string | null>(null);
+  const bookmarks = group === null ? allBookmarks : allBookmarks.filter((b) => bookmarkGroup(b) === group);
   const [source, setSource] = useState<"pages" | "bookmarks">("pages");
   const [bookmarkIndex, setBookmarkIndex] = useState(-1);
   const [playing, setPlaying] = useState(false);
@@ -155,7 +159,7 @@ export function Presentation({ report, onExit }: { report: Report; onExit: () =>
             </option>
           ))}
         </select>
-        {bookmarks.length > 0 && (
+        {allBookmarks.length > 0 && (
           <div className="ml-1 flex rounded-md bg-white/10 p-0.5" role="group" aria-label="Dérouler">
             {(["pages", "bookmarks"] as const).map((v) => (
               <button
@@ -173,6 +177,24 @@ export function Presentation({ report, onExit }: { report: Report; onExit: () =>
               </button>
             ))}
           </div>
+        )}
+        {source === "bookmarks" && groups.length > 0 && (
+          <select
+            aria-label="Groupe de signets"
+            value={group ?? ""}
+            onChange={(e) => {
+              setGroup(e.target.value || null);
+              setBookmarkIndex(-1);
+            }}
+            className="rounded-md bg-white/10 px-1.5 py-1 text-white [&>option]:text-black"
+          >
+            <option value="">Tous les signets</option>
+            {groups.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
         )}
         <span className="mx-1 h-5 w-px bg-white/20" aria-hidden />
         <button type="button" className={btn} onClick={onExit} aria-label="Quitter la présentation (Échap)">

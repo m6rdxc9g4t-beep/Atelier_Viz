@@ -114,6 +114,10 @@ export interface Bookmark {
   apply_data: boolean;
   pages: Record<string, BookmarkPageState>;
   selection?: BookmarkSelection | null;
+  /** Groupe du volet Signets (diaporama par groupe). */
+  group?: string | null;
+  /** Signet personnel : reste sur ce poste, jamais envoyé à GitHub. */
+  personal?: boolean;
   created_at?: string | null;
   updated_at?: string | null;
 }

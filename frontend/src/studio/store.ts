@@ -183,7 +183,9 @@ interface StudioState {
   /** Remplace l'état d'un signet par l'état courant (« Mettre à jour »). */
   updateBookmark: (id: string) => void;
   renameBookmark: (id: string, name: string) => void;
-  setBookmarkFlags: (id: string, flags: Partial<Pick<Bookmark, "apply_page" | "apply_data">>) => void;
+  setBookmarkFlags: (id: string, flags: Partial<Pick<Bookmark, "apply_page" | "apply_data" | "personal">>) => void;
+  /** Range un signet dans un groupe (null = sans groupe). */
+  setBookmarkGroup: (id: string, group: string | null) => void;
   removeBookmark: (id: string) => void;
   moveBookmark: (id: string, delta: -1 | 1) => void;
   /** Applique un signet (page, filtres, segments, sélection, exploration). Retourne false s'il est introuvable. */
@@ -570,7 +572,18 @@ export const useStudio = create<StudioState>((set, get) => {
     setBookmarkFlags: (id, flags) =>
       get().mutate((r) => {
         const b = r.bookmarks?.find((x) => x.id === id);
-        if (b) Object.assign(b, flags);
+        if (!b) return;
+        Object.assign(b, flags);
+        if (b.personal === false) delete b.personal;
+      }),
+
+    setBookmarkGroup: (id, group) =>
+      get().mutate((r) => {
+        const b = r.bookmarks?.find((x) => x.id === id);
+        if (!b) return;
+        const g = group?.trim().slice(0, 60);
+        if (g) b.group = g;
+        else delete b.group;
       }),
 
     removeBookmark: (id) => get().mutate((r) => (r.bookmarks = (r.bookmarks ?? []).filter((b) => b.id !== id))),

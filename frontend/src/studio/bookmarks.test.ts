@@ -150,3 +150,27 @@ describe("signets dans le Studio", () => {
     expect(useStudio.getState().addBookmark()).not.toBeNull();
   });
 });
+
+describe("groupes de signets et signets personnels", () => {
+  it("regroupe en gardant l'ordre, sans groupe d'abord", async () => {
+    const { groupBookmarks, bookmarkGroup } = await import("./bookmarks");
+    const mk = (id: string, group?: string) => ({ id, name: id, apply_page: true, apply_data: true, pages: {}, ...(group ? { group } : {}) });
+    const out = groupBookmarks([mk("a", "Revue"), mk("b"), mk("c", "Comité"), mk("d", "Revue"), mk("e", "  ")]);
+    expect(out.map((g) => [g.group, g.items.map((b) => b.id)])).toEqual([
+      [null, ["b", "e"]],
+      ["Revue", ["a", "d"]],
+      ["Comité", ["c"]],
+    ]);
+    expect(bookmarkGroup({ group: "  x  " })).toBe("x");
+  });
+
+  it("garde groupe et caractère personnel à la mise à jour d'un signet", async () => {
+    const { captureBookmark } = await import("./bookmarks");
+    const report = { id: "r", version: 1 as const, name: "R", theme: {}, created_at: "", updated_at: "", pages: [{ id: "p1", name: "P", filters: [], visuals: [] }] };
+    const base = { id: "b", name: "B", apply_page: true, apply_data: true, pages: {}, group: "Revue", personal: true };
+    const fresh = captureBookmark(report, "p1", null, { id: "b", name: "B", base });
+    expect(fresh.group).toBe("Revue");
+    expect(fresh.personal).toBe(true);
+    expect(captureBookmark(report, "p1", null, { id: "c", name: "C" })).not.toHaveProperty("personal");
+  });
+});

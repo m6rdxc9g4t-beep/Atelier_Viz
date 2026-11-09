@@ -56,7 +56,7 @@ from app.schemas.github import (
 )
 from app.schemas.report import Report
 from app.services.connectors.secrets import SecretBackend
-from app.services.report_privacy import restore_private, strip_private
+from app.services.report_privacy import keep_personal, restore_private, strip_private, without_personal
 from app.services.reports import ReportRepository
 
 TOKEN_KEY = "github:token"
@@ -83,7 +83,8 @@ def report_bytes(report: Report) -> bytes:
 def shared_bytes(report: Report, config: GitHubConfig | None) -> bytes:
     """Contenu envoyé à GitHub : nettoyé des valeurs privées si l'option est active (défaut)."""
     strip = config.strip_private if config is not None else True
-    return report_bytes(strip_private(report) if strip else report)
+    shared = without_personal(report)  # signets personnels : jamais envoyés
+    return report_bytes(strip_private(shared) if strip else shared)
 
 
 def blob_sha(content: bytes) -> str:
@@ -455,6 +456,7 @@ class GitHubSync:
                 if config.strip_private:
                     # Fusion explicite : filtres, sélections, exploration et webhooks restent ceux du poste.
                     incoming = restore_private(incoming, current)
+                incoming = keep_personal(incoming, current)
                 local_changed = rec is None or rec.local != local_sha
                 choice = req.resolutions.get(report_id)
                 if not local_changed or choice == "remote":
@@ -589,6 +591,7 @@ class GitHubSync:
                 )
             if current is not None and config.strip_private:
                 incoming = restore_private(incoming, current)
+            incoming = keep_personal(incoming, current)
             restored = incoming.model_copy(update={"updated_at": now})
             self.reports.put(restored)
         return RestoreResult(

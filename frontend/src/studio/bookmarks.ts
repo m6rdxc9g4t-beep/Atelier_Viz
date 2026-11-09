@@ -70,9 +70,36 @@ export function captureBookmark(
       keepSelection && selection
         ? { visual_id: selection.visualId, dataset_id: selection.datasetId, filters: structuredClone(selection.filters), keys: [...selection.keys] }
         : null,
+    ...(init.base?.group ? { group: init.base.group } : {}),
+    ...(init.base?.personal ? { personal: true } : {}),
     created_at: init.base?.created_at ?? now,
     updated_at: now,
   };
+}
+
+/** Groupe affiché d'un signet (nom nettoyé, 60 caractères), ou null. */
+export function bookmarkGroup(b: Pick<Bookmark, "group">): string | null {
+  const g = b.group?.trim().slice(0, 60);
+  return g ? g : null;
+}
+
+/**
+ * Signets regroupés pour le volet : sans groupe d'abord, puis chaque groupe dans l'ordre de sa
+ * première apparition ; l'ordre du rapport est gardé dans chaque groupe.
+ */
+export function groupBookmarks(list: Bookmark[]): { group: string | null; items: Bookmark[] }[] {
+  const out: { group: string | null; items: Bookmark[] }[] = [];
+  for (const b of list) {
+    const g = bookmarkGroup(b);
+    let bucket = out.find((x) => x.group === g);
+    if (!bucket) {
+      bucket = { group: g, items: [] };
+      if (g === null) out.unshift(bucket);
+      else out.push(bucket);
+    }
+    bucket.items.push(b);
+  }
+  return out;
 }
 
 export interface AppliedBookmark {

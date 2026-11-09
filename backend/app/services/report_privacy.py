@@ -8,6 +8,9 @@ des valeurs réelles, et un bouton webhook peut porter une adresse secrète :
 - signets : filtres, sélections et exploration capturés, filtrage croisé (`selection`) ;
 - adresse des boutons « Appeler un webhook » (`options.url`, souvent porteuse d'un jeton).
 
+Signets **personnels** (`Bookmark.personal`) : jamais envoyés, quelle que soit l'option
+(`without_personal`), et toujours gardés à la récupération (`keep_personal`).
+
 `strip_private` retire ces champs (copie) ; `restore_private` les reprend du poste pour chaque page,
 visuel ou signet qui existe déjà localement (fusion explicite : en mode nettoyage, ces champs sont
 **locaux** et ne sont jamais pris du dépôt pour un élément existant ; un élément nouveau garde ce que
@@ -52,6 +55,22 @@ def strip_private(report: Report) -> Report:
     for bookmark in out.bookmarks:
         _strip_bookmark(bookmark)
     return out
+
+
+def without_personal(report: Report) -> Report:
+    """Copie du rapport sans ses signets personnels (avant tout envoi)."""
+    if not any(b.personal for b in report.bookmarks):
+        return report
+    return report.model_copy(update={"bookmarks": [b for b in report.bookmarks if not b.personal]}, deep=True)
+
+
+def keep_personal(incoming: Report, local: Report | None) -> Report:
+    """Copie de `incoming` à laquelle s'ajoutent les signets personnels du poste (jamais perdus à la récupération)."""
+    mine = [b for b in (local.bookmarks if local else []) if b.personal]
+    if not mine:
+        return incoming
+    shared = [b for b in incoming.bookmarks if b.id not in {m.id for m in mine}]
+    return incoming.model_copy(update={"bookmarks": [*shared, *(m.model_copy(deep=True) for m in mine)]}, deep=True)
 
 
 def _restore_visual(visual: Visual, local: Visual) -> None:

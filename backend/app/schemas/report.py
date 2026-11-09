@@ -141,6 +141,18 @@ class Bookmark(BaseModel):
     apply_data: bool = Field(default=True, description="Appliquer : filtres, segments, sélection, exploration.")
     pages: dict[str, BookmarkPageState] = Field(default_factory=dict, description="État par identifiant de page.")
     selection: BookmarkSelection | None = None
+    # Absents (et non « null » / false) s'ils ne servent pas : les rapports existants ne changent pas.
+    group: str | None = Field(
+        default=None,
+        max_length=60,
+        exclude_if=lambda v: v is None,
+        description="Groupe du volet Signets (diaporama par groupe).",
+    )
+    personal: bool = Field(
+        default=False,
+        exclude_if=lambda v: v is False,
+        description="Signet personnel : reste sur ce poste, jamais envoyé à GitHub.",
+    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
