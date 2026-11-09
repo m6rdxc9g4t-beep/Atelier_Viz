@@ -1,11 +1,16 @@
-"""Connecteurs SQL : SQL Server (pymssql), PostgreSQL (psycopg), MySQL / MariaDB (PyMySQL), SQLite.
+"""Connecteurs SQL : SQL Server (pymssql), PostgreSQL (psycopg), MySQL / MariaDB (PyMySQL), SQLite,
+Snowflake (snowflake-connector-python) et BigQuery (google-cloud-bigquery), tous par l'interface DB-API.
 
 Lecture seule :
 - une requête libre doit être **une seule** instruction SELECT / WITH, sans mot-clé d'écriture
   (`check_query`) ; c'est un garde-fou, pas une frontière de sécurité : utilisez un compte en
   lecture seule (rôle `db_datareader` sous SQL Server, `pg_read_all_data` sous PostgreSQL…) ;
 - PostgreSQL et MySQL ouvrent en plus une transaction en lecture seule, SQLite ouvre le fichier
-  en mode `ro`.
+  en mode `ro` ;
+- Snowflake : rôle de l'utilisateur (un rôle en lecture seule est conseillé), une instruction par appel,
+  délai imposé à la session (`STATEMENT_TIMEOUT_IN_SECONDS`), étiquette `Atelier Viz` ;
+- BigQuery : compte de service (clé JSON au trousseau), SQL standard, plafond de données lues par
+  requête (`maximum_bytes_billed`, 10 Go par défaut) : une requête trop coûteuse échoue sans être facturée.
 Les lignes sont lues par paquets jusqu'à la limite demandée (jamais tout en mémoire d'un coup).
 """
 
@@ -119,11 +124,18 @@ class Dialect:
     default_port: int | None
 
     def driver_installed(self) -> bool:
-        return self.module is None or importlib.util.find_spec(self.module) is not None
+        if self.module is None:
+            return True
+        try:
+            return importlib.util.find_spec(self.module) is not None
+        except ModuleNotFoundError:  # paquet parent absent (« snowflake », « google.cloud »)
+            return False
 
     def quote(self, ident: str) -> str:
         if self.kind == "sqlserver":
             return "[" + ident.replace("]", "]]") + "]"
+        if self.kind == "bigquery":
+            return "`" + ident.replace("\\", "\\\\").replace("`", "\\`") + "`"
         if self.kind == "mysql":
             return "`" + ident.replace("`", "``") + "`"
         return '"' + ident.replace('"', '""') + '"'
@@ -168,9 +180,13 @@ class Dialect:
         return ("SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES ORDER BY 1, 2", [])
 
     def version_sql(self) -> str:
-        return {"sqlserver": "SELECT @@VERSION", "postgres": "SELECT version()", "mysql": "SELECT VERSION()"}.get(
-            self.kind, "SELECT 'SQLite ' || sqlite_version()"
-        )
+        return {
+            "sqlserver": "SELECT @@VERSION",
+            "postgres": "SELECT version()",
+            "mysql": "SELECT VERSION()",
+            "snowflake": "SELECT 'Snowflake ' || CURRENT_VERSION()",
+            "bigquery": "SELECT 'BigQuery'",
+        }.get(self.kind, "SELECT 'SQLite ' || sqlite_version()")
 
 
 DIALECTS: dict[ConnectorKind, Dialect] = {
@@ -192,7 +208,25 @@ DIALECTS: dict[ConnectorKind, Dialect] = {
     ),
     "mysql": Dialect("mysql", "MySQL / MariaDB", "MySQL, MariaDB, Amazon RDS", "pymysql", "pip install pymysql", 3306),
     "sqlite": Dialect("sqlite", "SQLite", "Fichier de base SQLite (.db, .sqlite)", None, None, None),
+    "snowflake": Dialect(
+        "snowflake",
+        "Snowflake",
+        "Entrepôt de données Snowflake (mode « En ligne »)",
+        "snowflake.connector",
+        "pip install snowflake-connector-python",
+        None,
+    ),
+    "bigquery": Dialect(
+        "bigquery",
+        "Google BigQuery",
+        "Entrepôt BigQuery, compte de service (mode « En ligne »)",
+        "google.cloud.bigquery",
+        "pip install google-cloud-bigquery",
+        None,
+    ),
 }
+
+BIGQUERY_DEFAULT_GB = 10
 
 
 def sqlite_path(raw: str) -> Path:
@@ -282,8 +316,73 @@ def _open(cfg: ConnectionFields, password: str | None, login_timeout: float, que
         with my.cursor() as cur:
             cur.execute("SET SESSION TRANSACTION READ ONLY")
         return my
+    if cfg.kind == "snowflake":
+        import snowflake.connector
+
+        sf: DbConnection = snowflake.connector.connect(
+            account=host,
+            user=cfg.username or None,
+            password=password,
+            database=cfg.database or None,
+            warehouse=cfg.warehouse or None,
+            role=cfg.role or None,
+            login_timeout=int(login_timeout),
+            network_timeout=int(query_timeout),
+            application="AtelierViz",
+            session_parameters={"STATEMENT_TIMEOUT_IN_SECONDS": int(query_timeout), "QUERY_TAG": "Atelier Viz"},
+        )
+        return sf
+    if cfg.kind == "bigquery":
+        return _bigquery(cfg, password, query_timeout)
     path = sqlite_path(cfg.path or "")
     return sqlite3.connect(f"file:{quote(str(path))}?mode=ro", uri=True, timeout=login_timeout, check_same_thread=False)
+
+
+def _bigquery(cfg: ConnectionFields, key: str | None, query_timeout: float) -> DbConnection:
+    """Connexion DB-API BigQuery par compte de service ; plafond de Go lus et SQL standard imposés."""
+    import json
+
+    from google.cloud import bigquery
+    from google.cloud.bigquery import dbapi
+    from google.oauth2 import service_account
+
+    if not key:
+        raise ConnectorError("Collez la clé JSON du compte de service (rôles BigQuery Data Viewer et Job User).")
+    try:
+        info = json.loads(key)
+        credentials = service_account.Credentials.from_service_account_info(info)
+    except (ValueError, KeyError) as exc:
+        raise ConnectorError("Clé de compte de service invalide : collez le fichier JSON complet.") from exc
+    limit = (cfg.max_gb or BIGQUERY_DEFAULT_GB) * 1_000_000_000
+    client = bigquery.Client(
+        project=cfg.database,
+        credentials=credentials,
+        default_query_job_config=bigquery.QueryJobConfig(
+            maximum_bytes_billed=limit,
+            use_legacy_sql=False,
+            labels={"app": "atelier-viz"},
+            job_timeout_ms=int(query_timeout * 1000),
+        ),
+    )
+    conn: DbConnection = dbapi.connect(client)
+    conn.bq_client = client  # type: ignore[attr-defined]
+    return conn
+
+
+def _bigquery_tables(conn: DbConnection, cfg: ConnectionFields) -> tuple[list[TableRef], bool]:
+    """Tables et vues des jeux du projet (API, sans requête facturée)."""
+    client = conn.bq_client  # type: ignore[attr-defined]
+    out: list[TableRef] = []
+    try:
+        for ds in client.list_datasets(project=cfg.database):
+            for t in client.list_tables(ds.reference):
+                kind = "view" if str(getattr(t, "table_type", "")).upper() in {"VIEW", "MATERIALIZED_VIEW"} else "table"
+                out.append(TableRef(schema=ds.dataset_id, name=t.table_id, kind=kind))
+                if len(out) > MAX_TABLES:
+                    return out[:MAX_TABLES], True
+    except Exception as exc:  # noqa: BLE001
+        raise ConnectorError(f"Erreur de la base : {short(exc)}") from exc
+    return out, False
 
 
 def run(conn: DbConnection, sql: str, limit: int, params: list[Any] | None = None) -> tuple[pd.DataFrame, bool]:
@@ -314,6 +413,8 @@ def run(conn: DbConnection, sql: str, limit: int, params: list[Any] | None = Non
 
 
 def list_tables(conn: DbConnection, cfg: ConnectionFields) -> tuple[list[TableRef], bool]:
+    if cfg.kind == "bigquery":
+        return _bigquery_tables(conn, cfg)
     dialect = DIALECTS[cfg.kind]
     sql, params = dialect.tables_sql(cfg.database)
     df, truncated = run(conn, sql, MAX_TABLES, params)

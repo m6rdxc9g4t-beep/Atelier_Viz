@@ -5,6 +5,7 @@ Miroir TypeScript : frontend/src/types/connection.ts.
 Les mots de passe et jetons ne sont jamais renvoyés par l'API (`has_password`, `signed_in`).
 """
 
+import re
 from datetime import datetime
 from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
@@ -14,9 +15,21 @@ from pydantic import BaseModel, Field, SecretStr, model_validator
 from app.core.network import is_loopback_host, loopback_refusal
 
 ConnectorKind = Literal[
-    "sqlserver", "postgres", "mysql", "sqlite", "file", "web", "sharepoint", "atelier_tab", "atelier_projets"
+    "sqlserver",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "snowflake",
+    "bigquery",
+    "file",
+    "web",
+    "sharepoint",
+    "atelier_tab",
+    "atelier_projets",
 ]
-SQL_KINDS: tuple[ConnectorKind, ...] = ("sqlserver", "postgres", "mysql", "sqlite")
+SQL_KINDS: tuple[ConnectorKind, ...] = ("sqlserver", "postgres", "mysql", "sqlite", "snowflake", "bigquery")
+#: Entrepôts dans le nuage : mode « En ligne » obligatoire.
+CLOUD_KINDS: tuple[ConnectorKind, ...] = ("snowflake", "bigquery")
 SERVER_KINDS: tuple[ConnectorKind, ...] = ("sqlserver", "postgres", "mysql")
 # Applications de la Suite Atelier (docs/SUITE.md §4.2 et §4.3) : aucun secret.
 SUITE_KINDS: tuple[ConnectorKind, ...] = ("atelier_tab", "atelier_projets")
@@ -51,11 +64,24 @@ class ConnectionFields(BaseModel):
     client_id: str | None = Field(
         default=None, max_length=100, description="Application Entra ID (sinon SHAREPOINT_CLIENT_ID)."
     )
+    # Snowflake : entrepôt de calcul et rôle (de préférence un rôle en lecture seule).
+    warehouse: str | None = Field(default=None, max_length=255, description="Snowflake : entrepôt (warehouse).")
+    role: str | None = Field(default=None, max_length=255, description="Snowflake : rôle (lecture seule conseillé).")
+    # BigQuery : plafond de données lues par requête (coût), en Go.
+    max_gb: int | None = Field(default=None, ge=1, le=10_000, description="BigQuery : Go lus au plus par requête.")
 
     @model_validator(mode="after")
     def _required(self) -> "ConnectionFields":
         if self.kind in SERVER_KINDS and not (self.host and self.host.strip()):
             raise ValueError("Le serveur est obligatoire.")
+        if self.kind == "snowflake" and not (self.host and self.host.strip()):
+            raise ValueError("L'identifiant du compte Snowflake est obligatoire (ex. monorg-moncompte).")
+        if self.kind == "snowflake" and self.host and not re.fullmatch(r"[A-Za-z0-9._-]{3,255}", self.host.strip()):
+            raise ValueError("Identifiant de compte Snowflake invalide (lettres, chiffres, « . », « - », « _ »).")
+        if self.kind == "bigquery" and not (
+            self.database and re.fullmatch(r"[a-z][a-z0-9-]{4,61}[a-z0-9]", self.database)
+        ):
+            raise ValueError("Projet Google Cloud attendu (ex. mon-projet-123).")
         if self.kind in {"sqlite", "file"} and not (self.path and self.path.strip()):
             raise ValueError("Le chemin du fichier est obligatoire.")
         if self.kind == "atelier_projets" and self.base_url and self.base_url.strip():

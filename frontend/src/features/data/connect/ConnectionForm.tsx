@@ -146,6 +146,57 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
           </Field>
         )}
 
+        {kind === "snowflake" && (
+          <>
+            <Field label="Compte" hint="Identifiant du compte : organisation-compte (ou localisateur.région)">
+              <input className={input} value={value.host ?? ""} onChange={(e) => set({ host: e.target.value })} placeholder={meta.hostPlaceholder} spellCheck={false} />
+            </Field>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Base de données">
+                <input className={input} value={value.database ?? ""} onChange={(e) => set({ database: e.target.value })} spellCheck={false} />
+              </Field>
+              <Field label="Entrepôt">
+                <input className={input} value={value.warehouse ?? ""} onChange={(e) => set({ warehouse: e.target.value })} placeholder="COMPUTE_WH" spellCheck={false} />
+              </Field>
+              <Field label="Rôle" hint="Un rôle en lecture seule">
+                <input className={input} value={value.role ?? ""} onChange={(e) => set({ role: e.target.value })} placeholder="LECTEUR" spellCheck={false} />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Utilisateur">
+                <input className={input} value={value.username ?? ""} onChange={(e) => set({ username: e.target.value })} autoComplete="off" spellCheck={false} />
+              </Field>
+              <Field label="Mot de passe" hint={editing?.has_password ? "Laissez vide pour le garder" : undefined}>
+                <input className={input} type="password" value={value.password ?? ""} onChange={(e) => set({ password: e.target.value })} placeholder={editing?.has_password ? "••••••••" : ""} autoComplete="new-password" />
+              </Field>
+            </div>
+            <CloudNotice />
+          </>
+        )}
+
+        {kind === "bigquery" && (
+          <>
+            <div className="grid grid-cols-[1fr_8rem] gap-3">
+              <Field label="Projet Google Cloud" hint="Projet facturé pour les requêtes">
+                <input className={input} value={value.database ?? ""} onChange={(e) => set({ database: e.target.value })} placeholder="mon-projet-123" spellCheck={false} />
+              </Field>
+              <Field label="Go lus au plus" hint="Par requête (coût)">
+                <input className={input} inputMode="numeric" value={value.max_gb ?? ""} onChange={(e) => set({ max_gb: e.target.value ? Number(e.target.value.replace(/\D/g, "")) || null : null })} placeholder="10" />
+              </Field>
+            </div>
+            <Field label="Clé du compte de service (JSON)" hint={editing?.has_password ? "Laissez vide pour garder la clé enregistrée" : "Rôles BigQuery Data Viewer et BigQuery Job User"}>
+              <textarea
+                className={`${input} h-24 font-mono text-[11px]`}
+                value={value.password ?? ""}
+                onChange={(e) => set({ password: e.target.value })}
+                placeholder={editing?.has_password ? "Clé enregistrée" : '{"type": "service_account", …}'}
+                spellCheck={false}
+              />
+            </Field>
+            <CloudNotice />
+          </>
+        )}
+
         {kind === "web" && (
           <>
             <Field
@@ -305,5 +356,15 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       </label>
       {hint && <p className="text-[11px] text-muted">{hint}</p>}
     </div>
+  );
+}
+
+/** Rappel des entrepôts dans le nuage : en ligne seulement, secret au trousseau, lecture seule. */
+function CloudNotice() {
+  return (
+    <p className="flex items-start gap-1.5 rounded-md bg-surface-2 px-3 py-2 text-[11px] text-muted">
+      <ShieldCheck className="mt-px size-3.5 shrink-0 text-muted" aria-hidden />
+      <span>Service sur Internet : utilisable en mode « En ligne » seulement. Le secret est rangé dans le trousseau du système ; seules les requêtes de lecture sont envoyées.</span>
+    </p>
   );
 }

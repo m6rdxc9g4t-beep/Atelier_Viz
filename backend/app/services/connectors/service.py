@@ -23,6 +23,7 @@ import pandas as pd
 
 from app.core.config import Settings
 from app.schemas.connection import (
+    CLOUD_KINDS,
     SERVER_KINDS,
     SQL_KINDS,
     AuthStatus,
@@ -246,6 +247,12 @@ class ConnectionService:
         """Politique réseau : hors ligne, pas d'Internet ; Atelier Projets toujours sur la machine."""
         if cfg.kind in SERVER_KINDS:
             check_server(cfg.host or "", self.is_online())
+        elif cfg.kind in CLOUD_KINDS and not self.is_online():
+            raise ConnectorError(
+                f"Mode hors ligne : {sql.DIALECTS[cfg.kind].label} est un service sur Internet. "
+                "Activez le mode « En ligne » pour vous y connecter.",
+                403,
+            )
         elif cfg.kind == "atelier_projets":
             # docs/SUITE.md §4.3 : adresse de la machine uniquement, quel que soit le mode.
             check_loopback(atelier.projets_host(self._projets_base(cfg)), "Atelier Projets")

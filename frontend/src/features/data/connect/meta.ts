@@ -1,6 +1,6 @@
 /** Présentation des connecteurs (icônes, libellés, champs) et petites fonctions pures testées. */
 
-import { Cloud, Database, FileSpreadsheet, Globe, KanbanSquare, type LucideIcon, Server, Table2 } from "lucide-react";
+import { Cloud, Database, FileSpreadsheet, Globe, KanbanSquare, type LucideIcon, Server, Snowflake, Table2, Warehouse } from "lucide-react";
 
 import type { Connection, ConnectionInput, ConnectorKind, SourceSpec, TableRef } from "../../../types/connection";
 import { SERVER_KINDS, tableLabel } from "../../../types/connection";
@@ -16,6 +16,8 @@ export const KIND_META: Record<ConnectorKind, { icon: LucideIcon; label: string;
   mysql: { icon: Database, label: "MySQL / MariaDB", hostPlaceholder: "localhost" },
   sqlite: { icon: Database, label: "SQLite", pathPlaceholder: "~/Documents/boutique.db" },
   file: { icon: FileSpreadsheet, label: "Fichier synchronisé", pathPlaceholder: "~/Library/CloudStorage/OneDrive-Entreprise/Ventes/objectifs.xlsx" },
+  snowflake: { icon: Snowflake, label: "Snowflake", hostPlaceholder: "monorg-moncompte" },
+  bigquery: { icon: Warehouse, label: "Google BigQuery" },
   web: { icon: Globe, label: "Fichier web (URL)", hostPlaceholder: "https://donnees.exemple.fr/exports/ventes.csv" },
   sharepoint: { icon: Cloud, label: "SharePoint Online" },
   atelier_tab: { icon: Table2, label: "Atelier Tab", pathPlaceholder: ATELIER_TAB_DEFAULT_FOLDER },
@@ -29,6 +31,8 @@ export function describeConnection(c: Connection): string {
   if (c.kind === "atelier_tab") return c.path?.trim() || ATELIER_TAB_DEFAULT_FOLDER;
   if (c.kind === "atelier_projets") return (c.base_url?.trim() || ATELIER_PROJETS_DEFAULT_URL).replace(/^https?:\/\//, "").replace(/\/+$/, "");
   if (c.kind === "web") return webFileName(c.base_url ?? "") || (c.base_url ?? "");
+  if (c.kind === "snowflake") return [c.host, c.database, c.warehouse].filter(Boolean).join(" · ");
+  if (c.kind === "bigquery") return c.database ?? "";
   return c.path?.split(/[\\/]/).pop() ?? "";
 }
 
@@ -39,6 +43,8 @@ export function emptyForm(kind: ConnectorKind): ConnectionInput {
   if (kind === "sharepoint") return { ...base, name: "SharePoint", tenant: "", client_id: "" };
   if (kind === "atelier_projets") return { ...base, base_url: "" };
   if (kind === "web") return { ...base, base_url: "", username: "", password: "" };
+  if (kind === "snowflake") return { ...base, host: "", database: "", username: "", password: "", warehouse: "", role: "" };
+  if (kind === "bigquery") return { ...base, database: "", password: "", max_gb: 10 };
   return { ...base, path: "" };
 }
 
@@ -73,6 +79,8 @@ export function toInput(form: ConnectionInput, editing: boolean): ConnectionInpu
 /** Champ obligatoire manquant, ou null. */
 export function missingField(form: ConnectionInput): string | null {
   if (SERVER_KINDS.includes(form.kind) && !form.host?.trim()) return "Indiquez le serveur.";
+  if (form.kind === "snowflake" && !/^[A-Za-z0-9._-]{3,255}$/.test(form.host?.trim() ?? "")) return "Indiquez l'identifiant du compte Snowflake (ex. monorg-moncompte).";
+  if (form.kind === "bigquery" && !/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(form.database?.trim() ?? "")) return "Indiquez le projet Google Cloud (ex. mon-projet-123).";
   if ((form.kind === "sqlite" || form.kind === "file") && !form.path?.trim()) return "Indiquez le chemin du fichier.";
   if (form.kind === "web") {
     const url = form.base_url?.trim() ?? "";

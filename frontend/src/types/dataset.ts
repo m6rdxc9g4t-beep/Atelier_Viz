@@ -4,7 +4,7 @@ import type { AnyOrigin } from "./connection";
 
 export type ColumnType = "number" | "string" | "date" | "boolean";
 /** Fichier importé, type de la connexion d'origine, ou table reçue d'un workflow (`atelier_table`). */
-export type SourceFormat = "csv" | "xlsx" | "json" | "sqlserver" | "postgres" | "mysql" | "sqlite" | "sharepoint" | "atelier_tab" | "atelier_projets" | "atelier_table";
+export type SourceFormat = "csv" | "xlsx" | "json" | "sqlserver" | "postgres" | "mysql" | "sqlite" | "snowflake" | "bigquery" | "sharepoint" | "atelier_tab" | "atelier_projets" | "atelier_table";
 export type Scalar = number | string | boolean | null;
 export type Row = Record<string, Scalar>;
 
