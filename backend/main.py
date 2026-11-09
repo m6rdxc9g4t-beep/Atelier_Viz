@@ -79,7 +79,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             is_online=lambda: app.state.preferences.get().online_mode,
             env_token=lambda: settings.github_token.get_secret_value() if settings.github_token else None,
         )
-        app.state.background_job = BackgroundJob(current_environment(), lambda: read_status(settings))
+        app.state.background_job = BackgroundJob(
+            current_environment(server=settings.app_env == "production"), lambda: read_status(settings)
+        )
         app.state.email = EmailService(
             data_dir / "email.json", secrets, is_online=lambda: app.state.preferences.get().online_mode
         )

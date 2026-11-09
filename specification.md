@@ -442,7 +442,7 @@ Automatisation → « Quand l'application est fermée » : une tâche du systèm
 - Fréquence : 15 min à 12 h. Commandes à arguments fixes, jamais de shell ; chemins échappés (plist par `plistlib`, guillemets systemd et `/TR`).
 - Passage (`backend/refresh_once.py` → `app/background.py`) : si l'application est ouverte, la base DuckDB est verrouillée → arrêt immédiat (statut « application ouverte »). Sinon mêmes services que l'application (préférences, mode hors ligne, connexions, ordonnanceur, alertes, journal du nœud), `RefreshScheduler.tick` (échéances dues, rattrapage une fois), attente des actualisations et de leurs alertes, fermeture propre. Bilan dans `data/background.json` (affiché : jeux actualisés, en échec, sautés).
 - Pendant un passage, le témoin `data/background.lock` signale à l'application de bureau que la base est tenue par l'actualisation : au lancement, elle attend sa fin (60 s au plus) au lieu de refuser ; une base illisible pour une autre raison qu'un verrou est signalée en erreur (pas « application ouverte »). Variables d'environnement d'une autre app ignorées comme au lancement de l'application (`scrub_inherited_env`). Unité systemd sans `WorkingDirectory=` (non déguillemeté par systemd ; le script se place lui-même dans `backend/`), vérifiée par `systemd-analyze verify` dans les tests ; `launchctl bootstrap` réessayé, agent retiré s'il n'a pas pu être chargé.
-- Non proposée par le paquet autonome (version figée). API : `GET / PUT /api/background`.
+- Non proposée par le paquet autonome (version figée), ni sur un serveur (`APP_ENV=production` : VPS, conteneur, où l'application tourne en permanence), ni quand `launchctl` / `schtasks` / `systemctl` est absent. API : `GET / PUT /api/background`.
 
 ### Actualisation planifiée des sources
 Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Planifier**, ou écran **Automatisation**.
@@ -560,7 +560,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (541, + 2 sur serveurs réels) côté back, Vitest (245) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (543, + 2 sur serveurs réels) côté back, Vitest (245) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 

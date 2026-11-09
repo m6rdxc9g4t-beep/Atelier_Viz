@@ -32,8 +32,11 @@ Runner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
 
 
 def default_runner(args: Sequence[str]) -> subprocess.CompletedProcess[str]:
-    """Commande à arguments fixes, sans shell, bornée à 30 s."""
-    return subprocess.run(list(args), capture_output=True, text=True, timeout=30, check=False)  # noqa: S603
+    """Commande à arguments fixes, sans shell, bornée à 30 s ; commande absente = échec lisible (pas de 500)."""
+    try:
+        return subprocess.run(list(args), capture_output=True, text=True, timeout=30, check=False)  # noqa: S603
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        return subprocess.CompletedProcess(list(args), 127, "", f"{args[0]} : {type(exc).__name__}")
 
 
 class BackgroundJobError(Exception):
@@ -68,9 +71,17 @@ class Environment:
     entry: Path
     frozen: bool = False
     runner: Runner = default_runner
+    server: bool = False  # serveur (VPS, conteneur) : l'application tourne en permanence
+    tool_found: bool = True  # launchctl / schtasks / systemctl présent
 
 
-def current_environment() -> Environment:
+_TOOLS = {"darwin": "launchctl", "win32": "schtasks"}
+
+
+def current_environment(server: bool = False) -> Environment:
+    """Environnement réel ; `server` = déploiement serveur (`APP_ENV=production`), où la tâche n'a pas de sens."""
+    import shutil
+
     python = Path(sys.executable)
     if sys.platform == "win32" and python.name.lower() == "python.exe":
         windowless = python.with_name("pythonw.exe")
@@ -81,6 +92,8 @@ def current_environment() -> Environment:
         python=python,
         entry=Path(__file__).resolve().parents[2] / "refresh_once.py",
         frozen=bool(getattr(sys, "frozen", False)),
+        server=server,
+        tool_found=shutil.which(_TOOLS.get(sys.platform, "systemctl")) is not None,
     )
 
 
@@ -133,8 +146,15 @@ class BackgroundJob:
             return base.model_copy(
                 update={"reason": "Version autonome : utilisez l'application installée depuis le dépôt."}
             )
+        if self.env.server:
+            return base.model_copy(
+                update={"reason": "Serveur : l'application tourne en permanence, l'actualisation planifiée suffit."}
+            )
         if kind is None:
             return base.model_copy(update={"reason": "Système non pris en charge."})
+        if not self.env.tool_found:
+            tool = {"launchd": "launchctl", "schtasks": "schtasks"}.get(kind, "systemctl")
+            return base.model_copy(update={"reason": f"« {tool} » introuvable sur cette machine."})
         if not self.env.entry.exists():
             return base.model_copy(update={"reason": "Script d'actualisation introuvable (refresh_once.py)."})
         out = base.model_copy(update={"supported": True})

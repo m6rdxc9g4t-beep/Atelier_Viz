@@ -232,3 +232,24 @@ def test_background_api(client: TestClient) -> None:
     state = client.get("/api/background").json()
     assert set(state) >= {"supported", "installed", "platform", "last"} and state["last"]["status"] == "never"
     assert client.put("/api/background", json={"enabled": True, "interval_minutes": 2}).status_code == 422
+
+
+def test_server_and_missing_tool_are_not_supported(tmp_path: Path) -> None:
+    """VPS / conteneur (APP_ENV=production) ou outil absent : jamais proposé (et jamais de 500)."""
+    import dataclasses
+
+    j = job(tmp_path, "linux", Recorder())
+    j.env = dataclasses.replace(j.env, server=True)
+    state = j.state()
+    assert not state.supported and "Serveur" in (state.reason or "")
+    with pytest.raises(BackgroundJobError):
+        j.apply(BackgroundJobInput(enabled=True, interval_minutes=30))
+    j.env = dataclasses.replace(j.env, server=False, tool_found=False)
+    assert "systemctl" in (j.state().reason or "")
+
+
+def test_default_runner_reports_a_missing_command() -> None:
+    from app.services.background_job import default_runner
+
+    res = default_runner(["commande-absente-atelier-viz"])
+    assert res.returncode == 127 and "FileNotFoundError" in res.stderr
