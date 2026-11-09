@@ -49,7 +49,8 @@ export function bindInto(visual: Visual, role: RoleDef, column: ColumnProfile, d
 
 /** Rôle le plus adapté pour un champ déposé directement sur un visuel. */
 export function bestRole(visual: Visual, column: ColumnProfile): RoleDef | undefined {
-  const def = VISUALS[visual.type];
+  // Rôles hors requête (Info-bulles) : seulement par un dépôt explicite dans leur puits.
+  const roles = VISUALS[visual.type].roles.filter((r) => r.inQuery !== false);
   const accepts = (r: RoleDef) => !r.types || r.types.includes(column.type);
   // L'Axe accepte une hiérarchie (plusieurs champs) en dépôt explicite ; un clic remplit d'abord les autres rôles.
   const free = (r: RoleDef) => {
@@ -57,29 +58,36 @@ export function bestRole(visual: Visual, column: ColumnProfile): RoleDef | undef
     return !cap || (visual.roles[r.id]?.length ?? 0) < cap;
   };
   if (column.measure) {
-    const measures = def.roles.filter((r) => r.kind === "measure");
+    const measures = roles.filter((r) => r.kind === "measure");
     return measures.find(free) ?? measures[0];
   }
   const name = column.name.toLowerCase();
-  const named = def.roles.find((r) => accepts(r) && (name.includes(r.id) || (r.id === "lon" && /lng|long/.test(name))));
+  const named = roles.find((r) => accepts(r) && (name.includes(r.id) || (r.id === "lon" && /lng|long/.test(name))));
   if (named) return named;
   const prefer = column.type === "number" ? "measure" : "dimension";
   return (
-    def.roles.find((r) => accepts(r) && free(r) && r.kind === prefer) ??
-    def.roles.find((r) => accepts(r) && free(r)) ??
-    def.roles.find((r) => accepts(r) && r.kind === prefer)
+    roles.find((r) => accepts(r) && free(r) && r.kind === prefer) ??
+    roles.find((r) => accepts(r) && free(r)) ??
+    roles.find((r) => accepts(r) && r.kind === prefer)
   );
 }
 
 /** Conserve les champs lors d'un changement de type de visuel (dimensions puis mesures, dans l'ordre). */
 export function convertRoles(visual: Visual, type: VisualType): Record<string, FieldBinding[]> {
   const old = VISUALS[visual.type].roles;
-  const dims = old.filter((r) => r.kind === "dimension").flatMap((r) => visual.roles[r.id] ?? []);
-  const meas = old.filter((r) => r.kind === "measure").flatMap((r) => visual.roles[r.id] ?? []);
+  // Les info-bulles restent des info-bulles (jamais tracées après un changement de type).
+  const plotted = old.filter((r) => r.inQuery !== false);
+  const dims = plotted.filter((r) => r.kind === "dimension").flatMap((r) => visual.roles[r.id] ?? []);
+  const meas = plotted.filter((r) => r.kind === "measure").flatMap((r) => visual.roles[r.id] ?? []);
   const out: Record<string, FieldBinding[]> = {};
   // Une hiérarchie d'Axe reste une hiérarchie ; la Légende ne devient pas un niveau d'exploration.
   const levels = Math.max(1, visual.roles.category?.length ?? 0);
   for (const r of VISUALS[type].roles) {
+    if (r.inQuery === false) {
+      const kept = old.some((o) => o.id === r.id) ? (visual.roles[r.id] ?? []) : [];
+      if (kept.length) out[r.id] = kept.slice(0, r.max);
+      continue;
+    }
     const pool = r.kind === "dimension" ? dims : meas;
     const cap = r.id === "category" ? Math.min(levels, r.max ?? levels) : r.max;
     const take = cap ? pool.splice(0, cap) : pool.splice(0);

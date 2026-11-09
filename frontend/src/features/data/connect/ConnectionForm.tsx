@@ -146,6 +146,43 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
           </Field>
         )}
 
+        {kind === "web" && (
+          <>
+            <Field
+              label="Adresse du fichier"
+              hint="CSV, Excel ou JSON en http(s) : données ouvertes, export publié (Google Sheets « Publier sur le Web », GitHub…), serveur interne. Hors ligne : serveurs de la machine ou du réseau de l'entreprise seulement."
+            >
+              <input
+                className={`${input} font-mono text-xs`}
+                value={value.base_url ?? ""}
+                onChange={(e) => set({ base_url: e.target.value })}
+                placeholder={meta.hostPlaceholder}
+                spellCheck={false}
+                inputMode="url"
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Utilisateur (facultatif)" hint="Avec un jeton : authentification Basic">
+                <input className={input} value={value.username ?? ""} onChange={(e) => set({ username: e.target.value })} autoComplete="off" spellCheck={false} />
+              </Field>
+              <Field label="Jeton (facultatif)" hint={editing?.has_password ? "Laissez vide pour le garder" : "Envoyé en « Bearer » au seul serveur de l'adresse"}>
+                <input
+                  className={input}
+                  type="password"
+                  value={value.password ?? ""}
+                  onChange={(e) => set({ password: e.target.value })}
+                  placeholder={editing?.has_password ? "••••••••" : ""}
+                  autoComplete="new-password"
+                />
+              </Field>
+            </div>
+            <p className="flex items-start gap-1.5 rounded-md bg-surface-2 px-3 py-2 text-[11px] text-muted">
+              <ShieldCheck className="mt-px size-3.5 shrink-0 text-muted" aria-hidden />
+              <span>Le jeton est rangé dans le trousseau du système. Une clé écrite dans l'adresse elle-même serait enregistrée en clair : préférez le champ Jeton.</span>
+            </p>
+          </>
+        )}
+
         {kind === "atelier_tab" && (
           <>
             <p className="rounded-md bg-surface-2 px-3 py-2 text-xs text-muted">

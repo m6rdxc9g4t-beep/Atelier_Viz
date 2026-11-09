@@ -13,6 +13,7 @@ import type { Page, Report, Visual } from "../types/report";
 import { type ReportTheme, type VisualStyle, themeVars, visualCss } from "../theme/reportTheme";
 import type { VisualDef } from "../visuals/types";
 import type { QueryResult } from "../visuals/useQueryResult";
+import { pageParameters } from "../visuals/interactive/parameters";
 
 export interface CaptureRequest {
   visual: Visual;
@@ -109,6 +110,7 @@ export async function captureVisual(req: CaptureRequest): Promise<string | null>
             activeFilters: req.filters,
           }}
           editing={false}
+          parameters={pageParameters(req.page)}
         />
       </div>,
     );

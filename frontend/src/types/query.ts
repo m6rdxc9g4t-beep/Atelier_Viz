@@ -61,6 +61,8 @@ export interface QueryRequest {
   sort?: Sort[];
   limit?: number;
   grouping_sets?: string[][] | null;
+  /** Valeurs des curseurs de simulation, lues par PARAM("nom", défaut) dans les mesures. */
+  parameters?: Record<string, number>;
 }
 
 export interface QueryColumn {

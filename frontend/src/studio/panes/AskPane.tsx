@@ -8,6 +8,7 @@ import { VISUALS } from "../../visuals/registry";
 import { useStudioData } from "../context";
 import { useStudio } from "../store";
 import { Pane } from "./Pane";
+import { pageParameters } from "../../visuals/interactive/parameters";
 
 interface AskEntry {
   id: string;
@@ -160,6 +161,8 @@ export function AskPane() {
 }
 
 function Answer({ entry, report, editing, onAdd }: { entry: AskEntry; report: ReturnType<typeof useStudio.getState>["report"]; editing: boolean; onAdd: () => void }) {
+  const page = useStudio((s) => s.page());
+  const currentParameters = page ? pageParameters(page) : {};
   const { profiles } = useStudioData();
   const asked = entry.asked as Asked;
   const def = VISUALS[asked.visual.type];
@@ -191,6 +194,7 @@ function Answer({ entry, report, editing, onAdd }: { entry: AskEntry; report: Re
               setOptions={noop}
               actions={{ pages: report.pages, pageId: "", reportName: report.name, goToPage: noop, resetFilters: noop, applyBookmark: () => false, activeFilters: [] }}
               editing={false}
+              parameters={currentParameters}
             />
           )}
         </div>

@@ -80,6 +80,24 @@ describe("connecteurs : présentation", () => {
   });
 });
 
+describe("fichier web (URL)", () => {
+  const web: Connection = { ...pg, id: "w1", name: "Open data", kind: "web", host: null, database: null, username: null, base_url: "https://data.exemple.fr/exports/ventes%202026.csv?token=x" };
+
+  it("vérifie l'adresse et n'accepte pas d'identifiant dans l'URL", () => {
+    expect(emptyForm("web")).toMatchObject({ kind: "web", base_url: "", password: "" });
+    expect(missingField(emptyForm("web"))).toBe("Indiquez l'adresse du fichier.");
+    expect(missingField({ ...emptyForm("web"), base_url: "ftp://x/f.csv" })).toMatch(/http ou https/);
+    expect(missingField({ ...emptyForm("web"), base_url: "https://moi:secret@x.fr/f.csv" })).toMatch(/Pas d'identifiant/);
+    expect(missingField({ ...emptyForm("web"), base_url: "https://x.fr/f.csv" })).toBeNull();
+  });
+
+  it("décrit la connexion et nomme le jeu d'après le fichier", () => {
+    expect(describeConnection(web)).toBe("ventes 2026.csv");
+    expect(suggestedName(web, {})).toBe("ventes 2026.csv");
+    expect(suggestedName({ ...web, base_url: "https://x.fr/objectifs.xlsx" }, { table: { name: "2026", kind: "sheet" } })).toBe("objectifs — 2026");
+  });
+});
+
 describe("connecteurs de la Suite Atelier", () => {
   const tab: Connection = { ...pg, id: "t1", kind: "atelier_tab", name: "Atelier Tab", host: null, port: null, database: null, username: null, has_password: false, path: null };
   const projets: Connection = { ...tab, id: "p1", kind: "atelier_projets", name: "Atelier Projets", base_url: "http://127.0.0.1:3900/" };

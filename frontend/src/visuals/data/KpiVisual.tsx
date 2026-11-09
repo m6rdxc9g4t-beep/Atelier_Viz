@@ -8,6 +8,7 @@ import { formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
 import type { Filter, QueryRequest } from "../../types/query";
 import type { Visual } from "../../types/report";
+import { withParameters } from "../interactive/parameters";
 import { useQueryResult } from "../useQueryResult";
 
 /** Requête de la mini-tendance (valeur par date), ou null sans champ « Tendance ». */
@@ -29,7 +30,7 @@ export function KpiVisual(props: VisualProps) {
   const valueB = first(visual, "values");
   const targetB = first(visual, "target");
 
-  const trend = useQueryResult(kpiTrendRequest(visual, filters));
+  const trend = useQueryResult(withParameters(kpiTrendRequest(visual, filters), props.parameters, props.dataset));
 
   const row = result?.rows[0];
   if (!valueB || !row) return null;

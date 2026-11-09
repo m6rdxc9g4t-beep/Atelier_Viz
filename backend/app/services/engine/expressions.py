@@ -16,6 +16,8 @@ Syntaxe (inspirée d'Excel / DAX, fonctions en anglais ou en français) :
 - Nombres avec un point décimal (1.2) ; textes entre guillemets ("…" ou '…').
 - Opérateurs : + - * / ( ), comparaisons = <> != < <= > >=, ET / AND, OU / OR, NON / NOT.
 - La division par zéro donne une valeur vide (jamais une erreur ni l'infini).
+- Paramètre de simulation (mesures seulement) : `PARAM("croissance", 5)` vaut la valeur choisie
+  sur le curseur du rapport (`QueryRequest.parameters`), sinon la valeur par défaut.
 """
 
 import difflib
@@ -335,6 +337,9 @@ SCALARS = {
     "MOIS": "MONTH",
     "CONCAT": "CONCAT",
     "CONCATENER": "CONCAT",
+    "PARAM": "PARAM",
+    "PARAMETRE": "PARAM",
+    "PARAMÈTRE": "PARAM",
 }
 #: Fonctions proposées par l'éditeur (nom affiché, syntaxe, contexte).
 CATALOG = [
@@ -353,7 +358,11 @@ CATALOG = [
     ("YEAR", "YEAR(date)", "column"),
     ("MONTH", "MONTH(date)", "column"),
     ("CONCAT", "CONCAT(a, b, …)", "column"),
+    ("PARAM", 'PARAM("nom", défaut)', "measure"),
 ]
+
+#: Nom d'un paramètre de simulation : lettres, chiffres, espaces, « _ » et « - » (60 au plus).
+PARAMETER_NAME = re.compile(r"^[^\W][\w \-]{0,59}$", re.UNICODE)
 
 TYPE_LABEL = {
     "number": "un nombre",
@@ -375,11 +384,57 @@ class Scope:
     """Ce qu'une expression peut référencer.
 
     - `columns` : colonnes de base et calculées (nom → (SQL, type)) ;
-    - `measures` : expressions des mesures calculées (nom → texte), développées à l'usage.
+    - `measures` : expressions des mesures calculées (nom → texte), développées à l'usage ;
+    - `parameters` : valeurs des paramètres de simulation (nom → nombre fini), sinon le défaut.
     """
 
     columns: dict[str, tuple[str, ColumnType]]
     measures: dict[str, str] = field(default_factory=dict)
+    parameters: dict[str, float] = field(default_factory=dict)
+
+
+def _number_sql(v: float, pos: int | None = None) -> str:
+    """Nombre réécrit en SQL à partir de sa valeur (jamais d'un texte saisi)."""
+    if not math.isfinite(v) or abs(v) >= 1e300:
+        raise ExpressionError("Nombre trop grand.", pos)
+    text = str(int(v)) if float(v).is_integer() and abs(v) < 1e15 else repr(float(v))
+    return f"({text})" if v < 0 else text
+
+
+def _constant(node: Node) -> float | None:
+    """Valeur d'un nombre littéral, éventuellement signé (« 5 », « -2.5 »), sinon None."""
+    if isinstance(node, Num):
+        return node.value
+    if isinstance(node, Unary) and node.op == "-" and isinstance(node.operand, Num):
+        return -node.operand.value
+    return None
+
+
+def parameters_used(text: str) -> list[tuple[str, float]]:
+    """Paramètres (nom, défaut) cités par une expression, dans l'ordre, sans doublon ; [] si invalide."""
+    try:
+        tree = Parser(text).parse()
+    except ExpressionError:
+        return []
+    found: dict[str, float] = {}
+
+    def walk(node: Node) -> None:
+        match node:
+            case Call(name=n, args=args):
+                if SCALARS.get(n.upper()) == "PARAM" and len(args) == 2 and isinstance(args[0], Str):
+                    default = _constant(args[1])
+                    if default is not None:
+                        found.setdefault(args[0].value.strip(), default)
+                for a in args:
+                    walk(a)
+            case Unary(operand=o):
+                walk(o)
+            case Binary(left=left, right=right):
+                walk(left)
+                walk(right)
+
+    walk(tree)
+    return list(found.items())
 
 
 def _suggest(name: str, choices: list[str]) -> str:
@@ -397,10 +452,7 @@ class Compiler:
     def compile(self, node: Node) -> Compiled:
         match node:
             case Num(value=v):
-                if not math.isfinite(v) or abs(v) >= 1e300:
-                    raise ExpressionError("Nombre trop grand.", node.pos)
-                text = str(int(v)) if v.is_integer() and abs(v) < 1e15 else repr(v)
-                return Compiled(text, "number")
+                return Compiled(_number_sql(v, node.pos), "number")
             case Str(value=v):
                 return Compiled("'" + v.replace("'", "''") + "'", "string")
             case Bool(value=v):
@@ -553,11 +605,36 @@ class Compiler:
             d = self.compile(node.args[0])
             self.want(d, "date", node.args[0], fn)
             return Compiled(f"{fn}({d.sql})", "number")
+        if fn == "PARAM":
+            return self.parameter(node)
         # CONCAT
         if len(node.args) < 2:
             raise ExpressionError("CONCAT attend au moins 2 arguments.", node.pos)
         parts = [f"CAST({self.compile(a).sql} AS VARCHAR)" for a in node.args]
         return Compiled(f"CONCAT({', '.join(parts)})", "string")
+
+    def parameter(self, node: Call) -> Compiled:
+        """`PARAM("nom", défaut)` → nombre littéral (valeur du curseur, sinon défaut).
+
+        La valeur vient d'un `float` validé (fini, borné) et réécrite par `_number_sql` : aucun texte
+        du client n'atteint le SQL, comme pour les nombres de l'expression.
+        """
+        if self.kind == "column":
+            raise ExpressionError(
+                "PARAM s'utilise dans une mesure : une colonne calculée est figée et ne suit pas le curseur.", node.pos
+            )
+        self.arity(node, 2, 2)
+        name_node, default_node = node.args
+        if not isinstance(name_node, Str) or not PARAMETER_NAME.match(name_node.value.strip()):
+            raise ExpressionError(
+                'PARAM : le premier argument est le nom du paramètre, entre guillemets (ex. PARAM("croissance", 5)).',
+                name_node.pos,
+            )
+        default = _constant(default_node)
+        if default is None:
+            raise ExpressionError("PARAM : la valeur par défaut doit être un nombre (ex. 5 ou -2.5).", default_node.pos)
+        value = self.scope.parameters.get(name_node.value.strip(), default)
+        return Compiled(_number_sql(value, node.pos), "number")
 
     def aggregate(self, node: Call, fn: str) -> Compiled:
         if self.kind == "column":

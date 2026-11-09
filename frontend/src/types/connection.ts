@@ -2,7 +2,7 @@
 
 import type { Row } from "./dataset";
 
-export type ConnectorKind = "sqlserver" | "postgres" | "mysql" | "sqlite" | "file" | "sharepoint" | "atelier_tab" | "atelier_projets";
+export type ConnectorKind = "sqlserver" | "postgres" | "mysql" | "sqlite" | "file" | "web" | "sharepoint" | "atelier_tab" | "atelier_projets";
 export const SERVER_KINDS: ConnectorKind[] = ["sqlserver", "postgres", "mysql"];
 export const SQL_KINDS: ConnectorKind[] = ["sqlserver", "postgres", "mysql", "sqlite"];
 /** Applications de la Suite Atelier (docs/SUITE.md §4.2 et §4.3) : aucun secret. */

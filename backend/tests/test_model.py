@@ -288,3 +288,67 @@ def test_routes_never_return_500_on_hostile_input(client: TestClient) -> None:
         ).status_code
         == 422
     )
+
+
+# ─── Paramètres de simulation (PARAM) ────────────────────────────────────────────────
+
+
+def test_param_compiles_to_literal_value_or_default() -> None:
+    assert compile_ok('SUM(ca) * (1 + PARAM("croissance", 5) / 100)') == '(SUM("ca") * (1 + (5 / NULLIF(100, 0))))'
+    scoped = Scope(columns=SCOPE.columns, measures=SCOPE.measures, parameters={"croissance": -2.5})
+    sql = compile_expression('SUM(ca) * PARAMETRE("croissance", 5)', "measure", scoped).sql
+    assert sql == '(SUM("ca") * (-2.5))'
+    # Défaut négatif accepté ; un autre paramètre garde son défaut.
+    assert compile_ok('PARAM("remise", -3)') == "(-3)"
+
+
+@pytest.mark.parametrize(
+    ("text", "kind", "message"),
+    [
+        ('ca * PARAM("x", 1)', "column", "s'utilise dans une mesure"),
+        ("SUM(ca) * PARAM(croissance, 1)", "measure", "entre guillemets"),
+        ('SUM(ca) * PARAM("x", ca)', "measure", "doit être un nombre"),
+        ('SUM(ca) * PARAM("x")', "measure", "attend 2 argument"),
+        ('SUM(ca) * PARAM("a;DROP TABLE x", 1)', "measure", "entre guillemets"),
+    ],
+)
+def test_param_errors(text: str, kind: str, message: str) -> None:
+    assert message in error_of(text, kind)[0]
+
+
+def test_parameters_used_lists_names_and_defaults() -> None:
+    from app.services.engine.expressions import parameters_used
+
+    text = 'SUM(ca) * (1 + PARAM("croissance", 5) / 100) - PARAM("remise", -2) + PARAM("croissance", 9)'
+    assert parameters_used(text) == [("croissance", 5.0), ("remise", -2.0)]
+    assert parameters_used("SUM(") == []
+
+
+def test_query_uses_parameter_values(store: DatasetStore) -> None:
+    model = DatasetModel.model_validate(
+        {"measures": [{"name": "CA simulé", "expression": 'SUM(ca) * (1 + PARAM("croissance", 10) / 100)'}]}
+    )
+    store.set_model(store.list()[0], model)
+    measure = [{"field": "CA simulé", "agg": "calc"}]
+    assert query(store, measures=measure)[0]["calc(CA simulé)"] == pytest.approx(420 * 1.10)
+    assert query(store, measures=measure, parameters={"croissance": 50})[0]["calc(CA simulé)"] == pytest.approx(630)
+    # Un paramètre inconnu de la mesure est sans effet.
+    assert query(store, measures=measure, parameters={"autre": 3})[0]["calc(CA simulé)"] == pytest.approx(462)
+
+
+@pytest.mark.parametrize("bad", [{"x": float("inf")}, {"": 1}, {"x" * 61: 1}, {"x": 1e16}])
+def test_query_rejects_invalid_parameters(bad: dict[str, float]) -> None:
+    with pytest.raises(ValueError):
+        QueryRequest(dataset_id="abc", measures=[{"agg": "count"}], parameters=bad)
+
+
+def test_query_route_accepts_parameters(client: TestClient) -> None:
+    ds = client.post("/api/datasets", files={"file": ("v.csv", CSV, "text/csv")}).json()
+    model = {"columns": [], "measures": [{"name": "Prévu", "expression": 'SUM(ca) + PARAM("bonus", 0)'}]}
+    assert client.put(f"/api/datasets/{ds['id']}/model", json=model).status_code == 200
+    body = {"dataset_id": ds["id"], "measures": [{"field": "Prévu", "agg": "calc"}], "parameters": {"bonus": 80}}
+    res = client.post("/api/query", json=body)
+    assert res.status_code == 200, res.text
+    assert res.json()["rows"] == [[500]]
+    bad = client.post("/api/query", json={**body, "parameters": {"bonus": "beaucoup"}})
+    assert bad.status_code == 422

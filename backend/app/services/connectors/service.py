@@ -41,7 +41,7 @@ from app.schemas.connection import (
     TestResult,
 )
 from app.schemas.dataset import SourceFormat
-from app.services.connectors import atelier, sql
+from app.services.connectors import atelier, sql, web
 from app.services.connectors.base import ConnectorError, check_loopback, check_server, preview_of
 from app.services.connectors.secrets import SecretBackend
 from app.services.connectors.sharepoint import PendingLogin, SharePointClient, Tokens
@@ -63,6 +63,7 @@ class ConnectionService:
         is_online: Callable[[], bool],
         http_factory: Callable[[], httpx.Client] | None = None,
         projets_http_factory: Callable[[], httpx.Client] | None = None,
+        web_http_factory: Callable[[bool], httpx.Client] | None = None,
     ) -> None:
         self.path = path
         self.secrets = secrets
@@ -75,6 +76,12 @@ class ConnectionService:
         self.projets_http_factory = projets_http_factory or (
             lambda: httpx.Client(
                 timeout=settings.atelier_projets_timeout_seconds, trust_env=False, follow_redirects=False
+            )
+        )
+        # Fichier web : hors ligne, connexion directe à l'adresse privée validée (pas de proxy système).
+        self.web_http_factory = web_http_factory or (
+            lambda online: httpx.Client(
+                timeout=settings.connector_query_timeout_seconds, trust_env=online, follow_redirects=False
             )
         )
         self._lock = threading.Lock()
@@ -188,6 +195,16 @@ class ConnectionService:
         )
         infos.append(
             ConnectorInfo(
+                kind="web",
+                label="Fichier web (URL)",
+                description=(
+                    "CSV, Excel ou JSON à une adresse http(s) : données ouvertes, export publié, serveur interne"
+                ),
+                driver_installed=True,
+            )
+        )
+        infos.append(
+            ConnectorInfo(
                 kind="sharepoint",
                 label="SharePoint Online",
                 description="Fichier d'une bibliothèque ou liste SharePoint, via votre compte Microsoft 365",
@@ -261,6 +278,17 @@ class ConnectionService:
             )
         return path
 
+    def _web(self, cfg: ConnectionFields, password: str | None = None, connection_id: str | None = None) -> web.WebFile:
+        """Télécharge le fichier d'une source « web » (politique réseau dans `web.fetch`)."""
+        return web.fetch(
+            cfg.base_url or "",
+            online=self.is_online(),
+            client_factory=self.web_http_factory,
+            max_bytes=self.settings.connector_max_file_mb * 1_000_000,
+            token=self._password(cfg, password, connection_id) or None,
+            username=cfg.username,
+        )
+
     def _tab_folder(self, cfg: ConnectionFields) -> Path:
         return atelier.tab_folder(cfg.path, self.settings.atelier_tab_exports_dir)
 
@@ -323,6 +351,10 @@ class ConnectionService:
             if cfg.kind == "file":
                 path = self._file(cfg)
                 return TestResult(ok=True, message=f"Fichier trouvé ({path.stat().st_size // 1024} Ko).")
+            if cfg.kind == "web":
+                f = self._web(cfg, password, connection_id)
+                size = max(1, len(f.data) // 1024)
+                return TestResult(ok=True, message=f"Fichier lu : {f.name} ({size} Ko).", server=f.url)
             if cfg.kind == "atelier_tab":
                 folder = self._tab_folder(cfg)
                 count = len(atelier.list_snapshots(folder, self._snapshot_max_bytes))
@@ -378,6 +410,14 @@ class ConnectionService:
                 return TableList(tables=[TableRef(name=s, kind="sheet") for s in excel_sheets(path.read_bytes())])
             except DatasetError as exc:
                 raise ConnectorError(str(exc)) from exc
+        if cfg.kind == "web":
+            f = self._web(cfg, connection_id=connection_id)
+            if not f.name.lower().endswith(".xlsx"):
+                return TableList(tables=[], location=f.url)
+            try:
+                return TableList(tables=[TableRef(name=s, kind="sheet") for s in excel_sheets(f.data)], location=f.url)
+            except DatasetError as exc:
+                raise ConnectorError(str(exc)) from exc
         if not url:
             return TableList(tables=[])
         with self._sharepoint_ready(cfg) as sp:
@@ -422,6 +462,15 @@ class ConnectionService:
             except DatasetError as exc:
                 raise ConnectorError(str(exc)) from exc
             return df.head(limit), len(df) > limit, path.name if not sheet else f"{path.stem} — {sheet}", fmt
+        if cfg.kind == "web":
+            f = self._web(cfg, connection_id=cfg.id)
+            sheet = spec.table.name if spec.table else None
+            try:
+                df, fmt = read_table(f.name, f.data, sheet)
+            except DatasetError as exc:
+                raise ConnectorError(str(exc)) from exc
+            stem = f.name.rsplit(".", 1)[0]
+            return df.head(limit), len(df) > limit, f.name if not sheet else f"{stem} — {sheet}", fmt
         if not spec.url:
             raise ConnectorError("Collez le lien SharePoint du fichier ou de la liste.")
         with self._sharepoint_ready(cfg) as sp:

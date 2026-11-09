@@ -5,6 +5,7 @@ Aucune chaîne SQL ne vient du client : les champs sont validés contre le sché
 et les valeurs passent en paramètres liés.
 """
 
+import math
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -106,6 +107,20 @@ class QueryRequest(BaseModel):
         default=None,
         description="Clés de dimensions par ensemble (sous-totaux des matrices). Ajoute la colonne __grouping.",
     )
+    parameters: dict[str, float] = Field(
+        default_factory=dict,
+        max_length=20,
+        description='Valeurs des curseurs de simulation, lues par PARAM("nom", défaut) dans les mesures.',
+    )
+
+    @model_validator(mode="after")
+    def _finite_parameters(self) -> "QueryRequest":
+        for name, value in self.parameters.items():
+            if not name.strip() or len(name) > 60:
+                raise ValueError("Nom de paramètre invalide (1 à 60 caractères).")
+            if not math.isfinite(value) or abs(value) >= 1e15:
+                raise ValueError(f"Valeur du paramètre « {name} » invalide.")
+        return self
 
     @model_validator(mode="after")
     def _not_empty(self) -> "QueryRequest":

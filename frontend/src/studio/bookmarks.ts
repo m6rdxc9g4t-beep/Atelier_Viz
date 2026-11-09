@@ -15,7 +15,7 @@ export const MAX_BOOKMARKS = 100;
 
 /** Les visuels dont l'état est capturé : segments et visuels explorables. */
 function captured(v: Visual): boolean {
-  return v.type === "slicer" || DRILLABLE.has(v.type);
+  return v.type === "slicer" || v.type === "parameter" || DRILLABLE.has(v.type);
 }
 
 function visualState(v: Visual): BookmarkVisualState {
@@ -25,6 +25,7 @@ function visualState(v: Visual): BookmarkVisualState {
       range: structuredClone((v.options.range as Scalar[] | undefined) ?? [null, null]),
     };
   }
+  if (v.type === "parameter") return { value: typeof v.options.value === "number" ? v.options.value : null };
   const drill = v.options.drill as Record<string, unknown> | undefined;
   return { drill: drill ? structuredClone(drill) : null };
 }
@@ -112,6 +113,9 @@ export function applyBookmarkTo(draft: Report, bookmark: Bookmark, currentPageId
       }
       if (v.type === "slicer") {
         v.options = { ...v.options, selected: structuredClone(vs.selected ?? []), range: structuredClone(vs.range ?? [null, null]) };
+      } else if (v.type === "parameter") {
+        const { value: _old, ...rest } = v.options;
+        v.options = typeof vs.value === "number" ? { ...rest, value: vs.value } : rest;
       } else if (DRILLABLE.has(v.type)) {
         const { drill: _old, ...rest } = v.options;
         v.options = vs.drill ? { ...rest, drill: structuredClone(vs.drill) } : rest;

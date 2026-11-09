@@ -27,8 +27,9 @@ class QueryError(ValueError):
 
 
 class _Builder:
-    def __init__(self, profile: DatasetProfile, table: str) -> None:
+    def __init__(self, profile: DatasetProfile, table: str, parameters: dict[str, float] | None = None) -> None:
         self.profile = profile
+        self.parameters = dict(parameters or {})
         self.types: dict[str, ColumnType] = {c.name: c.type for c in profile.columns}
         self.table = quote_ident(table)
         self.params: list[Any] = []
@@ -56,7 +57,7 @@ class _Builder:
             from app.services.data.model import measure_sql  # import local : évite un cycle entre paquets
 
             try:
-                return measure_sql(self.profile, m.field)
+                return measure_sql(self.profile, m.field, self.parameters)
             except ExpressionError as exc:
                 raise QueryError(exc.message) from exc
         if m.field is None:
@@ -126,7 +127,7 @@ def _measure_type(m: Measure, types: dict[str, ColumnType]) -> ColumnType:
 
 def run_query(db: LocalDatabase, table: str, profile: DatasetProfile, req: QueryRequest) -> QueryResponse:
     """Construit et exécute la requête ; retourne un résultat JSON-sérialisable."""
-    b = _Builder(profile, table)
+    b = _Builder(profile, table, req.parameters)
     dim_exprs = [b.dimension(d) for d in req.dimensions]
     meas_exprs = [b.measure(m) for m in req.measures]
     dim_keys = [d.key for d in req.dimensions]

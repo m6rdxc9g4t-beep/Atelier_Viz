@@ -21,6 +21,7 @@ import { type CondFormat, type Stats, GLYPHS, decorHex, decorate, formatFor, isF
 import { SCALES } from "../theme/scales";
 import { bindingKey, bindingLabel } from "../visuals/fields";
 import { formatDimension, formatNumber } from "../visuals/format";
+import { parameterSpec } from "../visuals/interactive/parameters";
 import { type ButtonAction, isSafeUrl, renderTemplate } from "../visuals/interactive/actions";
 import { slicerFilter } from "../studio/filters";
 import { opt, type VisualDef } from "../visuals/types";
@@ -73,10 +74,15 @@ const BARE_TYPES = new Set(["button", "text"]);
 const IMAGE_ONLY = new Set(["gauge", "treemap", "funnel", "waterfall", "heatmap", "map", "pointmap"]);
 
 /** Le corps de ce visuel doit-il être capturé en image ? */
+/** Visuels qui peuvent afficher une tendance ou une prévision (`visuals/charts/trend.ts`). */
+const ANALYSIS_TYPES = new Set<Visual["type"]>(["line", "area", "column"]);
+
 export function needsImage(visual: Visual, def: VisualDef, mode: ExportMode): boolean {
   if (!def.query || BARE_TYPES.has(visual.type) || !isReady(visual, def)) return false;
   if (mode === "image") return true;
   if (IMAGE_ONLY.has(visual.type)) return true;
+  // Tendance / prévision (pointillés, intervalle) : pas d'équivalent natif fidèle → copie de l'écran.
+  if (ANALYSIS_TYPES.has(visual.type) && (visual.options.trend === true || Number(visual.options.forecast) > 0)) return true;
   return visual.type === "scatter" && role(visual, "series").length > 0;
 }
 
@@ -726,6 +732,19 @@ const slicer: Builder = (ctx, body, colors, title) => {
   return [{ kind: "text", name: title, rect: body, runs, fontSize: fontPt(13, ctx.scale, 8), color: pptColor(colors.fg), valign: "top", shrink: true }];
 };
 
+/** Paramètre de simulation : son nom et la valeur choisie (le curseur n'existe pas dans PowerPoint). */
+const parameter: Builder = (ctx, body, colors, title) => {
+  const spec = parameterSpec(ctx.visual);
+  if (!spec) return [];
+  const o = ctx.visual.options;
+  const fmt = { prefix: typeof o.prefix === "string" ? o.prefix : undefined, suffix: typeof o.suffix === "string" ? o.suffix : undefined };
+  const runs: TextRun[] = [
+    { text: spec.name, options: { color: pptColor(colors.muted), breakLine: true } },
+    { text: formatNumber(spec.value, fmt), options: { bold: true, color: pptColor(colors.fg) } },
+  ];
+  return [{ kind: "text", name: title, rect: body, runs, fontSize: fontPt(13, ctx.scale, 8), color: pptColor(colors.fg), valign: "top", shrink: true }];
+};
+
 /** Texte riche (gras **…**, puces « - ») en runs PowerPoint. */
 export function richTextRuns(text: string, color: string): TextRun[] {
   const lines = text.split("\n");
@@ -826,6 +845,7 @@ const BUILDERS: Partial<Record<Visual["type"], Builder>> = {
   table,
   matrix,
   slicer,
+  parameter,
   text,
   button,
 };

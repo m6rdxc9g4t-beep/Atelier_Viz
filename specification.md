@@ -132,16 +132,45 @@ Atelier Viz fait partie d'une suite de trois applications locales — **Atelier 
 - `options` est libre côté backend ; chaque type de visuel définit les siennes (registre frontend).
 - `bookmarks` : signets du rapport (§ 6 bis). Absent des rapports antérieurs au jalon 6 : lu comme une liste vide, réécrit au prochain enregistrement.
 
-## 5. Catalogue de visuels (22)
+## 5. Catalogue de visuels (23)
 
 | Groupe | Visuels |
 |---|---|
 | Graphiques | Histogramme, Barres horizontales, Courbes, Aires, Combiné barres + courbes (un seul axe), Secteurs, Anneau, Treemap, Entonnoir, Radar, Cascade, Nuage de points, Jauge, Carte de chaleur |
 | Données | Carte KPI (cible + tendance), Table (tri, total), Matrice (lignes hiérarchiques, colonne pivot, sous-totaux exacts) ; mise en forme conditionnelle des deux (voir ci-dessous) |
 | Cartes | Choroplèthe (France régions, France départements, monde ; noms ou codes, français ou anglais), Carte à points (latitude / longitude, taille, couleur) |
-| Interactivité | Segment (liste, liste déroulante, vignettes, plage de nombres ou de dates), Bouton d'action, Zone de texte |
+| Interactivité | Segment (liste, liste déroulante, vignettes, plage de nombres ou de dates), Paramètre de simulation (curseur), Bouton d'action, Zone de texte |
 
 Options communes : légende, étiquettes, tri (catégorie / valeur), Top N, format des nombres (compact, décimales, préfixe, suffixe), empilé / 100 %, lissage, marqueurs.
+
+### Analyse : tendance et prévision (courbes, aires, histogramme)
+
+| | Détail |
+|---|---|
+| Options | Section « Analyse » : « Ligne de tendance », « Prévision (périodes, axe de dates) » (0 à 24). Proposées seulement si l'axe est trié par catégorie, ni empilé ni à 100 % (`trendApplies`) |
+| Calcul | Local et reproductible (`visuals/charts/trend.ts`) : régression linéaire par moindres carrés sur le rang des catégories, une droite par série (légende comprise), 3 points au moins (4 pour prévoir). R² affiché sous le graphique |
+| Prévision | Seulement sur un axe de dates regroupé (année, trimestre, mois, semaine, jour) : périodes suivantes, droite prolongée depuis le dernier point réel, intervalle de prévision à 95 % (Student) qui s'élargit avec l'horizon ; trait vertical à la dernière période réelle ; info-bulle « (prévision) » avec la fourchette |
+| Honnêteté | Les valeurs projetées ne sont jamais des données : ni dans l'export des données, ni dans les faits envoyés à l'IA (résumé, questions), ni cliquables (pas de filtrage croisé) |
+| Export | PowerPoint : copie d'écran du visuel (pointillés et intervalle sans équivalent natif fidèle) ; PDF / image / HTML : comme à l'écran |
+
+### Info-bulles enrichies
+
+Puits « Info-bulles » (5 mesures au plus) sur les graphiques cartésiens : ces mesures ne sont pas tracées, elles s'affichent sous un trait dans l'info-bulle. Requête à part, par élément de l'axe et avec les mêmes filtres (`tooltipQuery`) : la valeur est exacte même avec une légende (jamais une somme de moyennes). Rôle hors requête principale (`RoleDef.inQuery = false`) : jamais rempli par un clic sur un champ, conservé tel quel au changement de type de visuel.
+
+### Exporter les données d'un visuel
+
+Clic droit sur un visuel (édition, lecture, présentation) ou bouton de la barre du visuel → « Exporter les données (Excel) » / « (CSV) ». On exporte ce que le visuel affiche : même requête, filtres de page, segments, filtrage croisé, niveau d'exploration, curseurs ; sans sous-totaux (`export/dataExport.ts`, tout dans le navigateur).
+- **Excel** : classeur écrit à la main (JSZip chargé à la demande) : un onglet au nom du visuel, en-tête gras figé, filtre automatique, largeurs ajustées ; mesures en vrais nombres au format du visuel (décimales, préfixe, suffixe, %, jamais compact) ; dates non regroupées en vraies dates ; textes en ligne (jamais de formule).
+- **CSV** : « Excel français » : séparateur « ; », virgule décimale, BOM UTF-8, CRLF ; un texte qui commence par `= + - @` est préfixé d'une apostrophe (pas d'injection de formule).
+- Enregistrement par `saveFile` (boîte « Enregistrer sous » dans l'application) ; résultat tronqué par le moteur signalé.
+
+### Paramètres de simulation (« what-if »)
+
+Visuel « Paramètre (simulation) » (groupe Interactivité) : curseur + saisie, nom, minimum, maximum, pas, valeur par défaut, préfixe / suffixe. Une mesure calculée lit sa valeur avec `PARAM("nom", défaut)` (`PARAMETRE`, `PARAMÈTRE`).
+- **Portée** : comme un segment, le curseur agit sur les visuels de **sa page** (`pageParameters`) ; à nom égal, le premier curseur l'emporte. Ailleurs (alertes, autres pages, nœud Atelier), la mesure prend sa valeur par défaut.
+- **Requêtes** : `QueryRequest.parameters` (nom → nombre fini, 20 au plus) ; seuls les paramètres cités par les mesures du jeu sont envoyés (`withParameters`) : bouger un curseur ne recharge que les visuels concernés. La valeur part à la fin du geste (pas une requête par pixel).
+- **Sécurité** : `PARAM` n'existe que dans une mesure (une colonne calculée est figée) ; nom = texte littéral validé, défaut = nombre littéral ; la valeur, un `float` validé, est réécrite en littéral numérique par le compilateur — aucun texte du client n'atteint le SQL.
+- **Signets** : la valeur du curseur est capturée et rétablie (`BookmarkVisualState.value`). **Export** : PowerPoint = nom et valeur en texte ; PDF / HTML / image et résumé IA : avec la valeur choisie.
 
 **Règles de lisibilité** (guide dataviz) : palette catégorielle validée pour le daltonisme, ordre fixe, 8 séries max puis « Autres » ; 3 couleurs max pour nuages et cartes à points ; rampe séquentielle à une teinte pour intensités ; divergent bleu/rouge pour hausse/baisse ; **jamais de double axe** ; info-bulles partout ; version sombre dédiée.
 
@@ -269,7 +298,7 @@ Sur toute valeur d'un visuel (puits Valeurs → « Afficher »), sans écrire de
 | Utilisation | Comme une colonne : axe, légende, filtre, segment, table | Puits de valeurs (`agg: "calc"`, clé `calc(nom)`) |
 | Stockage | Vue DuckDB `v_<id>` = table + colonnes calculées ; profil (types, statistiques) recalculé | Modèle du jeu (`profile.model`), compilée à chaque requête |
 
-- **Langage** : `+ - * /`, comparaisons, `AND/OR/NOT` (ou `ET/OU/NON`), textes entre guillemets, noms entre crochets s'ils contiennent des espaces. Fonctions en anglais ou en français : `SUM/SOMME`, `AVG/MOYENNE`, `COUNT/NB` (`COUNT(*)`, `COUNT(DISTINCT x)`), `COUNT_DISTINCT`, `MIN`, `MAX`, `MEDIAN`, `DIVIDE/DIVISER`, `IF/SI`, `ROUND/ARRONDI`, `ABS`, `COALESCE`, `YEAR/ANNEE`, `MONTH/MOIS`, `CONCAT`.
+- **Langage** : `+ - * /`, comparaisons, `AND/OR/NOT` (ou `ET/OU/NON`), textes entre guillemets, noms entre crochets s'ils contiennent des espaces. Fonctions en anglais ou en français : `SUM/SOMME`, `AVG/MOYENNE`, `COUNT/NB` (`COUNT(*)`, `COUNT(DISTINCT x)`), `COUNT_DISTINCT`, `MIN`, `MAX`, `MEDIAN`, `DIVIDE/DIVISER`, `IF/SI`, `ROUND/ARRONDI`, `ABS`, `COALESCE`, `YEAR/ANNEE`, `MONTH/MOIS`, `CONCAT`, `PARAM("nom", défaut)` (mesures seulement : valeur d'un curseur de simulation, § 5).
 - **Sécurité** : aucune expression n'est passée à DuckDB ; elle est analysée (lexer + parseur), typée et recompilée (`quote_ident` pour les noms, littéraux réécrits). Division par zéro = vide. Bornes : 2 000 caractères, 300 éléments, 40 niveaux d'imbrication ; noms sans caractère de contrôle ni invisible ; toute erreur du moteur devient un 422 lisible (jamais un 500). Revue de sécurité indépendante faite : aucune injection possible, 4 défauts de robustesse corrigés et couverts par des tests.
 - **Contrôles** : type (« SUM attend un nombre, pas un texte »), agrégation obligatoire dans une mesure, références circulaires, noms en double, suggestions (« Vouliez-vous dire chiffre_affaires ? »), position de l'erreur soulignée. Un modèle invalide n'est jamais enregistré (HTTP 422 avec la liste des erreurs).
 - **Éditeur** : vérification à la frappe, aperçu (5 premières valeurs ou valeur sur tout le jeu), fonctions et champs insérables, renommage répercuté dans les visuels du rapport, suppression avec avertissement si l'élément est utilisé.
@@ -337,6 +366,7 @@ Bouton **Exporter** du Studio → PowerPoint, **PDF**, **Image (PNG)** ou **Rapp
 | MySQL / MariaDB | PyMySQL | `SET SESSION TRANSACTION READ ONLY` |
 | SQLite | sqlite3 | Fichier ouvert en `mode=ro` |
 | Fichier synchronisé | — | CSV / XLSX (feuille au choix) / JSON d'un dossier OneDrive, SharePoint, Teams ou réseau |
+| Fichier web (URL) | httpx | CSV / XLSX (feuille au choix) / JSON à une adresse http(s) : données ouvertes, export publié, serveur interne. Nom et format d'après `Content-Disposition`, l'adresse ou le type MIME. Jeton facultatif (Bearer, ou Basic avec un utilisateur) au trousseau, jamais envoyé à un autre hôte ; identifiants dans l'adresse refusés. Hors ligne : machine et réseau privé seulement, nom résolu une fois et connexion à l'IP validée (comme les webhooks), redirections suivies à la main (5 au plus) et revérifiées ; taille bornée (`CONNECTOR_MAX_FILE_MB`), lue par morceaux (`services/connectors/web.py`) |
 | SharePoint Online | httpx → Microsoft Graph | Fichier par lien (`/shares/u!…/driveItem`) ou liste (colonnes visibles, pagination) ; connexion par code d'appareil |
 | Atelier Tab | — (fichiers) | Tables publiées par l'application de bureau dans un dossier (défaut `~/Atelier_Tab/exports`, `ATELIER_TAB_EXPORTS_DIR`) : instantanés DataFlow v2.1.0 `<tableId>.json`. Liste (table, projet, date, lignes), aperçu, import, actualisation. Aucun réseau |
 | Atelier Projets | httpx → API locale | `GET /api/exports/datasets` (jeux : éléments de travail, temps passé, jalons), `GET /api/exports/datasets/:name?projectId=` ; projet facultatif (`GET /api/projects`). Adresse par défaut `http://127.0.0.1:3000` (`ATELIER_PROJETS_URL`), soumise à `check_server` (hors ligne : machine et réseau privé). Aucun secret, sans proxy système |
@@ -460,7 +490,7 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | POST | `/api/datasets/{id}/steps/preview` | Aperçu des étapes sans enregistrer : lignes, colonnes profilées, 20 lignes, étape fautive |
 | POST | `/api/datasets/{id}/relations/check` | Diagnostic d'une relation : lignes avec correspondance, clés en double, exemples sans correspondance |
 | GET · POST | `/api/samples` | Jeux d'exemple du dossier `samples/` : liste (déjà importés ou non) · import des absents, sans doublon |
-| POST | `/api/query` | Dimensions, mesures (sum, avg, median, min, max, count, count_distinct), filtres (in, not_in, eq, neq, gt, gte, lt, lte, between, contains, is_null, not_null, avec période), tri, limite, `grouping_sets` |
+| POST | `/api/query` | Dimensions, mesures (sum, avg, median, min, max, count, count_distinct), filtres (in, not_in, eq, neq, gt, gte, lt, lte, between, contains, is_null, not_null, avec période), tri, limite, `grouping_sets`, `parameters` (curseurs de simulation) |
 | GET / POST | `/api/reports` | Liste, création |
 | GET / PUT / DELETE | `/api/reports/{id}` | Lecture, sauvegarde, suppression |
 | POST | `/api/actions/webhook` | Appel d'un webhook depuis un bouton |
@@ -510,7 +540,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 4 — Export PowerPoint** ✅ : diapositives 16:9, graphiques et tableaux natifs modifiables, images pour les visuels sans équivalent, thème du rapport, notes avec les filtres. Export PDF, image et rapport HTML autonome ajoutés au jalon 7.
 - **Jalon 5 — Modélisation** ✅ : mesures et colonnes calculées (langage analysé et compilé, jamais de SQL brut), hiérarchies et exploration (drill-down), hiérarchie de dates, relations entre jeux de données (plusieurs-à-un, filtres propagés).
 - **Jalon 5 bis — Placement libre** ✅ : visuels au pixel près n'importe où sur la page (taille de page en px, repères d'alignement, poignées, clavier, saisie X/Y/L/H, superposition et ordre, zoom), conversion automatique des anciens rapports.
-- **Jalon 5 ter — Connecteurs** ✅ : SQL Server, PostgreSQL, MySQL / MariaDB, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online (fichiers et listes), en lecture seule, secrets au trousseau, actualisation. Reste : actualisation planifiée, Excel / CSV sur un serveur HTTP, Snowflake / BigQuery.
+- **Jalon 5 ter — Connecteurs** ✅ : SQL Server, PostgreSQL, MySQL / MariaDB, SQLite, fichiers OneDrive / SharePoint synchronisés, SharePoint Online (fichiers et listes), en lecture seule, secrets au trousseau, actualisation. Reste : Snowflake / BigQuery (actualisation planifiée : jalon 6 ; Excel / CSV sur un serveur HTTP : jalon 9).
 - **Jalon 5 quater — Application Mac** ✅ : « Atelier Viz.app » à double-cliquer (fenêtre native, icône, Dock), interface servie par l'API, enregistrement natif des fichiers.
 - **Jalon 5 quinquies — Suite Atelier** ✅ : design system commun (copies verbatim, jetons dérivés, accent violet), thème `data-theme` + `dark`, sélecteur « Suite Atelier » avec état des API, import des enveloppes DataFlow, connecteurs Atelier Tab (instantanés) et Atelier Projets (API locale), actualisables (`docs/SUITE.md`).
 - **Jalon 6 — Partage et automatisation** ✅ : signets (volet, bouton d'action), actualisation planifiée des sources (ordonnanceur, journal, rechargement des visuels), alertes sur seuil (anti-rebond, notifications, webhook), synchronisation des rapports avec un dépôt GitHub (un commit par envoi, conflits jamais écrasés). Reste : signets personnels / groupes de signets et diaporama de signets ; notifications par e-mail ;  actualisation planifiée quand l'application est fermée (service système).
@@ -522,3 +552,4 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 8 — Nœud Atelier** ✅ : Atelier Viz devient un nœud de workflow pour Atelier Nexus (docs/SUITE.md §7, `atelier-node/1`) : manifeste (`GET /api/atelier/manifest`, 8 actions aux identifiants stables, schémas générés des modèles Pydantic), table d'échange `atelier-table/1` (lecture paginée d'un jeu, requêtes du moteur des visuels à clés snake_case), création / remplacement d'un jeu par clé externe (`datasets.upsert_table`, idempotence par `Idempotency-Key`), journal d'événements persistant (`GET /api/atelier/events` : créations, actualisations réussies ou en échec, suppressions, alertes déclenchées, rapports enregistrés ; `seq` jamais réutilisé, rétention 1 000 / 30 jours, `gap`), erreurs `{detail, code}`. Reste : flux poussé (SSE) plutôt qu'interrogé ; actions d'écriture sur les rapports et les alertes.
 - **Jalon 8 bis — Mise à jour automatique** ✅ : après un `git pull`, « Atelier Viz.app » se met à jour toute seule à son lancement suivant (docs/SUITE.md §8) : état du dépôt et empreintes des dépendances comparés à un tampon, `pip install -r` / `npm ci` / compilation seulement si nécessaire, compilation dans un dossier temporaire puis remplacement, écran « Mise à jour… », journal, ouverture avec la version précédente en cas d'échec, verrou, Node trouvé depuis le Finder ; `build_app.sh` ne sert plus qu'à construire le lanceur.
 - **Jalon 8 ter — Windows** ✅ : installation depuis le dépôt sous Windows comme sur le Mac (docs/SUITE.md §9) : `scripts/windows/install.ps1` (prérequis et commandes `winget`, environnement Python dédié, lanceur sans console, raccourcis menu Démarrer / Bureau, enregistrement dans le registre, réparation, désinstallation sans toucher aux données), mise à jour automatique multiplateforme (npm par `node.exe npm-cli.js`, chemins avec espaces et accents, journaux `%LOCALAPPDATA%`, fichiers verrouillés), `.gitattributes` (fins de ligne), ouverture des autres apps de la suite avec un environnement minimal (registre sous Windows), variables héritées d'une autre app ignorées ; CI Windows (`windows.yml` : tests, compilation, installation, lanceur en mode mise à jour seule, second lancement sans rien refaire). Reste : ARM64 vérifié sur une vraie machine.
+- **Jalon 9 — Analyse et sources** ✅ : export des données d'un visuel (Excel natif, CSV pour Excel français, ce qui est affiché), ligne de tendance et prévision linéaire avec intervalle à 95 % (courbes, aires, histogramme), paramètres de simulation (curseur → `PARAM("nom", défaut)` dans les mesures, signets, export), info-bulles enrichies (puits « Info-bulles », requête exacte par élément de l'axe), connecteur « Fichier web (URL) » (CSV / Excel / JSON en http(s), jeton au trousseau, politique hors ligne des webhooks). Reste : info-bulles des secteurs, treemap et cartes ; prévision saisonnière ; Snowflake / BigQuery ; notifications par e-mail ; actualisation planifiée quand l'application est fermée.

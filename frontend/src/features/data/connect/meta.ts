@@ -1,6 +1,6 @@
 /** Présentation des connecteurs (icônes, libellés, champs) et petites fonctions pures testées. */
 
-import { Cloud, Database, FileSpreadsheet, KanbanSquare, type LucideIcon, Server, Table2 } from "lucide-react";
+import { Cloud, Database, FileSpreadsheet, Globe, KanbanSquare, type LucideIcon, Server, Table2 } from "lucide-react";
 
 import type { Connection, ConnectionInput, ConnectorKind, SourceSpec, TableRef } from "../../../types/connection";
 import { SERVER_KINDS, tableLabel } from "../../../types/connection";
@@ -16,6 +16,7 @@ export const KIND_META: Record<ConnectorKind, { icon: LucideIcon; label: string;
   mysql: { icon: Database, label: "MySQL / MariaDB", hostPlaceholder: "localhost" },
   sqlite: { icon: Database, label: "SQLite", pathPlaceholder: "~/Documents/boutique.db" },
   file: { icon: FileSpreadsheet, label: "Fichier synchronisé", pathPlaceholder: "~/Library/CloudStorage/OneDrive-Entreprise/Ventes/objectifs.xlsx" },
+  web: { icon: Globe, label: "Fichier web (URL)", hostPlaceholder: "https://donnees.exemple.fr/exports/ventes.csv" },
   sharepoint: { icon: Cloud, label: "SharePoint Online" },
   atelier_tab: { icon: Table2, label: "Atelier Tab", pathPlaceholder: ATELIER_TAB_DEFAULT_FOLDER },
   atelier_projets: { icon: KanbanSquare, label: "Atelier Projets", hostPlaceholder: ATELIER_PROJETS_DEFAULT_URL },
@@ -27,6 +28,7 @@ export function describeConnection(c: Connection): string {
   if (c.kind === "sharepoint") return c.signed_in ? (c.account ?? "Connecté") : "Non connecté";
   if (c.kind === "atelier_tab") return c.path?.trim() || ATELIER_TAB_DEFAULT_FOLDER;
   if (c.kind === "atelier_projets") return (c.base_url?.trim() || ATELIER_PROJETS_DEFAULT_URL).replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  if (c.kind === "web") return webFileName(c.base_url ?? "") || (c.base_url ?? "");
   return c.path?.split(/[\\/]/).pop() ?? "";
 }
 
@@ -36,6 +38,7 @@ export function emptyForm(kind: ConnectorKind): ConnectionInput {
   if (SERVER_KINDS.includes(kind)) return { ...base, host: "", port: null, database: "", username: "", password: "", encrypt: false };
   if (kind === "sharepoint") return { ...base, name: "SharePoint", tenant: "", client_id: "" };
   if (kind === "atelier_projets") return { ...base, base_url: "" };
+  if (kind === "web") return { ...base, base_url: "", username: "", password: "" };
   return { ...base, path: "" };
 }
 
@@ -71,12 +74,33 @@ export function toInput(form: ConnectionInput, editing: boolean): ConnectionInpu
 export function missingField(form: ConnectionInput): string | null {
   if (SERVER_KINDS.includes(form.kind) && !form.host?.trim()) return "Indiquez le serveur.";
   if ((form.kind === "sqlite" || form.kind === "file") && !form.path?.trim()) return "Indiquez le chemin du fichier.";
+  if (form.kind === "web") {
+    const url = form.base_url?.trim() ?? "";
+    if (!url) return "Indiquez l'adresse du fichier.";
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return "Adresse attendue : https://… (http ou https).";
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "Adresse attendue : https://… (http ou https).";
+    if (parsed.username || parsed.password) return "Pas d'identifiant dans l'adresse : utilisez les champs Utilisateur et Jeton.";
+  }
   if (form.kind === "atelier_projets" && form.base_url?.trim()) {
     const url = form.base_url.trim();
     if (!/^https?:\/\/[^/\s]+/i.test(url)) return "Adresse attendue : http://127.0.0.1:3000.";
     if (!isLoopbackUrl(url)) return "Atelier Projets doit tourner sur cette machine : utilisez 127.0.0.1, localhost ou ::1 (par exemple http://127.0.0.1:3000).";
   }
   return null;
+}
+
+/** Nom de fichier à la fin d'une adresse (« ventes.csv »), sans paramètres. */
+export function webFileName(url: string): string {
+  try {
+    return decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() ?? "");
+  } catch {
+    return "";
+  }
 }
 
 /** Vrai si l'adresse désigne cette machine : `localhost`, 127.0.0.0/8 ou ::1 (docs/SUITE.md §4.3, vérifié aussi par l'API). */
@@ -102,8 +126,10 @@ export function suggestedName(c: Connection, source: SourceSpec): string {
   if (source.table) {
     if (c.kind === "atelier_tab" || c.kind === "atelier_projets") return source.table.name;
     if (c.kind === "file") return `${(c.path?.split(/[\\/]/).pop() ?? "").replace(/\.xlsx$/i, "")} — ${source.table.name}`;
+    if (c.kind === "web") return `${(webFileName(c.base_url ?? "") || c.name).replace(/\.xlsx$/i, "")} — ${source.table.name}`;
     return c.kind === "mysql" && source.table.schema === c.database ? source.table.name : tableLabel(source.table);
   }
+  if (c.kind === "web") return webFileName(c.base_url ?? "") || c.name;
   return c.path?.split(/[\\/]/).pop() ?? c.name;
 }
 
