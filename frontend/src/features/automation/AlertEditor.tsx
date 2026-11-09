@@ -9,7 +9,7 @@ import type { Alert, AlertBasis, AlertInput, Comparison } from "../../types/aler
 import type { DatasetProfile, DatasetSummary } from "../../types/dataset";
 import type { Agg, Filter, FilterOp } from "../../types/query";
 import { AGG_LABELS, aggsFor } from "../../visuals/fields";
-import { BASIS_LABELS, COMPARISONS, alertError, basisUnit, filterLabel, formatAlertNumber, parseFilterValues } from "./alerts";
+import { BASIS_LABELS, COMPARISONS, alertError, basisUnit, filterLabel, formatAlertNumber, parseFilterValues, parseRecipients } from "./alerts";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const field = "rounded-md border border-border bg-field px-2 py-1.5 text-xs text-fg";
@@ -48,6 +48,12 @@ export function AlertEditor({
   const [current, setCurrent] = useState<{ value: number | null; error: string | null; groups?: number; over?: number } | null>(null);
   const [system, setSystem] = useState<boolean | null>(null);
   const [tested, setTested] = useState(false);
+  const [recipients, setRecipients] = useState((initial.email_to ?? []).join(", "));
+  const [emailOn, setEmailOn] = useState((initial.email_to ?? []).length > 0);
+  const [mailer, setMailer] = useState<boolean | null>(null);
+  useEffect(() => {
+    api.email.state().then((s) => setMailer(s.config !== null), () => setMailer(false));
+  }, []);
   const basis = draft.basis ?? "value";
 
   useEffect(() => {
@@ -379,6 +385,36 @@ export function AlertEditor({
                   <option value="POST">POST</option>
                   <option value="GET">GET</option>
                 </select>
+              </div>
+            )}
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={emailOn}
+                onChange={(e) => {
+                  setEmailOn(e.target.checked);
+                  if (!e.target.checked) setDraft({ ...draft, email_to: [] });
+                  else setDraft({ ...draft, email_to: parseRecipients(recipients) });
+                }}
+                className="accent-[var(--accent)]"
+              />
+              Envoyer un e-mail
+            </label>
+            {emailOn && (
+              <div className="space-y-1 pl-6">
+                <input
+                  aria-label="Destinataires de l'e-mail"
+                  value={recipients}
+                  placeholder="direction@entreprise.fr, equipe@entreprise.fr"
+                  onChange={(e) => {
+                    setRecipients(e.target.value);
+                    setDraft({ ...draft, email_to: parseRecipients(e.target.value) });
+                  }}
+                  className={`${field} w-full`}
+                  inputMode="email"
+                  spellCheck={false}
+                />
+                {mailer === false && <p className="text-[11px] text-warn">Aucun serveur d'envoi : configurez-le dans Réglages → E-mail des alertes.</p>}
               </div>
             )}
             {webhookExternal && !prefs?.online_mode && (

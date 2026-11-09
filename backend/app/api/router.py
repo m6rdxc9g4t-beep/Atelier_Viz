@@ -9,6 +9,7 @@ from app.api.routes import (
     atelier,
     connections,
     datasets,
+    email,
     github,
     health,
     query,
@@ -28,6 +29,7 @@ api_router.include_router(reports.router)
 api_router.include_router(actions.router)
 api_router.include_router(samples.router)
 api_router.include_router(connections.router)
+api_router.include_router(email.router)
 api_router.include_router(refresh.router)
 api_router.include_router(alerts.router)
 api_router.include_router(github.router)

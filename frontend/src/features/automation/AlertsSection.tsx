@@ -225,7 +225,7 @@ function AlertHistory({ alert }: { alert: Alert }) {
             <td className={clsx("py-1 pr-2 whitespace-nowrap", e.fired ? "font-medium text-negative" : e.met ? "text-fg" : "text-muted")}>
               {e.fired ? "Déclenchée" : e.met ? "Seuil toujours franchi" : e.error || e.note ? "—" : "Condition non remplie"}
             </td>
-            <td className="max-w-80 truncate py-1 text-muted" title={[e.error, e.webhook_error].filter(Boolean).join(" · ")}>
+            <td className="max-w-80 truncate py-1 text-muted" title={[e.error, e.webhook_error, e.email_error].filter(Boolean).join(" · ")}>
               {[
                 (e.groups ?? []).length
                   ? (e.groups ?? [])
@@ -237,6 +237,8 @@ function AlertHistory({ alert }: { alert: Alert }) {
                 e.note,
                 e.webhook_status ? `webhook : HTTP ${e.webhook_status}` : null,
                 e.webhook_error,
+                e.email_sent ? `e-mail : ${e.email_sent} destinataire${e.email_sent > 1 ? "s" : ""}` : null,
+                e.email_error ? `e-mail : ${e.email_error}` : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}

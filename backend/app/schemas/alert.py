@@ -7,8 +7,9 @@ modèle avec `agg = "calc"`) : elle est compilée par le moteur existant, jamais
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.schemas.email import MAX_RECIPIENTS, check_address
 from app.schemas.query import Filter, Measure
 
 Comparison = Literal["gt", "gte", "lt", "lte", "eq", "neq"]
@@ -49,11 +50,21 @@ class AlertInput(BaseModel):
     notify: bool = Field(default=True, description="Notification dans l'application.")
     system: bool = Field(default=True, description="Notification système (macOS, Linux) quand l'application tourne.")
     webhook: AlertWebhook | None = None
+    email_to: list[str] = Field(
+        default_factory=list,
+        max_length=MAX_RECIPIENTS,
+        description="Destinataires d'un e-mail au déclenchement (serveur : Réglages → E-mail).",
+    )
+
+    @field_validator("email_to")
+    @classmethod
+    def _emails(cls, v: list[str]) -> list[str]:
+        return list(dict.fromkeys(check_address(a) for a in v))
 
     @model_validator(mode="after")
     def _action(self) -> "AlertInput":
-        if not self.notify and not self.system and self.webhook is None:
-            raise ValueError("Choisissez au moins une action : notification ou webhook.")
+        if not self.notify and not self.system and self.webhook is None and not self.email_to:
+            raise ValueError("Choisissez au moins une action : notification, e-mail ou webhook.")
         return self
 
 
@@ -93,6 +104,8 @@ class AlertEvent(BaseModel):
     note: str | None = Field(default=None, description="Information (première mesure d'une variation…).")
     webhook_status: int | None = None
     webhook_error: str | None = None
+    email_sent: int | None = Field(default=None, description="Nombre de destinataires de l'e-mail envoyé.")
+    email_error: str | None = None
 
 
 class Alert(AlertInput):

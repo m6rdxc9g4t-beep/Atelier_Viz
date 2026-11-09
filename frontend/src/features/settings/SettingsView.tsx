@@ -6,6 +6,7 @@ import { useProviders } from "../../hooks/useProviders";
 import { type ThemePreference, useTheme } from "../../hooks/useTheme";
 import { CLAUDE_MODELS, claudeModelLabel, ollamaChoices, ollamaSelected } from "../../lib/engine";
 import type { ClaudeModel, ProviderStatus } from "../../types/ai";
+import { EmailSection } from "./EmailSection";
 import { GitHubSection } from "./GitHubSection";
 
 /** Réglages : bascule hors ligne / en ligne et état des moteurs d'IA. */
@@ -123,6 +124,7 @@ export function SettingsView() {
           prend Claude en ligne quand il est disponible, sinon Ollama.
         </p>
       </section>
+      <EmailSection />
       <GitHubSection />
     </div>
   );
