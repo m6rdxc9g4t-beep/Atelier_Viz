@@ -272,3 +272,36 @@ def test_online_webhook_is_not_pinned(monkeypatch: pytest.MonkeyPatch) -> None:
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: seen.append(r) or httpx.Response(200)))
     asyncio.run(call_webhook(WebhookRequest(url="https://hooks.exemple.fr/x"), online=True, client=client))
     assert asked == [] and seen[0].url.host == "hooks.exemple.fr"
+
+
+@pytest.mark.parametrize(
+    ("address", "local"),
+    [
+        ("64:ff9b::808:808", False),  # NAT64 bien connu → 8.8.8.8
+        ("64:ff9b:1::1", False),  # NAT64 local (RFC 8215) : traduit vers IPv4, donc Internet
+        ("2002:808:808::1", False),  # 6to4
+        ("2001:0:4136:e378::1", False),  # Teredo
+        ("::ffff:8.8.8.8", False),  # IPv4 mappée publique
+        ("::ffff:192.168.1.2", True),  # IPv4 mappée privée
+        ("fd00::1", True),
+        ("::1", True),
+    ],
+)
+def test_translated_ipv6_ranges_are_not_local(address: str, local: bool) -> None:
+    assert is_local_host(address) is local
+
+
+def test_offline_webhook_client_ignores_system_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hors ligne, le client créé par défaut ne passe jamais par HTTPS_PROXY (connexion directe à l'IP validée)."""
+    created: list[bool] = []
+    real = httpx.AsyncClient
+
+    def spy(*args, **kwargs):  # type: ignore[no-untyped-def]
+        created.append(kwargs.get("trust_env", True))
+        kwargs["transport"] = httpx.MockTransport(lambda req: httpx.Response(200, text="ok"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr("app.services.actions.httpx.AsyncClient", spy)
+    asyncio.run(call_webhook(WebhookRequest(url="http://127.0.0.1:5678/hook"), online=False))
+    asyncio.run(call_webhook(WebhookRequest(url="http://127.0.0.1:5678/hook"), online=True))
+    assert created == [False, True]

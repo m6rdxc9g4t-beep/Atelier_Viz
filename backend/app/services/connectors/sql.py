@@ -1,11 +1,16 @@
-"""Connecteurs SQL : SQL Server (pymssql), PostgreSQL (psycopg), MySQL / MariaDB (PyMySQL), SQLite.
+"""Connecteurs SQL : SQL Server (pymssql), PostgreSQL (psycopg), MySQL / MariaDB (PyMySQL), SQLite,
+Snowflake (snowflake-connector-python) et BigQuery (google-cloud-bigquery), tous par l'interface DB-API.
 
 Lecture seule :
 - une requête libre doit être **une seule** instruction SELECT / WITH, sans mot-clé d'écriture
   (`check_query`) ; c'est un garde-fou, pas une frontière de sécurité : utilisez un compte en
   lecture seule (rôle `db_datareader` sous SQL Server, `pg_read_all_data` sous PostgreSQL…) ;
 - PostgreSQL et MySQL ouvrent en plus une transaction en lecture seule, SQLite ouvre le fichier
-  en mode `ro`.
+  en mode `ro` ;
+- Snowflake : rôle de l'utilisateur (un rôle en lecture seule est conseillé), une instruction par appel,
+  délai imposé à la session (`STATEMENT_TIMEOUT_IN_SECONDS`), étiquette `Atelier Viz` ;
+- BigQuery : compte de service (clé JSON au trousseau), SQL standard, plafond de données lues par
+  requête (`maximum_bytes_billed`, 10 Go par défaut) : une requête trop coûteuse échoue sans être facturée.
 Les lignes sont lues par paquets jusqu'à la limite demandée (jamais tout en mémoire d'un coup).
 """
 
@@ -38,55 +43,97 @@ WRITE_WORDS = {
 _WORD_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$#@]*")
 
 
-def _code_only(sql: str) -> tuple[str, list[int]]:
-    """Texte hors chaînes, identifiants délimités et commentaires (remplacés par des espaces) ; positions des « ; »."""
+BACKSLASH_KINDS = frozenset({"mysql", "bigquery", "snowflake"})  # « \' » échappe un délimiteur
+HASH_COMMENT_KINDS = frozenset({"mysql", "bigquery"})  # « # » ouvre un commentaire de fin de ligne
+_DOLLAR_TAG_RE = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)?\$")
+_TRIPLE = ("'''", '"""')
+
+
+def _code_only(sql: str, kind: str | None = None) -> tuple[str, list[int]]:
+    """Texte hors chaînes, identifiants délimités et commentaires (remplacés par des espaces) ; positions des « ; ».
+
+    Le découpage suit le moteur `kind` : échappement par une barre oblique inverse (MySQL, BigQuery, Snowflake),
+    commentaires « # » (MySQL, BigQuery), chaînes triples (BigQuery), chaînes « $$ … $$ » (PostgreSQL, Snowflake).
+    Une requête ambiguë (délimiteur non fermé) est refusée plutôt que devinée.
+    """
     out: list[str] = []
     semis: list[int] = []
     i, n = 0, len(sql)
+    backslash = kind in BACKSLASH_KINDS
     closers = {"'": "'", '"': '"', "`": "`", "[": "]"}
+
+    def unclosed() -> ConnectorError:
+        return ConnectorError("Chaîne ou identifiant non fermé dans la requête.")
+
     while i < n:
         c = sql[i]
-        if c == "-" and sql.startswith("--", i):
+        j: int
+        if (c == "-" and sql.startswith("--", i)) or (c == "#" and kind in HASH_COMMENT_KINDS):
             j = sql.find("\n", i)
             j = n if j < 0 else j
-            out.append(" " * (j - i))
-            i = j
         elif c == "/" and sql.startswith("/*", i):
             j = sql.find("*/", i + 2)
             if j < 0:
                 raise ConnectorError("Commentaire /* … */ non fermé dans la requête.")
-            out.append(" " * (j + 2 - i))
-            i = j + 2
+            j += 2
+        elif (
+            c == "$"
+            and kind in {"postgres", "snowflake"}
+            and (m := _DOLLAR_TAG_RE.match(sql, i))
+            and (kind == "postgres" or m.group(0) == "$$")
+        ):
+            tag = m.group(0)
+            j = sql.find(tag, m.end())
+            if j < 0:
+                raise unclosed()
+            j += len(tag)
+        elif kind == "bigquery" and sql.startswith(_TRIPLE, i):
+            close = sql[i : i + 3]
+            j = i + 3
+            while not sql.startswith(close, j):
+                if j >= n:
+                    raise unclosed()
+                j += 2 if sql[j] == "\\" else 1
+            j += 3
         elif c in closers:
             close = closers[c]
+            escapes = backslash and c != "["
             j = i + 1
             while True:
-                k = sql.find(close, j)
-                if k < 0:
-                    raise ConnectorError("Chaîne ou identifiant non fermé dans la requête.")
-                if sql.startswith(close * 2, k):
-                    j = k + 2  # délimiteur doublé = caractère échappé ('', "", ]], ``)
+                if j >= n:
+                    raise unclosed()
+                ch = sql[j]
+                if escapes and ch == "\\":
+                    j += 2  # caractère échappé : il ne ferme pas la chaîne
                     continue
-                break
-            out.append(" " * (k + 1 - i))
-            i = k + 1
+                if ch == close:
+                    if sql.startswith(close * 2, j):
+                        j += 2  # délimiteur doublé = caractère échappé ('', "", ]], ``)
+                        continue
+                    break
+                j += 1
+            j += 1
         else:
             if c == ";":
                 semis.append(len("".join(out)))
             out.append(c)
             i += 1
+            continue
+        out.append(" " * (j - i))
+        i = j
     return "".join(out), semis
 
 
-def check_query(sql: str) -> str:
+def check_query(sql: str, kind: str | None = None) -> str:
     """Valide une requête libre : une seule instruction SELECT / WITH en lecture.
 
+    `kind` choisit les règles lexicales du moteur (chaînes, échappements, commentaires).
     Retourne la requête sans « ; » final.
     """
     text = sql.strip()
     if not text:
         raise ConnectorError("La requête est vide.")
-    code, semis = _code_only(text)
+    code, semis = _code_only(text, kind)
     # Un « ; » n'est admis qu'en toute fin de requête.
     for pos in semis:
         if code[pos + 1 :].strip():
@@ -119,11 +166,18 @@ class Dialect:
     default_port: int | None
 
     def driver_installed(self) -> bool:
-        return self.module is None or importlib.util.find_spec(self.module) is not None
+        if self.module is None:
+            return True
+        try:
+            return importlib.util.find_spec(self.module) is not None
+        except ModuleNotFoundError:  # paquet parent absent (« snowflake », « google.cloud »)
+            return False
 
     def quote(self, ident: str) -> str:
         if self.kind == "sqlserver":
             return "[" + ident.replace("]", "]]") + "]"
+        if self.kind == "bigquery":
+            return "`" + ident.replace("\\", "\\\\").replace("`", "\\`") + "`"
         if self.kind == "mysql":
             return "`" + ident.replace("`", "``") + "`"
         return '"' + ident.replace('"', '""') + '"'
@@ -168,9 +222,13 @@ class Dialect:
         return ("SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES ORDER BY 1, 2", [])
 
     def version_sql(self) -> str:
-        return {"sqlserver": "SELECT @@VERSION", "postgres": "SELECT version()", "mysql": "SELECT VERSION()"}.get(
-            self.kind, "SELECT 'SQLite ' || sqlite_version()"
-        )
+        return {
+            "sqlserver": "SELECT @@VERSION",
+            "postgres": "SELECT version()",
+            "mysql": "SELECT VERSION()",
+            "snowflake": "SELECT 'Snowflake ' || CURRENT_VERSION()",
+            "bigquery": "SELECT 'BigQuery'",
+        }.get(self.kind, "SELECT 'SQLite ' || sqlite_version()")
 
 
 DIALECTS: dict[ConnectorKind, Dialect] = {
@@ -192,7 +250,25 @@ DIALECTS: dict[ConnectorKind, Dialect] = {
     ),
     "mysql": Dialect("mysql", "MySQL / MariaDB", "MySQL, MariaDB, Amazon RDS", "pymysql", "pip install pymysql", 3306),
     "sqlite": Dialect("sqlite", "SQLite", "Fichier de base SQLite (.db, .sqlite)", None, None, None),
+    "snowflake": Dialect(
+        "snowflake",
+        "Snowflake",
+        "Entrepôt de données Snowflake (mode « En ligne »)",
+        "snowflake.connector",
+        "pip install snowflake-connector-python",
+        None,
+    ),
+    "bigquery": Dialect(
+        "bigquery",
+        "Google BigQuery",
+        "Entrepôt BigQuery, compte de service (mode « En ligne »)",
+        "google.cloud.bigquery",
+        "pip install google-cloud-bigquery",
+        None,
+    ),
 }
+
+BIGQUERY_DEFAULT_GB = 10
 
 
 def sqlite_path(raw: str) -> Path:
@@ -282,8 +358,94 @@ def _open(cfg: ConnectionFields, password: str | None, login_timeout: float, que
         with my.cursor() as cur:
             cur.execute("SET SESSION TRANSACTION READ ONLY")
         return my
+    if cfg.kind == "snowflake":
+        import snowflake.connector
+
+        sf: DbConnection = snowflake.connector.connect(
+            account=host,
+            user=cfg.username or None,
+            password=password,
+            database=cfg.database or None,
+            warehouse=cfg.warehouse or None,
+            role=cfg.role or None,
+            login_timeout=int(login_timeout),
+            network_timeout=int(query_timeout),
+            application="AtelierViz",
+            session_parameters={"STATEMENT_TIMEOUT_IN_SECONDS": int(query_timeout), "QUERY_TAG": "Atelier Viz"},
+        )
+        return sf
+    if cfg.kind == "bigquery":
+        return _bigquery(cfg, password, query_timeout)
     path = sqlite_path(cfg.path or "")
     return sqlite3.connect(f"file:{quote(str(path))}?mode=ro", uri=True, timeout=login_timeout, check_same_thread=False)
+
+
+def _bigquery(cfg: ConnectionFields, key: str | None, query_timeout: float) -> DbConnection:
+    """Connexion DB-API BigQuery par compte de service ; plafond de Go lus et SQL standard imposés."""
+    import json
+
+    from google.cloud import bigquery
+    from google.cloud.bigquery import dbapi
+    from google.oauth2 import service_account
+
+    if not key:
+        raise ConnectorError("Collez la clé JSON du compte de service (rôles BigQuery Data Viewer et Job User).")
+    try:
+        info = json.loads(key)
+        if not isinstance(info, dict):
+            raise ValueError("objet JSON attendu")
+        credentials = service_account.Credentials.from_service_account_info(info)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ConnectorError("Clé de compte de service invalide : collez le fichier JSON complet.") from exc
+    limit = (cfg.max_gb or BIGQUERY_DEFAULT_GB) * 1_000_000_000
+    client = bigquery.Client(
+        project=cfg.database,
+        credentials=credentials,
+        default_query_job_config=bigquery.QueryJobConfig(
+            maximum_bytes_billed=limit,
+            use_legacy_sql=False,
+            labels={"app": "atelier-viz"},
+            job_timeout_ms=int(query_timeout * 1000),
+        ),
+    )
+    conn: DbConnection = dbapi.connect(client)
+    conn.bq_client = client  # type: ignore[attr-defined]
+    return conn
+
+
+def _bigquery_tables(conn: DbConnection, cfg: ConnectionFields) -> tuple[list[TableRef], bool]:
+    """Tables et vues des jeux du projet (API, sans requête facturée)."""
+    client = conn.bq_client  # type: ignore[attr-defined]
+    out: list[TableRef] = []
+    try:
+        for ds in client.list_datasets(project=cfg.database):
+            for t in client.list_tables(ds.reference):
+                kind = "view" if str(getattr(t, "table_type", "")).upper() in {"VIEW", "MATERIALIZED_VIEW"} else "table"
+                out.append(TableRef(schema=ds.dataset_id, name=t.table_id, kind=kind))
+                if len(out) > MAX_TABLES:
+                    return out[:MAX_TABLES], True
+    except Exception as exc:  # noqa: BLE001
+        raise ConnectorError(f"Erreur de la base : {short(exc)}") from exc
+    return out, False
+
+
+def bigquery_check(conn: DbConnection, query: str) -> None:
+    """Essai à blanc BigQuery (non facturé) : la requête doit être une seule lecture (`statement_type` SELECT).
+
+    Seconde barrière après `check_query` : BigQuery analyse lui-même la requête (scripts, DML, DDL refusés),
+    faute de transaction en lecture seule pour un compte de service.
+    """
+    from google.cloud import bigquery
+
+    client = conn.bq_client  # type: ignore[attr-defined]
+    try:
+        job = client.query(query, job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=False))
+    except Exception as exc:  # noqa: BLE001
+        raise ConnectorError(f"Erreur de la base : {short(exc)}") from exc
+    if str(getattr(job, "statement_type", "") or "").upper() != "SELECT":
+        raise ConnectorError(
+            "Seules les requêtes de lecture sont autorisées (BigQuery : une seule instruction SELECT)."
+        )
 
 
 def run(conn: DbConnection, sql: str, limit: int, params: list[Any] | None = None) -> tuple[pd.DataFrame, bool]:
@@ -314,6 +476,8 @@ def run(conn: DbConnection, sql: str, limit: int, params: list[Any] | None = Non
 
 
 def list_tables(conn: DbConnection, cfg: ConnectionFields) -> tuple[list[TableRef], bool]:
+    if cfg.kind == "bigquery":
+        return _bigquery_tables(conn, cfg)
     dialect = DIALECTS[cfg.kind]
     sql, params = dialect.tables_sql(cfg.database)
     df, truncated = run(conn, sql, MAX_TABLES, params)

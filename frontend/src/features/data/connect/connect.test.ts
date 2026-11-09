@@ -156,3 +156,16 @@ describe("isConnectionOrigin", () => {
     expect(isConnectionOrigin(undefined)).toBe(false);
   });
 });
+
+describe("entrepôts Snowflake et BigQuery", () => {
+  it("vérifie les champs et décrit la connexion", () => {
+    expect(missingField({ ...emptyForm("snowflake"), host: "" })).toMatch(/Snowflake/);
+    expect(missingField({ ...emptyForm("snowflake"), host: "monorg-moncompte" })).toMatch(/base Snowflake/);
+    expect(missingField({ ...emptyForm("snowflake"), host: "monorg-moncompte", database: "ANALYTICS" })).toBeNull();
+    expect(missingField({ ...emptyForm("bigquery"), database: "Projet" })).toMatch(/Google Cloud/);
+    expect(missingField({ ...emptyForm("bigquery"), database: "mon-projet-123" })).toBeNull();
+    expect(emptyForm("bigquery").max_gb).toBe(10);
+    const sf: Connection = { ...pg, id: "s1", kind: "snowflake", host: "monorg-moncompte", database: "VENTES", warehouse: "WH" };
+    expect(describeConnection(sf)).toBe("monorg-moncompte · VENTES · WH");
+  });
+});

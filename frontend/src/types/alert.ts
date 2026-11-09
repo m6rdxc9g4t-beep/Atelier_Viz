@@ -29,6 +29,8 @@ export interface AlertInput {
   /** Notification système (macOS, Linux). */
   system?: boolean;
   webhook: AlertWebhook | null;
+  /** Destinataires d'un e-mail au déclenchement (10 au plus). */
+  email_to?: string[];
 }
 
 export interface AlertGroupState {
@@ -64,6 +66,8 @@ export interface AlertEvent {
   note?: string | null;
   webhook_status: number | null;
   webhook_error: string | null;
+  email_sent?: number | null;
+  email_error?: string | null;
 }
 
 export interface Alert extends AlertInput {

@@ -18,6 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app import __version__
 from app.api.deps import build_ai_service
 from app.api.router import api_router
+from app.background import read_status
 from app.core.config import Settings, get_settings
 from app.core.frontend import FrontendFiles
 from app.core.local_only import LocalOnlyMiddleware
@@ -26,8 +27,11 @@ from app.services.ai import AIProviderError
 from app.services.alerts import AlertError, AlertService
 from app.services.atelier import AtelierError, AtelierEvents, AtelierService, EventJournal, IdempotencyStore
 from app.services.atelier.errors import code_for, is_atelier_path, text_detail, validation_message
+from app.services.atelier.writes import AtelierWrites
+from app.services.background_job import BackgroundJob, BackgroundJobError, current_environment
 from app.services.connectors import ConnectionService, ConnectorError, build_secrets
 from app.services.data import DatasetStore
+from app.services.email import EmailError, EmailService
 from app.services.engine import LocalDatabase, QueryError
 from app.services.github import GitHubError, GitHubSync
 from app.services.preferences import PreferencesStore
@@ -75,6 +79,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             is_online=lambda: app.state.preferences.get().online_mode,
             env_token=lambda: settings.github_token.get_secret_value() if settings.github_token else None,
         )
+        app.state.background_job = BackgroundJob(
+            current_environment(server=settings.app_env == "production"), lambda: read_status(settings)
+        )
+        app.state.email = EmailService(
+            data_dir / "email.json", secrets, is_online=lambda: app.state.preferences.get().online_mode
+        )
         # Alertes sur seuil : évaluées après chaque actualisation réussie d'un jeu.
         app.state.alerts = AlertService(
             data_dir / "alerts.json",
@@ -82,6 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.database,
             is_online=lambda: app.state.preferences.get().online_mode,
             notifier=system_notifier() if settings.system_notifications else None,
+            email=app.state.email,
         )
         # Nœud Atelier (docs/SUITE.md §7) : journal d'événements abonné aux services, idempotence des écritures.
         # Abonné avant les alertes : `viz.dataset.refreshed` précède `viz.alert.triggered` dans le journal.
@@ -91,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         app.state.atelier_events.attach(app.state.scheduler, app.state.alerts, app.state.reports)
         app.state.atelier = AtelierService(app.state.dataset_store, app.state.database, app.state.atelier_events)
+        app.state.atelier_writes = AtelierWrites(app.state.reports, app.state.alerts, app.state.dataset_store)
         app.state.idempotency = IdempotencyStore(data_dir / "atelier_idempotency.json")
         app.state.scheduler.on_refreshed(app.state.alerts.evaluate_dataset)
         ticker = (
@@ -158,6 +170,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(AlertError)
     async def alert_error_handler(_: Request, exc: AlertError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+    @app.exception_handler(BackgroundJobError)
+    async def background_error_handler(_: Request, exc: BackgroundJobError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+    @app.exception_handler(EmailError)
+    async def email_error_handler(_: Request, exc: EmailError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
     @app.exception_handler(GitHubError)

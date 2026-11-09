@@ -23,6 +23,7 @@ import pandas as pd
 
 from app.core.config import Settings
 from app.schemas.connection import (
+    CLOUD_KINDS,
     SERVER_KINDS,
     SQL_KINDS,
     AuthStatus,
@@ -246,6 +247,12 @@ class ConnectionService:
         """Politique réseau : hors ligne, pas d'Internet ; Atelier Projets toujours sur la machine."""
         if cfg.kind in SERVER_KINDS:
             check_server(cfg.host or "", self.is_online())
+        elif cfg.kind in CLOUD_KINDS and not self.is_online():
+            raise ConnectorError(
+                f"Mode hors ligne : {sql.DIALECTS[cfg.kind].label} est un service sur Internet. "
+                "Activez le mode « En ligne » pour vous y connecter.",
+                403,
+            )
         elif cfg.kind == "atelier_projets":
             # docs/SUITE.md §4.3 : adresse de la machine uniquement, quel que soit le mode.
             check_loopback(atelier.projets_host(self._projets_base(cfg)), "Atelier Projets")
@@ -436,8 +443,10 @@ class ConnectionService:
         if cfg.kind in SQL_KINDS:
             dialect = sql.DIALECTS[cfg.kind]
             if spec.query and spec.query.strip():
-                query = sql.check_query(spec.query)
+                query = sql.check_query(spec.query, cfg.kind)
                 with self._sql(cfg, connection_id=cfg.id) as conn:
+                    if cfg.kind == "bigquery":
+                        sql.bigquery_check(conn, query)
                     df, truncated = sql.run(conn, query, limit)
                 return df, truncated, f"{cfg.name} (requête)", cfg.kind
             if spec.table is None:

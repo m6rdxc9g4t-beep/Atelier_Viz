@@ -18,6 +18,8 @@ SourceFormat = Literal[
     "postgres",
     "mysql",
     "sqlite",
+    "snowflake",
+    "bigquery",
     "sharepoint",
     "atelier_tab",
     "atelier_projets",

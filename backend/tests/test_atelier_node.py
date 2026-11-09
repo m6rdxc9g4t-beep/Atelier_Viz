@@ -91,7 +91,12 @@ def test_manifest_shape(node: TestClient) -> None:
         "datasets.upsert_table",
         "datasets.refresh",
         "reports.list",
+        "reports.duplicate",
         "alerts.list",
+        "alerts.create",
+        "alerts.set_enabled",
+        "alerts.evaluate",
+        "alerts.delete",
     }
     by_id = {a["id"]: a for a in m["actions"]}
     for a in m["actions"]:

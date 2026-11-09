@@ -2,9 +2,11 @@
 
 import type { Row } from "./dataset";
 
-export type ConnectorKind = "sqlserver" | "postgres" | "mysql" | "sqlite" | "file" | "web" | "sharepoint" | "atelier_tab" | "atelier_projets";
+export type ConnectorKind = "sqlserver" | "postgres" | "mysql" | "sqlite" | "snowflake" | "bigquery" | "file" | "web" | "sharepoint" | "atelier_tab" | "atelier_projets";
 export const SERVER_KINDS: ConnectorKind[] = ["sqlserver", "postgres", "mysql"];
-export const SQL_KINDS: ConnectorKind[] = ["sqlserver", "postgres", "mysql", "sqlite"];
+export const SQL_KINDS: ConnectorKind[] = ["sqlserver", "postgres", "mysql", "sqlite", "snowflake", "bigquery"];
+/** Entrepôts dans le nuage : mode « En ligne » obligatoire. */
+export const CLOUD_KINDS: ConnectorKind[] = ["snowflake", "bigquery"];
 /** Applications de la Suite Atelier (docs/SUITE.md §4.2 et §4.3) : aucun secret. */
 export const SUITE_KINDS: ConnectorKind[] = ["atelier_tab", "atelier_projets"];
 
@@ -20,8 +22,13 @@ export interface ConnectionFields {
   path?: string | null;
   tenant?: string | null;
   client_id?: string | null;
-  /** Atelier Projets : adresse de l'API locale (vide = défaut). */
+  /** Atelier Projets : adresse de l'API locale (vide = défaut) ; fichier web : adresse du fichier. */
   base_url?: string | null;
+  /** Snowflake : entrepôt (warehouse) et rôle. */
+  warehouse?: string | null;
+  role?: string | null;
+  /** BigQuery : Go lus au plus par requête (10 par défaut). */
+  max_gb?: number | null;
 }
 
 /** Création / modification : `password` absent = inchangé, "" = effacé. */

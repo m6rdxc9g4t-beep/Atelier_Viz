@@ -508,3 +508,34 @@ def test_test_connection_reports_visibility(client: TestClient, github: FakeGitH
     assert "désactivée" in client.post("/api/github/test").json()["warning"]
     configure(client, repo="equipe/autre")  # autre dépôt : visibilité inconnue
     assert client.get("/api/github").json()["repo_private"] is None
+
+
+def test_personal_bookmarks_never_leave_the_machine(client: TestClient, github: FakeGitHub) -> None:
+    online(client)
+    configure(client)
+    report = new_report(client, "Ventes")
+    body = private_body("Ventes")
+    shared_mark = {"id": "b-equipe", "name": "Vue équipe", "group": "Revue mensuelle", "pages": {}}
+    mine = {"id": "b-moi", "name": "Mon suivi", "personal": True, "pages": {}}
+    body["bookmarks"] = [shared_mark, mine]
+    client.put(f"/api/reports/{report['id']}", json=body)
+    client.post("/api/github/push", json={})
+    path = f"atelier/rapports/{report['id']}.json"
+    sent = json.loads(github.files()[path])
+    assert [b["id"] for b in sent["bookmarks"]] == ["b-equipe"] and sent["bookmarks"][0]["group"] == "Revue mensuelle"
+    assert "personal" not in sent["bookmarks"][0]  # champ absent par défaut (pas de bruit dans les diffs)
+
+    # Un nouveau signet personnel n'est pas envoyé non plus.
+    body["bookmarks"].append({"id": "b-moi-2", "name": "Autre", "personal": True, "pages": {}})
+    client.put(f"/api/reports/{report['id']}", json=body)
+    client.post("/api/github/push", json={})
+    assert "b-moi-2" not in github.files()[path].decode()
+
+    # Récupération d'une version distante : les signets personnels du poste restent.
+    remote = json.loads(github.files()[path])
+    remote["name"] = "Ventes (collègue)"
+    github.write(path, json.dumps(remote, ensure_ascii=False).encode())
+    client.post("/api/github/pull", json={"resolutions": {report["id"]: "remote"}})
+    local = client.get(f"/api/reports/{report['id']}").json()
+    assert local["name"] == "Ventes (collègue)"
+    assert {b["id"] for b in local["bookmarks"]} == {"b-equipe", "b-moi", "b-moi-2"}

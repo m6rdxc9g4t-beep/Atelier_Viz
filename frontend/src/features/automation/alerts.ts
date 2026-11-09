@@ -101,7 +101,20 @@ export function emptyAlert(datasetId: string): AlertInput {
     notify: true,
     system: true,
     webhook: null,
+    email_to: [],
   };
+}
+
+const EMAIL = /^[^@\s<>,;:"()[\]\\]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,63}$/;
+
+/** Destinataires saisis (« a@x.fr, b@y.fr » ou un par ligne), sans doublon. */
+export function parseRecipients(raw: string): string[] {
+  return [...new Set(raw.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean))];
+}
+
+/** Première adresse invalide, ou null. */
+export function invalidRecipient(list: string[]): string | null {
+  return list.find((a) => !EMAIL.test(a)) ?? null;
 }
 
 /**
@@ -128,7 +141,10 @@ export function alertFromVisual(visual: Visual, filters: Filter[], values: { val
 export function alertError(a: AlertInput, profile: DatasetProfile | undefined): string | null {
   if (!a.name.trim()) return "Donnez un nom à l'alerte.";
   if (!Number.isFinite(a.threshold)) return "Le seuil doit être un nombre.";
-  if (!a.notify && !a.system && !a.webhook) return "Choisissez au moins une action : notification ou webhook.";
+  if (!a.notify && !a.system && !a.webhook && !(a.email_to ?? []).length) return "Choisissez au moins une action : notification, e-mail ou webhook.";
+  const bad = invalidRecipient(a.email_to ?? []);
+  if (bad) return `Adresse e-mail invalide : « ${bad} ».`;
+  if ((a.email_to ?? []).length > 10) return "10 destinataires au plus.";
   if (profile && a.split_by && !profile.columns.some((c) => c.name === a.split_by)) return `Champ inconnu : « ${a.split_by} ».`;
   if (a.webhook && !/^https?:\/\/\S+$/i.test(a.webhook.url.trim())) return "Adresse du webhook invalide (http ou https).";
   if (profile && a.measure.field) {

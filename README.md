@@ -199,7 +199,7 @@ Actions du manifeste : `datasets.list`, `datasets.get`, `datasets.table`, `datas
 Fichiers : `data/atelier_events.jsonl` (+ `.seq`), `data/atelier_idempotency.json`. Les enregistrements successifs d'un rapport
 sont regroupés en un événement (`ATELIER_REPORT_EVENT_SECONDS`, 5 s par défaut).
 
-## Connecteurs (SQL Server, PostgreSQL, MySQL, SQLite, OneDrive, SharePoint)
+## Connecteurs (SQL Server, PostgreSQL, MySQL, SQLite, Snowflake, BigQuery, OneDrive, SharePoint)
 
 Page **Données → Se connecter à une source**. Une connexion est enregistrée une fois ; on choisit ensuite une
 table, une requête `SELECT` ou une feuille, on voit un aperçu, puis **Importer** copie les données dans la base
@@ -208,7 +208,8 @@ Studio) relit la source : même jeu, mêmes rapports, mesures et colonnes calcul
 
 ```bash
 # Pilotes des bases (dans l'environnement du backend ; n'installez que ceux utiles)
-pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (PostgreSQL), pymysql (MySQL)
+pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (PostgreSQL), pymysql (MySQL),
+                                               # snowflake-connector-python, google-cloud-bigquery
 ```
 
 | Source | À savoir |
@@ -216,6 +217,8 @@ pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (
 | SQL Server / Azure SQL | Serveur `sql01.entreprise.local` ou instance `serveur\INSTANCE` ; compte SQL ou Windows `DOMAINE\utilisateur` ; cocher « chiffrement » pour Azure SQL. Sur Mac, pymssql s'installe sur macOS 14 ou plus récent. |
 | PostgreSQL, MySQL / MariaDB | Serveur, port, base, utilisateur. La session est ouverte **en lecture seule** par le serveur. |
 | SQLite | Chemin du fichier `.db`, ouvert en lecture seule. |
+| Snowflake | Mode « En ligne » requis. Compte (`organisation-compte`), base, entrepôt, rôle en lecture seule conseillé, utilisateur et mot de passe. |
+| Google BigQuery | Mode « En ligne » requis. Projet et clé JSON d'un compte de service (BigQuery Data Viewer + Job User). Plafond de Go lus par requête (10 Go par défaut) : une requête trop coûteuse échoue sans être facturée. |
 | Fichier synchronisé | CSV, Excel (choix de la feuille) ou JSON d'un dossier **OneDrive / SharePoint / Teams synchronisé** (sur Mac : `~/Library/CloudStorage/OneDrive-<Entreprise>/…`) ou d'un partage réseau. Fonctionne hors ligne. |
 | Fichier web (URL) | CSV, Excel ou JSON à une adresse http(s) : données ouvertes, export publié, serveur interne ; jeton facultatif rangé au trousseau. Hors ligne : serveurs de la machine ou du réseau de l'entreprise seulement. |
 | SharePoint Online | Fichier d'une bibliothèque (lien « Copier le lien ») ou **liste** SharePoint, avec votre compte Microsoft 365. Mode « En ligne » requis. |

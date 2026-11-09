@@ -46,6 +46,7 @@ from app.schemas.alert import (
 from app.schemas.query import Dimension, QueryRequest
 from app.services.actions import ActionError, WebhookRequest, call_webhook
 from app.services.data.store import DatasetStore
+from app.services.email import EmailError, EmailService
 from app.services.engine.database import LocalDatabase
 from app.services.engine.query import QueryError, run_query
 from app.services.system_notify import Notifier
@@ -114,6 +115,7 @@ class AlertService:
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         http_factory: Callable[[], httpx.AsyncClient] | None = None,
         notifier: Notifier | None = None,
+        email: "EmailService | None" = None,
     ) -> None:
         self.path = path
         self.store = store
@@ -122,6 +124,7 @@ class AlertService:
         self.clock = clock
         self.http_factory = http_factory
         self.notifier = notifier
+        self.email = email
         self._lock = threading.Lock()  # fichier alerts.json
         self._eval_locks: dict[str, asyncio.Lock] = {}  # une évaluation à la fois par alerte
         self._fired_listeners: list[FiredListener] = []
@@ -325,11 +328,40 @@ class AlertService:
                     logger.warning("Observateur d'alerte en échec : %s", exc)
         if fired and current.system and self.notifier is not None:
             await asyncio.to_thread(self._system_notify, current, fired)
-        if not (fired and current.webhook is not None):
+        actions = fired and (current.webhook is not None or (current.email_to and self.email is not None))
+        if not actions:
             return current
-        # Hors verrou : un webhook lent (15 s) ne bloque ni cette alerte ni les autres.
-        await self._call_webhook(current, fired, now, event)
+        # Hors verrou : un webhook lent (15 s) ou un serveur d'envoi lent ne bloque ni cette alerte ni les autres.
+        if current.webhook is not None:
+            await self._call_webhook(current, fired, now, event)
+        if current.email_to and self.email is not None:
+            await asyncio.to_thread(self._send_email, current, fired, event)
         return await asyncio.to_thread(self._complete, current.id, event)
+
+    def _send_email(self, alert: Alert, fired: list[AlertGroupEvent], event: AlertEvent) -> None:
+        """E-mail au déclenchement : un message, une ligne par valeur franchie (20 au plus)."""
+        assert self.email is not None
+        lines = [self.message(alert, g.value or 0.0, g.key or None) for g in fired[:20]]
+        if len(fired) > 20:
+            lines.append(f"… et {len(fired) - 20} autres valeurs.")
+        body = "\n".join(
+            [
+                f"L'alerte « {alert.name} » s'est déclenchée.",
+                "",
+                *lines,
+                "",
+                f"Seuil : {COMPARISON_SYMBOL[alert.comparison]} {alert.threshold:g}",
+                "— Atelier Viz",
+            ]
+        )
+        try:
+            self.email.send(alert.email_to, f"Atelier Viz · alerte « {alert.name} »", body)
+            event.email_sent = len(alert.email_to)
+        except EmailError as exc:
+            event.email_error = exc.message
+        except Exception as exc:  # noqa: BLE001 — l'e-mail ne doit jamais interrompre l'évaluation
+            logger.exception("Envoi de l'e-mail d'alerte en échec")
+            event.email_error = f"Envoi impossible : {type(exc).__name__}."
 
     def _compare(self, alert: Alert, raws: dict[str, float | None]) -> list[AlertGroupEvent]:
         """Valeur comparée, condition et franchissement pour chaque valeur de la dimension."""
@@ -444,7 +476,7 @@ class AlertService:
             return current, fired
 
     def _complete(self, alert_id: str, event: AlertEvent) -> Alert:
-        """Ajoute le résultat du webhook à l'événement déjà enregistré."""
+        """Ajoute le résultat du webhook et de l'e-mail à l'événement déjà enregistré."""
         with self._lock:
             alerts, notes = self._read()
             current = next((a for a in alerts if a.id == alert_id), None)
@@ -453,7 +485,12 @@ class AlertService:
             for i, past in enumerate(current.history):
                 if past.id == event.id:
                     current.history[i] = past.model_copy(
-                        update={"webhook_status": event.webhook_status, "webhook_error": event.webhook_error}
+                        update={
+                            "webhook_status": event.webhook_status,
+                            "webhook_error": event.webhook_error,
+                            "email_sent": event.email_sent,
+                            "email_error": event.email_error,
+                        }
                     )
                     break
             self._write(alerts, notes)

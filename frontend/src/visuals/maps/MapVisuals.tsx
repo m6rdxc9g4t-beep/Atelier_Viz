@@ -13,6 +13,7 @@ import { bindingKey, bindingLabel } from "../fields";
 import { formatDimension, formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
 import { type GeoFeature, type GeoLayer, aliasOf, featureKeys, featureName, loadLayer } from "./geo";
+import { useTooltipExtras } from "../tooltips";
 
 type Collection = FeatureCollection<Geometry, GeoFeature["properties"]>;
 
@@ -40,6 +41,7 @@ interface Hover {
   y: number;
   title: string;
   rows: { label: string; value: string }[];
+  extra?: { label: string; value: string }[];
 }
 
 export function ChoroplethVisual(props: VisualProps) {
@@ -51,6 +53,7 @@ export function ChoroplethVisual(props: VisualProps) {
   const [ref, size] = useSize<HTMLDivElement>();
   const [hover, setHover] = useState<Hover | null>(null);
   const fmt = numberFormat(visual);
+  const tooltipExtras = useTooltipExtras(props, "location");
 
   const { values, unmatched } = useMemo(() => {
     const map = new Map<string, { raw: Scalar; value: number }>();
@@ -104,6 +107,7 @@ export function ChoroplethVisual(props: VisualProps) {
                       y: pt.y,
                       title: featureName(feat),
                       rows: [{ label: bindingLabel(m), value: hit ? formatNumber(hit.value, fmt) : "—" }],
+                      extra: hit ? tooltipExtras(hit.raw) : [],
                     });
                   }}
                 />
@@ -113,7 +117,7 @@ export function ChoroplethVisual(props: VisualProps) {
         )}
         {hover && (
           <div className="absolute z-10" style={{ left: Math.min(hover.x + 12, size.width - 150), top: hover.y + 12 }}>
-            <TooltipBox title={hover.title} rows={hover.rows} />
+            <TooltipBox title={hover.title} rows={hover.rows} extra={hover.extra} />
           </div>
         )}
       </div>

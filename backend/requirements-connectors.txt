@@ -3,3 +3,5 @@
 pymssql>=2.3        # SQL Server / Azure SQL (macOS 14+, Windows, Linux)
 psycopg[binary]>=3.2  # PostgreSQL
 pymysql>=1.1        # MySQL / MariaDB
+snowflake-connector-python>=3.12  # Snowflake (mode « En ligne »)
+google-cloud-bigquery>=3.25       # BigQuery (mode « En ligne », compte de service)

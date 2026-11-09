@@ -19,6 +19,8 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel, Field
 
+from app.core.network import is_local_ip
+
 
 class WebhookRequest(BaseModel):
     url: str = Field(max_length=2000)
@@ -39,7 +41,7 @@ class ActionError(ValueError):
 
 
 def _is_local_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return ip.is_private or ip.is_loopback
+    return is_local_ip(ip)
 
 
 LOOPBACK_NAMES = {"localhost", "localhost.localdomain", "ip6-localhost"}
@@ -111,7 +113,8 @@ def pinned_request(client: httpx.AsyncClient, req: WebhookRequest, ip: str | Non
 async def call_webhook(req: WebhookRequest, online: bool, client: httpx.AsyncClient | None = None) -> WebhookResponse:
     ip = await asyncio.to_thread(validate_target, req.url, online)  # résolution DNS bloquante, une seule fois
     owns_client = client is None
-    client = client or httpx.AsyncClient(timeout=15.0, follow_redirects=False)
+    # Hors ligne : connexion directe à l'IP validée, jamais par le proxy système (HTTPS_PROXY…).
+    client = client or httpx.AsyncClient(timeout=15.0, follow_redirects=False, trust_env=online)
     try:
         response = await client.send(pinned_request(client, req, ip), follow_redirects=False)
     except httpx.HTTPError as exc:

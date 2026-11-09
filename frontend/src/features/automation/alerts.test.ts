@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { Alert } from "../../types/alert";
 import type { DatasetProfile } from "../../types/dataset";
 import type { Visual } from "../../types/report";
-import { alertError, alertFromVisual, alertStatus, alertValueLabel, conditionLabel, emptyAlert, filterLabel, measureLabel, parseFilterValues } from "./alerts";
+import { alertError, alertFromVisual, alertStatus, alertValueLabel, conditionLabel, emptyAlert, filterLabel, invalidRecipient, measureLabel, parseFilterValues, parseRecipients } from "./alerts";
+import { emailConfigError } from "../settings/EmailSection";
 
 const kpi: Visual = {
   id: "k",
@@ -97,5 +98,24 @@ describe("alertes sur variation et par dimension", () => {
     const profile = { columns: [{ name: "ca" }, { name: "region" }] } as unknown as DatasetProfile;
     expect(alertError({ ...base, split_by: "pays" }, profile)).toMatch(/inconnu/);
     expect(alertError({ ...base, split_by: "region" }, profile)).toBeNull();
+  });
+});
+
+describe("e-mail des alertes", () => {
+  it("lit les destinataires et refuse les adresses invalides", () => {
+    expect(parseRecipients("a@x.fr, b@y.fr;a@x.fr\nc@z.com")).toEqual(["a@x.fr", "b@y.fr", "c@z.com"]);
+    expect(invalidRecipient(["a@x.fr", "Nom <b@y.fr>"])).toBe("Nom <b@y.fr>");
+    const base = { ...emptyAlert("a".repeat(12)), name: "CA", measure: { field: "ca", agg: "sum" as const }, notify: false, system: false };
+    expect(alertError(base, undefined)).toMatch(/au moins une action/);
+    expect(alertError({ ...base, email_to: ["dg@entreprise.fr"] }, undefined)).toBeNull();
+    expect(alertError({ ...base, email_to: ["pas-une-adresse"] }, undefined)).toMatch(/invalide/);
+  });
+
+  it("vérifie le serveur d'envoi", () => {
+    const ok = { host: "smtp.entreprise.fr", port: 587, security: "starttls" as const, username: null, from_addr: "alertes@entreprise.fr" };
+    expect(emailConfigError(ok)).toBeNull();
+    expect(emailConfigError({ ...ok, host: "" })).toMatch(/serveur/);
+    expect(emailConfigError({ ...ok, port: 0 })).toMatch(/Port/);
+    expect(emailConfigError({ ...ok, from_addr: "x" })).toMatch(/expéditeur/);
   });
 });

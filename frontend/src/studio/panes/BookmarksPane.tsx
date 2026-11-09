@@ -1,9 +1,9 @@
 import clsx from "clsx";
-import { ArrowDown, ArrowUp, Bookmark as BookmarkIcon, BookmarkPlus, Check, MoreHorizontal, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Bookmark as BookmarkIcon, BookmarkPlus, Check, Folder, Lock, MoreHorizontal, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import type { Bookmark } from "../../types/report";
-import { describeBookmark } from "../bookmarks";
+import { bookmarkGroup, describeBookmark, groupBookmarks } from "../bookmarks";
 import { useStudio } from "../store";
 import { Pane } from "./Pane";
 
@@ -21,6 +21,7 @@ export function BookmarksPane() {
   const s = useStudio.getState;
   if (!report) return null;
   const bookmarks = report.bookmarks ?? [];
+  const groupNames = [...new Set(bookmarks.map(bookmarkGroup).filter((g): g is string => g !== null))];
   const editing = mode === "edit";
 
   const add = () => {
@@ -42,112 +43,133 @@ export function BookmarksPane() {
           <BookmarkPlus className="size-3.5" aria-hidden /> Ajouter un signet
         </button>
         <p className="text-[11px] leading-snug text-muted">
-          Un signet retient la page affichée, ses filtres, la sélection des segments, le filtrage croisé et le niveau d'exploration. Cliquez un signet pour l'appliquer.
+          Un signet retient la page affichée, ses filtres, la sélection des segments, le filtrage croisé et le niveau d'exploration. Cliquez un signet pour l'appliquer. Rangez-les en groupes (diaporama par groupe) ; un signet personnel reste sur ce poste.
         </p>
       </div>
 
       {bookmarks.length === 0 ? (
         <p className="p-4 text-center text-xs text-muted">Aucun signet pour l'instant.</p>
       ) : (
-        <ol className="p-1.5" aria-label="Signets du rapport">
-          {bookmarks.map((b, i) => (
-            <li key={b.id} className="relative">
-              {renaming === b.id ? (
-                <RenameField
-                  bookmark={b}
-                  onDone={(name) => {
-                    if (name !== null) s().renameBookmark(b.id, name);
-                    setRenaming(null);
-                  }}
-                />
-              ) : (
-                <div
-                  className={clsx(
-                    "group flex items-start gap-2 rounded-md px-2 py-1.5",
-                    active === b.id ? "bg-accent-soft" : "hover:bg-surface-2",
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (s().applyBookmark(b.id)) setActive(b.id);
-                    }}
-                    onDoubleClick={() => setRenaming(b.id)}
-                    title="Appliquer ce signet (double-clic : renommer)"
-                    className="flex min-w-0 flex-1 items-start gap-2 text-left"
-                  >
-                    <BookmarkIcon className={clsx("mt-0.5 size-3.5 shrink-0", active === b.id ? "fill-current text-accent-ink" : "text-muted")} aria-hidden />
-                    <span className="min-w-0">
-                      <span className="block truncate text-xs font-medium">{b.name}</span>
-                      <span className="block truncate text-[11px] text-muted">{describeBookmark(report, b)}</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Options du signet ${b.name}`}
-                    aria-expanded={menu === b.id}
-                    onClick={() => setMenu((m) => (m === b.id ? null : b.id))}
-                    className={clsx("rounded p-0.5 text-muted hover:bg-surface hover:text-fg", menu === b.id ? "opacity-100" : "opacity-60 group-hover:opacity-100")}
-                  >
-                    <MoreHorizontal className="size-3.5" aria-hidden />
-                  </button>
-                </div>
+        <div className="p-1.5">
+          {groupBookmarks(bookmarks).map((bucket) => (
+            <section key={bucket.group ?? ""} aria-label={bucket.group ?? "Sans groupe"}>
+              {bucket.group !== null && (
+                <h3 className="flex items-center gap-1.5 px-2 pb-0.5 pt-2 text-[11px] font-medium text-muted">
+                  <Folder className="size-3" aria-hidden /> {bucket.group}
+                </h3>
               )}
-              {menu === b.id && (
-                <div role="menu" aria-label={`Options du signet ${b.name}`} className="mx-2 mb-1.5 space-y-1 rounded-md border border-border bg-bg p-1.5 text-xs">
-                  <MenuItem
-                    icon={RefreshCw}
-                    label="Mettre à jour avec l'état actuel"
-                    onClick={() => {
-                      s().updateBookmark(b.id);
-                      s().notify(`Signet « ${b.name} » mis à jour.`);
-                      setMenu(null);
-                    }}
-                  />
-                  <MenuItem
-                    icon={Pencil}
-                    label="Renommer"
-                    onClick={() => {
-                      setRenaming(b.id);
-                      setMenu(null);
-                    }}
-                  />
-                  <div className="flex gap-1">
-                    <MenuItem icon={ArrowUp} label="Monter" disabled={i === 0} onClick={() => s().moveBookmark(b.id, -1)} />
-                    <MenuItem icon={ArrowDown} label="Descendre" disabled={i === bookmarks.length - 1} onClick={() => s().moveBookmark(b.id, 1)} />
-                  </div>
-                  <fieldset className="space-y-1 border-t border-line px-1.5 pt-1.5">
-                    <legend className="sr-only">Ce que le signet applique</legend>
-                    <Toggle label="Page affichée" checked={b.apply_page} onChange={(v) => s().setBookmarkFlags(b.id, { apply_page: v })} />
-                    <Toggle label="Données (filtres, segments, exploration)" checked={b.apply_data} onChange={(v) => s().setBookmarkFlags(b.id, { apply_data: v })} />
-                  </fieldset>
-                  {confirmDelete === b.id ? (
-                    <div className="flex items-center gap-2 border-t border-line px-1.5 pt-1.5">
-                      <span className="flex-1 text-muted">Supprimer ?</span>
-                      <button
-                        type="button"
-                        className="font-medium text-negative hover:underline"
-                        onClick={() => {
-                          s().removeBookmark(b.id);
-                          setConfirmDelete(null);
-                          setMenu(null);
-                          if (active === b.id) setActive(null);
+              <ol aria-label={bucket.group ? `Signets du groupe ${bucket.group}` : "Signets du rapport"}>
+                {bucket.items.map((b) => {
+                  const i = bookmarks.indexOf(b);
+                  return (
+                  <li key={b.id} className="relative">
+                    {renaming === b.id ? (
+                      <RenameField
+                        bookmark={b}
+                        onDone={(name) => {
+                          if (name !== null) s().renameBookmark(b.id, name);
+                          setRenaming(null);
                         }}
+                      />
+                    ) : (
+                      <div
+                        className={clsx(
+                          "group flex items-start gap-2 rounded-md px-2 py-1.5",
+                          active === b.id ? "bg-accent-soft" : "hover:bg-surface-2",
+                        )}
                       >
-                        Supprimer
-                      </button>
-                      <button type="button" className="text-muted hover:underline" onClick={() => setConfirmDelete(null)}>
-                        Annuler
-                      </button>
-                    </div>
-                  ) : (
-                    <MenuItem icon={Trash2} label="Supprimer" danger onClick={() => setConfirmDelete(b.id)} />
-                  )}
-                </div>
-              )}
-            </li>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (s().applyBookmark(b.id)) setActive(b.id);
+                          }}
+                          onDoubleClick={() => setRenaming(b.id)}
+                          title="Appliquer ce signet (double-clic : renommer)"
+                          className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                        >
+                          <BookmarkIcon className={clsx("mt-0.5 size-3.5 shrink-0", active === b.id ? "fill-current text-accent-ink" : "text-muted")} aria-hidden />
+                          <span className="min-w-0">
+                            <span className="flex items-center gap-1 truncate text-xs font-medium">
+                              {b.name}
+                              {b.personal && <Lock className="size-3 shrink-0 text-muted" aria-label="Signet personnel" />}
+                            </span>
+                            <span className="block truncate text-[11px] text-muted">{describeBookmark(report, b)}</span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Options du signet ${b.name}`}
+                          aria-expanded={menu === b.id}
+                          onClick={() => setMenu((m) => (m === b.id ? null : b.id))}
+                          className={clsx("rounded p-0.5 text-muted hover:bg-surface hover:text-fg", menu === b.id ? "opacity-100" : "opacity-60 group-hover:opacity-100")}
+                        >
+                          <MoreHorizontal className="size-3.5" aria-hidden />
+                        </button>
+                      </div>
+                    )}
+                    {menu === b.id && (
+                      <div role="menu" aria-label={`Options du signet ${b.name}`} className="mx-2 mb-1.5 space-y-1 rounded-md border border-border bg-bg p-1.5 text-xs">
+                        <MenuItem
+                          icon={RefreshCw}
+                          label="Mettre à jour avec l'état actuel"
+                          onClick={() => {
+                            s().updateBookmark(b.id);
+                            s().notify(`Signet « ${b.name} » mis à jour.`);
+                            setMenu(null);
+                          }}
+                        />
+                        <MenuItem
+                          icon={Pencil}
+                          label="Renommer"
+                          onClick={() => {
+                            setRenaming(b.id);
+                            setMenu(null);
+                          }}
+                        />
+                        <div className="flex gap-1">
+                          <MenuItem icon={ArrowUp} label="Monter" disabled={i === 0} onClick={() => s().moveBookmark(b.id, -1)} />
+                          <MenuItem icon={ArrowDown} label="Descendre" disabled={i === bookmarks.length - 1} onClick={() => s().moveBookmark(b.id, 1)} />
+                        </div>
+                        <fieldset className="space-y-1 border-t border-line px-1.5 pt-1.5">
+                          <legend className="sr-only">Ce que le signet applique</legend>
+                          <Toggle label="Page affichée" checked={b.apply_page} onChange={(v) => s().setBookmarkFlags(b.id, { apply_page: v })} />
+                          <Toggle label="Données (filtres, segments, exploration)" checked={b.apply_data} onChange={(v) => s().setBookmarkFlags(b.id, { apply_data: v })} />
+                        </fieldset>
+                        <div className="space-y-1 border-t border-line px-1.5 pt-1.5">
+                          <GroupField bookmark={b} groups={groupNames} onChange={(g) => s().setBookmarkGroup(b.id, g)} />
+                          <Toggle label="Personnel : reste sur ce poste (jamais envoyé à GitHub)" checked={!!b.personal} onChange={(v) => s().setBookmarkFlags(b.id, { personal: v })} />
+                        </div>
+                        {confirmDelete === b.id ? (
+                          <div className="flex items-center gap-2 border-t border-line px-1.5 pt-1.5">
+                            <span className="flex-1 text-muted">Supprimer ?</span>
+                            <button
+                              type="button"
+                              className="font-medium text-negative hover:underline"
+                              onClick={() => {
+                                s().removeBookmark(b.id);
+                                setConfirmDelete(null);
+                                setMenu(null);
+                                if (active === b.id) setActive(null);
+                              }}
+                            >
+                              Supprimer
+                            </button>
+                            <button type="button" className="text-muted hover:underline" onClick={() => setConfirmDelete(null)}>
+                              Annuler
+                            </button>
+                          </div>
+                        ) : (
+                          <MenuItem icon={Trash2} label="Supprimer" danger onClick={() => setConfirmDelete(b.id)} />
+                        )}
+                      </div>
+                    )}
+                  </li>
+                  );
+                })}
+              </ol>
+            </section>
           ))}
-        </ol>
+        </div>
       )}
       {editing && bookmarks.length > 0 && (
         <p className="px-3 pb-3 text-[11px] text-muted">
@@ -155,6 +177,35 @@ export function BookmarksPane() {
         </p>
       )}
     </Pane>
+  );
+}
+
+function GroupField({ bookmark, groups, onChange }: { bookmark: Bookmark; groups: string[]; onChange: (group: string | null) => void }) {
+  const [value, setValue] = useState(bookmark.group ?? "");
+  const listId = `groupes-${bookmark.id}`;
+  const commit = () => {
+    if ((bookmark.group ?? "") !== value.trim()) onChange(value.trim() || null);
+  };
+  return (
+    <label className="flex items-center gap-2 text-[11px] text-muted">
+      <Folder className="size-3.5 shrink-0" aria-hidden />
+      <input
+        aria-label="Groupe du signet"
+        list={listId}
+        value={value}
+        maxLength={60}
+        placeholder="Groupe (facultatif)"
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === "Enter" && commit()}
+        className="min-w-0 flex-1 rounded-md border border-border bg-field px-1.5 py-0.5 text-xs text-fg"
+      />
+      <datalist id={listId}>
+        {groups.map((g) => (
+          <option key={g} value={g} />
+        ))}
+      </datalist>
+    </label>
   );
 }
 

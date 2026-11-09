@@ -18,6 +18,8 @@ import type {
   TestResult,
 } from "../types/connection";
 import type { Alert, AlertInput, AlertNotification } from "../types/alert";
+import type { BackgroundJobInput, BackgroundJobState } from "../types/background";
+import type { EmailConfigInput, EmailState, EmailTestResult } from "../types/email";
 import type { GitHubConfigInput, GitHubState, GitHubTest, PullRequest, PullResult, PushRequest, PushResult, ReportVersion, ReportVersionDetail, RestoreRequest, RestoreResult } from "../types/github";
 import type { RefreshRun, RefreshSchedule, ScheduleState } from "../types/refresh";
 import type { Report, ReportBody, ReportSummary } from "../types/report";
@@ -167,6 +169,16 @@ export const api = {
       request<AlertNotification[]>("/alerts/notifications/read", { method: "POST", body: JSON.stringify({ ids }) }),
   },
 
+  background: {
+    state: () => request<BackgroundJobState>("/background"),
+    apply: (body: BackgroundJobInput) => request<BackgroundJobState>("/background", { method: "PUT", body: JSON.stringify(body) }),
+  },
+  email: {
+    state: () => request<EmailState>("/email"),
+    configure: (body: EmailConfigInput) => request<EmailState>("/email", { method: "PUT", body: JSON.stringify(body) }),
+    forget: () => request<EmailState>("/email", { method: "DELETE" }),
+    test: (to: string[]) => request<EmailTestResult>("/email/test", { method: "POST", body: JSON.stringify({ to }) }),
+  },
   github: {
     state: () => request<GitHubState>("/github"),
     configure: (body: GitHubConfigInput) => request<GitHubState>("/github", { method: "PUT", body: JSON.stringify(body) }),

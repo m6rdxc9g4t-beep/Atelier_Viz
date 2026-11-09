@@ -108,6 +108,40 @@ def test_database_lock_is_detected(settings: Settings, dist: Path) -> None:
         assert desktop.database_busy(settings) is None
 
 
+def test_database_busy_waits_for_the_background_refresh(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Base tenue par l'actualisation en arrière-plan (témoin récent) : on attend sa fin au lieu de refuser."""
+    import duckdb
+
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    (settings.data_dir / "atelier.duckdb").write_bytes(b"")
+    marker = settings.data_dir / desktop.BACKGROUND_LOCK
+    marker.write_text("123", encoding="utf-8")
+    attempts = {"n": 0}
+
+    class Conn:
+        def close(self) -> None:
+            pass
+
+    def connect(path: str) -> Conn:
+        attempts["n"] += 1
+        if attempts["n"] < 3:
+            raise duckdb.IOException("Could not set lock on file")
+        return Conn()
+
+    monkeypatch.setattr(duckdb, "connect", connect)
+    slept: list[float] = []
+    assert desktop.database_busy(settings, wait=10, sleep=slept.append) is None
+    assert slept == [1.0, 1.0]
+    # Toujours tenue après l'attente : message propre à l'arrière-plan.
+    attempts["n"] = -100
+    message = desktop.database_busy(settings, wait=2, sleep=lambda s: None)
+    assert message and "arrière-plan" in message
+    # Sans témoin : un autre programme (serveur oublié).
+    marker.unlink()
+    message = desktop.database_busy(settings, wait=2, sleep=lambda s: None)
+    assert message and "uvicorn" in message
+
+
 class FakeWindow:
     def __init__(self, answer: Any) -> None:
         self.answer = answer

@@ -97,11 +97,16 @@ class ReportRepository:
         self._notify(report)
         return report
 
-    def put(self, report: Report) -> Report:
-        """Écrit un rapport tel quel (identifiant et dates conservés) : import depuis GitHub."""
+    def put(self, report: Report, notify: bool = False) -> Report:
+        """Écrit un rapport tel quel (identifiant et dates conservés) : import depuis GitHub, copie.
+
+        `notify` : prévient les observateurs comme un enregistrement (copie créée par le nœud Atelier).
+        """
         if self._path(report.id) is None:
             raise ValueError(f"Identifiant de rapport invalide : « {report.id} ».")
         self._write(report)
+        if notify:
+            self._notify(report)
         return report
 
     def all(self) -> "builtins.list[Report]":

@@ -71,6 +71,13 @@ const LINE_OPTIONS: OptionDef[] = [
 const ANALYSIS_OPTIONS: OptionDef[] = [
   { key: "trend", label: "Ligne de tendance", type: "boolean", section: "Analyse", when: trendApplies },
   { key: "forecast", label: "Prévision (périodes, axe de dates)", type: "number", min: 0, max: 24, section: "Analyse", when: trendApplies },
+  {
+    key: "seasonal",
+    label: "Prévision saisonnière (2 cycles connus au moins)",
+    type: "boolean",
+    section: "Analyse",
+    when: (o) => trendApplies(o) && Number(o.forecast) > 0,
+  },
 ];
 
 const chart = (
@@ -114,21 +121,21 @@ export const VISUALS: Record<VisualType, VisualDef> = {
     options: [LEGEND_OPTION, LABELS_OPTION, { key: "stacked", label: "Colonnes empilées", type: "boolean", section: "Affichage" }, ...LINE_OPTIONS, ...NUMBER_OPTIONS],
   }),
   pie: chart("pie", "Secteurs", PieChart, {
-    roles: [{ ...HIERARCHY, label: "Légende" }, ONE_VALUE],
+    roles: [{ ...HIERARCHY, label: "Légende" }, ONE_VALUE, TOOLTIPS],
     size: { w: 6, h: 14 },
     defaults: { legend: true, labels: true, sort: "value_desc" },
     options: [LEGEND_OPTION, LABELS_OPTION, ...NUMBER_OPTIONS],
     component: PieVisual,
   }),
   donut: chart("donut", "Anneau", Donut, {
-    roles: [{ ...HIERARCHY, label: "Légende" }, ONE_VALUE],
+    roles: [{ ...HIERARCHY, label: "Légende" }, ONE_VALUE, TOOLTIPS],
     size: { w: 6, h: 14 },
     defaults: { legend: true, labels: false, sort: "value_desc" },
     options: [LEGEND_OPTION, LABELS_OPTION, ...NUMBER_OPTIONS],
     component: PieVisual,
   }),
   treemap: chart("treemap", "Treemap", LayoutGrid, {
-    roles: [{ ...HIERARCHY, label: "Catégorie" }, ONE_VALUE],
+    roles: [{ ...HIERARCHY, label: "Catégorie" }, ONE_VALUE, TOOLTIPS],
     defaults: { sort: "value_desc", topN: 30 },
     options: [...SORT_OPTIONS, ...NUMBER_OPTIONS],
     component: TreemapVisual,
@@ -254,6 +261,7 @@ export const VISUALS: Record<VisualType, VisualDef> = {
     roles: [
       { id: "location", label: "Emplacement (nom ou code)", kind: "dimension", max: 1, required: true, types: ["string", "number"] },
       ONE_VALUE,
+      TOOLTIPS,
     ],
     size: { w: 8, h: 16 },
     defaults: { geo: "fr-regions" },

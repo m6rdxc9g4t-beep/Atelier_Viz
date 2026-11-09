@@ -77,9 +77,9 @@ export const TOOLTIP_ROLE = "tooltips";
  * Requête des info-bulles : les mesures du rôle « Info-bulles » par élément de l'axe (même filtres),
  * à part de la requête principale — une valeur exacte par catégorie, même avec une légende.
  */
-export function tooltipQuery(visual: Visual, filters: Filter[]): QueryRequest | null {
+export function tooltipQuery(visual: Visual, filters: Filter[], dimRole = "category"): QueryRequest | null {
   const tips = role(visual, TOOLTIP_ROLE);
-  const category = first(visual, "category");
+  const category = first(visual, dimRole);
   if (!visual.dataset_id || !tips.length || !category) return null;
   return { dataset_id: visual.dataset_id, dimensions: [dimension(category)], measures: tips.map(measure), filters, limit: 5000 };
 }
@@ -171,7 +171,7 @@ export function VisualMessage({ children, tone = "muted" }: { children: ReactNod
   );
 }
 
-interface TooltipRow {
+export interface TooltipRow {
   color?: string;
   label: string;
   value: string;
