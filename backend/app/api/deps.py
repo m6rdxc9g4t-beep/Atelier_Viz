@@ -10,6 +10,7 @@ from app.services.ai import AIService, AnthropicProvider, ClaudeCliProvider, Oll
 from app.services.ai.service import ClaudeProvider
 from app.services.alerts import AlertService
 from app.services.atelier import AtelierService, EventJournal, IdempotencyStore
+from app.services.background_job import BackgroundJob
 from app.services.connectors import ConnectionService
 from app.services.data import DatasetStore
 from app.services.email import EmailService
@@ -112,6 +113,12 @@ def get_alerts(request: Request) -> AlertService:
     return alerts
 
 
+def get_background_job(request: Request) -> BackgroundJob:
+    """Tâche du système (actualisation quand l'application est fermée)."""
+    job: BackgroundJob = request.app.state.background_job
+    return job
+
+
 def get_email(request: Request) -> EmailService:
     """Envoi d'e-mails (alertes)."""
     email: EmailService = request.app.state.email
@@ -153,6 +160,7 @@ SchedulerDep = Annotated[RefreshScheduler, Depends(get_scheduler)]
 AlertsDep = Annotated[AlertService, Depends(get_alerts)]
 GitHubDep = Annotated[GitHubSync, Depends(get_github)]
 EmailDep = Annotated[EmailService, Depends(get_email)]
+BackgroundJobDep = Annotated[BackgroundJob, Depends(get_background_job)]
 AtelierDep = Annotated[AtelierService, Depends(get_atelier)]
 JournalDep = Annotated[EventJournal, Depends(get_journal)]
 IdempotencyDep = Annotated[IdempotencyStore, Depends(get_idempotency)]

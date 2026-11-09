@@ -66,3 +66,15 @@ describe("rechargement après actualisation planifiée", () => {
     expect(await pollVersions()).toEqual([]);
   });
 });
+
+describe("tâche du système (application fermée)", () => {
+  it("résume le dernier passage", async () => {
+    const { backgroundSummary } = await import("./BackgroundSection");
+    const base = { last_run_at: null, status: "never", refreshed: 0, failed: 0, skipped: 0, message: null };
+    expect(backgroundSummary(base)).toBe("Pas encore lancée.");
+    const at = new Date().toISOString();
+    expect(backgroundSummary({ ...base, last_run_at: at, status: "done", refreshed: 2, failed: 1 })).toMatch(/2 jeux actualisés, 1 en échec\.$/);
+    expect(backgroundSummary({ ...base, last_run_at: at, status: "app_open" })).toMatch(/application ouverte/);
+    expect(backgroundSummary({ ...base, last_run_at: at, status: "done" })).toMatch(/rien à échéance/);
+  });
+});

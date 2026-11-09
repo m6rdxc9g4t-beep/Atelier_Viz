@@ -18,6 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app import __version__
 from app.api.deps import build_ai_service
 from app.api.router import api_router
+from app.background import read_status
 from app.core.config import Settings, get_settings
 from app.core.frontend import FrontendFiles
 from app.core.local_only import LocalOnlyMiddleware
@@ -26,6 +27,7 @@ from app.services.ai import AIProviderError
 from app.services.alerts import AlertError, AlertService
 from app.services.atelier import AtelierError, AtelierEvents, AtelierService, EventJournal, IdempotencyStore
 from app.services.atelier.errors import code_for, is_atelier_path, text_detail, validation_message
+from app.services.background_job import BackgroundJob, BackgroundJobError, current_environment
 from app.services.connectors import ConnectionService, ConnectorError, build_secrets
 from app.services.data import DatasetStore
 from app.services.email import EmailError, EmailService
@@ -76,6 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             is_online=lambda: app.state.preferences.get().online_mode,
             env_token=lambda: settings.github_token.get_secret_value() if settings.github_token else None,
         )
+        app.state.background_job = BackgroundJob(current_environment(), lambda: read_status(settings))
         app.state.email = EmailService(
             data_dir / "email.json", secrets, is_online=lambda: app.state.preferences.get().online_mode
         )
@@ -163,6 +166,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(AlertError)
     async def alert_error_handler(_: Request, exc: AlertError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+    @app.exception_handler(BackgroundJobError)
+    async def background_error_handler(_: Request, exc: BackgroundJobError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
     @app.exception_handler(EmailError)
