@@ -57,52 +57,54 @@ export function BackgroundSection() {
   };
 
   return (
-    <section className="atelier-card rounded-xl border border-border bg-surface p-5" aria-labelledby={`${id}-title`}>
-      <div className="flex items-center gap-2">
+    <section className="atelier-card rounded-xl border border-border bg-surface" aria-labelledby={`${id}-title`}>
+      <header className="flex items-center gap-2 border-b border-line px-5 py-3">
         <MoonStar className="size-4 text-muted" aria-hidden />
-        <h2 id={`${id}-title`} className="flex-1 text-base font-semibold">
+        <h2 id={`${id}-title`} className="flex-1 text-sm font-semibold">
           Quand l'application est fermée
         </h2>
         {busy && <Loader2 className="size-4 animate-spin text-muted" aria-hidden />}
-      </div>
-      <p className="mt-1 text-xs text-muted">
-        Une tâche du système lance les actualisations planifiées et leurs alertes (notification, e-mail, webhook) même sans fenêtre ouverte. Rien d'autre ne tourne en permanence.
-      </p>
-      {state && !state.supported && <p className="mt-3 text-xs text-muted">{state.reason}</p>}
-      {state?.supported && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" className="accent-[var(--accent)]" checked={state.installed} disabled={busy} onChange={(e) => void apply(e.target.checked)} />
-            Actualiser en arrière-plan
-          </label>
-          <label className="flex items-center gap-2 text-muted">
-            toutes les
-            <select
-              className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
-              value={minutes}
-              disabled={busy}
-              onChange={(e) => {
-                const every = Number(e.target.value);
-                setMinutes(every);
-                if (state.installed) void apply(true, every);
-              }}
-            >
-              {CHOICES.map((m) => (
-                <option key={m} value={m}>
-                  {m < 60 ? `${m} min` : `${m / 60} h`}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span className="text-muted">{SYSTEM_NAME[state.platform] ?? state.platform}</span>
-        </div>
-      )}
-      {state && <p className="mt-2 text-[11px] text-muted">Dernier passage : {backgroundSummary(state.last)}</p>}
-      {error && (
-        <p role="alert" className="mt-2 text-xs text-negative">
-          {error}
+      </header>
+      <div className="p-5">
+        <p className="text-xs text-muted">
+          Une tâche du système lance les actualisations planifiées et leurs alertes (notification, e-mail, webhook) même sans fenêtre ouverte. Rien d'autre ne tourne en permanence.
         </p>
-      )}
+        {state && !state.supported && <p className="mt-3 text-xs text-muted">{state.reason}</p>}
+        {state?.supported && (
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" className="accent-[var(--accent)]" checked={state.installed} disabled={busy} onChange={(e) => void apply(e.target.checked)} />
+              Actualiser en arrière-plan
+            </label>
+            <label className="flex items-center gap-2 text-muted">
+              toutes les
+              <select
+                className="rounded-md border border-border bg-field px-2 py-1 text-xs text-fg"
+                value={minutes}
+                disabled={busy}
+                onChange={(e) => {
+                  const every = Number(e.target.value);
+                  setMinutes(every);
+                  if (state.installed) void apply(true, every);
+                }}
+              >
+                {CHOICES.map((m) => (
+                  <option key={m} value={m}>
+                    {m < 60 ? `${m} min` : `${m / 60} h`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="text-muted">{SYSTEM_NAME[state.platform] ?? state.platform}</span>
+          </div>
+        )}
+        {state && <p className="mt-2 text-[11px] text-muted">Dernier passage : {backgroundSummary(state.last)}</p>}
+        {error && (
+          <p role="alert" className="mt-2 text-xs text-negative">
+            {error}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

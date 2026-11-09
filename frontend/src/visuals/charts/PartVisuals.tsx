@@ -150,6 +150,7 @@ export function PieVisual(props: VisualProps) {
               ))}
             </Pie>
             <Tooltip
+              wrapperStyle={{ zIndex: 10 }}
               content={(p) => {
                 const e = p.payload?.[0] as { payload?: Slice } | undefined;
                 if (!p.active || !e?.payload) return null;
