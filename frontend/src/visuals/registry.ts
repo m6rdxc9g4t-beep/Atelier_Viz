@@ -71,6 +71,13 @@ const LINE_OPTIONS: OptionDef[] = [
 const ANALYSIS_OPTIONS: OptionDef[] = [
   { key: "trend", label: "Ligne de tendance", type: "boolean", section: "Analyse", when: trendApplies },
   { key: "forecast", label: "Prévision (périodes, axe de dates)", type: "number", min: 0, max: 24, section: "Analyse", when: trendApplies },
+  {
+    key: "seasonal",
+    label: "Prévision saisonnière (2 cycles connus au moins)",
+    type: "boolean",
+    section: "Analyse",
+    when: (o) => trendApplies(o) && Number(o.forecast) > 0,
+  },
 ];
 
 const chart = (

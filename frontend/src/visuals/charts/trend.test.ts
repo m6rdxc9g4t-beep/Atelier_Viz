@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bandKey, forecastKey, linearFit, nextPeriods, predict, student975, trendApplies, trendKey, withTrend } from "./trend";
+import { bandKey, forecastKey, linearFit, nextPeriods, predict, seasonOf, seasonPeriod, seasonalModel, student975, trendApplies, trendKey, withTrend } from "./trend";
 import type { Datum, SeriesDef } from "./series";
 
 const s: SeriesDef = { key: "sum(ca)", label: "CA", color: "var(--series-1)", role: "values" };
@@ -79,5 +79,43 @@ describe("withTrend", () => {
     expect(trendApplies({ sort: "value_desc" })).toBe(false);
     expect(trendApplies({ stacked: true })).toBe(false);
     expect(trendApplies({ percent: true })).toBe(false);
+  });
+});
+
+describe("prévision saisonnière", () => {
+  // 3 ans de mois : tendance +10 / mois et un pic de +100 en décembre.
+  const monthly: Datum[] = Array.from({ length: 36 }, (_, i) => {
+    const d = new Date(2024, i, 1);
+    const cat = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+    return { __cat: cat, __label: cat, "sum(ca)": 1000 + 10 * i + (d.getMonth() === 11 ? 100 : 0) };
+  });
+
+  it("repère le cycle et la position de chaque date", () => {
+    expect([seasonPeriod("month"), seasonPeriod("quarter"), seasonPeriod("day"), seasonPeriod("year")]).toEqual([12, 4, 7, null]);
+    expect(seasonOf("2026-12-01", "month")).toBe(11);
+    expect(seasonOf("2026-08-01", "quarter")).toBe(2);
+    expect(seasonOf("Occitanie", "month")).toBeNull();
+  });
+
+  it("reproduit le pic de décembre dans la prévision", () => {
+    const out = withTrend(monthly, [s], { trend: false, forecast: 12, catType: "date", bin: "month", seasonal: true });
+    const dec = out.data.find((d) => d.__cat === "2027-12-01");
+    const nov = out.data.find((d) => d.__cat === "2027-11-01");
+    expect(dec?.__forecast).toBe(true);
+    // À 1 % près (la droite est un peu tirée par les pics) ; le saut novembre → décembre est retrouvé.
+    expect(Math.abs(Number(dec?.[forecastKey(s.key)]) / 1570 - 1)).toBeLessThan(0.01);
+    expect(Number(dec?.[forecastKey(s.key)]) - Number(nov?.[forecastKey(s.key)])).toBeGreaterThan(100);
+    expect(out.derived.find((d) => d.kind === "forecast")?.seasonal).toBe(true);
+  });
+
+  it("revient à la droite sans deux cycles complets", () => {
+    const out = withTrend(monthly.slice(0, 18), [s], { trend: false, forecast: 3, catType: "date", bin: "month", seasonal: true });
+    expect(out.derived.find((d) => d.kind === "forecast")?.seasonal).toBe(false);
+  });
+
+  it("ne calcule rien si un mois manque d'observations", () => {
+    const fit = linearFit([1, 2, 3, 4]);
+    if (!fit) throw new Error("ajustement attendu");
+    expect(seasonalModel([1, 2, 3, 4], [0, 1, 2, 3], 4, fit)).toBeNull();
   });
 });

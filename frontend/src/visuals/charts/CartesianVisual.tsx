@@ -51,6 +51,7 @@ export function CartesianVisual(props: VisualProps) {
       ? withTrend(shaped, series, {
           trend: opt<boolean>(visual, def, "trend") === true,
           forecast: Number(opt<number>(visual, def, "forecast") ?? 0) || 0,
+          seasonal: opt<boolean>(visual, def, "seasonal") === true,
           catType: columnType(dataset, category.field),
           bin: category.bin,
         })
@@ -264,9 +265,10 @@ export function CartesianVisual(props: VisualProps) {
 }
 
 /** Légende des tracés d'analyse (pointillés), avec le R² de chaque droite. */
-function AnalysisCaption({ derived }: { derived: { kind: string; r2: number; source: { label: string } }[] }) {
+function AnalysisCaption({ derived }: { derived: { kind: string; r2: number; seasonal?: boolean; source: { label: string } }[] }) {
   const trend = derived.filter((d) => d.kind === "trend");
   const forecast = derived.some((d) => d.kind === "forecast");
+  const seasonal = derived.some((d) => d.kind === "forecast" && d.seasonal);
   const r2 = trend.length === 1 && trend[0] ? ` (R² ${trend[0].r2.toLocaleString("fr-FR", { maximumFractionDigits: 2 })})` : "";
   return (
     <p className="mt-1 flex flex-wrap gap-x-3 text-[10px] leading-4 text-[var(--muted)]">
@@ -283,7 +285,7 @@ function AnalysisCaption({ derived }: { derived: { kind: string; r2: number; sou
           <svg width="18" height="4" aria-hidden>
             <line x1="0" y1="2" x2="18" y2="2" stroke="currentColor" strokeWidth="2" strokeDasharray="6 4" />
           </svg>
-          Prévision linéaire, zone = intervalle à 95 %
+          {seasonal ? "Prévision tendance + saisons" : "Prévision linéaire"}, zone = intervalle à 95 %
         </span>
       )}
     </p>

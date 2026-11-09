@@ -99,6 +99,63 @@ export interface TrendOptions {
   forecast: number;
   catType: ColumnType | undefined;
   bin: DateBin | null | undefined;
+  /** Prévision saisonnière (mois, trimestre, semaine, jour) quand deux cycles complets sont connus. */
+  seasonal?: boolean;
+}
+
+/** Longueur du cycle saisonnier d'un regroupement de dates (année : aucun). */
+export function seasonPeriod(bin: DateBin | null | undefined): number | null {
+  return bin === "month" ? 12 : bin === "quarter" ? 4 : bin === "week" ? 52 : bin === "day" ? 7 : null;
+}
+
+/** Position d'une date dans son cycle : mois 0-11, trimestre 0-3, semaine 0-51, jour de semaine 0-6. */
+export function seasonOf(value: Scalar, bin: DateBin | null | undefined): number | null {
+  const d = parseDate(value);
+  if (!d) return null;
+  if (bin === "month") return d.getMonth();
+  if (bin === "quarter") return Math.floor(d.getMonth() / 3);
+  if (bin === "day") return d.getDay();
+  if (bin === "week") {
+    const start = new Date(d.getFullYear(), 0, 1);
+    return Math.min(51, Math.floor((d.getTime() - start.getTime()) / (7 * 86_400_000)));
+  }
+  return null;
+}
+
+export interface SeasonalModel {
+  period: number;
+  /** Écart moyen à la tendance de chaque position du cycle (somme nulle). */
+  indices: number[];
+  /** Écart type des résidus une fois tendance et saisons retirées. */
+  sigma: number;
+  /** Degrés de liberté de ces résidus. */
+  df: number;
+}
+
+/**
+ * Indices saisonniers additifs (moyenne des écarts à la droite par position du cycle), seulement si
+ * chaque position est observée au moins deux fois et qu'il reste des degrés de liberté ; sinon null.
+ */
+export function seasonalModel(values: readonly (number | null)[], seasons: readonly (number | null)[], period: number, fit: LinearFit): SeasonalModel | null {
+  const sums = new Array<number>(period).fill(0);
+  const counts = new Array<number>(period).fill(0);
+  const points: [number, number, number][] = [];
+  values.forEach((y, x) => {
+    const k = seasons[x];
+    if (y === null || !Number.isFinite(y) || k === null || k === undefined) return;
+    const r = y - (fit.slope * x + fit.intercept);
+    sums[k] = (sums[k] ?? 0) + r;
+    counts[k] = (counts[k] ?? 0) + 1;
+    points.push([x, y, k]);
+  });
+  if (counts.some((c) => c < 2)) return null;
+  const raw = sums.map((s, k) => s / (counts[k] ?? 1));
+  const mean = raw.reduce((a, b) => a + b, 0) / period;
+  const indices = raw.map((v) => v - mean);
+  const df = points.length - 2 - (period - 1);
+  if (df < 1) return null;
+  const sse = points.reduce((t, [x, y, k]) => t + (y - (fit.slope * x + fit.intercept) - (indices[k] ?? 0)) ** 2, 0);
+  return { period, indices, sigma: Math.sqrt(sse / df), df };
 }
 
 /** Série ajoutée au graphique (tendance, prévision ou intervalle), avec la série dont elle dérive. */
@@ -108,6 +165,8 @@ export interface DerivedSeries {
   source: SeriesDef;
   /** R² de la droite (tendance) — affiché dans l'info-bulle. */
   r2: number;
+  /** Prévision avec saisonnalité (sinon droite seule, faute de deux cycles complets). */
+  seasonal?: boolean;
 }
 
 /** Point du graphique : données d'origine + tendance, prévision et intervalle [bas, haut]. */
@@ -165,13 +224,23 @@ export function withTrend(data: Datum[], series: SeriesDef[], opts: TrendOptions
         last[forecastKey(s.key)] = lastValue;
         last[bandKey(s.key)] = [lastValue, lastValue];
       }
+      const period = opts.seasonal ? seasonPeriod(opts.bin) : null;
+      const season = period ? seasonalModel(values, rows.map((d) => seasonOf(d.__cat, opts.bin)), period, fit) : null;
       extra.forEach((d, i) => {
-        const p = predict(fit, lastIndex + 1 + i);
-        d[forecastKey(s.key)] = p.value;
-        d[bandKey(s.key)] = [p.value - p.margin, p.value + p.margin];
+        const x = lastIndex + 1 + i;
+        const p = predict(fit, x);
+        let value = p.value;
+        let margin = p.margin;
+        if (season) {
+          // Saison de la période prévue + intervalle fondé sur les résidus désaisonnalisés.
+          value += season.indices[seasonOf(d.__cat, opts.bin) ?? 0] ?? 0;
+          margin = student975(season.df) * season.sigma * Math.sqrt(1 + 1 / fit.n + (x - fit.xMean) ** 2 / fit.sxx);
+        }
+        d[forecastKey(s.key)] = value;
+        d[bandKey(s.key)] = [value - margin, value + margin];
       });
-      derived.push({ key: forecastKey(s.key), kind: "forecast", source: s, r2: fit.r2 });
-      derived.push({ key: bandKey(s.key), kind: "band", source: s, r2: fit.r2 });
+      derived.push({ key: forecastKey(s.key), kind: "forecast", source: s, r2: fit.r2, seasonal: season !== null });
+      derived.push({ key: bandKey(s.key), kind: "band", source: s, r2: fit.r2, seasonal: season !== null });
     }
   }
   const hasForecast = derived.some((d) => d.kind === "forecast");
