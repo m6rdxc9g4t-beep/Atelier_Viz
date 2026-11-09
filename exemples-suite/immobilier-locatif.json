@@ -1,0 +1,504 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "immobilier-locatif",
+  "titre": "SCI Les Tilleuls",
+  "sous_titre": "Gestion locative de six appartements",
+  "secteur": "Immobilier",
+  "resume": "La SCI familiale Les Tilleuls loue six appartements à Nantes : loyers encaissés, charges, état locatif, travaux ; en octobre un appartement est vacant, un loyer est impayé et les travaux de remise en état dépassent leur budget."
+ },
+ "jeux": [
+  {
+   "nom": "SCI Les Tilleuls — opérations août-oct. 2026",
+   "cle": "exemple:immobilier-locatif:operations",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "operations",
+    "label": "Opérations",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "libelle",
+      "label": "Libellé",
+      "type": "string"
+     },
+     {
+      "key": "debit",
+      "label": "Débit",
+      "type": "number"
+     },
+     {
+      "key": "credit",
+      "label": "Crédit",
+      "type": "number"
+     },
+     {
+      "key": "montant",
+      "label": "Montant",
+      "type": "number"
+     },
+     {
+      "key": "categorie",
+      "label": "Catégorie",
+      "type": "string"
+     },
+     {
+      "key": "mois",
+      "label": "Mois",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-03",
+      "libelle": "VIR SEPA RECU CLAIRE FONTAINE LOYER APT 1",
+      "debit": null,
+      "credit": 700,
+      "montant": 700.0,
+      "categorie": "Loyers",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-04",
+      "libelle": "VIR SEPA RECU MEHDI SAÏDI LOYER APT 2",
+      "debit": null,
+      "credit": 895,
+      "montant": 895.0,
+      "categorie": "Loyers",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-05",
+      "libelle": "VIR SEPA RECU ANAÏS ROUX LOYER APT 3",
+      "debit": null,
+      "credit": 715,
+      "montant": 715.0,
+      "categorie": "Loyers",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-06",
+      "libelle": "VIR SEPA RECU NGUYEN LOYER APT 4",
+      "debit": null,
+      "credit": 1070,
+      "montant": 1070.0,
+      "categorie": "Loyers",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-07",
+      "libelle": "VIR SEPA RECU LUCAS FERRAND LOYER APT 5",
+      "debit": null,
+      "credit": 510,
+      "montant": 510.0,
+      "categorie": "Loyers",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-08",
+      "libelle": "VIR SEPA RECU PAUL BESSON LOYER APT 6",
+      "debit": null,
+      "credit": 885,
+      "montant": 885.0,
+      "categorie": "Loyers",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-10",
+      "libelle": "PRLV SEPA PRET IMMOBILIER ECHEANCE AOÛT",
+      "debit": 2380,
+      "credit": null,
+      "montant": -2380.0,
+      "categorie": "Emprunt",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-15",
+      "libelle": "PRLV SEPA ASSURANCE PNO MUTUELLE DU MIDI",
+      "debit": 93.33,
+      "credit": null,
+      "montant": -93.33,
+      "categorie": "Assurances",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-20",
+      "libelle": "PRLV SEPA SYNDIC NANTES CENTRE APPEL DE CHARGES",
+      "debit": 410,
+      "credit": null,
+      "montant": -410.0,
+      "categorie": "Charges de copropriété",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-22",
+      "libelle": "VIR SEPA EMIS PLOMBERIE ERDRE REPARATION CHAUFFE-EAU APT 2",
+      "debit": 540,
+      "credit": null,
+      "montant": -540.0,
+      "categorie": "Travaux",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 12,
+      "credit": null,
+      "montant": -12.0,
+      "categorie": "Banque",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-09-02",
+      "libelle": "VIR SEPA EMIS ARTISAN DEGAT DES EAUX APT 4",
+      "debit": 1150,
+      "credit": null,
+      "montant": -1150.0,
+      "categorie": "Travaux",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-03",
+      "libelle": "VIR SEPA RECU CLAIRE FONTAINE LOYER APT 1",
+      "debit": null,
+      "credit": 700,
+      "montant": 700.0,
+      "categorie": "Loyers",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-04",
+      "libelle": "VIR SEPA RECU MEHDI SAÏDI LOYER APT 2",
+      "debit": null,
+      "credit": 895,
+      "montant": 895.0,
+      "categorie": "Loyers",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-05",
+      "libelle": "VIR SEPA RECU ANAÏS ROUX LOYER APT 3",
+      "debit": null,
+      "credit": 715,
+      "montant": 715.0,
+      "categorie": "Loyers",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-06",
+      "libelle": "VIR SEPA RECU NGUYEN LOYER APT 4",
+      "debit": null,
+      "credit": 1070,
+      "montant": 1070.0,
+      "categorie": "Loyers",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-07",
+      "libelle": "VIR SEPA RECU LUCAS FERRAND LOYER APT 5",
+      "debit": null,
+      "credit": 510,
+      "montant": 510.0,
+      "categorie": "Loyers",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-08",
+      "libelle": "VIR SEPA RECU PAUL BESSON LOYER APT 6",
+      "debit": null,
+      "credit": 413.0,
+      "montant": 413.0,
+      "categorie": "Loyers",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-10",
+      "libelle": "PRLV SEPA PRET IMMOBILIER ECHEANCE SEPTEMBRE",
+      "debit": 2380,
+      "credit": null,
+      "montant": -2380.0,
+      "categorie": "Emprunt",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-15",
+      "libelle": "PRLV SEPA ASSURANCE PNO MUTUELLE DU MIDI",
+      "debit": 93.33,
+      "credit": null,
+      "montant": -93.33,
+      "categorie": "Assurances",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-20",
+      "libelle": "PRLV SEPA SYNDIC NANTES CENTRE APPEL DE CHARGES",
+      "debit": 410,
+      "credit": null,
+      "montant": -410.0,
+      "categorie": "Charges de copropriété",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-27",
+      "libelle": "VIR SEPA RECU MUTUELLE DU MIDI INDEMNITE SINISTRE",
+      "debit": null,
+      "credit": 980,
+      "montant": 980.0,
+      "categorie": "Indemnités d'assurance",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 12,
+      "credit": null,
+      "montant": -12.0,
+      "categorie": "Banque",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-10-03",
+      "libelle": "VIR SEPA RECU CLAIRE FONTAINE LOYER APT 1",
+      "debit": null,
+      "credit": 700,
+      "montant": 700.0,
+      "categorie": "Loyers",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-04",
+      "libelle": "VIR SEPA RECU MEHDI SAÏDI LOYER APT 2",
+      "debit": null,
+      "credit": 895,
+      "montant": 895.0,
+      "categorie": "Loyers",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-05",
+      "libelle": "VIR SEPA RECU ANAÏS ROUX LOYER APT 3",
+      "debit": null,
+      "credit": 715,
+      "montant": 715.0,
+      "categorie": "Loyers",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-06",
+      "libelle": "VIR SEPA EMIS PEINTURES DE LOIRE REMISE EN ETAT APT 6",
+      "debit": 2650,
+      "credit": null,
+      "montant": -2650.0,
+      "categorie": "Travaux",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-07",
+      "libelle": "VIR SEPA RECU LUCAS FERRAND LOYER APT 5",
+      "debit": null,
+      "credit": 510,
+      "montant": 510.0,
+      "categorie": "Loyers",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-10",
+      "libelle": "PRLV SEPA PRET IMMOBILIER ECHEANCE OCTOBRE",
+      "debit": 2380,
+      "credit": null,
+      "montant": -2380.0,
+      "categorie": "Emprunt",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-13",
+      "libelle": "CARTE LEROY MERLIN NANTES SOLS APT 6",
+      "debit": 890,
+      "credit": null,
+      "montant": -890.0,
+      "categorie": "Travaux",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-15",
+      "libelle": "PRLV SEPA ASSURANCE PNO MUTUELLE DU MIDI",
+      "debit": 93.33,
+      "credit": null,
+      "montant": -93.33,
+      "categorie": "Assurances",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-15",
+      "libelle": "PRLV SEPA TAXE FONCIERE 2026",
+      "debit": 3240,
+      "credit": null,
+      "montant": -3240.0,
+      "categorie": "Taxe foncière",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-20",
+      "libelle": "PRLV SEPA SYNDIC NANTES CENTRE APPEL DE CHARGES",
+      "debit": 410,
+      "credit": null,
+      "montant": -410.0,
+      "categorie": "Charges de copropriété",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-21",
+      "libelle": "CARTE ANNONCE LOCATION SELOGER APT 6",
+      "debit": 79,
+      "credit": null,
+      "montant": -79.0,
+      "categorie": "Gestion locative",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 12,
+      "credit": null,
+      "montant": -12.0,
+      "categorie": "Banque",
+      "mois": "2026-10"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "SCI Les Tilleuls — État locatif",
+   "cle": "exemple:immobilier-locatif:etat_locatif",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "etat_locatif",
+    "label": "État locatif",
+    "columns": [
+     {
+      "key": "lot",
+      "label": "Lot",
+      "type": "string"
+     },
+     {
+      "key": "locataire",
+      "label": "Locataire",
+      "type": "string"
+     },
+     {
+      "key": "loyer",
+      "label": "Loyer",
+      "type": "number"
+     },
+     {
+      "key": "charges",
+      "label": "Charges",
+      "type": "number"
+     },
+     {
+      "key": "fin_de_bail",
+      "label": "Fin de bail",
+      "type": "date"
+     },
+     {
+      "key": "octobre_paye",
+      "label": "Octobre payé",
+      "type": "boolean"
+     },
+     {
+      "key": "situation",
+      "label": "Situation",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "lot": "Apt 1 — T2 rez-de-chaussée",
+      "locataire": "Claire Fontaine",
+      "loyer": 640,
+      "charges": 60,
+      "fin_de_bail": "2028-06-30",
+      "octobre_paye": true,
+      "situation": "Terminée"
+     },
+     {
+      "lot": "Apt 2 — T3 1er étage",
+      "locataire": "Mehdi Saïdi",
+      "loyer": 820,
+      "charges": 75,
+      "fin_de_bail": "2027-09-30",
+      "octobre_paye": true,
+      "situation": "Terminée"
+     },
+     {
+      "lot": "Apt 3 — T2 1er étage",
+      "locataire": "Anaïs Roux",
+      "loyer": 655,
+      "charges": 60,
+      "fin_de_bail": "2029-01-31",
+      "octobre_paye": true,
+      "situation": "Terminée"
+     },
+     {
+      "lot": "Apt 4 — T4 2e étage",
+      "locataire": "Famille Nguyen",
+      "loyer": 980,
+      "charges": 90,
+      "fin_de_bail": "2027-03-31",
+      "octobre_paye": false,
+      "situation": "En cours"
+     },
+     {
+      "lot": "Apt 5 — Studio 3e étage",
+      "locataire": "Lucas Ferrand",
+      "loyer": 470,
+      "charges": 40,
+      "fin_de_bail": "2026-12-31",
+      "octobre_paye": true,
+      "situation": "Terminée"
+     },
+     {
+      "lot": "Apt 6 — T3 3e étage",
+      "locataire": "(vacant depuis le 15/09)",
+      "loyer": 810,
+      "charges": 75,
+      "fin_de_bail": null,
+      "octobre_paye": false,
+      "situation": "Bloquée"
+     }
+    ]
+   }
+  }
+ ],
+ "alerte": {
+  "nom": "Travaux du mois — SCI Les Tilleuls",
+  "jeu_cle": "exemple:immobilier-locatif:operations",
+  "mesure": {
+   "field": "Débit",
+   "agg": "sum"
+  },
+  "filtres": [
+   {
+    "field": "Catégorie",
+    "op": "eq",
+    "values": [
+     "Travaux"
+    ]
+   },
+   {
+    "field": "Mois",
+    "op": "eq",
+    "values": [
+     "2026-10"
+    ]
+   }
+  ],
+  "comparaison": "gt",
+  "seuil": 1500,
+  "valeur_attendue": 3540
+ }
+}

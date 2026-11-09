@@ -15,6 +15,7 @@ NAME = "Atelier Viz" if sys.platform in ("darwin", "win32") else "atelier-viz"
 datas = [
     (str(ROOT / "frontend" / "dist"), "frontend_dist"),
     (str(ROOT / "samples"), "samples"),
+    (str(ROOT / "exemples-suite"), "exemples-suite"),
     (str(ROOT / "scripts" / "macos" / "icon.png"), "scripts/macos"),
 ]
 # Paquets qui lisent leurs métadonnées ou leurs fichiers à l'exécution.

@@ -1,0 +1,1099 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "marketing-campagne",
+  "titre": "Campagne Brume",
+  "sous_titre": "Lancement d'une marque de cosmétiques par une agence",
+  "secteur": "Marketing",
+  "resume": "L'agence Orbe lance la gamme d'automne de Brume Cosmétiques : plan média, performances par canal, factures des régies ; le budget Meta explose au lancement et le coût d'acquisition grimpe."
+ },
+ "jeux": [
+  {
+   "nom": "Campagne Brume — opérations août-oct. 2026",
+   "cle": "exemple:marketing-campagne:operations",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "operations",
+    "label": "Opérations",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "libelle",
+      "label": "Libellé",
+      "type": "string"
+     },
+     {
+      "key": "debit",
+      "label": "Débit",
+      "type": "number"
+     },
+     {
+      "key": "credit",
+      "label": "Crédit",
+      "type": "number"
+     },
+     {
+      "key": "montant",
+      "label": "Montant",
+      "type": "number"
+     },
+     {
+      "key": "categorie",
+      "label": "Catégorie",
+      "type": "string"
+     },
+     {
+      "key": "mois",
+      "label": "Mois",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-01",
+      "libelle": "VIR SEPA RECU BRUME COSMETIQUES BUDGET MEDIA AOUT",
+      "debit": null,
+      "credit": 4000,
+      "montant": 4000.0,
+      "categorie": "Budget client",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-06",
+      "libelle": "PRLV SEPA CANVA HUBSPOT SEMRUSH",
+      "debit": 318,
+      "credit": null,
+      "montant": -318.0,
+      "categorie": "Outils",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-20",
+      "libelle": "VIR SEPA EMIS STUDIO LUMEN SHOOTING PRODUIT",
+      "debit": 1600,
+      "credit": null,
+      "montant": -1600.0,
+      "categorie": "Production",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 15,
+      "credit": null,
+      "montant": -15.0,
+      "categorie": "Banque",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-31",
+      "libelle": "PRLV SEPA META PLATFORMS IRELAND AOUT",
+      "debit": 1250,
+      "credit": null,
+      "montant": -1250.0,
+      "categorie": "Meta",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-31",
+      "libelle": "PRLV SEPA GOOGLE IRELAND ADS AOUT",
+      "debit": 940,
+      "credit": null,
+      "montant": -940.0,
+      "categorie": "Google Ads",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-31",
+      "libelle": "PRLV SEPA TIKTOK ADS AOUT",
+      "debit": 690,
+      "credit": null,
+      "montant": -690.0,
+      "categorie": "TikTok",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-09-01",
+      "libelle": "VIR SEPA RECU BRUME COSMETIQUES BUDGET MEDIA SEPTEMBRE",
+      "debit": null,
+      "credit": 4000,
+      "montant": 4000.0,
+      "categorie": "Budget client",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-06",
+      "libelle": "PRLV SEPA CANVA HUBSPOT SEMRUSH",
+      "debit": 318,
+      "credit": null,
+      "montant": -318.0,
+      "categorie": "Outils",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-14",
+      "libelle": "VIR SEPA EMIS COLLECTIF CREATEURS INFLUENCE",
+      "debit": 1200,
+      "credit": null,
+      "montant": -1200.0,
+      "categorie": "Influence",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 15,
+      "credit": null,
+      "montant": -15.0,
+      "categorie": "Banque",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-30",
+      "libelle": "PRLV SEPA META PLATFORMS IRELAND SEPTEMBRE",
+      "debit": 1180,
+      "credit": null,
+      "montant": -1180.0,
+      "categorie": "Meta",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-30",
+      "libelle": "PRLV SEPA GOOGLE IRELAND ADS SEPTEMBRE",
+      "debit": 910,
+      "credit": null,
+      "montant": -910.0,
+      "categorie": "Google Ads",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-30",
+      "libelle": "PRLV SEPA TIKTOK ADS SEPTEMBRE",
+      "debit": 660,
+      "credit": null,
+      "montant": -660.0,
+      "categorie": "TikTok",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-10-01",
+      "libelle": "VIR SEPA RECU BRUME COSMETIQUES BUDGET MEDIA LANCEMENT",
+      "debit": null,
+      "credit": 9000,
+      "montant": 9000.0,
+      "categorie": "Budget client",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-06",
+      "libelle": "PRLV SEPA CANVA HUBSPOT SEMRUSH",
+      "debit": 318,
+      "credit": null,
+      "montant": -318.0,
+      "categorie": "Outils",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-08",
+      "libelle": "VIR SEPA EMIS COLLECTIF CREATEURS INFLUENCE LANCEMENT",
+      "debit": 2500,
+      "credit": null,
+      "montant": -2500.0,
+      "categorie": "Influence",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 15,
+      "credit": null,
+      "montant": -15.0,
+      "categorie": "Banque",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-31",
+      "libelle": "PRLV SEPA META PLATFORMS IRELAND OCTOBRE",
+      "debit": 4320,
+      "credit": null,
+      "montant": -4320.0,
+      "categorie": "Meta",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-31",
+      "libelle": "PRLV SEPA GOOGLE IRELAND ADS OCTOBRE",
+      "debit": 1490,
+      "credit": null,
+      "montant": -1490.0,
+      "categorie": "Google Ads",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-31",
+      "libelle": "PRLV SEPA TIKTOK ADS OCTOBRE",
+      "debit": 2210,
+      "credit": null,
+      "montant": -2210.0,
+      "categorie": "TikTok",
+      "mois": "2026-10"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "Campagne Brume — Plan média",
+   "cle": "exemple:marketing-campagne:plan_media",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "plan_media",
+    "label": "Plan média",
+    "columns": [
+     {
+      "key": "action",
+      "label": "Action",
+      "type": "string"
+     },
+     {
+      "key": "canal",
+      "label": "Canal",
+      "type": "string"
+     },
+     {
+      "key": "budget",
+      "label": "Budget",
+      "type": "number"
+     },
+     {
+      "key": "debut",
+      "label": "Début",
+      "type": "date"
+     },
+     {
+      "key": "fin",
+      "label": "Fin",
+      "type": "date"
+     },
+     {
+      "key": "cpa_cible",
+      "label": "CPA cible",
+      "type": "number"
+     },
+     {
+      "key": "statut",
+      "label": "Statut",
+      "type": "string"
+     },
+     {
+      "key": "responsable",
+      "label": "Responsable",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "action": "Teasing gamme automne",
+      "canal": "Meta",
+      "budget": 2400,
+      "debut": "2026-08-15",
+      "fin": "2026-09-30",
+      "cpa_cible": 18,
+      "statut": "Terminée",
+      "responsable": "Clara Vasseur"
+     },
+     {
+      "action": "Recherche marque et produits",
+      "canal": "Google Ads",
+      "budget": 3000,
+      "debut": "2026-08-01",
+      "fin": "2026-12-31",
+      "cpa_cible": 15,
+      "statut": "En cours",
+      "responsable": "Théo Lambert"
+     },
+     {
+      "action": "Lancement : vidéos courtes",
+      "canal": "TikTok",
+      "budget": 2200,
+      "debut": "2026-10-01",
+      "fin": "2026-10-31",
+      "cpa_cible": 20,
+      "statut": "Terminée",
+      "responsable": "Clara Vasseur"
+     },
+     {
+      "action": "Lancement : carrousels et stories",
+      "canal": "Meta",
+      "budget": 2500,
+      "debut": "2026-10-01",
+      "fin": "2026-10-31",
+      "cpa_cible": 18,
+      "statut": "Terminée",
+      "responsable": "Clara Vasseur"
+     },
+     {
+      "action": "Créateurs beauté (12 contenus)",
+      "canal": "Influence",
+      "budget": 3700,
+      "debut": "2026-09-10",
+      "fin": "2026-10-20",
+      "cpa_cible": 25,
+      "statut": "Terminée",
+      "responsable": "Nora Belkacem"
+     },
+     {
+      "action": "Retargeting fêtes de fin d'année",
+      "canal": "Meta",
+      "budget": 1800,
+      "debut": "2026-11-15",
+      "fin": "2026-12-24",
+      "cpa_cible": 12,
+      "statut": "À faire",
+      "responsable": "Théo Lambert"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "Campagne Brume — Performances des régies",
+   "cle": "exemple:marketing-campagne:performances_des_regies",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "performances_des_regies",
+    "label": "Performances des régies",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "canal",
+      "label": "Canal",
+      "type": "string"
+     },
+     {
+      "key": "depense",
+      "label": "Dépense",
+      "type": "number"
+     },
+     {
+      "key": "clics",
+      "label": "Clics",
+      "type": "number"
+     },
+     {
+      "key": "conversions",
+      "label": "Conversions",
+      "type": "number"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-01",
+      "canal": "Meta",
+      "depense": 39.9,
+      "clics": 95.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-01",
+      "canal": "Google Ads",
+      "depense": 30.45,
+      "clics": 49.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-01",
+      "canal": "TikTok",
+      "depense": 22.05,
+      "clics": 78.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-04",
+      "canal": "Meta",
+      "depense": 38.95,
+      "clics": 92.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-04",
+      "canal": "Google Ads",
+      "depense": 29.72,
+      "clics": 48.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-04",
+      "canal": "TikTok",
+      "depense": 21.52,
+      "clics": 76.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-07",
+      "canal": "Meta",
+      "depense": 38.0,
+      "clics": 90.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-07",
+      "canal": "Google Ads",
+      "depense": 29.0,
+      "clics": 47.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-07",
+      "canal": "TikTok",
+      "depense": 21.0,
+      "clics": 74.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-10",
+      "canal": "Meta",
+      "depense": 37.05,
+      "clics": 88.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-10",
+      "canal": "Google Ads",
+      "depense": 28.27,
+      "clics": 46.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-10",
+      "canal": "TikTok",
+      "depense": 20.47,
+      "clics": 73.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-13",
+      "canal": "Meta",
+      "depense": 36.1,
+      "clics": 85.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-13",
+      "canal": "Google Ads",
+      "depense": 27.55,
+      "clics": 45.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-13",
+      "canal": "TikTok",
+      "depense": 19.95,
+      "clics": 71.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-16",
+      "canal": "Meta",
+      "depense": 35.15,
+      "clics": 83.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-16",
+      "canal": "Google Ads",
+      "depense": 26.83,
+      "clics": 43.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-16",
+      "canal": "TikTok",
+      "depense": 19.43,
+      "clics": 69.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-19",
+      "canal": "Meta",
+      "depense": 34.2,
+      "clics": 81.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-19",
+      "canal": "Google Ads",
+      "depense": 26.1,
+      "clics": 42.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-19",
+      "canal": "TikTok",
+      "depense": 18.9,
+      "clics": 67.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-22",
+      "canal": "Meta",
+      "depense": 33.25,
+      "clics": 79.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-22",
+      "canal": "Google Ads",
+      "depense": 25.38,
+      "clics": 41.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-22",
+      "canal": "TikTok",
+      "depense": 18.38,
+      "clics": 65.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-25",
+      "canal": "Meta",
+      "depense": 42.75,
+      "clics": 101.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-08-25",
+      "canal": "Google Ads",
+      "depense": 32.62,
+      "clics": 53.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-25",
+      "canal": "TikTok",
+      "depense": 23.62,
+      "clics": 84.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-28",
+      "canal": "Meta",
+      "depense": 41.8,
+      "clics": 99.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-08-28",
+      "canal": "Google Ads",
+      "depense": 31.9,
+      "clics": 52.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-28",
+      "canal": "TikTok",
+      "depense": 23.1,
+      "clics": 82.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-08-31",
+      "canal": "Meta",
+      "depense": 40.85,
+      "clics": 97.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-08-31",
+      "canal": "Google Ads",
+      "depense": 31.17,
+      "clics": 51.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-08-31",
+      "canal": "TikTok",
+      "depense": 22.57,
+      "clics": 80.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-01",
+      "canal": "Meta",
+      "depense": 39.9,
+      "clics": 95.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-01",
+      "canal": "Google Ads",
+      "depense": 30.45,
+      "clics": 49.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-01",
+      "canal": "TikTok",
+      "depense": 22.05,
+      "clics": 78.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-04",
+      "canal": "Meta",
+      "depense": 38.95,
+      "clics": 92.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-04",
+      "canal": "Google Ads",
+      "depense": 29.72,
+      "clics": 48.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-04",
+      "canal": "TikTok",
+      "depense": 21.52,
+      "clics": 76.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-07",
+      "canal": "Meta",
+      "depense": 38.0,
+      "clics": 90.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-07",
+      "canal": "Google Ads",
+      "depense": 29.0,
+      "clics": 47.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-07",
+      "canal": "TikTok",
+      "depense": 21.0,
+      "clics": 74.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-10",
+      "canal": "Meta",
+      "depense": 37.05,
+      "clics": 88.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-10",
+      "canal": "Google Ads",
+      "depense": 28.27,
+      "clics": 46.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-10",
+      "canal": "TikTok",
+      "depense": 20.47,
+      "clics": 73.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-13",
+      "canal": "Meta",
+      "depense": 36.1,
+      "clics": 85.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-13",
+      "canal": "Google Ads",
+      "depense": 27.55,
+      "clics": 45.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-13",
+      "canal": "TikTok",
+      "depense": 19.95,
+      "clics": 71.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-16",
+      "canal": "Meta",
+      "depense": 35.15,
+      "clics": 83.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-16",
+      "canal": "Google Ads",
+      "depense": 26.83,
+      "clics": 43.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-16",
+      "canal": "TikTok",
+      "depense": 19.43,
+      "clics": 69.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-19",
+      "canal": "Meta",
+      "depense": 34.2,
+      "clics": 81.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-19",
+      "canal": "Google Ads",
+      "depense": 26.1,
+      "clics": 42.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-19",
+      "canal": "TikTok",
+      "depense": 18.9,
+      "clics": 67.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-22",
+      "canal": "Meta",
+      "depense": 33.25,
+      "clics": 79.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-22",
+      "canal": "Google Ads",
+      "depense": 25.38,
+      "clics": 41.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-22",
+      "canal": "TikTok",
+      "depense": 18.38,
+      "clics": 65.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-25",
+      "canal": "Meta",
+      "depense": 42.75,
+      "clics": 101.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-09-25",
+      "canal": "Google Ads",
+      "depense": 32.62,
+      "clics": 53.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-25",
+      "canal": "TikTok",
+      "depense": 23.62,
+      "clics": 84.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-09-28",
+      "canal": "Meta",
+      "depense": 41.8,
+      "clics": 99.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-09-28",
+      "canal": "Google Ads",
+      "depense": 31.9,
+      "clics": 52.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-09-28",
+      "canal": "TikTok",
+      "depense": 23.1,
+      "clics": 82.0,
+      "conversions": 1.0
+     },
+     {
+      "date": "2026-10-01",
+      "canal": "Meta",
+      "depense": 63.84,
+      "clics": 152.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-01",
+      "canal": "Google Ads",
+      "depense": 48.72,
+      "clics": 79.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-01",
+      "canal": "TikTok",
+      "depense": 35.28,
+      "clics": 125.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-10-04",
+      "canal": "Meta",
+      "depense": 101.27,
+      "clics": 241.0,
+      "conversions": 5.0
+     },
+     {
+      "date": "2026-10-04",
+      "canal": "Google Ads",
+      "depense": 47.56,
+      "clics": 77.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-04",
+      "canal": "TikTok",
+      "depense": 55.96,
+      "clics": 199.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-07",
+      "canal": "Meta",
+      "depense": 98.8,
+      "clics": 235.0,
+      "conversions": 5.0
+     },
+     {
+      "date": "2026-10-07",
+      "canal": "Google Ads",
+      "depense": 46.4,
+      "clics": 76.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-07",
+      "canal": "TikTok",
+      "depense": 54.6,
+      "clics": 195.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-10",
+      "canal": "Meta",
+      "depense": 96.33,
+      "clics": 229.0,
+      "conversions": 5.0
+     },
+     {
+      "date": "2026-10-10",
+      "canal": "Google Ads",
+      "depense": 45.24,
+      "clics": 74.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-10",
+      "canal": "TikTok",
+      "depense": 53.23,
+      "clics": 190.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-13",
+      "canal": "Meta",
+      "depense": 93.86,
+      "clics": 223.0,
+      "conversions": 5.0
+     },
+     {
+      "date": "2026-10-13",
+      "canal": "Google Ads",
+      "depense": 44.08,
+      "clics": 72.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-13",
+      "canal": "TikTok",
+      "depense": 51.87,
+      "clics": 185.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-16",
+      "canal": "Meta",
+      "depense": 91.39,
+      "clics": 217.0,
+      "conversions": 5.0
+     },
+     {
+      "date": "2026-10-16",
+      "canal": "Google Ads",
+      "depense": 42.92,
+      "clics": 70.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-16",
+      "canal": "TikTok",
+      "depense": 50.51,
+      "clics": 180.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-19",
+      "canal": "Meta",
+      "depense": 88.92,
+      "clics": 211.0,
+      "conversions": 4.0
+     },
+     {
+      "date": "2026-10-19",
+      "canal": "Google Ads",
+      "depense": 41.76,
+      "clics": 68.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-10-19",
+      "canal": "TikTok",
+      "depense": 49.14,
+      "clics": 175.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-22",
+      "canal": "Meta",
+      "depense": 86.45,
+      "clics": 205.0,
+      "conversions": 4.0
+     },
+     {
+      "date": "2026-10-22",
+      "canal": "Google Ads",
+      "depense": 40.6,
+      "clics": 66.0,
+      "conversions": 2.0
+     },
+     {
+      "date": "2026-10-22",
+      "canal": "TikTok",
+      "depense": 47.77,
+      "clics": 170.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-25",
+      "canal": "Meta",
+      "depense": 111.15,
+      "clics": 264.0,
+      "conversions": 6.0
+     },
+     {
+      "date": "2026-10-25",
+      "canal": "Google Ads",
+      "depense": 52.2,
+      "clics": 85.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-25",
+      "canal": "TikTok",
+      "depense": 61.43,
+      "clics": 219.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-28",
+      "canal": "Meta",
+      "depense": 108.68,
+      "clics": 258.0,
+      "conversions": 5.0
+     },
+     {
+      "date": "2026-10-28",
+      "canal": "Google Ads",
+      "depense": 51.04,
+      "clics": 83.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-28",
+      "canal": "TikTok",
+      "depense": 60.06,
+      "clics": 214.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-31",
+      "canal": "Meta",
+      "depense": 106.21,
+      "clics": 252.0,
+      "conversions": 5.0
+     },
+     {
+      "date": "2026-10-31",
+      "canal": "Google Ads",
+      "depense": 49.88,
+      "clics": 81.0,
+      "conversions": 3.0
+     },
+     {
+      "date": "2026-10-31",
+      "canal": "TikTok",
+      "depense": 58.7,
+      "clics": 209.0,
+      "conversions": 3.0
+     }
+    ]
+   }
+  }
+ ],
+ "alerte": {
+  "nom": "Dépenses Meta du mois — Campagne Brume",
+  "jeu_cle": "exemple:marketing-campagne:operations",
+  "mesure": {
+   "field": "Débit",
+   "agg": "sum"
+  },
+  "filtres": [
+   {
+    "field": "Catégorie",
+    "op": "eq",
+    "values": [
+     "Meta"
+    ]
+   },
+   {
+    "field": "Mois",
+    "op": "eq",
+    "values": [
+     "2026-10"
+    ]
+   }
+  ],
+  "comparaison": "gt",
+  "seuil": 2500,
+  "valeur_attendue": 4320
+ }
+}

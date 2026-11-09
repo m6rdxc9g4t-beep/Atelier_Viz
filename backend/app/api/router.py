@@ -11,6 +11,7 @@ from app.api.routes import (
     connections,
     datasets,
     email,
+    exemples,
     github,
     health,
     query,
@@ -27,6 +28,7 @@ api_router.include_router(ai.router)
 api_router.include_router(datasets.router)
 api_router.include_router(query.router)
 api_router.include_router(reports.router)
+api_router.include_router(exemples.router)
 api_router.include_router(actions.router)
 api_router.include_router(samples.router)
 api_router.include_router(connections.router)

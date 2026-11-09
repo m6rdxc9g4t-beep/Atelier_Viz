@@ -1019,6 +1019,7 @@ FOREIGN_ENV = frozenset(
         "FRONTEND_DIST",
         "SERVE_FRONTEND",
         "SAMPLES_DIR",
+        "EXEMPLES_DIR",
         "SECRETS_BACKEND",
         "ATELIER_HOME",  # paquet autonome
         # Mise à jour : npm ci sans devDependencies (NODE_ENV=production), modules Python d'une autre app.

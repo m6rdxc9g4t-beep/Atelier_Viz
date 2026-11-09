@@ -1,0 +1,394 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "renovation-urbaine",
+  "titre": "Rénovation Urbaine 2026",
+  "sous_titre": "Suivi d'un chantier de réhabilitation",
+  "secteur": "Chantier",
+  "resume": "La réhabilitation d'un immeuble de logements à Villeurbanne : planning des lots, situations de travaux payées depuis le compte chantier, budget par lot ; le gros œuvre dépasse son enveloppe du mois."
+ },
+ "jeux": [
+  {
+   "nom": "Rénovation Urbaine 2026 — opérations août-oct. 2026",
+   "cle": "exemple:renovation-urbaine:operations",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "operations",
+    "label": "Opérations",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "libelle",
+      "label": "Libellé",
+      "type": "string"
+     },
+     {
+      "key": "debit",
+      "label": "Débit",
+      "type": "number"
+     },
+     {
+      "key": "credit",
+      "label": "Crédit",
+      "type": "number"
+     },
+     {
+      "key": "montant",
+      "label": "Montant",
+      "type": "number"
+     },
+     {
+      "key": "categorie",
+      "label": "Catégorie",
+      "type": "string"
+     },
+     {
+      "key": "mois",
+      "label": "Mois",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-03",
+      "libelle": "VIR SEPA RECU METROPOLE DE LYON APPEL DE FONDS 3",
+      "debit": null,
+      "credit": 60000,
+      "montant": 60000.0,
+      "categorie": "Appels de fonds",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-05",
+      "libelle": "PRLV SEPA ASSURANCE DOMMAGES-OUVRAGE",
+      "debit": 612.5,
+      "credit": null,
+      "montant": -612.5,
+      "categorie": "Assurances",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-10",
+      "libelle": "VIR SEPA EMIS ATELIER DUBOIS BENALI HONORAIRES AOÛT",
+      "debit": 1500,
+      "credit": null,
+      "montant": -1500.0,
+      "categorie": "Études et honoraires",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-14",
+      "libelle": "VIR SEPA EMIS BTP RHONE SITUATION 4 GROS OEUVRE",
+      "debit": 9800,
+      "credit": null,
+      "montant": -9800.0,
+      "categorie": "Gros œuvre",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-21",
+      "libelle": "VIR SEPA EMIS CHARPENTES DU BEAUJOLAIS SITUATION 2",
+      "debit": 14250,
+      "credit": null,
+      "montant": -14250.0,
+      "categorie": "Charpente bois",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-26",
+      "libelle": "CARTE LOCATION ENGINS KILOUTOU",
+      "debit": 1240,
+      "credit": null,
+      "montant": -1240.0,
+      "categorie": "Installation de chantier",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 18,
+      "credit": null,
+      "montant": -18.0,
+      "categorie": "Banque",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-09-02",
+      "libelle": "VIR SEPA RECU METROPOLE DE LYON APPEL DE FONDS 4",
+      "debit": null,
+      "credit": 45000,
+      "montant": 45000.0,
+      "categorie": "Appels de fonds",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-05",
+      "libelle": "PRLV SEPA ASSURANCE DOMMAGES-OUVRAGE",
+      "debit": 612.5,
+      "credit": null,
+      "montant": -612.5,
+      "categorie": "Assurances",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-10",
+      "libelle": "VIR SEPA EMIS ATELIER DUBOIS BENALI HONORAIRES SEPTEMBRE",
+      "debit": 1500,
+      "credit": null,
+      "montant": -1500.0,
+      "categorie": "Études et honoraires",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-12",
+      "libelle": "VIR SEPA EMIS BTP RHONE SITUATION 5 GROS OEUVRE",
+      "debit": 11200,
+      "credit": null,
+      "montant": -11200.0,
+      "categorie": "Gros œuvre",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-18",
+      "libelle": "VIR SEPA EMIS CHARPENTES DU BEAUJOLAIS SITUATION 3 SOLDE",
+      "debit": 14250,
+      "credit": null,
+      "montant": -14250.0,
+      "categorie": "Charpente bois",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-24",
+      "libelle": "VIR SEPA EMIS ELEC LUMIERE SITUATION 1",
+      "debit": 4100,
+      "credit": null,
+      "montant": -4100.0,
+      "categorie": "Électricité",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 18,
+      "credit": null,
+      "montant": -18.0,
+      "categorie": "Banque",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-29",
+      "libelle": "CARTE BENNES ET DECHETS DU RHONE",
+      "debit": 890,
+      "credit": null,
+      "montant": -890.0,
+      "categorie": "Installation de chantier",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-10-01",
+      "libelle": "VIR SEPA RECU METROPOLE DE LYON APPEL DE FONDS 5",
+      "debit": null,
+      "credit": 45000,
+      "montant": 45000.0,
+      "categorie": "Appels de fonds",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-05",
+      "libelle": "PRLV SEPA ASSURANCE DOMMAGES-OUVRAGE",
+      "debit": 612.5,
+      "credit": null,
+      "montant": -612.5,
+      "categorie": "Assurances",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-09",
+      "libelle": "VIR SEPA EMIS BTP RHONE SITUATION 6 GROS OEUVRE",
+      "debit": 12600,
+      "credit": null,
+      "montant": -12600.0,
+      "categorie": "Gros œuvre",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-10",
+      "libelle": "VIR SEPA EMIS ATELIER DUBOIS BENALI HONORAIRES OCTOBRE",
+      "debit": 1500,
+      "credit": null,
+      "montant": -1500.0,
+      "categorie": "Études et honoraires",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-15",
+      "libelle": "VIR SEPA EMIS ELEC LUMIERE SITUATION 2",
+      "debit": 2270,
+      "credit": null,
+      "montant": -2270.0,
+      "categorie": "Électricité",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-20",
+      "libelle": "VIR SEPA EMIS BTP RHONE TRAVAUX SUPPLEMENTAIRES FONDATIONS",
+      "debit": 3400,
+      "credit": null,
+      "montant": -3400.0,
+      "categorie": "Gros œuvre",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-23",
+      "libelle": "VIR SEPA EMIS MENUISERIES DU VAL ACOMPTE 30 %",
+      "debit": 6420,
+      "credit": null,
+      "montant": -6420.0,
+      "categorie": "Menuiseries extérieures",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-27",
+      "libelle": "CARTE LOCATION ENGINS KILOUTOU",
+      "debit": 980,
+      "credit": null,
+      "montant": -980.0,
+      "categorie": "Installation de chantier",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 18,
+      "credit": null,
+      "montant": -18.0,
+      "categorie": "Banque",
+      "mois": "2026-10"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "Rénovation Urbaine 2026 — Planning & Lots",
+   "cle": "exemple:renovation-urbaine:planning_lots",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "planning_lots",
+    "label": "Planning & Lots",
+    "columns": [
+     {
+      "key": "lot_tache",
+      "label": "Lot / Tâche",
+      "type": "string"
+     },
+     {
+      "key": "statut",
+      "label": "Statut",
+      "type": "string"
+     },
+     {
+      "key": "cout_ht",
+      "label": "Coût HT",
+      "type": "number"
+     },
+     {
+      "key": "responsable",
+      "label": "Responsable",
+      "type": "string"
+     },
+     {
+      "key": "echeance",
+      "label": "Échéance",
+      "type": "date"
+     },
+     {
+      "key": "avancement",
+      "label": "Avancement",
+      "type": "number"
+     }
+    ],
+    "rows": [
+     {
+      "lot_tache": "Gros œuvre",
+      "statut": "En cours",
+      "cout_ht": 45000,
+      "responsable": "Marie Dubois",
+      "echeance": "2026-11-30",
+      "avancement": 0.7
+     },
+     {
+      "lot_tache": "Charpente bois",
+      "statut": "Terminée",
+      "cout_ht": 28500,
+      "responsable": "Karim Benali",
+      "echeance": "2026-12-15",
+      "avancement": 1.0
+     },
+     {
+      "lot_tache": "Isolation thermique",
+      "statut": "À faire",
+      "cout_ht": 15000,
+      "responsable": "Sophie Laurent",
+      "echeance": "2027-01-20",
+      "avancement": 0.0
+     },
+     {
+      "lot_tache": "Menuiseries extérieures",
+      "statut": "En attente",
+      "cout_ht": 21400,
+      "responsable": "Karim Benali",
+      "echeance": "2027-01-31",
+      "avancement": 0.1
+     },
+     {
+      "lot_tache": "Électricité",
+      "statut": "En cours",
+      "cout_ht": 18200,
+      "responsable": "Sophie Laurent",
+      "echeance": "2027-02-15",
+      "avancement": 0.35
+     },
+     {
+      "lot_tache": "Plomberie et chauffage",
+      "statut": "À faire",
+      "cout_ht": 16800,
+      "responsable": "Marie Dubois",
+      "echeance": "2027-02-28",
+      "avancement": 0.0
+     }
+    ]
+   }
+  }
+ ],
+ "alerte": {
+  "nom": "Gros œuvre du mois — Rénovation Urbaine 2026",
+  "jeu_cle": "exemple:renovation-urbaine:operations",
+  "mesure": {
+   "field": "Débit",
+   "agg": "sum"
+  },
+  "filtres": [
+   {
+    "field": "Catégorie",
+    "op": "eq",
+    "values": [
+     "Gros œuvre"
+    ]
+   },
+   {
+    "field": "Mois",
+    "op": "eq",
+    "values": [
+     "2026-10"
+    ]
+   }
+  ],
+  "comparaison": "gt",
+  "seuil": 14000,
+  "valeur_attendue": 16000
+ }
+}

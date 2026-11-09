@@ -1,0 +1,567 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "assurance-courtage",
+  "titre": "Arpège Courtage",
+  "sous_titre": "Portefeuille, sinistres et renouvellements d'un cabinet de courtage",
+  "secteur": "Assurance",
+  "resume": "Le cabinet Arpège, à Toulouse, gère 7 clients professionnels : primes, commissions, sinistres déclarés ; la flotte automobile se dégrade et les frais juridiques dépassent leur budget en octobre."
+ },
+ "jeux": [
+  {
+   "nom": "Arpège Courtage — opérations août-oct. 2026",
+   "cle": "exemple:assurance-courtage:operations",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "operations",
+    "label": "Opérations",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "libelle",
+      "label": "Libellé",
+      "type": "string"
+     },
+     {
+      "key": "debit",
+      "label": "Débit",
+      "type": "number"
+     },
+     {
+      "key": "credit",
+      "label": "Crédit",
+      "type": "number"
+     },
+     {
+      "key": "montant",
+      "label": "Montant",
+      "type": "number"
+     },
+     {
+      "key": "categorie",
+      "label": "Catégorie",
+      "type": "string"
+     },
+     {
+      "key": "mois",
+      "label": "Mois",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-02",
+      "libelle": "PRLV SEPA LOYER BUREAUX CAPITOLE",
+      "debit": 1350,
+      "credit": null,
+      "montant": -1350.0,
+      "categorie": "Locaux",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-05",
+      "libelle": "VIR SEPA EMIS SALAIRES AOÛT",
+      "debit": 7400,
+      "credit": null,
+      "montant": -7400.0,
+      "categorie": "Salaires",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-10",
+      "libelle": "VIR SEPA RECU ASSUREUR ATLANTIQUE COMMISSIONS AOÛT",
+      "debit": null,
+      "credit": 4189.52,
+      "montant": 4189.52,
+      "categorie": "Commissions",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-12",
+      "libelle": "VIR SEPA RECU MUTUELLE DU MIDI COMMISSIONS AOÛT",
+      "debit": null,
+      "credit": 1398.83,
+      "montant": 1398.83,
+      "categorie": "Commissions",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-15",
+      "libelle": "VIR SEPA RECU COMPAGNIE HORIZON COMMISSIONS AOÛT",
+      "debit": null,
+      "credit": 2351.84,
+      "montant": 2351.84,
+      "categorie": "Commissions",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-18",
+      "libelle": "PRLV SEPA LOGICIEL COURTAGE ASSURLINK",
+      "debit": 420,
+      "credit": null,
+      "montant": -420.0,
+      "categorie": "Logiciels",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-21",
+      "libelle": "VIR SEPA EMIS CABINET EXPERTISE AUTO SUD",
+      "debit": 380,
+      "credit": null,
+      "montant": -380.0,
+      "categorie": "Frais juridiques",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-24",
+      "libelle": "PRLV SEPA RC PRO COURTIER ET GARANTIE FINANCIERE",
+      "debit": 210,
+      "credit": null,
+      "montant": -210.0,
+      "categorie": "Assurances",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 22,
+      "credit": null,
+      "montant": -22.0,
+      "categorie": "Banque",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-09-02",
+      "libelle": "PRLV SEPA LOYER BUREAUX CAPITOLE",
+      "debit": 1350,
+      "credit": null,
+      "montant": -1350.0,
+      "categorie": "Locaux",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-05",
+      "libelle": "VIR SEPA EMIS SALAIRES SEPTEMBRE",
+      "debit": 7400,
+      "credit": null,
+      "montant": -7400.0,
+      "categorie": "Salaires",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-08",
+      "libelle": "CARTE SALON PATRIMOINE ET ASSURANCE TOULOUSE",
+      "debit": 650,
+      "credit": null,
+      "montant": -650.0,
+      "categorie": "Prospection",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-10",
+      "libelle": "VIR SEPA RECU ASSUREUR ATLANTIQUE COMMISSIONS SEPTEMBRE",
+      "debit": null,
+      "credit": 4060.4,
+      "montant": 4060.4,
+      "categorie": "Commissions",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-12",
+      "libelle": "VIR SEPA RECU MUTUELLE DU MIDI COMMISSIONS SEPTEMBRE",
+      "debit": null,
+      "credit": 1466.29,
+      "montant": 1466.29,
+      "categorie": "Commissions",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-15",
+      "libelle": "VIR SEPA RECU COMPAGNIE HORIZON COMMISSIONS SEPTEMBRE",
+      "debit": null,
+      "credit": 2272.77,
+      "montant": 2272.77,
+      "categorie": "Commissions",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-18",
+      "libelle": "PRLV SEPA LOGICIEL COURTAGE ASSURLINK",
+      "debit": 420,
+      "credit": null,
+      "montant": -420.0,
+      "categorie": "Logiciels",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-24",
+      "libelle": "PRLV SEPA RC PRO COURTIER ET GARANTIE FINANCIERE",
+      "debit": 210,
+      "credit": null,
+      "montant": -210.0,
+      "categorie": "Assurances",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-25",
+      "libelle": "VIR SEPA EMIS CABINET EXPERTISE AUTO SUD",
+      "debit": 420,
+      "credit": null,
+      "montant": -420.0,
+      "categorie": "Frais juridiques",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 22,
+      "credit": null,
+      "montant": -22.0,
+      "categorie": "Banque",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-10-02",
+      "libelle": "PRLV SEPA LOYER BUREAUX CAPITOLE",
+      "debit": 1350,
+      "credit": null,
+      "montant": -1350.0,
+      "categorie": "Locaux",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-05",
+      "libelle": "VIR SEPA EMIS SALAIRES OCTOBRE",
+      "debit": 7400,
+      "credit": null,
+      "montant": -7400.0,
+      "categorie": "Salaires",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-09",
+      "libelle": "VIR SEPA EMIS MAITRE ROUSSEL AVOCAT LITIGE TRANSPORTS MERCIER",
+      "debit": 1800,
+      "credit": null,
+      "montant": -1800.0,
+      "categorie": "Frais juridiques",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-10",
+      "libelle": "VIR SEPA RECU ASSUREUR ATLANTIQUE COMMISSIONS OCTOBRE",
+      "debit": null,
+      "credit": 4052.99,
+      "montant": 4052.99,
+      "categorie": "Commissions",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-12",
+      "libelle": "VIR SEPA RECU MUTUELLE DU MIDI COMMISSIONS OCTOBRE",
+      "debit": null,
+      "credit": 1461.3,
+      "montant": 1461.3,
+      "categorie": "Commissions",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-15",
+      "libelle": "VIR SEPA RECU COMPAGNIE HORIZON COMMISSIONS OCTOBRE",
+      "debit": null,
+      "credit": 2181.79,
+      "montant": 2181.79,
+      "categorie": "Commissions",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-18",
+      "libelle": "PRLV SEPA LOGICIEL COURTAGE ASSURLINK",
+      "debit": 420,
+      "credit": null,
+      "montant": -420.0,
+      "categorie": "Logiciels",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-21",
+      "libelle": "VIR SEPA EMIS CABINET EXPERTISE AUTO SUD",
+      "debit": 560,
+      "credit": null,
+      "montant": -560.0,
+      "categorie": "Frais juridiques",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-24",
+      "libelle": "PRLV SEPA RC PRO COURTIER ET GARANTIE FINANCIERE",
+      "debit": 210,
+      "credit": null,
+      "montant": -210.0,
+      "categorie": "Assurances",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-26",
+      "libelle": "CARTE FORMATION DDA 15 HEURES",
+      "debit": 390,
+      "credit": null,
+      "montant": -390.0,
+      "categorie": "Formation",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 22,
+      "credit": null,
+      "montant": -22.0,
+      "categorie": "Banque",
+      "mois": "2026-10"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "Arpège Courtage — Contrats",
+   "cle": "exemple:assurance-courtage:contrats",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "contrats",
+    "label": "Contrats",
+    "columns": [
+     {
+      "key": "client",
+      "label": "Client",
+      "type": "string"
+     },
+     {
+      "key": "branche",
+      "label": "Branche",
+      "type": "string"
+     },
+     {
+      "key": "assureur",
+      "label": "Assureur",
+      "type": "string"
+     },
+     {
+      "key": "prime_annuelle",
+      "label": "Prime annuelle",
+      "type": "number"
+     },
+     {
+      "key": "sinistres_2026",
+      "label": "Sinistres 2026",
+      "type": "number"
+     },
+     {
+      "key": "echeance",
+      "label": "Échéance",
+      "type": "date"
+     },
+     {
+      "key": "renouvellement",
+      "label": "Renouvellement",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "client": "Boulangerie Fournil des Halles",
+      "branche": "Multirisque pro",
+      "assureur": "Assureur Atlantique",
+      "prime_annuelle": 2860,
+      "sinistres_2026": 0,
+      "echeance": "2026-12-31",
+      "renouvellement": "À faire"
+     },
+     {
+      "client": "Transports Mercier",
+      "branche": "Flotte automobile",
+      "assureur": "Assureur Atlantique",
+      "prime_annuelle": 18400,
+      "sinistres_2026": 14200,
+      "echeance": "2026-12-31",
+      "renouvellement": "En cours"
+     },
+     {
+      "client": "Cabinet dentaire Rive Gauche",
+      "branche": "RC professionnelle",
+      "assureur": "Mutuelle du Midi",
+      "prime_annuelle": 1940,
+      "sinistres_2026": 0,
+      "echeance": "2027-01-31",
+      "renouvellement": "À faire"
+     },
+     {
+      "client": "SCI Les Tilleuls",
+      "branche": "Propriétaire non occupant",
+      "assureur": "Mutuelle du Midi",
+      "prime_annuelle": 1120,
+      "sinistres_2026": 3600,
+      "echeance": "2026-11-30",
+      "renouvellement": "En cours"
+     },
+     {
+      "client": "Garage Central Perrin",
+      "branche": "Multirisque pro",
+      "assureur": "Assureur Atlantique",
+      "prime_annuelle": 4310,
+      "sinistres_2026": 0,
+      "echeance": "2026-12-31",
+      "renouvellement": "À faire"
+     },
+     {
+      "client": "Taxis Rive Droite",
+      "branche": "Flotte automobile",
+      "assureur": "Compagnie Horizon",
+      "prime_annuelle": 9650,
+      "sinistres_2026": 8900,
+      "echeance": "2026-11-30",
+      "renouvellement": "En revue"
+     },
+     {
+      "client": "Crèche Les Petits Pas",
+      "branche": "RC et dommages",
+      "assureur": "Compagnie Horizon",
+      "prime_annuelle": 3280,
+      "sinistres_2026": 450,
+      "echeance": "2027-03-31",
+      "renouvellement": "À faire"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "Arpège Courtage — Sinistres",
+   "cle": "exemple:assurance-courtage:sinistres",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "bordereau_de_sinistres",
+    "label": "Bordereau de sinistres",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "client",
+      "label": "Client",
+      "type": "string"
+     },
+     {
+      "key": "branche",
+      "label": "Branche",
+      "type": "string"
+     },
+     {
+      "key": "nature",
+      "label": "Nature",
+      "type": "string"
+     },
+     {
+      "key": "montant_estime",
+      "label": "Montant estimé",
+      "type": "number"
+     },
+     {
+      "key": "statut",
+      "label": "Statut",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-03",
+      "client": "Transports Mercier",
+      "branche": "Flotte automobile",
+      "nature": "Collision poids lourd",
+      "montant_estime": 6800.0,
+      "statut": "Clos"
+     },
+     {
+      "date": "2026-08-19",
+      "client": "Taxis Rive Droite",
+      "branche": "Flotte automobile",
+      "nature": "Bris de glace",
+      "montant_estime": 650.0,
+      "statut": "Clos"
+     },
+     {
+      "date": "2026-09-02",
+      "client": "SCI Les Tilleuls",
+      "branche": "Propriétaire non occupant",
+      "nature": "Dégât des eaux",
+      "montant_estime": 3600.0,
+      "statut": "En cours"
+     },
+     {
+      "date": "2026-09-11",
+      "client": "Taxis Rive Droite",
+      "branche": "Flotte automobile",
+      "nature": "Accrochage",
+      "montant_estime": 2100.0,
+      "statut": "Clos"
+     },
+     {
+      "date": "2026-09-28",
+      "client": "Crèche Les Petits Pas",
+      "branche": "RC et dommages",
+      "nature": "Vol de matériel",
+      "montant_estime": 450.0,
+      "statut": "Clos"
+     },
+     {
+      "date": "2026-10-07",
+      "client": "Transports Mercier",
+      "branche": "Flotte automobile",
+      "nature": "Sortie de route",
+      "montant_estime": 7400.0,
+      "statut": "En cours"
+     },
+     {
+      "date": "2026-10-15",
+      "client": "Taxis Rive Droite",
+      "branche": "Flotte automobile",
+      "nature": "Collision",
+      "montant_estime": 6150.0,
+      "statut": "En cours"
+     }
+    ]
+   }
+  }
+ ],
+ "alerte": {
+  "nom": "Frais juridiques du mois — Arpège Courtage",
+  "jeu_cle": "exemple:assurance-courtage:operations",
+  "mesure": {
+   "field": "Débit",
+   "agg": "sum"
+  },
+  "filtres": [
+   {
+    "field": "Catégorie",
+    "op": "eq",
+    "values": [
+     "Frais juridiques"
+    ]
+   },
+   {
+    "field": "Mois",
+    "op": "eq",
+    "values": [
+     "2026-10"
+    ]
+   }
+  ],
+  "comparaison": "gt",
+  "seuil": 800,
+  "valeur_attendue": 2360
+ }
+}

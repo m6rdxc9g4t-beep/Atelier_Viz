@@ -1,0 +1,2793 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "boutique-librairie",
+  "titre": "Librairie Les Pages Vives",
+  "sous_titre": "Ventes, stock et commandes d'une librairie-papeterie",
+  "secteur": "Boutique",
+  "resume": "Une librairie-papeterie de la Croix-Rousse à Lyon : caisse par rayon, stock et commandes aux distributeurs, rentrée scolaire puis préparation des fêtes ; les achats de livres d'octobre dépassent."
+ },
+ "jeux": [
+  {
+   "nom": "Librairie Les Pages Vives — opérations août-oct. 2026",
+   "cle": "exemple:boutique-librairie:operations",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "operations",
+    "label": "Opérations",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "libelle",
+      "label": "Libellé",
+      "type": "string"
+     },
+     {
+      "key": "debit",
+      "label": "Débit",
+      "type": "number"
+     },
+     {
+      "key": "credit",
+      "label": "Crédit",
+      "type": "number"
+     },
+     {
+      "key": "montant",
+      "label": "Montant",
+      "type": "number"
+     },
+     {
+      "key": "categorie",
+      "label": "Catégorie",
+      "type": "string"
+     },
+     {
+      "key": "mois",
+      "label": "Mois",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-01",
+      "libelle": "PRLV SEPA LOYER LOCAL COMMERCIAL GRANDE RUE",
+      "debit": 1680,
+      "credit": null,
+      "montant": -1680.0,
+      "categorie": "Loyer",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-05",
+      "libelle": "VIR SEPA EMIS SALAIRES AOÛT",
+      "debit": 4900,
+      "credit": null,
+      "montant": -4900.0,
+      "categorie": "Salaires",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-09",
+      "libelle": "PRLV SEPA LOGICIEL DE CAISSE ET STOCK",
+      "debit": 89,
+      "credit": null,
+      "montant": -89.0,
+      "categorie": "Logiciels",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-10",
+      "libelle": "PRLV SEPA DISTRIBUTEUR LIVRES NORD SUD",
+      "debit": 6200,
+      "credit": null,
+      "montant": -6200.0,
+      "categorie": "Achats livres",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-12",
+      "libelle": "PRLV SEPA EDF ENTREPRISES",
+      "debit": 138.02,
+      "credit": null,
+      "montant": -138.02,
+      "categorie": "Énergie",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-20",
+      "libelle": "PRLV SEPA FOURNITURES SCOLAIRES CLAIREFONTAINE",
+      "debit": 2850,
+      "credit": null,
+      "montant": -2850.0,
+      "categorie": "Achats papeterie",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-28",
+      "libelle": "FRAIS TERMINAL CARTES BANCAIRES",
+      "debit": 108.18,
+      "credit": null,
+      "montant": -108.18,
+      "categorie": "Banque",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-31",
+      "libelle": "REMISES CARTES BANCAIRES AOUT",
+      "debit": null,
+      "credit": 16389.26,
+      "montant": 16389.26,
+      "categorie": "Ventes",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-31",
+      "libelle": "REMISE ESPECES AOUT",
+      "debit": null,
+      "credit": 3597.64,
+      "montant": 3597.64,
+      "categorie": "Ventes",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-09-01",
+      "libelle": "PRLV SEPA LOYER LOCAL COMMERCIAL GRANDE RUE",
+      "debit": 1680,
+      "credit": null,
+      "montant": -1680.0,
+      "categorie": "Loyer",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-05",
+      "libelle": "VIR SEPA EMIS SALAIRES SEPTEMBRE",
+      "debit": 4900,
+      "credit": null,
+      "montant": -4900.0,
+      "categorie": "Salaires",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-09",
+      "libelle": "PRLV SEPA LOGICIEL DE CAISSE ET STOCK",
+      "debit": 89,
+      "credit": null,
+      "montant": -89.0,
+      "categorie": "Logiciels",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-10",
+      "libelle": "PRLV SEPA DISTRIBUTEUR LIVRES NORD SUD",
+      "debit": 9400,
+      "credit": null,
+      "montant": -9400.0,
+      "categorie": "Achats livres",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-12",
+      "libelle": "PRLV SEPA EDF ENTREPRISES",
+      "debit": 135.09,
+      "credit": null,
+      "montant": -135.09,
+      "categorie": "Énergie",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-18",
+      "libelle": "PRLV SEPA DIFFUSEUR BD ET MANGAS",
+      "debit": 3100,
+      "credit": null,
+      "montant": -3100.0,
+      "categorie": "Achats livres",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-28",
+      "libelle": "FRAIS TERMINAL CARTES BANCAIRES",
+      "debit": 100.84,
+      "credit": null,
+      "montant": -100.84,
+      "categorie": "Banque",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-30",
+      "libelle": "REMISES CARTES BANCAIRES SEPTEMBRE",
+      "debit": null,
+      "credit": 22712.02,
+      "montant": 22712.02,
+      "categorie": "Ventes",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-30",
+      "libelle": "REMISE ESPECES SEPTEMBRE",
+      "debit": null,
+      "credit": 4985.57,
+      "montant": 4985.57,
+      "categorie": "Ventes",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-10-01",
+      "libelle": "PRLV SEPA LOYER LOCAL COMMERCIAL GRANDE RUE",
+      "debit": 1680,
+      "credit": null,
+      "montant": -1680.0,
+      "categorie": "Loyer",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-05",
+      "libelle": "VIR SEPA EMIS SALAIRES OCTOBRE",
+      "debit": 4900,
+      "credit": null,
+      "montant": -4900.0,
+      "categorie": "Salaires",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-09",
+      "libelle": "PRLV SEPA LOGICIEL DE CAISSE ET STOCK",
+      "debit": 89,
+      "credit": null,
+      "montant": -89.0,
+      "categorie": "Logiciels",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-10",
+      "libelle": "PRLV SEPA DISTRIBUTEUR LIVRES NORD SUD",
+      "debit": 8900,
+      "credit": null,
+      "montant": -8900.0,
+      "categorie": "Achats livres",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-12",
+      "libelle": "PRLV SEPA EDF ENTREPRISES",
+      "debit": 133.89,
+      "credit": null,
+      "montant": -133.89,
+      "categorie": "Énergie",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-15",
+      "libelle": "CARTE DECORATION VITRINE FETES",
+      "debit": 240,
+      "credit": null,
+      "montant": -240.0,
+      "categorie": "Vitrine et animation",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-17",
+      "libelle": "PRLV SEPA DIFFUSEUR BD ET MANGAS",
+      "debit": 3600,
+      "credit": null,
+      "montant": -3600.0,
+      "categorie": "Achats livres",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-24",
+      "libelle": "PRLV SEPA DISTRIBUTEUR LIVRES NORD SUD BEAUX LIVRES FETES",
+      "debit": 2700,
+      "credit": null,
+      "montant": -2700.0,
+      "categorie": "Achats livres",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-28",
+      "libelle": "FRAIS TERMINAL CARTES BANCAIRES",
+      "debit": 87.8,
+      "credit": null,
+      "montant": -87.8,
+      "categorie": "Banque",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-31",
+      "libelle": "REMISES CARTES BANCAIRES OCTOBRE",
+      "debit": null,
+      "credit": 20520.09,
+      "montant": 20520.09,
+      "categorie": "Ventes",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-31",
+      "libelle": "REMISE ESPECES OCTOBRE",
+      "debit": null,
+      "credit": 4504.41,
+      "montant": 4504.41,
+      "categorie": "Ventes",
+      "mois": "2026-10"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "Librairie Les Pages Vives — Stock et commandes",
+   "cle": "exemple:boutique-librairie:stock_et_commandes",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "stock_et_commandes",
+    "label": "Stock et commandes",
+    "columns": [
+     {
+      "key": "reference",
+      "label": "Référence",
+      "type": "string"
+     },
+     {
+      "key": "rayon",
+      "label": "Rayon",
+      "type": "string"
+     },
+     {
+      "key": "en_stock",
+      "label": "En stock",
+      "type": "number"
+     },
+     {
+      "key": "seuil",
+      "label": "Seuil",
+      "type": "number"
+     },
+     {
+      "key": "fournisseur",
+      "label": "Fournisseur",
+      "type": "string"
+     },
+     {
+      "key": "commande",
+      "label": "Commande",
+      "type": "string"
+     },
+     {
+      "key": "livraison_prevue",
+      "label": "Livraison prévue",
+      "type": "date"
+     }
+    ],
+    "rows": [
+     {
+      "reference": "Prix Goncourt 2026 (roman)",
+      "rayon": "Romans",
+      "en_stock": 4,
+      "seuil": 15,
+      "fournisseur": "Nord Sud",
+      "commande": "En cours",
+      "livraison_prevue": "2026-11-06"
+     },
+     {
+      "reference": "Agenda scolaire 2026-2027",
+      "rayon": "Papeterie",
+      "en_stock": 22,
+      "seuil": 10,
+      "fournisseur": "Clairefontaine",
+      "commande": "Terminée",
+      "livraison_prevue": "2026-08-20"
+     },
+     {
+      "reference": "Manga « Les Marées » tome 12",
+      "rayon": "BD et mangas",
+      "en_stock": 3,
+      "seuil": 12,
+      "fournisseur": "Diffuseur BD",
+      "commande": "À faire",
+      "livraison_prevue": "2026-11-13"
+     },
+     {
+      "reference": "Album jeunesse « Le Renard de neige »",
+      "rayon": "Jeunesse",
+      "en_stock": 18,
+      "seuil": 8,
+      "fournisseur": "Nord Sud",
+      "commande": "Terminée",
+      "livraison_prevue": "2026-10-24"
+     },
+     {
+      "reference": "Beau livre « Lyon vu du ciel »",
+      "rayon": "Beaux livres",
+      "en_stock": 6,
+      "seuil": 6,
+      "fournisseur": "Nord Sud",
+      "commande": "À faire",
+      "livraison_prevue": "2026-11-20"
+     },
+     {
+      "reference": "Carnets kraft A5 (lot de 3)",
+      "rayon": "Papeterie",
+      "en_stock": 40,
+      "seuil": 15,
+      "fournisseur": "Clairefontaine",
+      "commande": "Terminée",
+      "livraison_prevue": "2026-09-02"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "Librairie Les Pages Vives — Caisse par rayon",
+   "cle": "exemple:boutique-librairie:caisse_par_rayon",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "ventes_de_la_caisse_par_rayon",
+    "label": "Ventes de la caisse par rayon",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "rayon",
+      "label": "Rayon",
+      "type": "string"
+     },
+     {
+      "key": "articles",
+      "label": "Articles",
+      "type": "number"
+     },
+     {
+      "key": "chiffre_d_affaires_ttc",
+      "label": "Chiffre d'affaires TTC",
+      "type": "number"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-01",
+      "rayon": "Romans",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 233.6
+     },
+     {
+      "date": "2026-08-01",
+      "rayon": "Jeunesse",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 137.17
+     },
+     {
+      "date": "2026-08-01",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 188.35
+     },
+     {
+      "date": "2026-08-01",
+      "rayon": "Papeterie",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 102.08
+     },
+     {
+      "date": "2026-08-01",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 76.06
+     },
+     {
+      "date": "2026-08-03",
+      "rayon": "Romans",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 169.15
+     },
+     {
+      "date": "2026-08-03",
+      "rayon": "Jeunesse",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 136.84
+     },
+     {
+      "date": "2026-08-03",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 217.86
+     },
+     {
+      "date": "2026-08-03",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 122.05
+     },
+     {
+      "date": "2026-08-03",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 79.48
+     },
+     {
+      "date": "2026-08-04",
+      "rayon": "Romans",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 193.19
+     },
+     {
+      "date": "2026-08-04",
+      "rayon": "Jeunesse",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 126.3
+     },
+     {
+      "date": "2026-08-04",
+      "rayon": "BD et mangas",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 151.88
+     },
+     {
+      "date": "2026-08-04",
+      "rayon": "Papeterie",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 79.4
+     },
+     {
+      "date": "2026-08-04",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 39.62
+     },
+     {
+      "date": "2026-08-05",
+      "rayon": "Romans",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 235.09
+     },
+     {
+      "date": "2026-08-05",
+      "rayon": "Jeunesse",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 119.46
+     },
+     {
+      "date": "2026-08-05",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 191.5
+     },
+     {
+      "date": "2026-08-05",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 153.99
+     },
+     {
+      "date": "2026-08-05",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 83.75
+     },
+     {
+      "date": "2026-08-06",
+      "rayon": "Romans",
+      "articles": 15.0,
+      "chiffre_d_affaires_ttc": 284.32
+     },
+     {
+      "date": "2026-08-06",
+      "rayon": "Jeunesse",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 123.24
+     },
+     {
+      "date": "2026-08-06",
+      "rayon": "BD et mangas",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 163.28
+     },
+     {
+      "date": "2026-08-06",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 148.38
+     },
+     {
+      "date": "2026-08-06",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 47.23
+     },
+     {
+      "date": "2026-08-07",
+      "rayon": "Romans",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 292.76
+     },
+     {
+      "date": "2026-08-07",
+      "rayon": "Jeunesse",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 113.47
+     },
+     {
+      "date": "2026-08-07",
+      "rayon": "BD et mangas",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 172.49
+     },
+     {
+      "date": "2026-08-07",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 117.67
+     },
+     {
+      "date": "2026-08-07",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 82.06
+     },
+     {
+      "date": "2026-08-08",
+      "rayon": "Romans",
+      "articles": 15.0,
+      "chiffre_d_affaires_ttc": 275.57
+     },
+     {
+      "date": "2026-08-08",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 181.2
+     },
+     {
+      "date": "2026-08-08",
+      "rayon": "BD et mangas",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 158.31
+     },
+     {
+      "date": "2026-08-08",
+      "rayon": "Papeterie",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 98.94
+     },
+     {
+      "date": "2026-08-08",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 77.76
+     },
+     {
+      "date": "2026-08-10",
+      "rayon": "Romans",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 248.34
+     },
+     {
+      "date": "2026-08-10",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 167.53
+     },
+     {
+      "date": "2026-08-10",
+      "rayon": "BD et mangas",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 122.14
+     },
+     {
+      "date": "2026-08-10",
+      "rayon": "Papeterie",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 73.08
+     },
+     {
+      "date": "2026-08-10",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 56.52
+     },
+     {
+      "date": "2026-08-11",
+      "rayon": "Romans",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 196.61
+     },
+     {
+      "date": "2026-08-11",
+      "rayon": "Jeunesse",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 115.84
+     },
+     {
+      "date": "2026-08-11",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 225.48
+     },
+     {
+      "date": "2026-08-11",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 150.29
+     },
+     {
+      "date": "2026-08-11",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 46.77
+     },
+     {
+      "date": "2026-08-12",
+      "rayon": "Romans",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 158.16
+     },
+     {
+      "date": "2026-08-12",
+      "rayon": "Jeunesse",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 107.03
+     },
+     {
+      "date": "2026-08-12",
+      "rayon": "BD et mangas",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 134.52
+     },
+     {
+      "date": "2026-08-12",
+      "rayon": "Papeterie",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 132.65
+     },
+     {
+      "date": "2026-08-12",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 54.33
+     },
+     {
+      "date": "2026-08-13",
+      "rayon": "Romans",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 321.52
+     },
+     {
+      "date": "2026-08-13",
+      "rayon": "Jeunesse",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 87.63
+     },
+     {
+      "date": "2026-08-13",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 185.08
+     },
+     {
+      "date": "2026-08-13",
+      "rayon": "Papeterie",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 79.47
+     },
+     {
+      "date": "2026-08-13",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 76.75
+     },
+     {
+      "date": "2026-08-14",
+      "rayon": "Romans",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 210.41
+     },
+     {
+      "date": "2026-08-14",
+      "rayon": "Jeunesse",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 112.93
+     },
+     {
+      "date": "2026-08-14",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 191.95
+     },
+     {
+      "date": "2026-08-14",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 146.04
+     },
+     {
+      "date": "2026-08-14",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 36.73
+     },
+     {
+      "date": "2026-08-15",
+      "rayon": "Romans",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 182.36
+     },
+     {
+      "date": "2026-08-15",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 188.43
+     },
+     {
+      "date": "2026-08-15",
+      "rayon": "BD et mangas",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 168.51
+     },
+     {
+      "date": "2026-08-15",
+      "rayon": "Papeterie",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 76.17
+     },
+     {
+      "date": "2026-08-15",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 80.7
+     },
+     {
+      "date": "2026-08-17",
+      "rayon": "Romans",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 315.63
+     },
+     {
+      "date": "2026-08-17",
+      "rayon": "Jeunesse",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 134.15
+     },
+     {
+      "date": "2026-08-17",
+      "rayon": "BD et mangas",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 136.21
+     },
+     {
+      "date": "2026-08-17",
+      "rayon": "Papeterie",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 69.9
+     },
+     {
+      "date": "2026-08-17",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 71.65
+     },
+     {
+      "date": "2026-08-18",
+      "rayon": "Romans",
+      "articles": 15.0,
+      "chiffre_d_affaires_ttc": 282.97
+     },
+     {
+      "date": "2026-08-18",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 169.58
+     },
+     {
+      "date": "2026-08-18",
+      "rayon": "BD et mangas",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 207.54
+     },
+     {
+      "date": "2026-08-18",
+      "rayon": "Papeterie",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 99.3
+     },
+     {
+      "date": "2026-08-18",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 49.8
+     },
+     {
+      "date": "2026-08-19",
+      "rayon": "Romans",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 246.42
+     },
+     {
+      "date": "2026-08-19",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 175.96
+     },
+     {
+      "date": "2026-08-19",
+      "rayon": "BD et mangas",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 175.76
+     },
+     {
+      "date": "2026-08-19",
+      "rayon": "Papeterie",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 182.19
+     },
+     {
+      "date": "2026-08-19",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 54.66
+     },
+     {
+      "date": "2026-08-20",
+      "rayon": "Romans",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 292.47
+     },
+     {
+      "date": "2026-08-20",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 194.54
+     },
+     {
+      "date": "2026-08-20",
+      "rayon": "BD et mangas",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 147.5
+     },
+     {
+      "date": "2026-08-20",
+      "rayon": "Papeterie",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 246.22
+     },
+     {
+      "date": "2026-08-20",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 75.02
+     },
+     {
+      "date": "2026-08-21",
+      "rayon": "Romans",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 214.68
+     },
+     {
+      "date": "2026-08-21",
+      "rayon": "Jeunesse",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 114.37
+     },
+     {
+      "date": "2026-08-21",
+      "rayon": "BD et mangas",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 206.59
+     },
+     {
+      "date": "2026-08-21",
+      "rayon": "Papeterie",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 186.14
+     },
+     {
+      "date": "2026-08-21",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 64.36
+     },
+     {
+      "date": "2026-08-22",
+      "rayon": "Romans",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 324.35
+     },
+     {
+      "date": "2026-08-22",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 197.33
+     },
+     {
+      "date": "2026-08-22",
+      "rayon": "BD et mangas",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 209.29
+     },
+     {
+      "date": "2026-08-22",
+      "rayon": "Papeterie",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 182.65
+     },
+     {
+      "date": "2026-08-22",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 44.0
+     },
+     {
+      "date": "2026-08-24",
+      "rayon": "Romans",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 153.5
+     },
+     {
+      "date": "2026-08-24",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 179.03
+     },
+     {
+      "date": "2026-08-24",
+      "rayon": "BD et mangas",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 144.8
+     },
+     {
+      "date": "2026-08-24",
+      "rayon": "Papeterie",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 206.14
+     },
+     {
+      "date": "2026-08-24",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 50.6
+     },
+     {
+      "date": "2026-08-25",
+      "rayon": "Romans",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 179.41
+     },
+     {
+      "date": "2026-08-25",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 163.46
+     },
+     {
+      "date": "2026-08-25",
+      "rayon": "BD et mangas",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 132.71
+     },
+     {
+      "date": "2026-08-25",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 118.14
+     },
+     {
+      "date": "2026-08-25",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 83.79
+     },
+     {
+      "date": "2026-08-26",
+      "rayon": "Romans",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 213.71
+     },
+     {
+      "date": "2026-08-26",
+      "rayon": "Jeunesse",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 126.61
+     },
+     {
+      "date": "2026-08-26",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 221.7
+     },
+     {
+      "date": "2026-08-26",
+      "rayon": "Papeterie",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 138.4
+     },
+     {
+      "date": "2026-08-26",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 74.11
+     },
+     {
+      "date": "2026-08-27",
+      "rayon": "Romans",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 182.75
+     },
+     {
+      "date": "2026-08-27",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 168.34
+     },
+     {
+      "date": "2026-08-27",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 216.26
+     },
+     {
+      "date": "2026-08-27",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 123.63
+     },
+     {
+      "date": "2026-08-27",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 54.39
+     },
+     {
+      "date": "2026-08-28",
+      "rayon": "Romans",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 296.98
+     },
+     {
+      "date": "2026-08-28",
+      "rayon": "Jeunesse",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 141.5
+     },
+     {
+      "date": "2026-08-28",
+      "rayon": "BD et mangas",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 170.24
+     },
+     {
+      "date": "2026-08-28",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 117.57
+     },
+     {
+      "date": "2026-08-28",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 43.44
+     },
+     {
+      "date": "2026-08-29",
+      "rayon": "Romans",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 315.55
+     },
+     {
+      "date": "2026-08-29",
+      "rayon": "Jeunesse",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 198.27
+     },
+     {
+      "date": "2026-08-29",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 182.89
+     },
+     {
+      "date": "2026-08-29",
+      "rayon": "Papeterie",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 203.51
+     },
+     {
+      "date": "2026-08-29",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 42.37
+     },
+     {
+      "date": "2026-08-31",
+      "rayon": "Romans",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 315.27
+     },
+     {
+      "date": "2026-08-31",
+      "rayon": "Jeunesse",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 157.15
+     },
+     {
+      "date": "2026-08-31",
+      "rayon": "BD et mangas",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 212.94
+     },
+     {
+      "date": "2026-08-31",
+      "rayon": "Papeterie",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 231.54
+     },
+     {
+      "date": "2026-08-31",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 47.5
+     },
+     {
+      "date": "2026-09-01",
+      "rayon": "Romans",
+      "articles": 22.0,
+      "chiffre_d_affaires_ttc": 412.89
+     },
+     {
+      "date": "2026-09-01",
+      "rayon": "Jeunesse",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 213.38
+     },
+     {
+      "date": "2026-09-01",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 232.56
+     },
+     {
+      "date": "2026-09-01",
+      "rayon": "Papeterie",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 203.9
+     },
+     {
+      "date": "2026-09-01",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 107.91
+     },
+     {
+      "date": "2026-09-03",
+      "rayon": "Romans",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 267.59
+     },
+     {
+      "date": "2026-09-03",
+      "rayon": "Jeunesse",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 160.19
+     },
+     {
+      "date": "2026-09-03",
+      "rayon": "BD et mangas",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 249.62
+     },
+     {
+      "date": "2026-09-03",
+      "rayon": "Papeterie",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 260.24
+     },
+     {
+      "date": "2026-09-03",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 87.76
+     },
+     {
+      "date": "2026-09-04",
+      "rayon": "Romans",
+      "articles": 15.0,
+      "chiffre_d_affaires_ttc": 277.67
+     },
+     {
+      "date": "2026-09-04",
+      "rayon": "Jeunesse",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 301.69
+     },
+     {
+      "date": "2026-09-04",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 187.24
+     },
+     {
+      "date": "2026-09-04",
+      "rayon": "Papeterie",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 341.53
+     },
+     {
+      "date": "2026-09-04",
+      "rayon": "Beaux livres",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 110.73
+     },
+     {
+      "date": "2026-09-05",
+      "rayon": "Romans",
+      "articles": 19.0,
+      "chiffre_d_affaires_ttc": 344.47
+     },
+     {
+      "date": "2026-09-05",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 183.79
+     },
+     {
+      "date": "2026-09-05",
+      "rayon": "BD et mangas",
+      "articles": 19.0,
+      "chiffre_d_affaires_ttc": 351.58
+     },
+     {
+      "date": "2026-09-05",
+      "rayon": "Papeterie",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 330.68
+     },
+     {
+      "date": "2026-09-05",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 73.42
+     },
+     {
+      "date": "2026-09-06",
+      "rayon": "Romans",
+      "articles": 25.0,
+      "chiffre_d_affaires_ttc": 464.24
+     },
+     {
+      "date": "2026-09-06",
+      "rayon": "Jeunesse",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 242.65
+     },
+     {
+      "date": "2026-09-06",
+      "rayon": "BD et mangas",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 203.69
+     },
+     {
+      "date": "2026-09-06",
+      "rayon": "Papeterie",
+      "articles": 20.0,
+      "chiffre_d_affaires_ttc": 376.81
+     },
+     {
+      "date": "2026-09-06",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 82.04
+     },
+     {
+      "date": "2026-09-07",
+      "rayon": "Romans",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 255.8
+     },
+     {
+      "date": "2026-09-07",
+      "rayon": "Jeunesse",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 298.44
+     },
+     {
+      "date": "2026-09-07",
+      "rayon": "BD et mangas",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 332.0
+     },
+     {
+      "date": "2026-09-07",
+      "rayon": "Papeterie",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 268.1
+     },
+     {
+      "date": "2026-09-07",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 95.74
+     },
+     {
+      "date": "2026-09-08",
+      "rayon": "Romans",
+      "articles": 19.0,
+      "chiffre_d_affaires_ttc": 358.27
+     },
+     {
+      "date": "2026-09-08",
+      "rayon": "Jeunesse",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 219.5
+     },
+     {
+      "date": "2026-09-08",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 184.39
+     },
+     {
+      "date": "2026-09-08",
+      "rayon": "Papeterie",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 191.88
+     },
+     {
+      "date": "2026-09-08",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 81.43
+     },
+     {
+      "date": "2026-09-10",
+      "rayon": "Romans",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 261.59
+     },
+     {
+      "date": "2026-09-10",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 194.07
+     },
+     {
+      "date": "2026-09-10",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 253.98
+     },
+     {
+      "date": "2026-09-10",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 110.91
+     },
+     {
+      "date": "2026-09-10",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 75.99
+     },
+     {
+      "date": "2026-09-11",
+      "rayon": "Romans",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 301.77
+     },
+     {
+      "date": "2026-09-11",
+      "rayon": "Jeunesse",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 156.78
+     },
+     {
+      "date": "2026-09-11",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 258.96
+     },
+     {
+      "date": "2026-09-11",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 110.57
+     },
+     {
+      "date": "2026-09-11",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 91.36
+     },
+     {
+      "date": "2026-09-12",
+      "rayon": "Romans",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 311.12
+     },
+     {
+      "date": "2026-09-12",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 182.1
+     },
+     {
+      "date": "2026-09-12",
+      "rayon": "BD et mangas",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 309.81
+     },
+     {
+      "date": "2026-09-12",
+      "rayon": "Papeterie",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 191.38
+     },
+     {
+      "date": "2026-09-12",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 63.94
+     },
+     {
+      "date": "2026-09-13",
+      "rayon": "Romans",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 247.51
+     },
+     {
+      "date": "2026-09-13",
+      "rayon": "Jeunesse",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 245.71
+     },
+     {
+      "date": "2026-09-13",
+      "rayon": "BD et mangas",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 246.61
+     },
+     {
+      "date": "2026-09-13",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 125.76
+     },
+     {
+      "date": "2026-09-13",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 75.5
+     },
+     {
+      "date": "2026-09-14",
+      "rayon": "Romans",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 291.6
+     },
+     {
+      "date": "2026-09-14",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 173.14
+     },
+     {
+      "date": "2026-09-14",
+      "rayon": "BD et mangas",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 173.01
+     },
+     {
+      "date": "2026-09-14",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 150.91
+     },
+     {
+      "date": "2026-09-14",
+      "rayon": "Beaux livres",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 119.34
+     },
+     {
+      "date": "2026-09-15",
+      "rayon": "Romans",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 214.04
+     },
+     {
+      "date": "2026-09-15",
+      "rayon": "Jeunesse",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 135.48
+     },
+     {
+      "date": "2026-09-15",
+      "rayon": "BD et mangas",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 199.24
+     },
+     {
+      "date": "2026-09-15",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 178.77
+     },
+     {
+      "date": "2026-09-15",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 79.31
+     },
+     {
+      "date": "2026-09-17",
+      "rayon": "Romans",
+      "articles": 23.0,
+      "chiffre_d_affaires_ttc": 417.71
+     },
+     {
+      "date": "2026-09-17",
+      "rayon": "Jeunesse",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 258.97
+     },
+     {
+      "date": "2026-09-17",
+      "rayon": "BD et mangas",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 310.09
+     },
+     {
+      "date": "2026-09-17",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 169.96
+     },
+     {
+      "date": "2026-09-17",
+      "rayon": "Beaux livres",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 118.48
+     },
+     {
+      "date": "2026-09-18",
+      "rayon": "Romans",
+      "articles": 27.0,
+      "chiffre_d_affaires_ttc": 495.76
+     },
+     {
+      "date": "2026-09-18",
+      "rayon": "Jeunesse",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 153.8
+     },
+     {
+      "date": "2026-09-18",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 252.04
+     },
+     {
+      "date": "2026-09-18",
+      "rayon": "Papeterie",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 223.7
+     },
+     {
+      "date": "2026-09-18",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 102.93
+     },
+     {
+      "date": "2026-09-19",
+      "rayon": "Romans",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 328.82
+     },
+     {
+      "date": "2026-09-19",
+      "rayon": "Jeunesse",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 256.7
+     },
+     {
+      "date": "2026-09-19",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 226.82
+     },
+     {
+      "date": "2026-09-19",
+      "rayon": "Papeterie",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 221.46
+     },
+     {
+      "date": "2026-09-19",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 61.42
+     },
+     {
+      "date": "2026-09-20",
+      "rayon": "Romans",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 243.77
+     },
+     {
+      "date": "2026-09-20",
+      "rayon": "Jeunesse",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 268.4
+     },
+     {
+      "date": "2026-09-20",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 259.37
+     },
+     {
+      "date": "2026-09-20",
+      "rayon": "Papeterie",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 211.01
+     },
+     {
+      "date": "2026-09-20",
+      "rayon": "Beaux livres",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 122.38
+     },
+     {
+      "date": "2026-09-21",
+      "rayon": "Romans",
+      "articles": 23.0,
+      "chiffre_d_affaires_ttc": 428.33
+     },
+     {
+      "date": "2026-09-21",
+      "rayon": "Jeunesse",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 243.97
+     },
+     {
+      "date": "2026-09-21",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 227.67
+     },
+     {
+      "date": "2026-09-21",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 173.67
+     },
+     {
+      "date": "2026-09-21",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 72.64
+     },
+     {
+      "date": "2026-09-22",
+      "rayon": "Romans",
+      "articles": 24.0,
+      "chiffre_d_affaires_ttc": 448.69
+     },
+     {
+      "date": "2026-09-22",
+      "rayon": "Jeunesse",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 304.53
+     },
+     {
+      "date": "2026-09-22",
+      "rayon": "BD et mangas",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 173.59
+     },
+     {
+      "date": "2026-09-22",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 177.62
+     },
+     {
+      "date": "2026-09-22",
+      "rayon": "Beaux livres",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 116.19
+     },
+     {
+      "date": "2026-09-24",
+      "rayon": "Romans",
+      "articles": 27.0,
+      "chiffre_d_affaires_ttc": 489.13
+     },
+     {
+      "date": "2026-09-24",
+      "rayon": "Jeunesse",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 200.4
+     },
+     {
+      "date": "2026-09-24",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 264.43
+     },
+     {
+      "date": "2026-09-24",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 145.66
+     },
+     {
+      "date": "2026-09-24",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 59.28
+     },
+     {
+      "date": "2026-09-25",
+      "rayon": "Romans",
+      "articles": 15.0,
+      "chiffre_d_affaires_ttc": 274.7
+     },
+     {
+      "date": "2026-09-25",
+      "rayon": "Jeunesse",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 300.76
+     },
+     {
+      "date": "2026-09-25",
+      "rayon": "BD et mangas",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 336.74
+     },
+     {
+      "date": "2026-09-25",
+      "rayon": "Papeterie",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 240.2
+     },
+     {
+      "date": "2026-09-25",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 99.49
+     },
+     {
+      "date": "2026-09-26",
+      "rayon": "Romans",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 223.94
+     },
+     {
+      "date": "2026-09-26",
+      "rayon": "Jeunesse",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 205.29
+     },
+     {
+      "date": "2026-09-26",
+      "rayon": "BD et mangas",
+      "articles": 20.0,
+      "chiffre_d_affaires_ttc": 361.07
+     },
+     {
+      "date": "2026-09-26",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 178.26
+     },
+     {
+      "date": "2026-09-26",
+      "rayon": "Beaux livres",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 116.39
+     },
+     {
+      "date": "2026-09-27",
+      "rayon": "Romans",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 218.2
+     },
+     {
+      "date": "2026-09-27",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 188.9
+     },
+     {
+      "date": "2026-09-27",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 259.85
+     },
+     {
+      "date": "2026-09-27",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 165.38
+     },
+     {
+      "date": "2026-09-27",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 74.76
+     },
+     {
+      "date": "2026-09-28",
+      "rayon": "Romans",
+      "articles": 23.0,
+      "chiffre_d_affaires_ttc": 424.91
+     },
+     {
+      "date": "2026-09-28",
+      "rayon": "Jeunesse",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 268.73
+     },
+     {
+      "date": "2026-09-28",
+      "rayon": "BD et mangas",
+      "articles": 19.0,
+      "chiffre_d_affaires_ttc": 349.63
+     },
+     {
+      "date": "2026-09-28",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 160.13
+     },
+     {
+      "date": "2026-09-28",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 61.57
+     },
+     {
+      "date": "2026-09-29",
+      "rayon": "Romans",
+      "articles": 20.0,
+      "chiffre_d_affaires_ttc": 369.59
+     },
+     {
+      "date": "2026-09-29",
+      "rayon": "Jeunesse",
+      "articles": 15.0,
+      "chiffre_d_affaires_ttc": 277.65
+     },
+     {
+      "date": "2026-09-29",
+      "rayon": "BD et mangas",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 236.1
+     },
+     {
+      "date": "2026-09-29",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 112.19
+     },
+     {
+      "date": "2026-09-29",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 79.69
+     },
+     {
+      "date": "2026-10-01",
+      "rayon": "Romans",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 251.69
+     },
+     {
+      "date": "2026-10-01",
+      "rayon": "Jeunesse",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 114.32
+     },
+     {
+      "date": "2026-10-01",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 268.91
+     },
+     {
+      "date": "2026-10-01",
+      "rayon": "Papeterie",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 92.38
+     },
+     {
+      "date": "2026-10-01",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 99.81
+     },
+     {
+      "date": "2026-10-03",
+      "rayon": "Romans",
+      "articles": 23.0,
+      "chiffre_d_affaires_ttc": 416.63
+     },
+     {
+      "date": "2026-10-03",
+      "rayon": "Jeunesse",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 236.32
+     },
+     {
+      "date": "2026-10-03",
+      "rayon": "BD et mangas",
+      "articles": 16.0,
+      "chiffre_d_affaires_ttc": 290.73
+     },
+     {
+      "date": "2026-10-03",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 173.49
+     },
+     {
+      "date": "2026-10-03",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 99.74
+     },
+     {
+      "date": "2026-10-04",
+      "rayon": "Romans",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 323.01
+     },
+     {
+      "date": "2026-10-04",
+      "rayon": "Jeunesse",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 204.04
+     },
+     {
+      "date": "2026-10-04",
+      "rayon": "BD et mangas",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 148.96
+     },
+     {
+      "date": "2026-10-04",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 145.83
+     },
+     {
+      "date": "2026-10-04",
+      "rayon": "Beaux livres",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 110.59
+     },
+     {
+      "date": "2026-10-05",
+      "rayon": "Romans",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 198.68
+     },
+     {
+      "date": "2026-10-05",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 173.14
+     },
+     {
+      "date": "2026-10-05",
+      "rayon": "BD et mangas",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 317.71
+     },
+     {
+      "date": "2026-10-05",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 152.44
+     },
+     {
+      "date": "2026-10-05",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 105.81
+     },
+     {
+      "date": "2026-10-06",
+      "rayon": "Romans",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 324.8
+     },
+     {
+      "date": "2026-10-06",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 168.18
+     },
+     {
+      "date": "2026-10-06",
+      "rayon": "BD et mangas",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 326.05
+     },
+     {
+      "date": "2026-10-06",
+      "rayon": "Papeterie",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 134.91
+     },
+     {
+      "date": "2026-10-06",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 102.77
+     },
+     {
+      "date": "2026-10-07",
+      "rayon": "Romans",
+      "articles": 20.0,
+      "chiffre_d_affaires_ttc": 360.03
+     },
+     {
+      "date": "2026-10-07",
+      "rayon": "Jeunesse",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 263.0
+     },
+     {
+      "date": "2026-10-07",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 257.68
+     },
+     {
+      "date": "2026-10-07",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 179.7
+     },
+     {
+      "date": "2026-10-07",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 51.7
+     },
+     {
+      "date": "2026-10-08",
+      "rayon": "Romans",
+      "articles": 19.0,
+      "chiffre_d_affaires_ttc": 356.25
+     },
+     {
+      "date": "2026-10-08",
+      "rayon": "Jeunesse",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 117.43
+     },
+     {
+      "date": "2026-10-08",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 190.46
+     },
+     {
+      "date": "2026-10-08",
+      "rayon": "Papeterie",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 180.31
+     },
+     {
+      "date": "2026-10-08",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 64.92
+     },
+     {
+      "date": "2026-10-10",
+      "rayon": "Romans",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 254.98
+     },
+     {
+      "date": "2026-10-10",
+      "rayon": "Jeunesse",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 211.97
+     },
+     {
+      "date": "2026-10-10",
+      "rayon": "BD et mangas",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 332.37
+     },
+     {
+      "date": "2026-10-10",
+      "rayon": "Papeterie",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 101.41
+     },
+     {
+      "date": "2026-10-10",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 57.96
+     },
+     {
+      "date": "2026-10-11",
+      "rayon": "Romans",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 337.87
+     },
+     {
+      "date": "2026-10-11",
+      "rayon": "Jeunesse",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 225.46
+     },
+     {
+      "date": "2026-10-11",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 180.91
+     },
+     {
+      "date": "2026-10-11",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 166.46
+     },
+     {
+      "date": "2026-10-11",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 48.98
+     },
+     {
+      "date": "2026-10-12",
+      "rayon": "Romans",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 225.31
+     },
+     {
+      "date": "2026-10-12",
+      "rayon": "Jeunesse",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 136.85
+     },
+     {
+      "date": "2026-10-12",
+      "rayon": "BD et mangas",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 214.89
+     },
+     {
+      "date": "2026-10-12",
+      "rayon": "Papeterie",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 164.02
+     },
+     {
+      "date": "2026-10-12",
+      "rayon": "Beaux livres",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 108.52
+     },
+     {
+      "date": "2026-10-13",
+      "rayon": "Romans",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 321.18
+     },
+     {
+      "date": "2026-10-13",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 187.42
+     },
+     {
+      "date": "2026-10-13",
+      "rayon": "BD et mangas",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 240.0
+     },
+     {
+      "date": "2026-10-13",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 108.47
+     },
+     {
+      "date": "2026-10-13",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 90.0
+     },
+     {
+      "date": "2026-10-14",
+      "rayon": "Romans",
+      "articles": 20.0,
+      "chiffre_d_affaires_ttc": 361.49
+     },
+     {
+      "date": "2026-10-14",
+      "rayon": "Jeunesse",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 212.19
+     },
+     {
+      "date": "2026-10-14",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 220.49
+     },
+     {
+      "date": "2026-10-14",
+      "rayon": "Papeterie",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 182.38
+     },
+     {
+      "date": "2026-10-14",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 52.44
+     },
+     {
+      "date": "2026-10-15",
+      "rayon": "Romans",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 210.63
+     },
+     {
+      "date": "2026-10-15",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 183.59
+     },
+     {
+      "date": "2026-10-15",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 226.18
+     },
+     {
+      "date": "2026-10-15",
+      "rayon": "Papeterie",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 129.31
+     },
+     {
+      "date": "2026-10-15",
+      "rayon": "Beaux livres",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 110.11
+     },
+     {
+      "date": "2026-10-17",
+      "rayon": "Romans",
+      "articles": 20.0,
+      "chiffre_d_affaires_ttc": 372.69
+     },
+     {
+      "date": "2026-10-17",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 183.17
+     },
+     {
+      "date": "2026-10-17",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 264.86
+     },
+     {
+      "date": "2026-10-17",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 123.06
+     },
+     {
+      "date": "2026-10-17",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 93.93
+     },
+     {
+      "date": "2026-10-18",
+      "rayon": "Romans",
+      "articles": 20.0,
+      "chiffre_d_affaires_ttc": 372.66
+     },
+     {
+      "date": "2026-10-18",
+      "rayon": "Jeunesse",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 155.2
+     },
+     {
+      "date": "2026-10-18",
+      "rayon": "BD et mangas",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 259.66
+     },
+     {
+      "date": "2026-10-18",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 155.48
+     },
+     {
+      "date": "2026-10-18",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 88.53
+     },
+     {
+      "date": "2026-10-19",
+      "rayon": "Romans",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 189.04
+     },
+     {
+      "date": "2026-10-19",
+      "rayon": "Jeunesse",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 174.99
+     },
+     {
+      "date": "2026-10-19",
+      "rayon": "BD et mangas",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 150.85
+     },
+     {
+      "date": "2026-10-19",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 158.72
+     },
+     {
+      "date": "2026-10-19",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 72.4
+     },
+     {
+      "date": "2026-10-20",
+      "rayon": "Romans",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 328.42
+     },
+     {
+      "date": "2026-10-20",
+      "rayon": "Jeunesse",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 116.23
+     },
+     {
+      "date": "2026-10-20",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 194.31
+     },
+     {
+      "date": "2026-10-20",
+      "rayon": "Papeterie",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 136.03
+     },
+     {
+      "date": "2026-10-20",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 85.15
+     },
+     {
+      "date": "2026-10-21",
+      "rayon": "Romans",
+      "articles": 18.0,
+      "chiffre_d_affaires_ttc": 328.57
+     },
+     {
+      "date": "2026-10-21",
+      "rayon": "Jeunesse",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 153.62
+     },
+     {
+      "date": "2026-10-21",
+      "rayon": "BD et mangas",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 319.18
+     },
+     {
+      "date": "2026-10-21",
+      "rayon": "Papeterie",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 92.83
+     },
+     {
+      "date": "2026-10-21",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 92.55
+     },
+     {
+      "date": "2026-10-22",
+      "rayon": "Romans",
+      "articles": 21.0,
+      "chiffre_d_affaires_ttc": 380.22
+     },
+     {
+      "date": "2026-10-22",
+      "rayon": "Jeunesse",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 250.54
+     },
+     {
+      "date": "2026-10-22",
+      "rayon": "BD et mangas",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 153.85
+     },
+     {
+      "date": "2026-10-22",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 151.52
+     },
+     {
+      "date": "2026-10-22",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 67.53
+     },
+     {
+      "date": "2026-10-24",
+      "rayon": "Romans",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 203.82
+     },
+     {
+      "date": "2026-10-24",
+      "rayon": "Jeunesse",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 196.62
+     },
+     {
+      "date": "2026-10-24",
+      "rayon": "BD et mangas",
+      "articles": 17.0,
+      "chiffre_d_affaires_ttc": 321.63
+     },
+     {
+      "date": "2026-10-24",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 150.92
+     },
+     {
+      "date": "2026-10-24",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 106.79
+     },
+     {
+      "date": "2026-10-25",
+      "rayon": "Romans",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 201.17
+     },
+     {
+      "date": "2026-10-25",
+      "rayon": "Jeunesse",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 237.95
+     },
+     {
+      "date": "2026-10-25",
+      "rayon": "BD et mangas",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 215.15
+     },
+     {
+      "date": "2026-10-25",
+      "rayon": "Papeterie",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 126.08
+     },
+     {
+      "date": "2026-10-25",
+      "rayon": "Beaux livres",
+      "articles": 2.0,
+      "chiffre_d_affaires_ttc": 50.93
+     },
+     {
+      "date": "2026-10-26",
+      "rayon": "Romans",
+      "articles": 23.0,
+      "chiffre_d_affaires_ttc": 431.18
+     },
+     {
+      "date": "2026-10-26",
+      "rayon": "Jeunesse",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 234.23
+     },
+     {
+      "date": "2026-10-26",
+      "rayon": "BD et mangas",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 241.25
+     },
+     {
+      "date": "2026-10-26",
+      "rayon": "Papeterie",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 141.65
+     },
+     {
+      "date": "2026-10-26",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 104.56
+     },
+     {
+      "date": "2026-10-27",
+      "rayon": "Romans",
+      "articles": 24.0,
+      "chiffre_d_affaires_ttc": 432.66
+     },
+     {
+      "date": "2026-10-27",
+      "rayon": "Jeunesse",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 259.58
+     },
+     {
+      "date": "2026-10-27",
+      "rayon": "BD et mangas",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 155.53
+     },
+     {
+      "date": "2026-10-27",
+      "rayon": "Papeterie",
+      "articles": 6.0,
+      "chiffre_d_affaires_ttc": 121.01
+     },
+     {
+      "date": "2026-10-27",
+      "rayon": "Beaux livres",
+      "articles": 3.0,
+      "chiffre_d_affaires_ttc": 69.61
+     },
+     {
+      "date": "2026-10-28",
+      "rayon": "Romans",
+      "articles": 14.0,
+      "chiffre_d_affaires_ttc": 261.31
+     },
+     {
+      "date": "2026-10-28",
+      "rayon": "Jeunesse",
+      "articles": 11.0,
+      "chiffre_d_affaires_ttc": 201.2
+     },
+     {
+      "date": "2026-10-28",
+      "rayon": "BD et mangas",
+      "articles": 10.0,
+      "chiffre_d_affaires_ttc": 190.86
+     },
+     {
+      "date": "2026-10-28",
+      "rayon": "Papeterie",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 92.93
+     },
+     {
+      "date": "2026-10-28",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 97.84
+     },
+     {
+      "date": "2026-10-29",
+      "rayon": "Romans",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 224.18
+     },
+     {
+      "date": "2026-10-29",
+      "rayon": "Jeunesse",
+      "articles": 13.0,
+      "chiffre_d_affaires_ttc": 239.95
+     },
+     {
+      "date": "2026-10-29",
+      "rayon": "BD et mangas",
+      "articles": 12.0,
+      "chiffre_d_affaires_ttc": 233.08
+     },
+     {
+      "date": "2026-10-29",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 161.07
+     },
+     {
+      "date": "2026-10-29",
+      "rayon": "Beaux livres",
+      "articles": 5.0,
+      "chiffre_d_affaires_ttc": 107.16
+     },
+     {
+      "date": "2026-10-31",
+      "rayon": "Romans",
+      "articles": 22.0,
+      "chiffre_d_affaires_ttc": 396.98
+     },
+     {
+      "date": "2026-10-31",
+      "rayon": "Jeunesse",
+      "articles": 7.0,
+      "chiffre_d_affaires_ttc": 134.39
+     },
+     {
+      "date": "2026-10-31",
+      "rayon": "BD et mangas",
+      "articles": 9.0,
+      "chiffre_d_affaires_ttc": 164.51
+     },
+     {
+      "date": "2026-10-31",
+      "rayon": "Papeterie",
+      "articles": 8.0,
+      "chiffre_d_affaires_ttc": 156.89
+     },
+     {
+      "date": "2026-10-31",
+      "rayon": "Beaux livres",
+      "articles": 4.0,
+      "chiffre_d_affaires_ttc": 87.78
+     }
+    ]
+   }
+  }
+ ],
+ "alerte": {
+  "nom": "Achats de livres du mois — Librairie Les Pages Vives",
+  "jeu_cle": "exemple:boutique-librairie:operations",
+  "mesure": {
+   "field": "Débit",
+   "agg": "sum"
+  },
+  "filtres": [
+   {
+    "field": "Catégorie",
+    "op": "eq",
+    "values": [
+     "Achats livres"
+    ]
+   },
+   {
+    "field": "Mois",
+    "op": "eq",
+    "values": [
+     "2026-10"
+    ]
+   }
+  ],
+  "comparaison": "gt",
+  "seuil": 13000,
+  "valeur_attendue": 15200
+ }
+}

@@ -82,6 +82,15 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Thème : préférence commune à la suite (§1.5) : `atelier-theme.js` est injecté en script bloquant en tête de `<head>` par `vite.config.ts` (`atelierTheme`, qui reprend une fois l'ancienne clé `theme`) ; il pose `class="dark"` **et** `data-theme`. `useTheme` appelle `window.atelierTheme.set(pref)` et suit l'événement `atelier-theme`. Marque : `AtelierBrand` (icône Lucide `ChartColumn` dans `.atelier-brand__tile`, « Atelier Viz », « À propos » avec `.atelier-about__icon`). Icônes d'app (`public/favicon-64.png`, `apple-touch-icon.png`, `scripts/macos/icon.png`, `scripts/windows/atelier-viz.ico`) = l'icône carrée en dégradé de la signature. Sélecteur de suite : `lib/suite.ts` + `components/layout/SuiteSwitcher.tsx` (Viz `ChartColumn`, Tab `Table`, Projets `Kanban`, Atelier Cuisine `Utensils`, app en ligne jamais sondée ; ouverture par `DesktopApi.open_external` → `suite_bundle_for`).
 - Données : enveloppes DataFlow (`app/services/data/dataflow.py`), connecteurs `atelier_tab` / `atelier_projets` (`app/services/connectors/atelier.py`, sans secret). Tests : `test_dataflow.py`, `test_connections_atelier.py` (transport httpx simulé).
 
+## Exemples de la suite
+- `exemples-suite/` (format `atelier-exemples/1`) : histoires fictives communes à toute la suite, **générées** par
+  Atelier_Deploy (`exemples/generer.py --vers <dossier des dépôts>`), jamais modifiées à la main ici. Pour Viz : les jeux
+  (`atelier-table/1`, clé `exemple:<histoire>:<table>`) et une alerte qui se déclenche en octobre.
+- `services/exemples.py` charge par `AtelierService.upsert` et `AlertService` (créée puis évaluée, comme la route : le
+  `viz.alert.triggered` que Nexus transforme en tâche Projets) ; retirer = jeux de ces clés, leurs alertes, rapport
+  « Exemple — <histoire> ». Routes `GET/POST/DELETE /api/exemples-suite[/{histoire}]` ; réglage `EXEMPLES_DIR`
+  (`FOREIGN_ENV`, paquet autonome : `datas` du `.spec`). Front : `features/reports/SuiteExamples.tsx`, `lib/exemples.ts`.
+
 ## Partage et automatisation (jalon 6)
 - **Signets** : capture / application pures dans `studio/bookmarks.ts` ; tout nouvel état de visuel « à retenir » (comme `options.selected`, `options.drill`) s'ajoute à `BookmarkVisualState` (schéma + miroir TS + `captured`). Appliquer un signet n'entre pas dans l'historique. `report.bookmarks` est facultatif : toujours lire `r.bookmarks ?? []`. Groupes (`group`) et signets personnels (`personal`, jamais envoyés à GitHub : `without_personal` / `keep_personal` de `report_privacy.py`, jamais copiés par `reports.duplicate`) : champs `exclude_if` (absents du JSON par défaut).
 - **Ordonnanceur** : une seule exécution par jeu (`RefreshScheduler.run`) ; toute actualisation (manuelle comprise) passe par lui pour être journalisée. Horloge injectable : les tests appellent `tick()` sans attendre ; `conftest` coupe l'ordonnanceur réel (`scheduler_enabled=False`).

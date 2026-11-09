@@ -1,0 +1,477 @@
+{
+ "format": "atelier-exemples/1",
+ "histoire": {
+  "id": "freelance-data",
+  "titre": "Consultant data freelance",
+  "sous_titre": "Missions, temps facturé et trésorerie d'un indépendant",
+  "secteur": "Freelance",
+  "resume": "Julien Morel, consultant data indépendant à Dijon : missions suivies dans Tab et Projets, temps passé, factures payées via une plateforme, provisions URSSAF ; ses frais de logiciels dérapent en octobre."
+ },
+ "jeux": [
+  {
+   "nom": "Consultant data freelance — opérations août-oct. 2026",
+   "cle": "exemple:freelance-data:operations",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "operations",
+    "label": "Opérations",
+    "columns": [
+     {
+      "key": "date",
+      "label": "Date",
+      "type": "date"
+     },
+     {
+      "key": "libelle",
+      "label": "Libellé",
+      "type": "string"
+     },
+     {
+      "key": "debit",
+      "label": "Débit",
+      "type": "number"
+     },
+     {
+      "key": "credit",
+      "label": "Crédit",
+      "type": "number"
+     },
+     {
+      "key": "montant",
+      "label": "Montant",
+      "type": "number"
+     },
+     {
+      "key": "categorie",
+      "label": "Catégorie",
+      "type": "string"
+     },
+     {
+      "key": "mois",
+      "label": "Mois",
+      "type": "string"
+     }
+    ],
+    "rows": [
+     {
+      "date": "2026-08-03",
+      "libelle": "PRLV SEPA COWORKING LA FABRIQUE DIJON",
+      "debit": 290,
+      "credit": null,
+      "montant": -290.0,
+      "categorie": "Coworking",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-04",
+      "libelle": "VIR SEPA RECU PLATEFORME FREELANCE MUTUELLE ARTISANS F-2026-021",
+      "debit": null,
+      "credit": 4080,
+      "montant": 4080.0,
+      "categorie": "Honoraires",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-06",
+      "libelle": "PRLV SEPA FREE PRO",
+      "debit": 39.99,
+      "credit": null,
+      "montant": -39.99,
+      "categorie": "Télécom",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-09",
+      "libelle": "PRLV SEPA GOOGLE WORKSPACE",
+      "debit": 13.6,
+      "credit": null,
+      "montant": -13.6,
+      "categorie": "Logiciels",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-12",
+      "libelle": "PRLV SEPA URSSAF COTISATIONS",
+      "debit": 1130.17,
+      "credit": null,
+      "montant": -1130.17,
+      "categorie": "Cotisations sociales",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-14",
+      "libelle": "VIR SEPA EMIS LIVRET PROVISION IMPOTS",
+      "debit": 900,
+      "credit": null,
+      "montant": -900.0,
+      "categorie": "Provision impôts",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-17",
+      "libelle": "CARTE SNCF DIJON BESANCON",
+      "debit": 42,
+      "credit": null,
+      "montant": -42.0,
+      "categorie": "Déplacements",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-20",
+      "libelle": "PRLV SEPA ASSURANCE RC PRO HISCOX",
+      "debit": 46.5,
+      "credit": null,
+      "montant": -46.5,
+      "categorie": "Assurances",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-25",
+      "libelle": "VIR SEPA RECU COOPERATIVE LAITIERE JURA F-2026-022",
+      "debit": null,
+      "credit": 3720,
+      "montant": 3720.0,
+      "categorie": "Honoraires",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-08-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 8,
+      "credit": null,
+      "montant": -8.0,
+      "categorie": "Banque",
+      "mois": "2026-08"
+     },
+     {
+      "date": "2026-09-03",
+      "libelle": "VIR SEPA RECU PLATEFORME FREELANCE MUTUELLE ARTISANS F-2026-024",
+      "debit": null,
+      "credit": 4080,
+      "montant": 4080.0,
+      "categorie": "Honoraires",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-03",
+      "libelle": "PRLV SEPA COWORKING LA FABRIQUE DIJON",
+      "debit": 290,
+      "credit": null,
+      "montant": -290.0,
+      "categorie": "Coworking",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-06",
+      "libelle": "PRLV SEPA FREE PRO",
+      "debit": 39.99,
+      "credit": null,
+      "montant": -39.99,
+      "categorie": "Télécom",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-09",
+      "libelle": "PRLV SEPA GOOGLE WORKSPACE",
+      "debit": 13.6,
+      "credit": null,
+      "montant": -13.6,
+      "categorie": "Logiciels",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-12",
+      "libelle": "PRLV SEPA URSSAF COTISATIONS",
+      "debit": 1105.08,
+      "credit": null,
+      "montant": -1105.08,
+      "categorie": "Cotisations sociales",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-14",
+      "libelle": "VIR SEPA EMIS LIVRET PROVISION IMPOTS",
+      "debit": 900,
+      "credit": null,
+      "montant": -900.0,
+      "categorie": "Provision impôts",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-15",
+      "libelle": "CARTE SNCF DIJON BESANCON",
+      "debit": 84,
+      "credit": null,
+      "montant": -84.0,
+      "categorie": "Déplacements",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-20",
+      "libelle": "PRLV SEPA ASSURANCE RC PRO HISCOX",
+      "debit": 46.5,
+      "credit": null,
+      "montant": -46.5,
+      "categorie": "Assurances",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-21",
+      "libelle": "CARTE FNAC LIVRE STATISTIQUES",
+      "debit": 54.9,
+      "credit": null,
+      "montant": -54.9,
+      "categorie": "Formation",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-24",
+      "libelle": "VIR SEPA RECU COOPERATIVE LAITIERE JURA F-2026-025",
+      "debit": null,
+      "credit": 3720,
+      "montant": 3720.0,
+      "categorie": "Honoraires",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-09-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 8,
+      "credit": null,
+      "montant": -8.0,
+      "categorie": "Banque",
+      "mois": "2026-09"
+     },
+     {
+      "date": "2026-10-02",
+      "libelle": "VIR SEPA RECU PLATEFORME FREELANCE MUTUELLE ARTISANS F-2026-027 SOLDE",
+      "debit": null,
+      "credit": 2720,
+      "montant": 2720.0,
+      "categorie": "Honoraires",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-03",
+      "libelle": "PRLV SEPA COWORKING LA FABRIQUE DIJON",
+      "debit": 290,
+      "credit": null,
+      "montant": -290.0,
+      "categorie": "Coworking",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-06",
+      "libelle": "PRLV SEPA FREE PRO",
+      "debit": 39.99,
+      "credit": null,
+      "montant": -39.99,
+      "categorie": "Télécom",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-09",
+      "libelle": "PRLV SEPA GOOGLE WORKSPACE",
+      "debit": 13.6,
+      "credit": null,
+      "montant": -13.6,
+      "categorie": "Logiciels",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-11",
+      "libelle": "CARTE JETBRAINS ABONNEMENT ANNUEL",
+      "debit": 289,
+      "credit": null,
+      "montant": -289.0,
+      "categorie": "Logiciels",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-12",
+      "libelle": "PRLV SEPA URSSAF COTISATIONS",
+      "debit": 1160.38,
+      "credit": null,
+      "montant": -1160.38,
+      "categorie": "Cotisations sociales",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-14",
+      "libelle": "VIR SEPA EMIS LIVRET PROVISION IMPOTS",
+      "debit": 900,
+      "credit": null,
+      "montant": -900.0,
+      "categorie": "Provision impôts",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-14",
+      "libelle": "CARTE TABLEAU CLOUD LICENCE CREATOR",
+      "debit": 840,
+      "credit": null,
+      "montant": -840.0,
+      "categorie": "Logiciels",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-16",
+      "libelle": "CARTE SNCF DIJON BESANCON",
+      "debit": 84,
+      "credit": null,
+      "montant": -84.0,
+      "categorie": "Déplacements",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-19",
+      "libelle": "CARTE FNAC LIVRE STATISTIQUES",
+      "debit": 48.5,
+      "credit": null,
+      "montant": -48.5,
+      "categorie": "Formation",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-20",
+      "libelle": "PRLV SEPA ASSURANCE RC PRO HISCOX",
+      "debit": 46.5,
+      "credit": null,
+      "montant": -46.5,
+      "categorie": "Assurances",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-27",
+      "libelle": "VIR SEPA RECU COOPERATIVE LAITIERE JURA F-2026-028",
+      "debit": null,
+      "credit": 3100,
+      "montant": 3100.0,
+      "categorie": "Honoraires",
+      "mois": "2026-10"
+     },
+     {
+      "date": "2026-10-28",
+      "libelle": "FRAIS TENUE DE COMPTE",
+      "debit": 8,
+      "credit": null,
+      "montant": -8.0,
+      "categorie": "Banque",
+      "mois": "2026-10"
+     }
+    ]
+   }
+  },
+  {
+   "nom": "Consultant data freelance — Missions",
+   "cle": "exemple:freelance-data:missions",
+   "table": {
+    "format": "atelier-table/1",
+    "name": "missions",
+    "label": "Missions",
+    "columns": [
+     {
+      "key": "mission",
+      "label": "Mission",
+      "type": "string"
+     },
+     {
+      "key": "client",
+      "label": "Client",
+      "type": "string"
+     },
+     {
+      "key": "tjm",
+      "label": "TJM",
+      "type": "number"
+     },
+     {
+      "key": "jours_prevus",
+      "label": "Jours prévus",
+      "type": "number"
+     },
+     {
+      "key": "jours_faits",
+      "label": "Jours faits",
+      "type": "number"
+     },
+     {
+      "key": "statut",
+      "label": "Statut",
+      "type": "string"
+     },
+     {
+      "key": "fin",
+      "label": "Fin",
+      "type": "date"
+     }
+    ],
+    "rows": [
+     {
+      "mission": "Tableau de bord de la collecte de lait",
+      "client": "Coopérative Laitière du Jura",
+      "tjm": 620,
+      "jours_prevus": 18,
+      "jours_faits": 15,
+      "statut": "En cours",
+      "fin": "2026-11-14"
+     },
+     {
+      "mission": "Modèle de prévision des résiliations",
+      "client": "Mutuelle des Artisans de Bourgogne",
+      "tjm": 680,
+      "jours_prevus": 12,
+      "jours_faits": 12,
+      "statut": "Terminée",
+      "fin": "2026-09-30"
+     },
+     {
+      "mission": "Audit de la qualité des données clients",
+      "client": "Réseau de Librairies Oxalis",
+      "tjm": 590,
+      "jours_prevus": 6,
+      "jours_faits": 4,
+      "statut": "En cours",
+      "fin": "2026-11-07"
+     },
+     {
+      "mission": "Formation SQL pour l'équipe marketing",
+      "client": "Agence Orbe",
+      "tjm": 750,
+      "jours_prevus": 2,
+      "jours_faits": 0,
+      "statut": "À faire",
+      "fin": "2026-11-20"
+     }
+    ]
+   }
+  }
+ ],
+ "alerte": {
+  "nom": "Logiciels du mois — Consultant data freelance",
+  "jeu_cle": "exemple:freelance-data:operations",
+  "mesure": {
+   "field": "Débit",
+   "agg": "sum"
+  },
+  "filtres": [
+   {
+    "field": "Catégorie",
+    "op": "eq",
+    "values": [
+     "Logiciels"
+    ]
+   },
+   {
+    "field": "Mois",
+    "op": "eq",
+    "values": [
+     "2026-10"
+    ]
+   }
+  ],
+  "comparaison": "gt",
+  "seuil": 300,
+  "valeur_attendue": 1142.6
+ }
+}

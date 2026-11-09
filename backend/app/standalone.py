@@ -60,6 +60,7 @@ def configure(
     env.setdefault("DATA_DIR", str(folder / "data"))
     env.setdefault("FRONTEND_DIST", str(dist))
     env.setdefault("SAMPLES_DIR", str(bundle / "samples"))
+    env.setdefault("EXEMPLES_DIR", str(bundle / "exemples-suite"))
     env.setdefault("SERVE_FRONTEND", "true")
     return folder
 
