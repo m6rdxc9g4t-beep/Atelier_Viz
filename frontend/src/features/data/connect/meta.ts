@@ -80,6 +80,7 @@ export function toInput(form: ConnectionInput, editing: boolean): ConnectionInpu
 export function missingField(form: ConnectionInput): string | null {
   if (SERVER_KINDS.includes(form.kind) && !form.host?.trim()) return "Indiquez le serveur.";
   if (form.kind === "snowflake" && !/^[A-Za-z0-9._-]{3,255}$/.test(form.host?.trim() ?? "")) return "Indiquez l'identifiant du compte Snowflake (ex. monorg-moncompte).";
+  if (form.kind === "snowflake" && !form.database?.trim()) return "Indiquez la base Snowflake (ex. ANALYTICS).";
   if (form.kind === "bigquery" && !/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(form.database?.trim() ?? "")) return "Indiquez le projet Google Cloud (ex. mon-projet-123).";
   if ((form.kind === "sqlite" || form.kind === "file") && !form.path?.trim()) return "Indiquez le chemin du fichier.";
   if (form.kind === "web") {

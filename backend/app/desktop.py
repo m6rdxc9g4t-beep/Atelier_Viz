@@ -152,23 +152,46 @@ class ServerThread:
             self.thread.join(timeout)
 
 
-def database_busy(settings: Settings) -> str | None:
-    """Message si la base DuckDB est déjà ouverte par un autre processus (un seul à la fois)."""
+BACKGROUND_LOCK = "background.lock"  # même nom que app/background.py (non importé : aucune dépendance ici)
+BACKGROUND_MAX_AGE = 3600.0
+
+
+def database_busy(settings: Settings, wait: float = 60.0, sleep: Callable[[float], None] = time.sleep) -> str | None:
+    """Message si la base DuckDB est déjà ouverte par un autre processus (un seul à la fois).
+
+    Si c'est l'actualisation en arrière-plan (témoin `background.lock` récent), on attend qu'elle se termine
+    (au plus `wait` secondes) plutôt que de refuser le lancement.
+    """
     import duckdb
 
     path = settings.data_dir / "atelier.duckdb"
     if not path.exists():
         return None
-    try:
-        duckdb.connect(str(path)).close()
-    except duckdb.Error as exc:
-        if "lock" in str(exc).lower():
+    marker = settings.data_dir / BACKGROUND_LOCK
+    waited = 0.0
+    while True:
+        try:
+            duckdb.connect(str(path)).close()
+            return None
+        except duckdb.Error as exc:
+            if "lock" not in str(exc).lower():
+                return f"Base de données illisible : {exc}"
+        try:
+            background = time.time() - marker.stat().st_mtime < BACKGROUND_MAX_AGE
+        except OSError:
+            background = False
+        if not background:
             return (
                 "La base de données est déjà ouverte par un autre programme Atelier Viz "
                 "(un serveur « uvicorn » lancé dans un terminal ?). Arrêtez-le, puis relancez l'application."
             )
-        return f"Base de données illisible : {exc}"
-    return None
+        if waited >= wait:
+            return (
+                "Une actualisation des sources en arrière-plan est en cours et n'est pas terminée. "
+                "Réessayez dans quelques minutes."
+            )
+        sleep(1.0)
+        waited += 1.0
 
 
 # --- Pont JavaScript ----------------------------------------------------------------------------

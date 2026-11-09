@@ -188,8 +188,10 @@ async def events_stream(
     last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
 ) -> StreamingResponse:
     """Flux poussé des événements (Server-Sent Events) ; `Last-Event-ID` reprend où la connexion s'était arrêtée."""
-    if since is None and last_event_id is not None and last_event_id.isdigit():
-        since = int(last_event_id)
+    # `Last-Event-ID` l'emporte : un EventSource ouvert sur `?since=N` renvoie à chaque reconnexion la même
+    # adresse, mais aussi le dernier `seq` reçu — sans cela, tout serait rejoué depuis N.
+    if last_event_id is not None and last_event_id.strip().isdigit():
+        since = int(last_event_id.strip())
     wanted = {t.strip() for t in types.split(",") if t.strip()} if types else None
     stream = event_stream(journal, since, wanted, timeout, request.is_disconnected, asyncio.sleep, time.monotonic)
     return StreamingResponse(

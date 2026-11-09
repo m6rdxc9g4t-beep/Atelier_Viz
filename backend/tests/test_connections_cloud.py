@@ -188,3 +188,41 @@ def test_bigquery_project_validation_and_missing_driver(client: TestClient) -> N
     infos = {i["kind"]: i for i in client.get("/api/connections/connectors").json()}
     assert infos["bigquery"]["install_hint"] == "pip install google-cloud-bigquery"
     assert infos["snowflake"]["install_hint"] == "pip install snowflake-connector-python"
+
+
+def test_long_secret_is_chunked_in_the_keyring() -> None:
+    """Clé JSON BigQuery (≈ 2,3 ko) : rangée en morceaux (limite du Gestionnaire d'identifiants Windows)."""
+    from app.services.connectors import secrets as mod
+
+    class Errors:
+        class PasswordDeleteError(Exception):
+            pass
+
+    class FakeKeyring:
+        errors = Errors
+
+        def __init__(self) -> None:
+            self.store: dict[tuple[str, str], str] = {}
+
+        def get_password(self, service: str, key: str) -> str | None:
+            return self.store.get((service, key))
+
+        def set_password(self, service: str, key: str, value: str) -> None:
+            assert len(value.encode("utf-16-le")) <= 2560, "trop long pour Windows"
+            self.store[(service, key)] = value
+
+        def delete_password(self, service: str, key: str) -> None:
+            if self.store.pop((service, key), None) is None:
+                raise Errors.PasswordDeleteError
+
+    ring = FakeKeyring()
+    secrets = object.__new__(mod.KeyringSecrets)
+    secrets._keyring = ring  # type: ignore[attr-defined]
+    key = '{"type": "service_account", "private_key": "' + "é" * 2300 + '"}'
+    secrets.set("conn:bq", key)
+    assert secrets.get("conn:bq") == key and len(ring.store) == 4
+    secrets.set("conn:bq", "court")  # morceaux devenus inutiles retirés
+    assert secrets.get("conn:bq") == "court" and len(ring.store) == 1
+    secrets.set("conn:bq", key)
+    secrets.delete("conn:bq")
+    assert ring.store == {} and secrets.get("conn:bq") is None

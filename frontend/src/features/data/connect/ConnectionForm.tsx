@@ -153,7 +153,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
             </Field>
             <div className="grid grid-cols-3 gap-3">
               <Field label="Base de données">
-                <input className={input} value={value.database ?? ""} onChange={(e) => set({ database: e.target.value })} spellCheck={false} />
+                <input className={input} value={value.database ?? ""} onChange={(e) => set({ database: e.target.value })} placeholder="ANALYTICS" spellCheck={false} />
               </Field>
               <Field label="Entrepôt">
                 <input className={input} value={value.warehouse ?? ""} onChange={(e) => set({ warehouse: e.target.value })} placeholder="COMPUTE_WH" spellCheck={false} />

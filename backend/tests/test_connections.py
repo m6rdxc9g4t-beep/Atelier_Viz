@@ -61,8 +61,17 @@ def make(client: TestClient, **fields: Any) -> dict[str, Any]:
 def test_connectors_listed_with_driver_state(client: TestClient) -> None:
     infos = {c["kind"]: c for c in client.get("/api/connections/connectors").json()}
     assert set(infos) == {
-        "sqlserver", "postgres", "mysql", "sqlite", "snowflake", "bigquery",
-        "file", "web", "sharepoint", "atelier_tab", "atelier_projets",
+        "sqlserver",
+        "postgres",
+        "mysql",
+        "sqlite",
+        "snowflake",
+        "bigquery",
+        "file",
+        "web",
+        "sharepoint",
+        "atelier_tab",
+        "atelier_projets",
     }
     assert infos["sqlite"]["driver_installed"] is True
     assert infos["sqlserver"]["default_port"] == 1433
@@ -233,6 +242,86 @@ def test_check_query_refuses_writes(query: str, fragment: str) -> None:
     with pytest.raises(ConnectorError) as err:
         sql.check_query(query)
     assert fragment in err.value.message
+
+
+@pytest.mark.parametrize(
+    ("query", "kind"),
+    [
+        # Une barre oblique inverse échappe la quote en BigQuery, Snowflake et MySQL : le « ; » est hors chaîne.
+        ("SELECT '\\''; DROP TABLE ds.t; --'", "bigquery"),
+        ("SELECT '\\''; DROP TABLE ds.t; --'", "snowflake"),
+        ("SELECT '\\''; DROP TABLE ds.t; --'", "mysql"),
+        # « # » est un commentaire : la quote qui suit ne masque rien.
+        ("SELECT 1 # '\n; DROP TABLE x; -- '", "bigquery"),
+        ("SELECT 1 # '\n; DROP TABLE x; -- '", "mysql"),
+        # Chaînes dollar.
+        ("SELECT $$ ' $$; DROP TABLE x; --'", "postgres"),
+        ("SELECT $q$ ' $q$; DROP TABLE x; --'", "postgres"),
+        ("SELECT $$ ' $$; DROP TABLE x; --'", "snowflake"),
+        # Chaîne triple BigQuery.
+        ('SELECT """ " """ ; DROP TABLE x; --"', "bigquery"),
+        ("SELECT 'fin\\", "bigquery"),
+    ],
+)
+def test_check_query_follows_dialect_lexing(query: str, kind: str) -> None:
+    with pytest.raises(ConnectorError):
+        sql.check_query(query, kind)
+
+
+@pytest.mark.parametrize(
+    ("query", "kind"),
+    [
+        ('SELECT """it\'s "quoted" """ AS a FROM `p.d.t`', "bigquery"),
+        ("SELECT * FROM `p.d.t` WHERE x = 'o\\'k' # note ; drop", "bigquery"),
+        ("SELECT 'a\\b' FROM t", "postgres"),
+        ("SELECT $1, $$texte ; delete$$ FROM t", "postgres"),
+        ("SELECT 'l''a' FROM t;", "snowflake"),
+        ("SELECT 1 # remarque", "mysql"),
+    ],
+)
+def test_check_query_dialect_reads(query: str, kind: str) -> None:
+    sql.check_query(query, kind)
+
+
+class _Job:
+    def __init__(self, statement_type: str) -> None:
+        self.statement_type = statement_type
+
+
+class _Client:
+    def __init__(self, statement_type: str) -> None:
+        self.statement_type = statement_type
+        self.configs: list[object] = []
+
+    def query(self, query: str, job_config: object) -> _Job:
+        self.configs.append(job_config)
+        return _Job(self.statement_type)
+
+
+def test_bigquery_dry_run_requires_select(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Seconde barrière : l'essai à blanc de BigQuery doit annoncer une seule lecture."""
+    import sys
+    import types
+
+    class QueryJobConfig:
+        def __init__(self, **kw: object) -> None:
+            self.kw = kw
+
+    bigquery = types.ModuleType("google.cloud.bigquery")
+    bigquery.QueryJobConfig = QueryJobConfig  # type: ignore[attr-defined]
+    cloud = types.ModuleType("google.cloud")
+    cloud.bigquery = bigquery  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "google", types.ModuleType("google"))
+    monkeypatch.setitem(sys.modules, "google.cloud", cloud)
+    monkeypatch.setitem(sys.modules, "google.cloud.bigquery", bigquery)
+
+    conn = types.SimpleNamespace(bq_client=_Client("SELECT"))
+    sql.bigquery_check(conn, "SELECT 1")  # type: ignore[arg-type]
+    assert conn.bq_client.configs[0].kw == {"dry_run": True, "use_query_cache": False}  # type: ignore[attr-defined]
+    for kind in ("SCRIPT", "DELETE", "DROP_TABLE", ""):
+        with pytest.raises(ConnectorError) as err:
+            sql.bigquery_check(types.SimpleNamespace(bq_client=_Client(kind)), "SELECT 1")  # type: ignore[arg-type]
+        assert "lecture" in err.value.message
 
 
 def test_dialects_quote_and_limit() -> None:

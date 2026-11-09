@@ -46,6 +46,13 @@ async def event_stream(
         page = journal.page(cursor, BATCH, types)
         if first and page.gap:
             yield frame("gap", {"since": cursor, "oldest": page.oldest})
+            last = journal.page(None, 1, None).next
+            if cursor is not None and cursor > last:
+                # Journal remis à zéro (ou `since` venu d'ailleurs) : reprendre au dernier `seq` réel,
+                # sinon les nouveaux événements seraient ignorés jusqu'à ce que `seq` dépasse `since`.
+                cursor = last
+                first = False
+                continue
         first = False
         for event in page.events:
             yield frame(event.type, event.model_dump(mode="json"), event.seq)

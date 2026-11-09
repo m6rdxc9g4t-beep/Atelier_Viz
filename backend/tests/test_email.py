@@ -154,3 +154,50 @@ def test_email_api(client: TestClient) -> None:
     assert res.status_code == 403
     assert client.post("/api/email/test", json={"to": []}).status_code == 422
     assert client.delete("/api/email").json()["config"] is None
+
+
+def test_online_still_connects_to_the_validated_private_ip(tmp_path: Path) -> None:
+    """En ligne aussi, un serveur privé validé reçoit la connexion à cette IP (pas de seconde résolution :
+    une connexion non chiffrée avec identifiant ne peut pas être détournée vers Internet)."""
+    svc, box, _ = make(tmp_path, online=True)
+    svc.configure(EmailConfigInput.model_validate({**CONFIG, "security": "none", "port": 25, "password": "p"}))
+    svc.send(["a@b.fr"], "x", "y")
+    assert box.sent[0][1] == "10.0.0.5"
+
+
+def test_bracketed_ipv6_host_is_normalized() -> None:
+    assert EmailConfig.model_validate({**CONFIG, "host": "[::1]"}).host == "::1"
+    with pytest.raises(ValueError):
+        EmailConfig.model_validate({**CONFIG, "host": "a[b]"})
+
+
+def test_accented_credentials_give_a_readable_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Ascii(smtplib.SMTP):
+        def connect(self, host="localhost", port=0, source_address=None):  # type: ignore[no-untyped-def]
+            return (220, b"ok")
+
+        def starttls(self, *a, **k):  # type: ignore[no-untyped-def]
+            return (220, b"ok")
+
+        def login(self, user, password, *, initial_response_ok=True):  # type: ignore[no-untyped-def]
+            password.encode("ascii")  # comme smtplib (AUTH PLAIN / LOGIN)
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr("app.services.email.smtplib.SMTP", Ascii)
+    with pytest.raises(EmailError, match="sans accent"):
+        smtp_send(EmailConfig.model_validate(CONFIG), None, "mötdepasse", EmailMessage())
+
+
+def test_unexpected_send_error_never_breaks_the_alert(client: TestClient, tmp_path: Path) -> None:
+    ds = upload(client)
+    svc, _, _ = make(tmp_path, outbox=Outbox(fail=RuntimeError("imprévu")))
+    svc.configure(EmailConfigInput.model_validate(CONFIG))
+    app = client.app  # type: ignore[attr-defined]
+    alerts = AlertService(
+        tmp_path / "a.json", app.state.dataset_store, app.state.database, is_online=lambda: False, email=svc
+    )
+    a = alerts.create(AlertInput.model_validate(alert_body(ds, email_to=["dg@entreprise.fr"])))
+    res = asyncio.run(alerts.evaluate(a.id, "refresh"))
+    assert res.history[0].fired and res.history[0].email_error == "Envoi impossible : RuntimeError."

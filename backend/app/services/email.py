@@ -93,7 +93,13 @@ def smtp_send(config: EmailConfig, pinned: str | None, password: str | None, mes
         raise EmailError("Identifiant ou mot de passe refusé par le serveur d'envoi.") from exc
     except smtplib.SMTPRecipientsRefused as exc:
         raise EmailError("Destinataire(s) refusé(s) par le serveur d'envoi.") from exc
+    except UnicodeError as exc:  # smtplib encode l'identifiant et le mot de passe en ASCII
+        raise EmailError(
+            "Identifiant ou mot de passe refusé : le protocole d'envoi n'accepte que des caractères sans accent."
+        ) from exc
     except (smtplib.SMTPException, OSError, ssl.SSLError) as exc:
+        raise EmailError(f"Envoi impossible : {type(exc).__name__}.", 502) from exc
+    except Exception as exc:  # noqa: BLE001 — jamais d'erreur brute (ni 500, ni alerte interrompue)
         raise EmailError(f"Envoi impossible : {type(exc).__name__}.", 502) from exc
 
 
@@ -158,8 +164,9 @@ class EmailService:
     # --- Envoi ------------------------------------------------------------------------------------
 
     def _target(self, config: EmailConfig) -> str | None:
-        """Hors ligne : adresse privée validée (sinon 403) ; en ligne : None (résolution normale)."""
-        host = config.host.strip("[]")
+        """Adresse privée validée (connexion à cette IP, jamais une seconde résolution) ; None pour un serveur
+        Internet, refusé hors ligne (403) et seulement chiffré quand un identifiant est envoyé."""
+        host = config.host
         pinned = self.resolver(host)
         if pinned is None and not self.is_online():
             raise EmailError(
@@ -169,7 +176,7 @@ class EmailService:
             )
         if config.security == "none" and config.username and pinned is None:
             raise EmailError("Connexion non chiffrée refusée vers un serveur Internet : choisissez STARTTLS ou SSL.")
-        return pinned if not self.is_online() else None
+        return pinned
 
     def send(self, to: list[str], subject: str, body: str) -> None:
         """Envoie un message texte ; lève `EmailError` (configuration absente, réseau, serveur)."""

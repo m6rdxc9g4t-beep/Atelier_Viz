@@ -78,6 +78,9 @@ class ConnectionFields(BaseModel):
             raise ValueError("L'identifiant du compte Snowflake est obligatoire (ex. monorg-moncompte).")
         if self.kind == "snowflake" and self.host and not re.fullmatch(r"[A-Za-z0-9._-]{3,255}", self.host.strip()):
             raise ValueError("Identifiant de compte Snowflake invalide (lettres, chiffres, « . », « - », « _ »).")
+        if self.kind == "snowflake" and not (self.database and self.database.strip()):
+            # La liste des tables lit INFORMATION_SCHEMA de la base de la session.
+            raise ValueError("La base Snowflake est obligatoire (ex. ANALYTICS).")
         if self.kind == "bigquery" and not (
             self.database and re.fullmatch(r"[a-z][a-z0-9-]{4,61}[a-z0-9]", self.database)
         ):

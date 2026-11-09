@@ -359,6 +359,9 @@ class AlertService:
             event.email_sent = len(alert.email_to)
         except EmailError as exc:
             event.email_error = exc.message
+        except Exception as exc:  # noqa: BLE001 — l'e-mail ne doit jamais interrompre l'évaluation
+            logger.exception("Envoi de l'e-mail d'alerte en échec")
+            event.email_error = f"Envoi impossible : {type(exc).__name__}."
 
     def _compare(self, alert: Alert, raws: dict[str, float | None]) -> list[AlertGroupEvent]:
         """Valeur comparée, condition et franchissement pour chaque valeur de la dimension."""

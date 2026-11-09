@@ -4,6 +4,7 @@ de la tâche du système (launchd, schtasks, systemd) avec un exécuteur simulé
 
 import asyncio
 import plistlib
+import shutil
 import sqlite3
 import subprocess
 from collections.abc import Sequence
@@ -80,6 +81,33 @@ def test_refresh_due_stops_when_the_app_is_open(settings: Settings) -> None:
         finally:
             duckdb.connect = real  # type: ignore[assignment]
     assert status.status == "app_open"
+    assert not (settings.data_dir / "background.lock").exists()
+
+
+def test_refresh_due_reports_unreadable_database_as_error(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    import duckdb
+
+    def broken(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise duckdb.IOException("Permission denied")
+
+    monkeypatch.setattr(duckdb, "connect", broken)
+    status = asyncio.run(refresh_due(settings))
+    assert status.status == "error" and "Permission denied" in (status.message or "")
+
+
+def test_refresh_due_leaves_a_marker_only_while_running(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.refresh import RefreshScheduler
+
+    seen: list[bool] = []
+    real = RefreshScheduler.tick
+
+    async def tick(self, *a, **k):  # type: ignore[no-untyped-def]
+        seen.append((settings.data_dir / "background.lock").exists())
+        return await real(self, *a, **k)
+
+    monkeypatch.setattr(RefreshScheduler, "tick", tick)
+    assert asyncio.run(refresh_due(settings)).status == "done"
+    assert seen == [True] and not (settings.data_dir / "background.lock").exists()
 
 
 class Recorder:
@@ -124,6 +152,34 @@ def test_launchd_install_update_and_remove(tmp_path: Path) -> None:
     assert not j.apply(BackgroundJobInput(enabled=False)).installed
 
 
+def test_launchd_retries_bootstrap_and_never_leaves_a_dead_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("app.services.background_job._sleep", lambda s: None)
+
+    class Flaky(Recorder):
+        def __init__(self, failures: int) -> None:
+            super().__init__()
+            self.failures = failures
+
+        def __call__(self, args: Sequence[str]) -> subprocess.CompletedProcess[str]:
+            self.calls.append(list(args))
+            if args[1] == "bootstrap" and self.failures > 0:
+                self.failures -= 1
+                return subprocess.CompletedProcess(list(args), 5, "", "Bootstrap failed: 5: Input/output error")
+            return subprocess.CompletedProcess(list(args), 0, "", "")
+
+    run = Flaky(2)
+    assert job(tmp_path, "darwin", run).apply(BackgroundJobInput(enabled=True, interval_minutes=30)).installed
+    assert sum(1 for c in run.calls if c[1] == "bootstrap") == 3
+
+    always = Flaky(99)
+    j = job(tmp_path / "b", "darwin", always)
+    with pytest.raises(BackgroundJobError):
+        j.apply(BackgroundJobInput(enabled=True, interval_minutes=30))
+    assert not j.state().installed  # pas d'agent sur le disque qui ne tourne pas
+
+
 def test_systemd_units_quote_paths(tmp_path: Path) -> None:
     run = Recorder()
     j = job(tmp_path, "linux", run)
@@ -131,7 +187,21 @@ def test_systemd_units_quote_paths(tmp_path: Path) -> None:
     assert state.installed and state.interval_minutes == 60
     service = (tmp_path / "home" / ".config" / "systemd" / "user" / "atelier-viz-refresh.service").read_text()
     assert 'ExecStart="' in service and "Atelier Viz é" in service
+    assert "WorkingDirectory" not in service  # systemd ne retire pas les guillemets de WorkingDirectory=
     assert ["systemctl", "--user", "enable", "--now", "atelier-viz-refresh.timer"] in run.calls
+    if shutil.which("systemd-analyze"):
+        units = tmp_path / "home" / ".config" / "systemd" / "user"
+        (tmp_path / "venv").mkdir(exist_ok=True)
+        (tmp_path / "venv" / "python").write_text("#!/bin/sh\n", encoding="utf-8")
+        (tmp_path / "venv" / "python").chmod(0o755)
+        res = subprocess.run(
+            ["systemd-analyze", "verify", str(units / "atelier-viz-refresh.service")],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        out = (res.stdout + res.stderr).lower()
+        assert "fatal" not in out and "bad unit" not in out, res.stderr
     assert not j.apply(BackgroundJobInput(enabled=False)).installed
 
 

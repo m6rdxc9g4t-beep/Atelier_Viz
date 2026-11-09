@@ -13,6 +13,11 @@ if __name__ == "__main__":
     here = Path(__file__).resolve().parent
     os.chdir(here)
     sys.path.insert(0, str(here))
+    # Comme l'application de bureau : ignorer les variables d'une autre app (DATA_DIR…, docs/SUITE.md §9.4),
+    # sinon la tâche écrirait dans un autre dossier de données que celui de la fenêtre.
+    from app.launcher import scrub_inherited_env
+
+    scrub_inherited_env()
     from app.background import main
 
     sys.exit(main())

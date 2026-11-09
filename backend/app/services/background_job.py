@@ -84,6 +84,16 @@ def current_environment() -> Environment:
     )
 
 
+BOOTSTRAP_RETRIES = 5
+
+
+def _sleep(seconds: float) -> None:
+    """Attente entre deux essais de `launchctl bootstrap` (remplacée dans les tests)."""
+    import time
+
+    time.sleep(seconds)
+
+
 def _systemd_quote(path: Path) -> str:
     """Chemin pour `ExecStart=` : entre guillemets, `\\`, `"`, `%` et `$` échappés."""
     s = str(path).replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%").replace("$", "$$")
@@ -202,7 +212,17 @@ class BackgroundJob:
         }
         (self.env.home / "Library" / "Logs" / "Atelier Viz").mkdir(parents=True, exist_ok=True)
         self._plist.write_bytes(plistlib.dumps(plist))
-        self._check(self.env.runner(["launchctl", "bootstrap", domain, str(self._plist)]), "launchctl")
+        # Juste après un `bootout`, launchd répond souvent « 5: Input/output error » : on réessaie, et un
+        # agent qui n'a pas pu être chargé est retiré (sinon l'état le dirait installé alors qu'il ne tourne pas).
+        res = self.env.runner(["launchctl", "bootstrap", domain, str(self._plist)])
+        for _ in range(BOOTSTRAP_RETRIES):
+            if res.returncode == 0:
+                break
+            _sleep(0.5)
+            res = self.env.runner(["launchctl", "bootstrap", domain, str(self._plist)])
+        if res.returncode != 0:
+            self._plist.unlink(missing_ok=True)
+        self._check(res, "launchctl")
 
     def _systemd(self, body: BackgroundJobInput) -> None:
         service, timer = self._units
@@ -216,7 +236,6 @@ class BackgroundJob:
         service.write_text(
             "[Unit]\nDescription=Atelier Viz : actualisation des sources (application fermée)\n\n"
             "[Service]\nType=oneshot\n"
-            f"WorkingDirectory={_systemd_quote(self.env.entry.parent)}\n"
             f"ExecStart={_systemd_quote(self.env.python)} {_systemd_quote(self.env.entry)}\n"
             "Nice=10\n",
             encoding="utf-8",

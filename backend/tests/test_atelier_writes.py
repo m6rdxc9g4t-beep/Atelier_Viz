@@ -154,3 +154,31 @@ def test_event_stream_route(node: TestClient) -> None:  # noqa: F811
     # Seq inconnu (journal remplacé) : « gap » signalé.
     with node.stream("GET", "/api/atelier/events/stream", params={"since": 999, "timeout": 0}) as r:
         assert "event: gap" in "".join(r.iter_text())
+    # Reconnexion d'un EventSource ouvert sur ?since=0 : Last-Event-ID l'emporte, rien n'est rejoué.
+    with node.stream(
+        "GET", "/api/atelier/events/stream", params={"since": 0, "timeout": 0}, headers={"Last-Event-ID": "1"}
+    ) as r:
+        assert "event: viz.dataset.created" not in "".join(r.iter_text())
+
+
+def test_event_stream_after_reset_resumes_at_the_real_seq(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """`since` au-delà du dernier seq (journal remis à zéro) : gap, puis les nouveaux événements arrivent."""
+    journal = EventJournal(tmp_path / "events.jsonl")
+    journal.emit("viz.dataset.deleted", "d1", "Jeu 1", {})
+    ticks = iter([0.0, 0.0, 0.5, 2.0, 5.0])
+    calls: list[float] = []
+
+    async def collect() -> list[str]:
+        async def no() -> bool:
+            return False
+
+        async def sleep(s: float) -> None:
+            calls.append(s)
+            if len(calls) == 1:
+                journal.emit("viz.dataset.deleted", "d2", "Nouveau", {})
+
+        return [m async for m in event_stream(journal, 500, None, 1.0, no, sleep, lambda: next(ticks))]
+
+    messages = asyncio.run(collect())
+    assert any(m.startswith("event: gap") for m in messages)
+    assert [m.split("\n")[0] for m in messages if m.startswith("id:")] == ["id: 2"]

@@ -60,6 +60,9 @@ def _write_status(settings: Settings, status: BackgroundStatus) -> None:
     os.replace(tmp, path)
 
 
+BACKGROUND_LOCK = "background.lock"
+
+
 async def refresh_due(settings: Settings, now: datetime | None = None) -> BackgroundStatus:
     """Un passage : actualise les jeux arrivés à échéance et évalue leurs alertes, puis ferme tout."""
     # Imports tardifs : `python -m app.background --help` reste rapide, et les tests injectent leur Settings.
@@ -79,12 +82,18 @@ async def refresh_due(settings: Settings, now: datetime | None = None) -> Backgr
     data_dir = Path(settings.data_dir)
     try:
         database = LocalDatabase(data_dir / "atelier.duckdb")
-    except duckdb.IOException:
-        status = BackgroundStatus(
-            last_run_at=at, status="app_open", message="Application ouverte : elle actualise elle-même."
-        )
+    except duckdb.IOException as exc:
+        if "lock" in str(exc).lower():
+            status = BackgroundStatus(
+                last_run_at=at, status="app_open", message="Application ouverte : elle actualise elle-même."
+            )
+        else:  # droits, fichier abîmé… : ce n'est pas l'application ouverte
+            status = BackgroundStatus(last_run_at=at, status="error", message=f"Base illisible : {exc}"[:300])
         _write_status(settings, status)
         return status
+    # Témoin lu par l'application de bureau : la base est tenue par ce passage, pas par un serveur oublié.
+    marker = data_dir / BACKGROUND_LOCK
+    marker.write_text(str(os.getpid()), encoding="utf-8")
 
     preferences = PreferencesStore(data_dir / "settings.json")
     online = lambda: preferences.get().online_mode  # noqa: E731
@@ -126,6 +135,7 @@ async def refresh_due(settings: Settings, now: datetime | None = None) -> Backgr
         await scheduler.shutdown(30.0)
         events.flush()
         database.close()
+        marker.unlink(missing_ok=True)
     _write_status(settings, status)
     return status
 

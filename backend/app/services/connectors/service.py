@@ -443,8 +443,10 @@ class ConnectionService:
         if cfg.kind in SQL_KINDS:
             dialect = sql.DIALECTS[cfg.kind]
             if spec.query and spec.query.strip():
-                query = sql.check_query(spec.query)
+                query = sql.check_query(spec.query, cfg.kind)
                 with self._sql(cfg, connection_id=cfg.id) as conn:
+                    if cfg.kind == "bigquery":
+                        sql.bigquery_check(conn, query)
                     df, truncated = sql.run(conn, query, limit)
                 return df, truncated, f"{cfg.name} (requête)", cfg.kind
             if spec.table is None:

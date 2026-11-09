@@ -32,6 +32,16 @@ class EmailConfig(BaseModel):
     username: str | None = Field(default=None, max_length=200)
     from_addr: str = Field(max_length=320, description="Expéditeur (« alertes@entreprise.fr »).")
 
+    @field_validator("host")
+    @classmethod
+    def _host(cls, v: str) -> str:
+        host = v.strip()
+        if host.startswith("[") and host.endswith("]"):
+            host = host[1:-1]  # « [::1] » : adresse IPv6 sans crochets (connexion et nom du certificat)
+        if not host or "[" in host or "]" in host:
+            raise ValueError("Serveur d'envoi invalide.")
+        return host
+
     @field_validator("from_addr")
     @classmethod
     def _from(cls, v: str) -> str:
