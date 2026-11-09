@@ -634,7 +634,10 @@ class Compiler:
         if default is None:
             raise ExpressionError("PARAM : la valeur par défaut doit être un nombre (ex. 5 ou -2.5).", default_node.pos)
         value = self.scope.parameters.get(name_node.value.strip(), default)
-        return Compiled(_number_sql(value, node.pos), "number")
+        sql = _number_sql(value, node.pos)
+        # Décimal non entier → DOUBLE : un littéral « 0.30000000000000004 » serait un DECIMAL exact
+        # dont les décimales s'additionnent aux multiplications (dépassement de DECIMAL(38)).
+        return Compiled(sql if float(value).is_integer() else f"CAST({sql} AS DOUBLE)", "number")
 
     def aggregate(self, node: Call, fn: str) -> Compiled:
         if self.kind == "column":

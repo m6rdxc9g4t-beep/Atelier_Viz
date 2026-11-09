@@ -10,11 +10,12 @@ Politique réseau (comme les webhooks, `services/actions.py`) :
 Le jeton facultatif (`Authorization: Bearer …`, ou identifiant + mot de passe en Basic) reste au trousseau.
 """
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from email.message import Message
 from pathlib import PurePosixPath
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 import httpx
 
@@ -41,18 +42,42 @@ class WebFile:
     data: bytes
     #: Nom de fichier avec une extension reconnue (« ventes.csv »).
     name: str
-    #: Adresse finale (après redirections).
+    #: Adresse finale (après redirections), sans paramètres (une signature ou une clé n'est jamais renvoyée).
     url: str
+
+
+def shown_url(url: str) -> str:
+    """Adresse à afficher : sans paramètres ni fragment (ils peuvent porter une clé ou une signature)."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return ""
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+
+
+def same_origin(a: str, b: str) -> bool:
+    """Même schéma, hôte et port (jeton conservé à la modification d'une connexion)."""
+    try:
+        x, y = httpx.URL(a.strip()), httpx.URL(b.strip())
+    except (httpx.InvalidURL, ValueError):
+        return False
+    return (x.scheme, x.host, x.port) == (y.scheme, y.host, y.port)
 
 
 def check_url(url: str) -> httpx.URL:
     """Adresse http(s) avec un nom d'hôte, sans identifiants dans l'adresse."""
-    parts = urlsplit(url.strip())
+    try:
+        parts = urlsplit(url.strip())
+    except ValueError as exc:
+        raise ConnectorError("Adresse invalide.") from exc
     if parts.scheme not in {"http", "https"} or not parts.hostname:
         raise ConnectorError("Adresse attendue : https://… (http ou https, avec le nom du serveur).")
     if parts.username or parts.password:
         raise ConnectorError("Pas d'identifiant dans l'adresse : utilisez les champs Utilisateur et Jeton.")
-    return httpx.URL(url.strip())
+    try:
+        return httpx.URL(url.strip())
+    except (httpx.InvalidURL, ValueError) as exc:
+        raise ConnectorError("Adresse invalide.") from exc
 
 
 def _pin(url: httpx.URL, online: bool) -> str | None:
@@ -99,11 +124,18 @@ def fetch(
     max_bytes: int,
     token: str | None = None,
     username: str | None = None,
+    max_seconds: float = 300.0,
+    clock: Callable[[], float] = time.monotonic,
 ) -> WebFile:
-    """Télécharge le fichier (politique réseau, redirections vérifiées, taille bornée)."""
+    """Télécharge le fichier (politique réseau, redirections vérifiées, taille et durée totale bornées)."""
     current = check_url(url)
     origin = (current.scheme, current.host, current.port)
-    headers: dict[str, str] = {"Accept": ", ".join([*CONTENT_TYPES, "*/*;q=0.5"])}
+    deadline = clock() + max_seconds
+    # Pas de compression : la taille comptée est celle reçue (aucune « bombe » gzip qui gonfle en mémoire).
+    headers: dict[str, str] = {
+        "Accept": ", ".join([*CONTENT_TYPES, "*/*;q=0.5"]),
+        "Accept-Encoding": "identity",
+    }
     auth: httpx.Auth | None = None
     if token:
         if username:
@@ -125,12 +157,17 @@ def fetch(
             request = client.build_request("GET", target, headers=extra, extensions=extensions)
             try:
                 response = client.send(request, auth=auth if same_origin else None, stream=True, follow_redirects=False)
+            except httpx.InvalidURL as exc:  # httpx prépare la redirection même sans la suivre
+                raise ConnectorError("Redirection invalide (http ou https attendu).", 502) from exc
             except httpx.HTTPError as exc:
                 raise ConnectorError(f"Serveur injoignable : {type(exc).__name__}.", 502) from exc
             try:
                 if response.is_redirect:
                     location = response.headers.get("location", "")
-                    current = check_url(str(current.join(location)))
+                    try:
+                        current = check_url(str(current.join(location)))
+                    except (ConnectorError, httpx.InvalidURL, ValueError) as exc:
+                        raise ConnectorError("Redirection invalide (http ou https attendu).", 502) from exc
                     continue
                 if response.status_code in {401, 403}:
                     raise ConnectorError(
@@ -143,14 +180,16 @@ def fetch(
                 declared = response.headers.get("content-length")
                 if declared and declared.isdigit() and int(declared) > max_bytes:
                     raise ConnectorError(f"Fichier trop volumineux (max {max_bytes // 1_000_000} Mo).", 413)
-                chunks: list[bytes] = []
-                size = 0
+                # « identity » demandé ; un serveur qui compresse quand même est décodé bloc reçu par bloc
+                # reçu, la taille décodée restant bornée par `max_bytes` (et la durée par l'échéance).
+                data = bytearray()
                 for chunk in response.iter_bytes():
-                    size += len(chunk)
-                    if size > max_bytes:
+                    data += chunk
+                    if len(data) > max_bytes:
                         raise ConnectorError(f"Fichier trop volumineux (max {max_bytes // 1_000_000} Mo).", 413)
-                    chunks.append(chunk)
-                return WebFile(b"".join(chunks), _file_name(current, response), str(current))
+                    if clock() > deadline:
+                        raise ConnectorError(f"Téléchargement trop long (plus de {int(max_seconds)} s).", 504)
+                return WebFile(bytes(data), _file_name(current, response), shown_url(str(current)))
             except httpx.HTTPError as exc:
                 raise ConnectorError(f"Lecture interrompue : {type(exc).__name__}.", 502) from exc
             finally:

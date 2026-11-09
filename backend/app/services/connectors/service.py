@@ -152,6 +152,13 @@ class ConnectionService:
                 self.secrets.delete(self._key(connection_id, "password"))
         if current.kind == "sharepoint" and (current.tenant, current.client_id) != (updated.tenant, updated.client_id):
             self.secrets.delete(self._key(connection_id, "msgraph"))
+        # Fichier web : le jeton suit le serveur. Autre schéma, hôte ou port sans nouveau jeton → jeton oublié.
+        if (
+            current.kind == "web"
+            and data.password is None
+            and not web.same_origin(current.base_url or "", updated.base_url or "")
+        ):
+            self.secrets.delete(self._key(connection_id, "password"))
         return self.get(connection_id)
 
     def delete(self, connection_id: str) -> None:
@@ -287,6 +294,7 @@ class ConnectionService:
             max_bytes=self.settings.connector_max_file_mb * 1_000_000,
             token=self._password(cfg, password, connection_id) or None,
             username=cfg.username,
+            max_seconds=self.settings.connector_query_timeout_seconds,
         )
 
     def _tab_folder(self, cfg: ConnectionFields) -> Path:

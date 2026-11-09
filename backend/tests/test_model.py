@@ -297,7 +297,7 @@ def test_param_compiles_to_literal_value_or_default() -> None:
     assert compile_ok('SUM(ca) * (1 + PARAM("croissance", 5) / 100)') == '(SUM("ca") * (1 + (5 / NULLIF(100, 0))))'
     scoped = Scope(columns=SCOPE.columns, measures=SCOPE.measures, parameters={"croissance": -2.5})
     sql = compile_expression('SUM(ca) * PARAMETRE("croissance", 5)', "measure", scoped).sql
-    assert sql == '(SUM("ca") * (-2.5))'
+    assert sql == '(SUM("ca") * CAST((-2.5) AS DOUBLE))'
     # Défaut négatif accepté ; un autre paramètre garde son défaut.
     assert compile_ok('PARAM("remise", -3)') == "(-3)"
 
@@ -352,3 +352,13 @@ def test_query_route_accepts_parameters(client: TestClient) -> None:
     assert res.json()["rows"] == [[500]]
     bad = client.post("/api/query", json={**body, "parameters": {"bonus": "beaucoup"}})
     assert bad.status_code == 422
+
+
+def test_fractional_parameters_do_not_overflow_decimals(store: DatasetStore) -> None:
+    model = DatasetModel.model_validate(
+        {"measures": [{"name": "m", "expression": 'SUM(ca) * PARAM("a", 0.1) * PARAM("b", 0.1) * PARAM("c", 0.1)'}]}
+    )
+    store.set_model(store.list()[0], model)
+    params = {"a": 0.30000000000000004, "b": 1.1000000000000001, " c ": 0.7000000000000001}
+    rows = query(store, measures=[{"field": "m", "agg": "calc"}], parameters=params)
+    assert rows[0]["calc(m)"] == pytest.approx(420 * 0.3 * 1.1 * 0.7)

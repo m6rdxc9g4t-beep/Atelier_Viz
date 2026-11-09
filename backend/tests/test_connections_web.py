@@ -183,3 +183,44 @@ def test_invalid_urls_are_refused(client: TestClient, url: str) -> None:
 def test_check_url_rejects_credentials() -> None:
     with pytest.raises(ConnectorError):
         web.check_url("https://a:b@exemple.fr/x.csv")
+
+
+def test_bad_redirect_is_a_readable_error(client: TestClient) -> None:
+    install(client, lambda req: httpx.Response(302, headers={"location": "javascript:alert(1)"}))
+    c = make(client, base_url="http://127.0.0.1/a.csv")
+    res = client.post(f"/api/connections/{c['id']}/test")
+    assert res.status_code == 200 and "Redirection invalide" in res.json()["message"]
+
+
+def test_slow_download_is_cut_by_total_deadline() -> None:
+    ticks = iter([0.0, 500.0, 900.0, 950.0])
+
+    def stream(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-type": "text/csv"}, content=iter([b"a;b\n", b"1;2\n", b"3;4\n"]))
+
+    with pytest.raises(ConnectorError, match="trop long"):
+        web.fetch(
+            "http://127.0.0.1/lent.csv",
+            online=False,
+            client_factory=lambda online: httpx.Client(transport=httpx.MockTransport(stream)),
+            max_bytes=1_000_000,
+            max_seconds=300,
+            clock=lambda: next(ticks),
+        )
+
+
+def test_signed_query_never_echoed_and_identity_requested(client: TestClient) -> None:
+    seen = install(client, lambda req: httpx.Response(200, content=CSV, headers={"content-type": "text/csv"}))
+    c = make(client, base_url="http://127.0.0.1/f.csv?sig=SECRET")
+    res = client.post(f"/api/connections/{c['id']}/test").json()
+    assert res["ok"] is True and "SECRET" not in res["server"]
+    assert seen[-1].headers["accept-encoding"] == "identity"
+
+
+def test_token_dropped_when_host_changes(client: TestClient) -> None:
+    install(client, lambda req: httpx.Response(200, content=CSV, headers={"content-type": "text/csv"}))
+    c = make(client, base_url="http://127.0.0.1/f.csv", password="t")
+    same = {"name": "Web", "kind": "web", "base_url": "http://127.0.0.1/autre.csv"}
+    assert client.put(f"/api/connections/{c['id']}", json=same).json()["has_password"] is True
+    moved = {**same, "base_url": "http://127.0.0.2/f.csv"}
+    assert client.put(f"/api/connections/{c['id']}", json=moved).json()["has_password"] is False

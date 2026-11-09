@@ -115,11 +115,15 @@ class QueryRequest(BaseModel):
 
     @model_validator(mode="after")
     def _finite_parameters(self) -> "QueryRequest":
+        clean: dict[str, float] = {}
         for name, value in self.parameters.items():
-            if not name.strip() or len(name) > 60:
+            key = name.strip()
+            if not key or len(key) > 60:
                 raise ValueError("Nom de paramètre invalide (1 à 60 caractères).")
             if not math.isfinite(value) or abs(value) >= 1e15:
-                raise ValueError(f"Valeur du paramètre « {name} » invalide.")
+                raise ValueError(f"Valeur du paramètre « {key} » invalide.")
+            clean[key] = value  # même nom que dans PARAM("…"), espaces retirés
+        self.parameters = clean
         return self
 
     @model_validator(mode="after")
