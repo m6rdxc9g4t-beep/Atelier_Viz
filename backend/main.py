@@ -27,6 +27,7 @@ from app.services.ai import AIProviderError
 from app.services.alerts import AlertError, AlertService
 from app.services.atelier import AtelierError, AtelierEvents, AtelierService, EventJournal, IdempotencyStore
 from app.services.atelier.errors import code_for, is_atelier_path, text_detail, validation_message
+from app.services.atelier.writes import AtelierWrites
 from app.services.background_job import BackgroundJob, BackgroundJobError, current_environment
 from app.services.connectors import ConnectionService, ConnectorError, build_secrets
 from app.services.data import DatasetStore
@@ -99,6 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         app.state.atelier_events.attach(app.state.scheduler, app.state.alerts, app.state.reports)
         app.state.atelier = AtelierService(app.state.dataset_store, app.state.database, app.state.atelier_events)
+        app.state.atelier_writes = AtelierWrites(app.state.reports, app.state.alerts, app.state.dataset_store)
         app.state.idempotency = IdempotencyStore(data_dir / "atelier_idempotency.json")
         app.state.scheduler.on_refreshed(app.state.alerts.evaluate_dataset)
         ticker = (

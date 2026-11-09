@@ -109,6 +109,39 @@ class UpsertTableInput(BaseModel):
         return name
 
 
+class ReportDuplicateInput(BaseModel):
+    """Copie d'un rapport, éventuellement rebranchée sur un autre jeu (ex. le jeu du mois créé par upsert)."""
+
+    report_id: str = Field(pattern=r"^[0-9a-f]{12}$", description="Rapport modèle.")
+    name: str | None = Field(default=None, min_length=1, max_length=200, description="Nom de la copie.")
+    dataset_id: str | None = Field(
+        default=None,
+        pattern=DATASET_ID_PATTERN,
+        description="Jeu sur lequel brancher la copie (les visuels du jeu par défaut du modèle passent sur celui-ci).",
+    )
+
+
+class ReportDuplicateResult(BaseModel):
+    """Résultat de `reports.duplicate`."""
+
+    report_id: str
+    name: str
+    rebound_visuals: int = Field(description="Visuels rebranchés sur le nouveau jeu.")
+    missing_fields: list[str] = Field(
+        default_factory=list, description="Champs utilisés par les visuels mais absents du nouveau jeu."
+    )
+
+
+class AlertIdInput(BaseModel):
+    """Une alerte, par son identifiant."""
+
+    alert_id: str = Field(min_length=1, max_length=40, pattern=r"^[0-9a-zA-Z_-]+$")
+
+
+class AlertEnabledInput(AlertIdInput):
+    enabled: bool = Field(description="Activer (true) ou mettre en pause (false) l'alerte.")
+
+
 class UpsertTableResult(BaseModel):
     """Résultat de `datasets.upsert_table`."""
 
