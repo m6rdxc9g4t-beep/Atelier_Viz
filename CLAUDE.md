@@ -43,7 +43,7 @@ backend/
   tests/                      # pytest — data_dir temporaire par test, aucun réseau ni CLI réels
 frontend/src/
   theme/                      # thèmes de rapport, styles de visuels, couleurs hex
-  visuals/registry.ts         # ★ catalogue des visuels : rôles, options, requête, composant
+  visuals/registry.ts         # ★ catalogue des visuels : rôles, options, requête, composant (23 types)
   visuals/types.ts            # contrat VisualDef / VisualProps
   visuals/common.tsx          # requête générique, couleurs, info-bulles, sélection
   visuals/{charts,data,maps,interactive}/
@@ -122,6 +122,13 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Exploration : tout code qui lit les rôles d'un visuel pour l'afficher (requête, composant, export, résumé) part de `drillView(visual)`.
 - Préparation : étapes typées `DatasetProfile.steps` (union discriminée `kind`, miroir `PrepStep`) appliquées par `services/data/prep.py` ; source brute dans `raw_<id>`. Toute écriture de données d'un jeu passe par `DatasetStore.replace_data` / `set_steps` (rejeu des étapes, revalidation du modèle et des relations entrantes) — jamais de `write_dataframe` direct sur `ds_<id>`. Nouvelle étape : schéma + fonction dans `_APPLY` + `steps.ts` (libellé, description, valeur par défaut) + `StepForm` + tests.
 - Relations (`DatasetModel.relations`, plusieurs-à-un) : colonnes liées matérialisées dans la vue `v_<id>` sous `<relation>.<colonne>` (`ColumnProfile.related`), jeu lié dédoublonné sur sa clé (jamais de lignes multipliées). Après une modification du modèle ou des données d'un jeu, `DatasetStore` recrée les vues des jeux dépendants ; côté front, appeler `datasetChanged(id)` (jamais `invalidateQueries` seul). Les filtres d'un autre jeu passent par `visualFilters(…, profileOf)` (préfixe `relatedPrefix`) ; le Studio charge les jeux liés avec `useLinkedProfiles`.
+
+## Analyse et sources (jalon 9)
+- **Paramètres de simulation** : visuel `parameter` (valeur dans `options.value`), lu par `PARAM("nom", défaut)` dans une **mesure** seulement. Portée = la page (`pageParameters`) ; toute requête d'un visuel passe par `withParameters(req, params, profil)` (`visuals/interactive/parameters.ts`) — VisualContainer, `export/data.ts` (`visualRequests`), KPI (mini-tendance), capture. Côté moteur, `Scope.parameters` et `QueryRequest.parameters` : la valeur est un `float` validé réécrit en littéral par le compilateur, jamais un texte. Tout composant de visuel reçoit `parameters` dans ses `VisualProps`.
+- **Rôles hors requête** (`RoleDef.inQuery = false`, ex. « Info-bulles ») : ignorés par `genericQuery`, `bestRole` et la conversion de type ; chargés à part (`tooltipQuery`).
+- **Tendance / prévision** : pur et testé dans `visuals/charts/trend.ts` ; les points projetés (`__forecast`) ne sont jamais des données (ni export, ni faits IA, ni sélection). Export PowerPoint : image (`needsImage`).
+- **Export des données** : `export/dataExport.ts` (pur, testé) ; XLSX écrit à la main avec JSZip (dépendance d'exécution), CSV « ; » + BOM + formules neutralisées ; toujours par `saveFile`.
+- **Connecteur `web`** : `services/connectors/web.py` ; adresse dans `base_url`, jeton = secret `password` ; hors ligne, `resolve_local` puis connexion à l'IP validée (jamais une seconde résolution), redirections manuelles revérifiées, jeton jamais vers un autre hôte. Tests : `test_connections_web.py` (`web_http_factory` simulé).
 
 ## Règles IA
 - `provider = "ollama" | "anthropic" | "auto"` ; hors ligne, `anthropic` → 403, `auto` → Ollama.

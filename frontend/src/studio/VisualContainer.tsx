@@ -1,8 +1,10 @@
 import clsx from "clsx";
-import { ArrowDown, ArrowUp, BellPlus, BringToFront, ChevronsDown, Copy, CornerDownRight, GripHorizontal, Info, Lightbulb, Loader2, SendToBack, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BellPlus, BringToFront, ChevronsDown, Copy, CornerDownRight, Download, FileSpreadsheet, FileText, GripHorizontal, Info, Lightbulb, Loader2, SendToBack, Trash2, X } from "lucide-react";
 import { type DragEvent, memo, useMemo, useState } from "react";
 
+import { type DataFormat, dataFile, visualDataSet } from "../export/dataExport";
 import { AlertEditor } from "../features/automation/AlertEditor";
+import { saveFile } from "../lib/desktop";
 import { alertFromVisual } from "../features/automation/alerts";
 import type { Page, Report, Visual } from "../types/report";
 import { first } from "../visuals/common";
@@ -11,6 +13,7 @@ import { VisualMessage, isReady } from "../visuals/common";
 import { type VisualStyle, readTheme, titleCss, visualCss } from "../theme/reportTheme";
 import { canDrill, drillCrumbs, drillDown, drillLevels, drillState, drillUp, drillView, nextLevel } from "../visuals/drill";
 import { findField } from "../visuals/fields";
+import { pageParameters, withParameters } from "../visuals/interactive/parameters";
 import { VISUALS } from "../visuals/registry";
 import { defaultTitle } from "../visuals/title";
 import type { Selection, VisualActions } from "../visuals/types";
@@ -59,13 +62,40 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
     () => visualFilters(page, view, selection, (id) => profiles.get(id), extraction),
     [page, view, selection, profiles, extraction],
   );
-  const request = def.query ? def.query(view, filters) : null;
+  // Curseurs de simulation de la page : seules les valeurs utilisées par les mesures du jeu partent.
+  const parameters = useMemo(() => pageParameters(page), [page]);
+  const request = useMemo(
+    () => (def.query ? withParameters(def.query(view, filters), parameters, dataset) : null),
+    [def, view, filters, parameters, dataset],
+  );
   const setDrill = (state: ReturnType<typeof drillUp>) => {
     if (!state) return;
     studio().setOptions(visual.id, { drill: state }, false);
     if (studio().selection?.visualId === visual.id) studio().setSelection(null);
   };
   const { result, loading, error } = useQueryResult(request);
+
+  // « Exporter les données » : ce que le visuel affiche (filtres, sélection, exploration compris).
+  const dataSet = useMemo(() => (def.query && !snapshot ? visualDataSet(view, result) : null), [def.query, snapshot, view, result]);
+  const exportable = dataSet !== null;
+  const exportData = async (format: DataFormat) => {
+    const data = dataSet;
+    if (!data) return;
+    try {
+      const { blob, name } = await dataFile(data, format);
+      const outcome = await saveFile(blob, name);
+      if (outcome.kind === "cancelled") return;
+      const where = outcome.kind === "saved" ? outcome.path : name;
+      const cut = data.truncated ? " Résultat limité par le moteur : ajoutez un Top N ou des filtres pour tout voir." : "";
+      studio().notify(`${data.rows.length} ligne${data.rows.length > 1 ? "s" : ""} exportée${data.rows.length > 1 ? "s" : ""} : ${where}.${cut}`);
+    } catch (e) {
+      studio().notify(`Export des données impossible : ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+  const exportItems = (): MenuItem[] => [
+    { label: "Exporter les données (Excel)", hint: "Valeurs affichées, nombres modifiables", icon: FileSpreadsheet, onSelect: () => void exportData("xlsx") },
+    { label: "Exporter les données (CSV)", hint: "Séparateur « ; », pour Excel en français", icon: FileText, onSelect: () => void exportData("csv") },
+  ];
 
   const actions: VisualActions = {
     pages: report.pages,
@@ -101,8 +131,9 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
       icon: CornerDownRight,
       onSelect: () => studio().drillThrough(t.page.id, own?.datasetId ?? visual.dataset_id ?? "", t.filters),
     }));
-    if (!items.length) {
-      const hasPages = report.pages.some((p) => p.id !== page.id && p.drillthrough);
+    const hasPages = report.pages.some((p) => p.id !== page.id && p.drillthrough);
+    // Sans page d'extraction, l'aide n'apparaît que si le menu n'offre rien d'autre.
+    if (!items.length && (hasPages || (!exportable && !own))) {
       items.push({
         label: own ? "Aucune page d'extraction pour cet élément" : "Cliquez droit sur un élément (barre, part, ligne…)",
         hint: hasPages
@@ -115,6 +146,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
         disabled: true,
       });
     }
+    if (exportable) items.push(...exportItems());
     if (own) {
       items.push({ label: "Expliquer cette valeur", hint: "Ce qui fait l'écart, par dimension", icon: Lightbulb, onSelect: () => setExplaining(own) });
       items.push({ label: "Effacer la sélection", icon: X, onSelect: () => studio().setSelection(null) });
@@ -174,6 +206,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
         setOptions={(patch) => studio().setOptions(visual.id, patch, false)}
         actions={actions}
         editing={editing}
+        parameters={parameters}
       />
     );
   }
@@ -246,6 +279,21 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
                 className="rounded bg-surface p-1 hover:text-fg"
               >
                 <BellPlus className="size-3" aria-hidden />
+              </button>
+            )}
+            {exportable && (
+              <button
+                type="button"
+                aria-label="Exporter les données du visuel"
+                title="Exporter les données (Excel, CSV)"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setMenu({ x: r.left, y: r.bottom + 4, title: "Exporter les données", items: exportItems() });
+                }}
+                className="rounded bg-surface p-1 hover:text-fg"
+              >
+                <Download className="size-3" aria-hidden />
               </button>
             )}
             <button

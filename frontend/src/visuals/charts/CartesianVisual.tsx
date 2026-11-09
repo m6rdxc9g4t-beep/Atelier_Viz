@@ -6,17 +6,24 @@ import {
   ComposedChart,
   LabelList,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
-import { AXIS, Legend, TooltipBox, VisualMessage, dimmed, first, numberFormat, toggleSelection } from "../common";
+import { useMemo } from "react";
+
+import { AXIS, Legend, TOOLTIP_ROLE, TooltipBox, VisualMessage, dimmed, first, numberFormat, role, toggleSelection, tooltipQuery, valueKey } from "../common";
+import { bindingKey, bindingLabel } from "../fields";
 import { formatNumber } from "../format";
+import { withParameters } from "../interactive/parameters";
+import { useQueryResult } from "../useQueryResult";
 import { opt, type VisualProps } from "../types";
 import { useStableColors } from "../useStableColors";
-import { type Datum, shapeSeries } from "./series";
+import { columnType, shapeSeries } from "./series";
+import { type TrendDatum, trendApplies, withTrend } from "./trend";
 
 type Kind = "bar" | "line" | "area";
 
@@ -25,11 +32,24 @@ export function CartesianVisual(props: VisualProps) {
   const { visual, def, result, dataset, selection, onSelect } = props;
   const isCombo = visual.type === "combo";
   const colors = useStableColors(visual, first(visual, "series"), first(visual, "values"));
+  // Info-bulles : mesures en plus, une valeur par élément de l'axe (requête à part).
+  const tipRequest = useMemo(
+    () => withParameters(tooltipQuery(visual, props.filters), props.parameters, dataset),
+    [visual, props.filters, props.parameters, dataset],
+  );
+  const tips = useQueryResult(tipRequest).result;
+  const tipBindings = role(visual, TOOLTIP_ROLE);
+  const tipRows = useMemo(() => {
+    const cat = first(visual, "category");
+    const map = new Map<string, Record<string, unknown>>();
+    if (tips && cat) for (const r of tips.rows) map.set(valueKey(r[bindingKey(cat)] ?? null), r);
+    return map;
+  }, [tips, visual]);
   if (!result) return null;
 
   const horizontal = visual.type === "bar";
-  const { data, series, category } = shapeSeries(visual, result, dataset, isCombo ? ["values", "lines"] : ["values"], colors);
-  if (!data.length) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
+  const { data: shaped, series, category } = shapeSeries(visual, result, dataset, isCombo ? ["values", "lines"] : ["values"], colors);
+  if (!shaped.length) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
 
   const fmt = numberFormat(visual);
   const stacked = opt<boolean>(visual, def, "stacked");
@@ -40,6 +60,20 @@ export function CartesianVisual(props: VisualProps) {
   const markers = opt<boolean>(visual, def, "markers");
   const stackId = stacked || percent ? "stack" : undefined;
 
+  // Analyse : tendance linéaire et prévision (calcul local, jamais envoyé comme donnée).
+  const analysis =
+    !horizontal && !isCombo && !!category && trendApplies({ sort: opt<string>(visual, def, "sort"), stacked, percent })
+      ? withTrend(shaped, series, {
+          trend: opt<boolean>(visual, def, "trend") === true,
+          forecast: Number(opt<number>(visual, def, "forecast") ?? 0) || 0,
+          catType: columnType(dataset, category.field),
+          bin: category.bin,
+        })
+      : null;
+  const data: TrendDatum[] = analysis?.data ?? shaped;
+  const derived = analysis?.derived ?? [];
+  const lastActual = shaped[shaped.length - 1]?.__label;
+
   const kindOf = (role: string): Kind => {
     if (isCombo) return role === "lines" ? "line" : "bar";
     if (visual.type === "line") return "line";
@@ -48,7 +82,7 @@ export function CartesianVisual(props: VisualProps) {
   };
 
   const valueTick = (v: number) => (percent ? `${Math.round(v * 100)} %` : formatNumber(v, { ...fmt, compact: true }));
-  const select = (d: Datum | undefined) => d && category && toggleSelection(selection, visual, category, d.__cat, onSelect);
+  const select = (d: TrendDatum | undefined) => d && !d.__forecast && category && toggleSelection(selection, visual, category, d.__cat, onSelect);
 
   const valueAxisProps = { ...AXIS, tickFormatter: valueTick, width: horizontal ? undefined : 56 };
   // Largeur de l'axe des catégories (barres horizontales) : selon le libellé le plus long, bornée.
@@ -95,12 +129,33 @@ export function CartesianVisual(props: VisualProps) {
             <Tooltip
               cursor={{ fill: "var(--surface-2)", stroke: "var(--grid)" }}
               content={(p) => {
-                const entries = (p.payload ?? []) as readonly { dataKey?: unknown; value?: unknown; color?: string }[];
+                const all = (p.payload ?? []) as readonly { dataKey?: unknown; value?: unknown; color?: string; payload?: TrendDatum }[];
+                const future = all[0]?.payload?.__forecast === true;
+                const entries = all.filter((e) => {
+                  if (e.value === null || e.value === undefined) return false;
+                  const d = derived.find((x) => x.key === e.dataKey);
+                  // Prévision et intervalle : seulement sur les périodes prévues (au raccord, la valeur réelle suffit).
+                  return !d || d.kind === "trend" || future;
+                });
                 if (!p.active || !entries.length) return null;
+                const datum = all[0]?.payload;
+                const tipRow = datum && !future ? tipRows.get(valueKey(datum.__cat)) : undefined;
+                const extra = tipRow
+                  ? tipBindings.map((b) => ({ label: bindingLabel(b), value: formatNumber((tipRow[bindingKey(b)] ?? null) as number | null, numberFormat(visual, b)) }))
+                  : [];
                 return (
                   <TooltipBox
-                    title={String(p.label ?? "")}
+                    title={future ? `${String(p.label ?? "")} (prévision)` : String(p.label ?? "")}
+                    extra={extra}
                     rows={entries.map((e) => {
+                      const d = derived.find((x) => x.key === e.dataKey);
+                      if (d) {
+                        const label = d.kind === "trend" ? `Tendance · ${d.source.label}` : d.kind === "forecast" ? `Prévision · ${d.source.label}` : `Intervalle 95 % · ${d.source.label}`;
+                        const value = Array.isArray(e.value)
+                          ? `${formatNumber(e.value[0] as number, fmt)} – ${formatNumber(e.value[1] as number, fmt)}`
+                          : formatNumber(e.value as number, fmt);
+                        return { label, color: d.source.color, value };
+                      }
                       const s = series.find((x) => x.key === e.dataKey);
                       return { label: s?.label ?? String(e.dataKey), color: s?.color, value: formatNumber(e.value as number, fmt) };
                     })}
@@ -117,7 +172,7 @@ export function CartesianVisual(props: VisualProps) {
                     dataKey={s.key}
                     position={horizontal ? "right" : "top"}
                     className="fill-[var(--muted)] text-[10px]"
-                    formatter={(v: unknown) => (percent ? "" : formatNumber(v as number, { ...fmt, compact: true }))}
+                    formatter={(v: unknown) => (percent || v === null || v === undefined ? "" : formatNumber(v as number, { ...fmt, compact: true }))}
                   />
                 ) : null;
               if (kind === "bar") {
@@ -135,8 +190,8 @@ export function CartesianVisual(props: VisualProps) {
                     isAnimationActive={false}
                     cursor="pointer"
                   >
-                    {data.map((d) => (
-                      <Cell key={String(d.__label)} opacity={dimmed(selection, visual, d.__cat) ? 0.3 : 1} />
+                    {data.map((d, i) => (
+                      <Cell key={`${String(d.__label)}-${i}`} opacity={dimmed(selection, visual, d.__cat) ? 0.3 : 1} />
                     ))}
                     {label}
                   </Bar>
@@ -181,9 +236,74 @@ export function CartesianVisual(props: VisualProps) {
                 </Line>
               );
             })}
+            {analysis?.forecastStart && lastActual && <ReferenceLine x={lastActual} stroke="var(--muted)" strokeDasharray="2 3" ifOverflow="extendDomain" />}
+            {derived.map((d) => {
+              if (d.kind === "band") {
+                return (
+                  <Area
+                    key={d.key}
+                    dataKey={d.key}
+                    name={`Intervalle 95 % · ${d.source.label}`}
+                    type="linear"
+                    stroke="none"
+                    fill={d.source.color}
+                    fillOpacity={0.14}
+                    dot={false}
+                    activeDot={false}
+                    legendType="none"
+                    isAnimationActive={false}
+                  />
+                );
+              }
+              return (
+                <Line
+                  key={d.key}
+                  dataKey={d.key}
+                  name={`${d.kind === "trend" ? "Tendance" : "Prévision"} · ${d.source.label}`}
+                  type="linear"
+                  stroke={d.source.color}
+                  strokeWidth={d.kind === "trend" ? 1.5 : 2}
+                  strokeDasharray={d.kind === "trend" ? "2 4" : "6 4"}
+                  strokeOpacity={d.kind === "trend" ? 0.85 : 1}
+                  dot={d.kind === "forecast" ? { r: 2.5, fill: d.source.color, stroke: "var(--surface)", strokeWidth: 1 } : false}
+                  activeDot={d.kind === "forecast" ? { r: 4, stroke: "var(--surface)", strokeWidth: 2 } : false}
+                  legendType="none"
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+              );
+            })}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+      {derived.length > 0 && <AnalysisCaption derived={derived} />}
     </div>
+  );
+}
+
+/** Légende des tracés d'analyse (pointillés), avec le R² de chaque droite. */
+function AnalysisCaption({ derived }: { derived: { kind: string; r2: number; source: { label: string } }[] }) {
+  const trend = derived.filter((d) => d.kind === "trend");
+  const forecast = derived.some((d) => d.kind === "forecast");
+  const r2 = trend.length === 1 && trend[0] ? ` (R² ${trend[0].r2.toLocaleString("fr-FR", { maximumFractionDigits: 2 })})` : "";
+  return (
+    <p className="mt-1 flex flex-wrap gap-x-3 text-[10px] leading-4 text-[var(--muted)]">
+      {trend.length > 0 && (
+        <span className="inline-flex items-center gap-1">
+          <svg width="18" height="4" aria-hidden>
+            <line x1="0" y1="2" x2="18" y2="2" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 4" />
+          </svg>
+          Tendance linéaire{r2}
+        </span>
+      )}
+      {forecast && (
+        <span className="inline-flex items-center gap-1">
+          <svg width="18" height="4" aria-hidden>
+            <line x1="0" y1="2" x2="18" y2="2" stroke="currentColor" strokeWidth="2" strokeDasharray="6 4" />
+          </svg>
+          Prévision linéaire, zone = intervalle à 95 %
+        </span>
+      )}
+    </p>
   );
 }

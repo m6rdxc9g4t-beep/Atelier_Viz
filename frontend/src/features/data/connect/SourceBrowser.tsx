@@ -97,8 +97,9 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
     setTest(null);
     if (c.kind === "sharepoint") return;
     void loadTables().then((list) => {
-      if (c.kind === "file" && list.length === 0) void show({});
-      else if (c.kind === "file" && list[0]) void show({ table: list[0] });
+      const fileLike = c.kind === "file" || c.kind === "web";
+      if (fileLike && list.length === 0) void show({});
+      else if (fileLike && list[0]) void show({ table: list[0] });
     });
     return () => abort.current?.abort();
   }, [c.id, c.kind, loadTables, show]);
@@ -238,9 +239,9 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
             </div>
           )}
 
-          {c.kind === "file" && (
+          {(c.kind === "file" || c.kind === "web") && (
             <div className="min-h-0 flex-1 overflow-y-auto p-2">
-              <p className="px-1 pb-1 text-[11px] text-muted">{c.path}</p>
+              <p className="break-all px-1 pb-1 text-[11px] text-muted">{c.kind === "web" ? c.base_url : c.path}</p>
               {tables?.map((t) => (
                 <button
                   key={t.name}

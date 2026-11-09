@@ -27,7 +27,8 @@ export function formatNumber(value: Scalar, fmt: NumberFormat = {}): string {
   return `${fmt.prefix ?? ""}${text}${fmt.suffix ?? ""}`;
 }
 
-function parseDate(value: Scalar): Date | null {
+/** Date d'une valeur de dimension (ISO « 2026-03-01 » lue en heure locale), ou null. */
+export function parseDate(value: Scalar): Date | null {
   if (typeof value !== "string") return null;
   const d = new Date(value.length === 10 ? `${value}T00:00:00` : value);
   return Number.isNaN(d.getTime()) ? null : d;

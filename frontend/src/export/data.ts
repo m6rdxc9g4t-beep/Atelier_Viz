@@ -7,6 +7,7 @@ import type { Page, Visual } from "../types/report";
 import { first, isReady } from "../visuals/common";
 import { drillView } from "../visuals/drill";
 import { kpiTrendRequest } from "../visuals/data/KpiVisual";
+import { pageParameters, withParameters } from "../visuals/interactive/parameters";
 import { VISUALS } from "../visuals/registry";
 import type { Selection } from "../visuals/types";
 import { colorRequest, colorsFromResult } from "../visuals/useStableColors";
@@ -32,11 +33,14 @@ export function visualRequests(
   const filters = visualFilters(page, visual, selection, (id) => profiles.get(id));
   if (!def.query || !isReady(visual, def)) return { filters, main: null, colors: null, trend: null };
   const colorField = CARTESIAN.has(visual.type) ? first(visual, "series") : PARTS.has(visual.type) ? first(visual, "category") : undefined;
+  // Curseurs de simulation de la page : mêmes valeurs qu'à l'écran.
+  const params = pageParameters(page);
+  const profile = visual.dataset_id ? profiles.get(visual.dataset_id) : undefined;
   return {
     filters,
-    main: def.query(visual, filters),
+    main: withParameters(def.query(visual, filters), params, profile),
     colors: colorField ? colorRequest(visual, colorField, first(visual, "values")) : null,
-    trend: visual.type === "kpi" ? kpiTrendRequest(visual, filters) : null,
+    trend: visual.type === "kpi" ? withParameters(kpiTrendRequest(visual, filters), params, profile) : null,
   };
 }
 

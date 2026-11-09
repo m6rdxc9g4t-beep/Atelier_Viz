@@ -319,6 +319,11 @@ describe("visuels natifs", () => {
     expect(needsImage(col, VISUALS.column, "native")).toBe(false);
     expect(needsImage(col, VISUALS.column, "image")).toBe(true);
     expect(needsImage(visual("text", {}), VISUALS.text, "image")).toBe(false);
+    // Tendance ou prévision : copie de l'écran (pointillés et intervalle sans équivalent natif).
+    const trend = visual("line", { category: [{ field: "date", bin: "month" }], values: [{ field: "ca", agg: "sum" }] }, { trend: true });
+    expect(needsImage(trend, VISUALS.line, "native")).toBe(true);
+    expect(needsImage({ ...col, options: { forecast: 3 } }, VISUALS.column, "native")).toBe(true);
+    expect(needsImage({ ...col, options: { forecast: 0 } }, VISUALS.column, "native")).toBe(false);
     const built = buildVisual(ctx(map, data(result([{ region: "Bretagne", "sum(ca)": 1 }])), { image: "data:image/png;base64,AAAA" }));
     expect(built.native).toBe(false);
     expect(ofKind(built.items, "image")).toHaveLength(1);

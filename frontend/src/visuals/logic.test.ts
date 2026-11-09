@@ -3,7 +3,7 @@ import { starterPages } from "../studio/starter";
 import { bestRole, bindInto, convertRoles, newVisual } from "../studio/store";
 import type { ColumnProfile, DatasetProfile } from "../types/dataset";
 import type { Page, Visual } from "../types/report";
-import { genericQuery } from "./common";
+import { genericQuery, tooltipQuery } from "./common";
 import { matrixQuery, buildMatrix } from "./data/pivot";
 import { bindingKey, bindingLabel } from "./fields";
 import { formatDimension, formatNumber } from "./format";
@@ -69,6 +69,19 @@ describe("requêtes des visuels", () => {
       [],
     );
     expect(q).toMatchObject({ dimensions: [{ field: "region" }], measures: [{ field: "ca", agg: "sum" }], sort: [{ key: "sum(ca)", desc: true }], limit: 3 });
+  });
+
+  it("garde les info-bulles hors de la requête principale et les charge par élément de l'axe", () => {
+    const v = visual("column", { category: [{ field: "region" }], values: [{ field: "ca", agg: "sum" }], tooltips: [{ field: "produit", agg: "count_distinct" }] });
+    expect(genericQuery(v, VISUALS.column, [])?.measures).toEqual([{ field: "ca", agg: "sum" }]);
+    const filters = [{ field: "date", op: "gte" as const, values: ["2026-01-01"] }];
+    expect(tooltipQuery(v, filters)).toMatchObject({ dimensions: [{ field: "region" }], measures: [{ field: "produit", agg: "count_distinct" }], filters });
+    expect(tooltipQuery(visual("column", { category: [{ field: "region" }] }), [])).toBeNull();
+    // Changement de type : les info-bulles restent des info-bulles, jamais tracées.
+    expect(convertRoles(v, "line")).toEqual({ category: [{ field: "region", agg: null }], values: [{ field: "ca", agg: "sum" }], tooltips: [{ field: "produit", agg: "count_distinct" }] });
+    expect(convertRoles(v, "pie").values).toEqual([{ field: "ca", agg: "sum" }]);
+    // Un clic sur une mesure remplit les Valeurs, pas les Info-bulles.
+    expect(bestRole(v, { ...col("ca", "number"), measure: false })?.id).toBe("values");
   });
 
   it("construit les GROUPING SETS de la matrice et l'arbre des sous-totaux", () => {
@@ -228,7 +241,7 @@ describe("édition", () => {
 
 describe("registre et cartes", () => {
   it("chaque visuel a un composant, des rôles uniques et des options cohérentes", () => {
-    expect(Object.keys(VISUALS)).toHaveLength(22);
+    expect(Object.keys(VISUALS)).toHaveLength(23);
     for (const def of Object.values(VISUALS)) {
       expect(def.component).toBeTypeOf("function");
       expect(new Set(def.roles.map((r) => r.id)).size).toBe(def.roles.length);

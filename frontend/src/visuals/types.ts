@@ -18,6 +18,8 @@ export interface RoleDef {
   types?: ColumnType[];
   /** Rôle obligatoire pour que le visuel s'affiche. */
   required?: boolean;
+  /** false : hors de la requête principale (ex. info-bulles, chargées à part par catégorie). */
+  inQuery?: boolean;
 }
 
 export interface OptionDef {
@@ -67,6 +69,8 @@ export interface VisualProps {
   setOptions: (patch: VisualOptions) => void;
   actions: VisualActions;
   editing: boolean;
+  /** Valeurs des curseurs de simulation de la page (`interactive/parameters.ts`). */
+  parameters: Record<string, number>;
 }
 
 export type VisualGroup = "Graphiques" | "Données" | "Cartes" | "Interactivité";

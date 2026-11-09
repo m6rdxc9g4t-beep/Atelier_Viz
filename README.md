@@ -1,7 +1,7 @@
 # Atelier Viz
 
 Outil de Business Intelligence **local**, dans l'esprit de Power BI : import de données, rapports
-multi-pages, 22 types de visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons
+multi-pages, 23 types de visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons
 d'automatisation (URL, webhooks), assistant IA, **export PowerPoint modifiable**, signets, actualisation
 planifiée, alertes sur seuil, rapports versionnés dans GitHub — avec un interrupteur **« En ligne »** pour
 activer Claude.
@@ -217,6 +217,7 @@ pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (
 | PostgreSQL, MySQL / MariaDB | Serveur, port, base, utilisateur. La session est ouverte **en lecture seule** par le serveur. |
 | SQLite | Chemin du fichier `.db`, ouvert en lecture seule. |
 | Fichier synchronisé | CSV, Excel (choix de la feuille) ou JSON d'un dossier **OneDrive / SharePoint / Teams synchronisé** (sur Mac : `~/Library/CloudStorage/OneDrive-<Entreprise>/…`) ou d'un partage réseau. Fonctionne hors ligne. |
+| Fichier web (URL) | CSV, Excel ou JSON à une adresse http(s) : données ouvertes, export publié, serveur interne ; jeton facultatif rangé au trousseau. Hors ligne : serveurs de la machine ou du réseau de l'entreprise seulement. |
 | SharePoint Online | Fichier d'une bibliothèque (lien « Copier le lien ») ou **liste** SharePoint, avec votre compte Microsoft 365. Mode « En ligne » requis. |
 
 - **Hors ligne**, seuls la machine et les réseaux privés (entreprise, VPN) sont joignables ; une base sur Internet demande le mode « En ligne ».
@@ -283,7 +284,7 @@ atelier-viz/
 │           ├── atelier/          # nœud Atelier : manifeste, tables d'échange, journal d'événements, idempotence
 │           └── reports.py · preferences.py · actions.py · refresh.py · alerts.py · github.py
 └── frontend/src/
-    ├── visuals/                  # registre + 22 visuels (charts, data, maps, interactive)
+    ├── visuals/                  # registre + 23 visuels (charts, data, maps, interactive)
     ├── studio/                   # canvas, volets, pages, état d'édition, filtres
     ├── features/                 # accueil rapports, données, automatisation, réglages, assistant
     └── assets/geo/               # fonds de carte France (Licence Ouverte Etalab)

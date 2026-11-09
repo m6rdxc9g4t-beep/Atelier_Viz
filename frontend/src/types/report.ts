@@ -24,6 +24,7 @@ export type VisualType =
   | "map"
   | "pointmap"
   | "slicer"
+  | "parameter"
   | "button"
   | "text";
 
@@ -85,6 +86,8 @@ export interface BookmarkVisualState {
   range?: Scalar[] | null;
   /** `options.drill` ; absent = niveau supérieur. */
   drill?: Record<string, unknown> | null;
+  /** Paramètre de simulation : valeur du curseur (`options.value`). */
+  value?: number | null;
 }
 
 export interface BookmarkPageState {

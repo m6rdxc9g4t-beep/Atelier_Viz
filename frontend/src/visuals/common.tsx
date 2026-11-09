@@ -49,8 +49,9 @@ export type SortMode = "category" | "value_desc" | "value_asc";
  */
 export function genericQuery(visual: Visual, def: VisualDef, filters: Filter[], limit = 2000): QueryRequest | null {
   if (!visual.dataset_id || !isReady(visual, def)) return null;
-  const dims = def.roles.filter((r) => r.kind === "dimension").flatMap((r) => role(visual, r.id));
-  const meas = def.roles.filter((r) => r.kind === "measure").flatMap((r) => role(visual, r.id));
+  const inQuery = def.roles.filter((r) => r.inQuery !== false);
+  const dims = inQuery.filter((r) => r.kind === "dimension").flatMap((r) => role(visual, r.id));
+  const meas = inQuery.filter((r) => r.kind === "measure").flatMap((r) => role(visual, r.id));
   if (!dims.length && !meas.length) return null;
 
   const sortMode = (visual.options.sort ?? def.defaults.sort ?? "category") as SortMode;
@@ -67,6 +68,20 @@ export function genericQuery(visual: Visual, def: VisualDef, filters: Filter[], 
     sort,
     limit: topN > 0 ? topN : limit,
   };
+}
+
+/** Rôle « Info-bulles » des graphiques : mesures affichées au survol, sans être tracées. */
+export const TOOLTIP_ROLE = "tooltips";
+
+/**
+ * Requête des info-bulles : les mesures du rôle « Info-bulles » par élément de l'axe (même filtres),
+ * à part de la requête principale — une valeur exacte par catégorie, même avec une légende.
+ */
+export function tooltipQuery(visual: Visual, filters: Filter[]): QueryRequest | null {
+  const tips = role(visual, TOOLTIP_ROLE);
+  const category = first(visual, "category");
+  if (!visual.dataset_id || !tips.length || !category) return null;
+  return { dataset_id: visual.dataset_id, dimensions: [dimension(category)], measures: tips.map(measure), filters, limit: 5000 };
 }
 
 export function numberFormat(visual: Visual, binding?: FieldBinding): NumberFormat {
@@ -162,19 +177,22 @@ interface TooltipRow {
   value: string;
 }
 
-export function TooltipBox({ title, rows }: { title?: string; rows: TooltipRow[] }) {
+/** Info-bulle des visuels ; `extra` = champs du rôle « Info-bulles », sous un trait. */
+export function TooltipBox({ title, rows, extra = [] }: { title?: string; rows: TooltipRow[]; extra?: TooltipRow[] }) {
+  const line = (r: TooltipRow) => (
+    <p key={r.label} className="flex items-center justify-between gap-4">
+      <span className="flex items-center gap-1.5 text-muted">
+        {r.color && <span className="size-2 rounded-full" style={{ background: r.color }} aria-hidden />}
+        {r.label}
+      </span>
+      <span className="font-medium tabular-nums text-fg">{r.value}</span>
+    </p>
+  );
   return (
     <div className="pointer-events-none min-w-36 rounded-md border border-border bg-surface px-3 py-2 text-xs shadow-lg">
       {title && <p className="mb-1 font-medium text-fg">{title}</p>}
-      {rows.map((r) => (
-        <p key={r.label} className="flex items-center justify-between gap-4">
-          <span className="flex items-center gap-1.5 text-muted">
-            {r.color && <span className="size-2 rounded-full" style={{ background: r.color }} aria-hidden />}
-            {r.label}
-          </span>
-          <span className="font-medium tabular-nums text-fg">{r.value}</span>
-        </p>
-      ))}
+      {rows.map(line)}
+      {extra.length > 0 && <div className="mt-1 border-t border-border pt-1">{extra.map(line)}</div>}
     </div>
   );
 }

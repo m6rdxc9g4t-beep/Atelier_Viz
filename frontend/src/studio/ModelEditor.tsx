@@ -27,6 +27,7 @@ const FUNCTIONS: { name: string; syntax: string; kinds: ModelItemKind[] }[] = [
   { name: "YEAR", syntax: "YEAR()", kinds: ["column"] },
   { name: "MONTH", syntax: "MONTH()", kinds: ["column"] },
   { name: "CONCAT", syntax: "CONCAT(, )", kinds: ["column"] },
+  { name: "PARAM", syntax: 'PARAM("croissance", 5)', kinds: ["measure"] },
 ];
 
 const EXAMPLES: Record<ModelItemKind, string> = {

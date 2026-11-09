@@ -22,6 +22,7 @@ import {
   Radar,
   Rows3,
   Sigma,
+  SlidersHorizontal,
   Table2,
   TrendingDown,
   Triangle,
@@ -31,6 +32,7 @@ import {
 
 import type { Visual, VisualType } from "../types/report";
 import { CartesianVisual } from "./charts/CartesianVisual";
+import { trendApplies } from "./charts/trend";
 import { GaugeVisual, HeatmapVisual, ScatterVisual } from "./charts/MoreCharts";
 import { FunnelVisual, PieVisual, RadarVisual, TreemapVisual, WaterfallVisual } from "./charts/PartVisuals";
 import { LABELS_OPTION, LEGEND_OPTION, NUMBER_OPTIONS, SORT_OPTIONS, first, genericQuery, isReady, role } from "./common";
@@ -39,6 +41,8 @@ import { MatrixVisual } from "./data/MatrixVisual";
 import { matrixQuery } from "./data/pivot";
 import { TableVisual } from "./data/TableVisual";
 import { ButtonVisual, TextVisual } from "./interactive/ButtonVisual";
+import { ParameterVisual } from "./interactive/ParameterVisual";
+import { PARAMETER_DEFAULTS } from "./interactive/parameters";
 import { SlicerVisual } from "./interactive/SlicerVisual";
 import { GEO_LAYERS } from "./maps/geo";
 import { ChoroplethVisual, PointMapVisual } from "./maps/MapVisuals";
@@ -51,6 +55,8 @@ const HIERARCHY: RoleDef = { ...CATEGORY, max: MAX_LEVELS };
 const LEGEND: RoleDef = { id: "series", label: "Légende", kind: "dimension", max: 1 };
 const VALUES: RoleDef = { id: "values", label: "Valeurs", kind: "measure", required: true };
 const ONE_VALUE: RoleDef = { ...VALUES, max: 1 };
+/** Mesures montrées au survol seulement (`tooltipQuery`). */
+const TOOLTIPS: RoleDef = { id: "tooltips", label: "Info-bulles", kind: "measure", max: 5, inQuery: false };
 
 const STACK_OPTIONS: OptionDef[] = [
   { key: "stacked", label: "Empilé", type: "boolean", section: "Affichage" },
@@ -59,6 +65,12 @@ const STACK_OPTIONS: OptionDef[] = [
 const LINE_OPTIONS: OptionDef[] = [
   { key: "smooth", label: "Courbe lissée", type: "boolean", section: "Affichage" },
   { key: "markers", label: "Marqueurs", type: "boolean", section: "Affichage" },
+];
+
+/** Analyse (courbes, aires, histogramme) : tendance linéaire et prévision, calculées localement (`charts/trend.ts`). */
+const ANALYSIS_OPTIONS: OptionDef[] = [
+  { key: "trend", label: "Ligne de tendance", type: "boolean", section: "Analyse", when: trendApplies },
+  { key: "forecast", label: "Prévision (périodes, axe de dates)", type: "number", min: 0, max: 24, section: "Analyse", when: trendApplies },
 ];
 
 const chart = (
@@ -71,7 +83,7 @@ const chart = (
   label,
   icon,
   group: "Graphiques",
-  roles: [HIERARCHY, LEGEND, VALUES],
+  roles: [HIERARCHY, LEGEND, VALUES, TOOLTIPS],
   size: { w: 8, h: 14 },
   defaults: { legend: true, labels: false, sort: "category" },
   options: [LEGEND_OPTION, LABELS_OPTION, ...SORT_OPTIONS, ...NUMBER_OPTIONS],
@@ -82,7 +94,7 @@ const chart = (
 
 export const VISUALS: Record<VisualType, VisualDef> = {
   column: chart("column", "Histogramme", BarChart3, {
-    options: [LEGEND_OPTION, LABELS_OPTION, ...STACK_OPTIONS, ...SORT_OPTIONS, ...NUMBER_OPTIONS],
+    options: [LEGEND_OPTION, LABELS_OPTION, ...STACK_OPTIONS, ...SORT_OPTIONS, ...NUMBER_OPTIONS, ...ANALYSIS_OPTIONS],
   }),
   bar: chart("bar", "Barres horizontales", BarChartHorizontal, {
     defaults: { legend: true, labels: true, sort: "value_desc" },
@@ -90,14 +102,14 @@ export const VISUALS: Record<VisualType, VisualDef> = {
   }),
   line: chart("line", "Courbes", LineChart, {
     defaults: { legend: true, labels: false, sort: "category", smooth: false, markers: true },
-    options: [LEGEND_OPTION, LABELS_OPTION, ...LINE_OPTIONS, ...NUMBER_OPTIONS],
+    options: [LEGEND_OPTION, LABELS_OPTION, ...LINE_OPTIONS, ...NUMBER_OPTIONS, ...ANALYSIS_OPTIONS],
   }),
   area: chart("area", "Aires", AreaChart, {
     defaults: { legend: true, labels: false, sort: "category", smooth: true },
-    options: [LEGEND_OPTION, LABELS_OPTION, ...STACK_OPTIONS, ...LINE_OPTIONS, ...NUMBER_OPTIONS],
+    options: [LEGEND_OPTION, LABELS_OPTION, ...STACK_OPTIONS, ...LINE_OPTIONS, ...NUMBER_OPTIONS, ...ANALYSIS_OPTIONS],
   }),
   combo: chart("combo", "Combiné barres + courbes", Blend, {
-    roles: [HIERARCHY, { id: "values", label: "Colonnes", kind: "measure" }, { id: "lines", label: "Courbes", kind: "measure" }],
+    roles: [HIERARCHY, { id: "values", label: "Colonnes", kind: "measure" }, { id: "lines", label: "Courbes", kind: "measure" }, TOOLTIPS],
     defaults: { legend: true, labels: false, sort: "category", markers: true },
     options: [LEGEND_OPTION, LABELS_OPTION, { key: "stacked", label: "Colonnes empilées", type: "boolean", section: "Affichage" }, ...LINE_OPTIONS, ...NUMBER_OPTIONS],
   }),
@@ -319,6 +331,25 @@ export const VISUALS: Record<VisualType, VisualDef> = {
         limit: 1000,
       };
     },
+  },
+  parameter: {
+    type: "parameter",
+    label: "Paramètre (simulation)",
+    icon: SlidersHorizontal,
+    group: "Interactivité",
+    roles: [],
+    size: { w: 4, h: 4 },
+    defaults: { ...PARAMETER_DEFAULTS },
+    options: [
+      { key: "name", label: "Nom — à citer dans une mesure : PARAM(\"nom\", défaut)", type: "text", section: "Paramètre" },
+      { key: "min", label: "Minimum", type: "number", section: "Paramètre" },
+      { key: "max", label: "Maximum", type: "number", section: "Paramètre" },
+      { key: "step", label: "Pas", type: "number", min: 0, section: "Paramètre" },
+      { key: "default", label: "Valeur par défaut", type: "number", section: "Paramètre" },
+      { key: "prefix", label: "Préfixe", type: "text", placeholder: "ex. +", section: "Paramètre" },
+      { key: "suffix", label: "Suffixe", type: "text", placeholder: "ex.  %", section: "Paramètre" },
+    ],
+    component: ParameterVisual,
   },
   button: {
     type: "button",

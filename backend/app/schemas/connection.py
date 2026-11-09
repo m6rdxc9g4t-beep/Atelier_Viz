@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, SecretStr, model_validator
 from app.core.network import is_loopback_host, loopback_refusal
 
 ConnectorKind = Literal[
-    "sqlserver", "postgres", "mysql", "sqlite", "file", "sharepoint", "atelier_tab", "atelier_projets"
+    "sqlserver", "postgres", "mysql", "sqlite", "file", "web", "sharepoint", "atelier_tab", "atelier_projets"
 ]
 SQL_KINDS: tuple[ConnectorKind, ...] = ("sqlserver", "postgres", "mysql", "sqlite")
 SERVER_KINDS: tuple[ConnectorKind, ...] = ("sqlserver", "postgres", "mysql")
@@ -39,8 +39,11 @@ class ConnectionFields(BaseModel):
     path: str | None = Field(
         default=None, max_length=1000, description="Chemin du fichier (ou dossier) sur cette machine."
     )
-    # Atelier Projets : adresse de l'API locale (vide = ATELIER_PROJETS_URL, http://127.0.0.1:3000)
-    base_url: str | None = Field(default=None, max_length=500, description="Adresse d'Atelier Projets.")
+    # Atelier Projets : adresse de l'API locale (vide = ATELIER_PROJETS_URL, http://127.0.0.1:3000) ;
+    # fichier web : adresse du fichier CSV, XLSX ou JSON.
+    base_url: str | None = Field(
+        default=None, max_length=2000, description="Adresse d'Atelier Projets, ou du fichier (source « web »)."
+    )
     # SharePoint Online (Microsoft Graph)
     tenant: str | None = Field(
         default=None, max_length=200, description="Locataire Microsoft 365 (domaine ou identifiant)."
@@ -59,6 +62,12 @@ class ConnectionFields(BaseModel):
             parsed = urlparse(self.base_url.strip())
             if parsed.scheme not in {"http", "https"} or not parsed.hostname:
                 raise ValueError("Adresse attendue : http://127.0.0.1:3000 (http ou https, avec le nom du serveur).")
+        if self.kind == "web":
+            parsed = urlparse((self.base_url or "").strip())
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                raise ValueError("Adresse du fichier attendue : https://… (http ou https).")
+            if parsed.username or parsed.password:
+                raise ValueError("Pas d'identifiant dans l'adresse : utilisez les champs Utilisateur et Jeton.")
         return self
 
 

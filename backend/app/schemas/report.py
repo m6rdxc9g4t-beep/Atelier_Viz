@@ -37,6 +37,7 @@ VisualType = Literal[
     "pointmap",
     # Interactivité et mise en page
     "slicer",
+    "parameter",
     "button",
     "text",
 ]
@@ -107,6 +108,10 @@ class BookmarkVisualState(BaseModel):
     range: list[Scalar] | None = Field(default=None, max_length=2, description="Segment « plage » : [min, max].")
     drill: dict[str, Any] | None = Field(
         default=None, description="Exploration (`options.drill`) ; absent = niveau supérieur."
+    )
+    # Absent (et non « null ») hors curseur : les rapports existants ne changent pas à l'enregistrement.
+    value: float | None = Field(
+        default=None, exclude_if=lambda v: v is None, description="Paramètre de simulation : valeur du curseur."
     )
 
 

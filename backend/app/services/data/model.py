@@ -68,11 +68,12 @@ def base_types(profile: DatasetProfile) -> dict[str, ColumnType]:
     return {c.name: c.type for c in profile.columns if not c.calculated}
 
 
-def view_scope(profile: DatasetProfile) -> Scope:
-    """Portée d'une mesure : toutes les colonnes de la vue (base + calculées) et les mesures."""
+def view_scope(profile: DatasetProfile, parameters: dict[str, float] | None = None) -> Scope:
+    """Portée d'une mesure : colonnes de la vue (base + calculées), mesures et valeurs des paramètres."""
     return Scope(
         columns=column_scope({c.name: c.type for c in profile.columns}),
         measures={m.name: m.expression for m in profile.model.measures},
+        parameters=dict(parameters or {}),
     )
 
 
@@ -117,12 +118,12 @@ def compile_model(base: dict[str, ColumnType], model: DatasetModel) -> CompiledM
     return CompiledModel(compiled, issues)
 
 
-def measure_sql(profile: DatasetProfile, name: str) -> str:
-    """SQL d'une mesure calculée, sur la vue du jeu de données."""
+def measure_sql(profile: DatasetProfile, name: str, parameters: dict[str, float] | None = None) -> str:
+    """SQL d'une mesure calculée, sur la vue du jeu de données (paramètres : valeurs des curseurs)."""
     expression = next((m.expression for m in profile.model.measures if m.name == name), None)
     if expression is None:
         raise ExpressionError(f"Mesure calculée inconnue : « {name} ».")
-    return compile_expression(expression, "measure", view_scope(profile), name=name).sql
+    return compile_expression(expression, "measure", view_scope(profile, parameters), name=name).sql
 
 
 def view_ddl(dataset_id: str, columns: list[CompiledColumn], joins: list[Join] | None = None) -> str:
