@@ -77,7 +77,7 @@
       "debit": 480,
       "credit": null,
       "montant": -480.0,
-      "categorie": "Honoraires",
+      "categorie": "Honoraires comptables",
       "mois": "2026-08"
      },
      {
@@ -140,7 +140,7 @@
       "debit": 480,
       "credit": null,
       "montant": -480.0,
-      "categorie": "Honoraires",
+      "categorie": "Honoraires comptables",
       "mois": "2026-09"
      },
      {
@@ -239,7 +239,7 @@
       "debit": 480,
       "credit": null,
       "montant": -480.0,
-      "categorie": "Honoraires",
+      "categorie": "Honoraires comptables",
       "mois": "2026-10"
      },
      {
