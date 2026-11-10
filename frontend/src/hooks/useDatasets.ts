@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { api } from "../lib/api";
-import { datasetChanged, forgetProfile, refreshDataset } from "./useDatasetProfiles";
+import { datasetChanged, forgetProfile, refreshDataset, replaceDatasetData } from "./useDatasetProfiles";
 import { onDatasetRefreshed } from "./useDataVersions";
-import type { DatasetProfile, DatasetSummary } from "../types/dataset";
+import type { DatasetProfile, DatasetSummary, ModelIssue } from "../types/dataset";
 
 export interface DatasetsState {
   datasets: DatasetSummary[];
@@ -22,6 +22,12 @@ export interface DatasetsState {
   refresh: (id: string) => Promise<void>;
   /** Identifiant du jeu en cours d'actualisation. */
   refreshing: string | null;
+  /** Remplace les données d'un jeu importé par fichier (même jeu : rapports, modèle et alertes suivent). */
+  replaceData: (id: string, file: File) => Promise<void>;
+  /** Identifiant du jeu dont les données sont en cours de remplacement. */
+  replacing: string | null;
+  /** Augmente à chaque remplacement de données réussi : l'aperçu se recharge même à nombre de lignes égal. */
+  revision: number;
   clearError: () => void;
 }
 
@@ -35,6 +41,8 @@ export function useDatasets(): DatasetsState {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
 
   const select = useCallback((id: string) => {
     setLoading(true);
@@ -140,10 +148,31 @@ export function useDatasets(): DatasetsState {
     }
   }, []);
 
+  const replaceData = useCallback(async (id: string, file: File) => {
+    setReplacing(id);
+    setError(null);
+    try {
+      const profile = await replaceDatasetData(id, file);
+      setDatasets((list) => list.map((d) => (d.id === id ? profile : d)));
+      setSelected((cur) => (cur?.id === id ? profile : cur));
+      setRevision((n) => n + 1);
+    } catch (err) {
+      // Modèle qui ne tient plus (colonne disparue) : le détail dit quelle colonne ou mesure est en cause.
+      const issues = (err as { detail?: { issues?: ModelIssue[] } }).detail?.issues;
+      const detail = issues?.map((i) => `${i.name} : ${i.error}`).join(" ; ");
+      setError(`${file.name} : ${message(err)}${detail ? ` ${detail}` : ""}`);
+    } finally {
+      setReplacing(null);
+    }
+  }, []);
+
   return {
     added,
     refresh,
     refreshing,
+    replaceData,
+    replacing,
+    revision,
     datasets,
     selected,
     loading,

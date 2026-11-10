@@ -34,6 +34,9 @@ function state(overrides: Partial<DatasetsState> = {}): DatasetsState {
     added: vi.fn(),
     refresh: vi.fn(),
     refreshing: null,
+    replaceData: vi.fn(),
+    replacing: null,
+    revision: 0,
     clearError: vi.fn(),
     ...overrides,
   };
@@ -116,6 +119,26 @@ describe("DataView", () => {
     render(<DataView state={state()} />);
     expect(screen.queryByRole("button", { name: "Actualiser" })).toBeNull();
     expect(screen.getByRole("button", { name: "Se connecter à une source" })).toBeInTheDocument();
+  });
+
+  it("remplace les données d'un fichier importé par un nouvel export, sans créer un second jeu", async () => {
+    const replaceData = vi.fn();
+    const upload = vi.fn();
+    render(<DataView state={state({ replaceData, upload })} />);
+    expect(screen.getByRole("button", { name: "Remplacer les données…" })).toBeEnabled();
+    const file = new File(["date;montant\n03/02/2026;10\n"], "ventes_fevrier.csv", { type: "text/csv" });
+    await userEvent.upload(screen.getByLabelText("Choisir le fichier qui remplace les données de ventes.csv"), file);
+    expect(replaceData).toHaveBeenCalledWith("abc", file);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("ne propose le remplacement par fichier ni pour une connexion ni pour un workflow, et le bloque pendant l'envoi", () => {
+    const workflow = { ...profile, origin: { kind: "atelier-table" as const, key: "nexus:hebdo", table_name: "t", refreshed_at: new Date().toISOString() } };
+    const { unmount } = render(<DataView state={state({ datasets: [workflow], selected: workflow })} />);
+    expect(screen.queryByRole("button", { name: "Remplacer les données…" })).toBeNull();
+    unmount();
+    render(<DataView state={state({ replacing: "abc" })} />);
+    expect(screen.getByRole("button", { name: "Remplacement…" })).toBeDisabled();
   });
 
   it("affiche les erreurs d'import", () => {

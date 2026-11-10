@@ -514,6 +514,7 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | POST | `/api/ai/summary` | Faits d'une page → synthèse vérifiée (`SummaryResponse` : titre, points reliés aux visuels, moteur, éléments écartés) |
 | POST | `/api/datasets` | Import multipart (CSV/XLSX/JSON, 50 Mo) → profil ; persisté dans DuckDB |
 | GET | `/api/datasets` · `/api/datasets/{id}` · `/api/datasets/{id}/rows` | Liste, profil, lignes paginées |
+| PUT | `/api/datasets/{id}/data` | Remplacement des données d'un jeu importé par fichier (multipart, 50 Mo) : même identifiant, étapes rejouées, modèle revalidé, alertes réévaluées (409 + liste d'erreurs si le modèle ne tient plus, 409 pour un jeu de connexion ou de workflow) |
 | DELETE | `/api/datasets/{id}` | Suppression (table et vue) |
 | PUT | `/api/datasets/{id}/model` | Relations, colonnes et mesures calculées : validation complète, vue recréée, profil mis à jour (422 + liste d'erreurs sinon) |
 | POST | `/api/datasets/{id}/model/check` | Vérification d'une expression pendant la saisie : erreur localisée, type, aperçu |

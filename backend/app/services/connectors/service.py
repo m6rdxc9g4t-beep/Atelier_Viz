@@ -517,7 +517,8 @@ class ConnectionService:
         origin = dataset.profile_data.origin
         if origin is None:
             raise ConnectorError(
-                "Ce jeu de données a été importé depuis un fichier : réimportez-le pour le mettre à jour."
+                "Ce jeu de données a été importé depuis un fichier : utilisez « Remplacer les données… » "
+                "dans l'écran Données pour le mettre à jour."
             )
         if origin.kind == "atelier-table":
             raise ConnectorError("Ce jeu est alimenté par un workflow (Atelier Nexus) : rien à relire.")

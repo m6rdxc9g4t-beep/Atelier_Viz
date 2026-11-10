@@ -71,6 +71,69 @@ def test_too_large_is_413(client: TestClient) -> None:
     assert upload(client).status_code == 413
 
 
+def replace(client: TestClient, dataset_id: str, content: bytes, name: str = "ventes_fevrier.csv"):
+    return client.put(f"/api/datasets/{dataset_id}/data", files={"file": (name, content, "text/csv")})
+
+
+def test_replace_data_keeps_the_dataset_its_model_and_its_alerts(client: TestClient) -> None:
+    dataset_id = upload(client).json()["id"]
+    model = {"columns": [], "measures": [{"name": "Total", "expression": "SUM(montant)"}]}
+    assert client.put(f"/api/datasets/{dataset_id}/model", json=model).status_code == 200
+    steps = {"steps": [{"kind": "filter", "column": "montant", "op": "not_null"}]}
+    assert client.put(f"/api/datasets/{dataset_id}/steps", json=steps).status_code == 200
+    alert = {
+        "name": "Mois fort",
+        "dataset_id": dataset_id,
+        "measure": {"field": "montant", "agg": "sum"},
+        "comparison": "gt",
+        "threshold": 5000,
+        "system": False,
+    }
+    alert_id = client.post("/api/alerts", json=alert).json()["id"]
+
+    fresh = b"date;region;montant\n03/02/2026;Nord;4 000,00\n04/02/2026;Est;2 500,50\n05/02/2026;Sud;\n"
+    response = replace(client, dataset_id, fresh)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    # Même jeu (identifiant et nom : les rapports restent branchés), nouvelles données, étapes rejouées.
+    assert body["id"] == dataset_id and body["name"] == "ventes.csv" and body["rows"] == 2
+    assert [m["name"] for m in body["model"]["measures"]] == ["Total"] and len(body["steps"]) == 1
+    assert len(client.get("/api/datasets").json()) == 1
+    query = {"dataset_id": dataset_id, "measures": [{"field": "Total", "agg": "calc"}]}
+    assert client.post("/api/query", json=query).json()["rows"] == [[6500.5]]
+    assert client.get(f"/api/alerts/{alert_id}").json()["met"] is True  # alertes du jeu réévaluées
+
+
+def test_replace_data_refusals_change_nothing(client: TestClient) -> None:
+    dataset_id = upload(client).json()["id"]
+    model = {"columns": [{"name": "ttc", "expression": "montant * 1.2"}], "measures": []}
+    assert client.put(f"/api/datasets/{dataset_id}/model", json=model).status_code == 200
+
+    # Colonne utilisée par le modèle disparue : 409 avec le détail, rien n'a changé.
+    response = replace(client, dataset_id, b"date;region;total\n03/02/2026;Nord;10\n")
+    assert response.status_code == 409 and response.json()["detail"]["issues"][0]["name"] == "ttc"
+    assert "rien n'a changé" in response.json()["detail"]["message"]
+    assert client.get(f"/api/datasets/{dataset_id}").json()["rows"] == 3
+    # Fichier illisible, jeu inconnu.
+    assert replace(client, dataset_id, b"%PDF-1.7", "notes.pdf").status_code == 422
+    assert replace(client, "0123456789ab", CSV).status_code == 404
+    # Un jeu alimenté par un workflow (ou une connexion) se met à jour par sa source, pas par un fichier.
+    table = {
+        "format": "atelier-table/1",
+        "name": "t",
+        "columns": [{"key": "n", "label": "N", "type": "number"}],
+        "rows": [{"n": 1}],
+    }
+    pushed = client.post("/api/atelier/datasets", json={"name": "Flux", "key": "nexus:flux", "table": table}).json()
+    response = replace(client, pushed["dataset_id"], CSV)
+    assert response.status_code == 409 and "workflow" in response.json()["detail"]
+    assert client.get(f"/api/datasets/{pushed['dataset_id']}").json()["rows"] == 1
+    # Limite de taille : la même que l'import.
+    client.app.state.settings.max_upload_mb = 0  # type: ignore[attr-defined]
+    assert replace(client, dataset_id, CSV).status_code == 413
+    assert client.get(f"/api/datasets/{dataset_id}").json()["rows"] == 3
+
+
 def test_chat_with_dataset_sends_schema_not_full_data(client: TestClient, override_ai) -> None:
     dataset_id = upload(client).json()["id"]
     ollama = FakeProvider("ollama")

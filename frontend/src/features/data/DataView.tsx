@@ -1,6 +1,6 @@
 import clsx from "clsx";
-import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, Link2, RefreshCw, Trash2, TriangleAlert, Wand2, Workflow, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, Link2, Loader2, RefreshCw, Replace, Trash2, TriangleAlert, Wand2, Workflow, X } from "lucide-react";
+import { useRef, useState, type ReactNode } from "react";
 
 import type { DatasetsState } from "../../hooks/useDatasets";
 import { formatCount } from "../../lib/format";
@@ -13,7 +13,7 @@ import { KIND_META, sinceLabel } from "./connect/meta";
 import { DataPreview } from "./DataPreview";
 import { PrepEditor } from "./prep/PrepEditor";
 import { FieldsPanel, TYPE_META } from "./FieldsPanel";
-import { UploadDropzone } from "./UploadDropzone";
+import { ACCEPT, UploadDropzone } from "./UploadDropzone";
 
 /** Page « Données » : import, liste des jeux, panneau Champs et aperçu. */
 export function DataView({ state }: { state: DatasetsState }) {
@@ -23,6 +23,7 @@ export function DataView({ state }: { state: DatasetsState }) {
   const [planning, setPlanning] = useState(false);
   const [relating, setRelating] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const replaceInput = useRef<HTMLInputElement>(null);
   const connectButton = (
     <button
       type="button"
@@ -130,6 +131,33 @@ export function DataView({ state }: { state: DatasetsState }) {
                     Relations{selected.model?.relations?.length ? ` (${selected.model.relations.length})` : ""}
                   </button>
                 )}
+                {!selected.origin && (
+                  <>
+                    <input
+                      ref={replaceInput}
+                      type="file"
+                      accept={ACCEPT}
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-label={`Choisir le fichier qui remplace les données de ${selected.name}`}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void state.replaceData(selected.id, file);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => replaceInput.current?.click()}
+                      disabled={state.replacing === selected.id}
+                      title="Charger le nouvel export de ce fichier : même jeu, les rapports, le modèle et les alertes suivent"
+                      className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2 disabled:opacity-60"
+                    >
+                      {state.replacing === selected.id ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Replace className="size-3.5 text-muted" aria-hidden />}
+                      {state.replacing === selected.id ? "Remplacement…" : "Remplacer les données…"}
+                    </button>
+                  </>
+                )}
                 {isConnectionOrigin(selected.origin) && (
                   <button
                     type="button"
@@ -200,7 +228,7 @@ export function DataView({ state }: { state: DatasetsState }) {
                   <FieldsPanel columns={selected.columns} />
                 </div>
                 <div className="flex h-[32rem] min-w-0 flex-col lg:h-auto lg:min-h-0">
-                  <DataPreview key={`${selected.id}:${selected.rows}:${JSON.stringify(selected.steps ?? [])}:${selected.origin?.refreshed_at ?? ""}`} datasetId={selected.id} columns={selected.columns} total={selected.rows} />
+                  <DataPreview key={`${selected.id}:${selected.rows}:${JSON.stringify(selected.steps ?? [])}:${selected.origin?.refreshed_at ?? ""}:${state.revision}`} datasetId={selected.id} columns={selected.columns} total={selected.rows} />
                 </div>
               </div>
             </>

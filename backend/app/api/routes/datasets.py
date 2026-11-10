@@ -1,11 +1,14 @@
 """Import et consultation des jeux de données (persistés dans DuckDB)."""
 
 import asyncio
+import logging
 from typing import Annotated
 
+import pandas as pd
 from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
 
 from app.api.deps import AlertsDep, SchedulerDep, SettingsDep, StoreDep
+from app.core.config import Settings
 from app.schemas.dataset import (
     DatasetModel,
     DatasetProfile,
@@ -17,11 +20,13 @@ from app.schemas.dataset import (
     PrepRequest,
     Relation,
     RelationCheck,
+    SourceFormat,
 )
 from app.services.data import DatasetError, DatasetStore, StoredDataset, read_table
 from app.services.data.model import ModelError
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
+logger = logging.getLogger(__name__)
 
 
 async def get_or_404(store: DatasetStore, dataset_id: str) -> StoredDataset:
@@ -38,6 +43,13 @@ async def upload_dataset(
     file: Annotated[UploadFile, File(description="Fichier CSV, XLSX ou JSON")],
 ) -> DatasetProfile:
     """Importe un fichier, infère les types de colonnes, l'enregistre et retourne son profil."""
+    filename, df, fmt = await _read_upload(file, settings)
+    dataset = await asyncio.to_thread(store.add, filename, fmt, df)
+    return dataset.profile()
+
+
+async def _read_upload(file: UploadFile, settings: Settings) -> tuple[str, pd.DataFrame, SourceFormat]:
+    """Fichier envoyé → (nom, données typées, format) ; 413 au-delà de `MAX_UPLOAD_MB`, 422 s'il est illisible."""
     max_bytes = settings.max_upload_mb * 1024 * 1024
     content = await file.read(max_bytes + 1)
     if len(content) > max_bytes:
@@ -49,8 +61,7 @@ async def upload_dataset(
         df, fmt = await asyncio.to_thread(read_table, filename, content)
     except DatasetError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    dataset = await asyncio.to_thread(store.add, filename, fmt, df)
-    return dataset.profile()
+    return filename, df, fmt
 
 
 @router.get("", response_model=list[DatasetSummary])
@@ -102,6 +113,46 @@ async def save_steps(dataset_id: str, body: PrepRequest, store: StoreDep) -> Dat
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             {"message": "Les étapes ne peuvent pas être appliquées.", "issues": [i.model_dump() for i in exc.issues]},
         ) from exc
+    return updated.profile()
+
+
+@router.put("/{dataset_id}/data", response_model=DatasetProfile)
+async def replace_data(
+    dataset_id: str,
+    store: StoreDep,
+    settings: SettingsDep,
+    alerts: AlertsDep,
+    file: Annotated[UploadFile, File(description="Nouveau fichier CSV, XLSX ou JSON du même jeu")],
+) -> DatasetProfile:
+    """Remplace les données d'un jeu importé par fichier (même identifiant : rapports, modèle et alertes suivent).
+
+    Les étapes de préparation sont rejouées et le modèle revalidé ; s'il ne tient plus (colonne disparue),
+    409 et rien n'est modifié. Un jeu issu d'une connexion ou d'un workflow se met à jour par sa source.
+    """
+    dataset = await get_or_404(store, dataset_id)
+    origin = dataset.profile_data.origin
+    if origin is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Ce jeu est alimenté par un workflow (Atelier Nexus) : il se met à jour quand le workflow renvoie sa table."
+            if origin.kind == "atelier-table"
+            else "Ce jeu vient d'une connexion : utilisez « Actualiser » pour relire sa source.",
+        )
+    _, df, _ = await _read_upload(file, settings)
+    try:
+        updated = await asyncio.to_thread(store.replace_data, dataset, df, None)
+    except ModelError as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            {
+                "message": "Le nouveau fichier ne correspond plus au modèle (colonne disparue ?) : rien n'a changé.",
+                "issues": [i.model_dump() for i in exc.issues],
+            },
+        ) from exc
+    try:
+        await alerts.evaluate_dataset(dataset_id)
+    except Exception as exc:  # noqa: BLE001 — les données sont remplacées : une alerte en échec ne l'annule pas
+        logger.warning("Alertes de %s non évaluées après le remplacement des données : %s", dataset_id, exc)
     return updated.profile()
 
 

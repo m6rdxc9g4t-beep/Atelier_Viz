@@ -115,6 +115,12 @@ export const api = {
       form.append("file", file);
       return request<DatasetProfile>("/datasets", { method: "POST", body: form });
     },
+    /** Remplace les données d'un jeu importé par fichier (même identifiant : rapports, modèle et alertes suivent). */
+    replaceData: (id: string, file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return request<DatasetProfile>(`/datasets/${id}/data`, { method: "PUT", body: form });
+    },
     remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
     saveModel: (id: string, model: DatasetModel) =>
       request<DatasetProfile>(`/datasets/${id}/model`, { method: "PUT", body: JSON.stringify(model) }),
