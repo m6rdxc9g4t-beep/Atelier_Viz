@@ -50,7 +50,7 @@ def read_table(filename: str, content: bytes, sheet: str | None = None) -> tuple
         if fmt == "csv":
             df = _read_csv(content)
         elif fmt == "xlsx":
-            df = pd.read_excel(io.BytesIO(content), sheet_name=sheet if sheet else 0, engine="openpyxl")
+            df = _read_excel(content, sheet)
         else:
             data = json.loads(_decode(content))
             if is_dataflow(data):
@@ -115,6 +115,13 @@ def _read_csv(content: bytes) -> pd.DataFrame:
     df = raw.iloc[1:].reset_index(drop=True)
     df.columns = list(raw.iloc[0])
     return df
+
+
+def _read_excel(content: bytes, sheet: str | None) -> pd.DataFrame:
+    # dtype=object : pandas ne réinterprète pas les cellules de texte (« 01000 » deviendrait 1000) ; seuls les types
+    # natifs d'Excel (nombres, dates, booléens) sont retypés, le texte passe ensuite par infer_types comme un CSV.
+    raw = pd.read_excel(io.BytesIO(content), sheet_name=sheet if sheet else 0, engine="openpyxl", dtype=object)
+    return raw.infer_objects()
 
 
 def _json_frame(data: object) -> pd.DataFrame:

@@ -98,6 +98,35 @@ def test_xlsx() -> None:
     assert types(df) == {"mois": "string", "ventes": "number"}
 
 
+def test_xlsx_text_cells_keep_their_leading_zeros() -> None:
+    from datetime import datetime
+
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["Code postal", "Dept", "Montant", "Date", "Qté", "Réf"])
+    ws.append(["01000", "01", 12.5, datetime(2026, 1, 5), 3, "123"])
+    ws.append(["75001", "75", 980, datetime(2026, 1, 31), None, "456"])
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    df, _ = read_table("codes.xlsx", buffer.getvalue())
+
+    assert types(df) == {
+        "Code postal": "string",
+        "Dept": "string",
+        "Montant": "number",
+        "Date": "date",
+        "Qté": "number",
+        "Réf": "number",  # texte sans zéro en tête : un nombre, comme en CSV
+    }
+    assert df["Code postal"].tolist() == ["01000", "75001"]  # et non 1000, 75001
+    assert df["Dept"].tolist() == ["01", "75"]
+    assert df["Montant"].tolist() == [12.5, 980.0]
+    assert df["Date"].iloc[1] == pd.Timestamp("2026-01-31")
+    assert pd.isna(df["Qté"].iloc[1])
+
+
 def test_json_records_nested_under_key() -> None:
     payload = {"data": [{"a": 1, "b": {"c": "x"}}, {"a": 2, "b": {"c": "y"}}]}
     df, fmt = read_table("d.json", json.dumps(payload).encode())
