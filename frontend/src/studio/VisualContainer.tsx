@@ -268,10 +268,12 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
       {editing && (
         <div
           className={clsx(
-            "visual-handle absolute inset-x-0 top-0 z-20 flex h-6 cursor-move touch-none items-center justify-between rounded-t-lg px-1.5 text-muted",
-            selected ? "opacity-100" : "opacity-0 group-hover/visual:opacity-100",
-            // Bouton, navigateur : la barre ne garde que la poignée et les actions, le reste reste cliquable.
-            clickThrough && "pointer-events-none [&>*]:pointer-events-auto",
+            "visual-handle absolute inset-x-0 z-20 flex h-6 cursor-move touch-none items-center justify-between px-1.5 text-muted",
+            // Bouton, navigateur : la barre se pose au-dessus du visuel, pour que tout le contenu reste cliquable.
+            clickThrough ? "bottom-full mb-0.5 rounded-md border border-border bg-surface" : "top-0 rounded-t-lg",
+            selected
+              ? "opacity-100"
+              : clsx("opacity-0 group-hover/visual:opacity-100", clickThrough && "pointer-events-none group-hover/visual:pointer-events-auto"),
           )}
         >
           <GripHorizontal className="size-3.5" aria-hidden />

@@ -65,7 +65,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 ## Rapports générés (jalon 11)
 - `studio/starter.ts` : `analyze(profil)` (nature `flows` / `events` / `list`, rôle des colonnes) → sections → `finish` (barre de filtres = zone de texte `panel` + segments + « Réinitialiser », titre, `navigator`). `starterPages` (un jeu), `storyPages` (exemples de la suite : tous les jeux d'une histoire). Règles testées dans `studio/starter.test.ts` (rôles et champs valides, page 1280 × 720, aucun chevauchement, navigateur dès 2 pages) : toute nouvelle recette s'y ajoute avec un profil type.
 - Jamais de secteurs sur une mesure signée sans filtre positif ; prix, taux, CPA moyennés (`natural`) ; parts qui totalisent 100 % comparées (`shares`), jamais moyennées ; fractions → option `fraction`.
-- Navigateur : `navigablePages` (sans pages d'extraction) ; export natif (`navigator` de `buildVisual.ts`, `links.pages` / `links.pageId`). En édition, la barre de déplacement d'un bouton ou d'un navigateur laisse passer les clics (`clickThrough`).
+- Navigateur : `navigablePages` (sans pages d'extraction) ; export natif (`navigator` de `buildVisual.ts`, `links.pages` / `links.pageId`). En édition, la barre de déplacement d'un bouton ou d'un navigateur se pose au-dessus du visuel (`clickThrough`) : tout son contenu reste cliquable.
 
 ## Placement des visuels
 - Page en pixels (`Page.size`, 1280 × 720 par défaut) ; `Visual.layout` en px de page. Géométrie pure dans `studio/grid.ts` (migration des anciens rapports en grille, bornage, hauteur) et `studio/snap.ts` (déplacement, redimensionnement, repères), testée dans `studio/placement.test.ts`.
