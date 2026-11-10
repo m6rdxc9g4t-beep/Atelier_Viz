@@ -5,7 +5,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from app.schemas.dataset import DatasetModel, PrepStep
-from app.services.data import DatasetStore
+from app.services.data import DatasetStore, prep
 from app.services.data.model import ModelError
 from app.services.data.prep import PrepError, apply_steps
 from app.services.engine import LocalDatabase
@@ -63,6 +63,23 @@ def test_cast_number_reads_the_separator_of_the_whole_column() -> None:
     # Les valeurs saisies dans un filtre se lisent une à une, quelle que soit leur écriture.
     typed = pd.DataFrame({"n": [1.5, 2.5, 1234.0]})
     assert len(run(typed, [{"kind": "filter", "column": "n", "op": "in", "values": ["1,5", "2.5", "1,234.0"]}])) == 3
+
+
+def test_cast_date_with_different_utc_offsets(local_tz) -> None:
+    local_tz("Europe/Paris")
+    df = pd.DataFrame({"quand": ["2026-03-28T10:30:00+01:00", "2026-03-29T11:00:00+02:00", "n/a"]})
+    out = run(df, [{"kind": "cast", "column": "quand", "to": "date"}])["quand"]
+    assert [str(v) for v in out[:2]] == ["2026-03-28 10:30:00", "2026-03-29 11:00:00"] and pd.isna(out.iloc[2])
+
+
+def test_unexpected_failure_of_a_step_is_a_prep_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(df: pd.DataFrame, step: object) -> pd.DataFrame:
+        raise TypeError("cas imprévu de pandas")
+
+    monkeypatch.setitem(prep._APPLY, "dedupe", boom)
+    with pytest.raises(PrepError, match="Étape 2 .*impossible") as info:
+        run(RAW, [{"kind": "cast", "column": "Montant", "to": "number"}, {"kind": "dedupe", "columns": []}])
+    assert info.value.index == 1 and "pandas" not in info.value.message
 
 
 def test_filter_replace_fill_dedupe() -> None:

@@ -7,6 +7,7 @@ données à chaque actualisation ; la source brute est gardée dans la table `ra
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Sequence
 
@@ -26,8 +27,10 @@ from app.schemas.dataset import (
     TextStep,
     UnpivotStep,
 )
-from app.services.data.parsing import _FALSE, _TRUE, MIN_MATCH_RATIO, to_numbers
+from app.services.data.parsing import _FALSE, _TRUE, MIN_MATCH_RATIO, to_dates, to_numbers
 from app.services.data.profiling import column_type
+
+logger = logging.getLogger(__name__)
 
 MAX_ROWS = 20_000_000
 
@@ -63,6 +66,9 @@ def apply_steps(df: pd.DataFrame, steps: Sequence[PrepStep]) -> pd.DataFrame:
             out = _APPLY[step.kind](out, step)
         except _StepError as exc:
             raise PrepError(i, step, str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 — pandas lève des exceptions très variées : jamais d'erreur 500
+            logger.warning("Étape de préparation %d (%s) en échec : %s", i + 1, step.kind, exc)
+            raise PrepError(i, step, "opération impossible sur ces données.") from exc
         if len(out) > MAX_ROWS:
             raise PrepError(i, step, f"résultat trop volumineux (plus de {MAX_ROWS:,} lignes).".replace(",", " "))
     return out.reset_index(drop=True)
@@ -109,7 +115,7 @@ def _to_date(series: pd.Series) -> pd.Series:
     text = series.astype("string").str.strip()
     present = text.dropna()
     iso = not present.empty and present.str.match(r"^\d{4}-").mean() >= MIN_MATCH_RATIO
-    return pd.to_datetime(text, errors="coerce", dayfirst=not iso, format="mixed")
+    return to_dates(text, dayfirst=not iso)
 
 
 def _to_bool(series: pd.Series) -> pd.Series:

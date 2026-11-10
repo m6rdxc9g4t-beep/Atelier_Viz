@@ -54,6 +54,18 @@ def test_invalid_file_is_422(client: TestClient) -> None:
     assert "non pris en charge" in response.json()["detail"]
 
 
+def test_awkward_but_valid_files_are_imported(client: TestClient) -> None:
+    # Décalages horaires différents dans une colonne, tableaux dans un JSON : 201, jamais 500.
+    stamps = b"quand;v\n2026-03-28T10:30:00+01:00;1\n2026-03-29T11:00:00+02:00;2\n"
+    response = upload(client, "horodatages.csv", stamps)
+    assert response.status_code == 201
+    assert next(c for c in response.json()["columns"] if c["name"] == "quand")["type"] == "date"
+    response = upload(client, "api.json", b'[{"id": 1, "tags": ["a", "b"]}, {"id": 2, "tags": []}]')
+    assert response.status_code == 201
+    tags = next(c for c in response.json()["columns"] if c["name"] == "tags")
+    assert tags["type"] == "string" and tags["distinct"] == 2
+
+
 def test_too_large_is_413(client: TestClient) -> None:
     client.app.state.settings.max_upload_mb = 0  # type: ignore[attr-defined]
     assert upload(client).status_code == 413

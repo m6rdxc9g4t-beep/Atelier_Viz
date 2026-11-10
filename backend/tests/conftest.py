@@ -1,6 +1,7 @@
 """Fixtures partagées : application de test et faux fournisseurs IA (aucun appel réseau)."""
 
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -56,6 +57,21 @@ def settings(tmp_path: Path) -> Settings:
         allowed_hosts=["testserver"],  # Host envoyé par TestClient ; le garde local reste actif (test_local_only.py)
         _env_file=None,
     )
+
+
+@pytest.fixture
+def local_tz(monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[str], None]]:
+    """Force le fuseau local de la machine (variable `TZ`), puis rétablit l'original."""
+    if not hasattr(time, "tzset"):
+        pytest.skip("time.tzset n'existe pas sous Windows : fuseau de la machine non modifiable")
+
+    def force(name: str) -> None:
+        monkeypatch.setenv("TZ", name)
+        time.tzset()
+
+    yield force
+    monkeypatch.undo()
+    time.tzset()
 
 
 @pytest.fixture

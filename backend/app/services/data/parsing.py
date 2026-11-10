@@ -8,13 +8,17 @@ d'Atelier Tab est aplati selon son propre schéma (`dataflow.py`, types gardés)
 import csv
 import io
 import json
+import logging
 import re
 from pathlib import PurePath
+from typing import Any
 
 import pandas as pd
 
 from app.schemas.dataset import SourceFormat
 from app.services.data.dataflow import DataflowError, dataflow_frame, is_dataflow
+
+logger = logging.getLogger(__name__)
 
 SEPARATORS = ",;\t|"
 ENCODINGS = ("utf-8-sig", "cp1252")
@@ -134,7 +138,21 @@ def _json_frame(data: object) -> pd.DataFrame:
         data = lists[0]
     if not isinstance(data, list):
         raise DatasetError("JSON attendu : une liste d'objets.")
-    return pd.json_normalize(data)
+    df = pd.json_normalize(data)
+    # Un champ tableau (« tags » : […]) reste une liste après l'aplatissement : du texte JSON, sinon le profilage
+    # (valeurs distinctes) et DuckDB échouent.
+    for col in df.columns:
+        if pd.api.types.is_object_dtype(df[col]) and df[col].map(lambda v: isinstance(v, (list, dict))).any():
+            df[col] = df[col].map(_json_text)
+    return df
+
+
+def _json_text(v: Any) -> Any:
+    if v is None or isinstance(v, str):
+        return v
+    if isinstance(v, (list, dict)):
+        return json.dumps(v, ensure_ascii=False)
+    return None if pd.isna(v) else str(v)
 
 
 def _clean_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -165,7 +183,11 @@ def infer_types(df: pd.DataFrame) -> pd.DataFrame:
         if values.empty:
             continue
         for convert in (_to_bool, _to_number, _to_date):
-            converted = convert(series)
+            try:
+                converted = convert(series)
+            except Exception as exc:  # noqa: BLE001 — filet : la colonne reste du texte, l'import n'échoue jamais ici
+                logger.warning("Typage de la colonne « %s » abandonné (%s) : %s", col, convert.__name__, exc)
+                continue
             if converted is not None and converted.notna().sum() >= MIN_MATCH_RATIO * len(values):
                 out[col] = converted
                 break
@@ -240,4 +262,30 @@ def _to_date(series: pd.Series) -> pd.Series | None:
     if sample.empty or not sample.str.match(_DATE_HINT_RE).mean() >= MIN_MATCH_RATIO:
         return None
     iso = sample.str.match(r"^\d{4}-").mean() >= MIN_MATCH_RATIO
-    return pd.to_datetime(text, errors="coerce", dayfirst=not iso, format="mixed")
+    return to_dates(text, dayfirst=not iso)
+
+
+def to_dates(text: pd.Series, dayfirst: bool) -> pd.Series:
+    """Colonne de texte → dates (vide si illisible).
+
+    Des décalages horaires différents dans la colonne (« +01:00 » puis « +02:00 » : export en heure locale à
+    cheval sur le changement d'heure) font échouer pandas 3 ; elle est alors lue en UTC puis rendue à l'heure
+    locale de la machine, sans fuseau (`local_naive`).
+    """
+    try:
+        dates = pd.to_datetime(text, errors="coerce", dayfirst=dayfirst, format="mixed")
+    except ValueError:
+        dates = None
+    if dates is None or not pd.api.types.is_datetime64_any_dtype(dates):  # pandas 2 : colonne d'objets
+        dates = local_naive(pd.to_datetime(text, errors="coerce", dayfirst=dayfirst, format="mixed", utc=True))
+    return dates
+
+
+def local_naive(series: pd.Series) -> pd.Series:
+    """Horodatages UTC → heure locale de la machine (heure d'été comprise), sans fuseau.
+
+    Les apps de la suite envoient leurs `datetime` en ISO 8601 UTC (« …Z ») ; l'utilisateur les attend à l'heure
+    de sa montre. `datetime.astimezone()` sans argument suit le fuseau du système (variable `TZ` comprise).
+    """
+    local = [None if pd.isna(ts) else ts.to_pydatetime().astimezone().replace(tzinfo=None) for ts in series]
+    return pd.Series(pd.to_datetime(local), index=series.index, dtype="datetime64[ns]")

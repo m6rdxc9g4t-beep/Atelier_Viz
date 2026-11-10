@@ -2,12 +2,13 @@
 
 import io
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from app.services.data import DatasetError, build_profile, read_table, records
+from app.services.data import DatasetError, build_profile, parsing, read_table, records
 from app.services.data.parsing import decimal_separator
 
 SAMPLE = Path(__file__).resolve().parents[2] / "samples" / "ventes_2026.csv"
@@ -132,6 +133,36 @@ def test_json_records_nested_under_key() -> None:
     df, fmt = read_table("d.json", json.dumps(payload).encode())
     assert fmt == "json"
     assert list(df.columns) == ["a", "b.c"]
+
+
+def test_json_lists_become_text() -> None:
+    # Un champ tableau (« tags ») d'une réponse d'API : du texte JSON, pas une erreur au profilage.
+    payload = [{"id": 1, "tags": ["a", "é"], "lignes": [{"q": 2}]}, {"id": 2, "tags": [], "lignes": None}]
+    df, _ = read_table("api.json", json.dumps(payload).encode())
+    assert types(df) == {"id": "number", "tags": "string", "lignes": "string"}
+    assert df["tags"].tolist() == ['["a", "é"]', "[]"]
+    assert df["lignes"].iloc[0] == '[{"q": 2}]' and pd.isna(df["lignes"].iloc[1])
+
+
+def test_dates_with_different_utc_offsets_become_local_time(local_tz: Callable[[str], None]) -> None:
+    # Export en heure locale à cheval sur le changement d'heure : +01:00 puis +02:00 dans la même colonne.
+    local_tz("Europe/Paris")
+    stamps = ["2026-03-28T10:30:00+01:00", "2026-03-29T11:00:00+02:00"]
+    csv_df, _ = read_table("x.csv", ("quand;v\n" + "".join(f"{s};1\n" for s in stamps)).encode())
+    json_df, _ = read_table("x.json", json.dumps([{"quand": s} for s in stamps]).encode())
+    for df in (csv_df, json_df):
+        assert types(df)["quand"] == "date"
+        assert [str(v) for v in df["quand"]] == ["2026-03-28 10:30:00", "2026-03-29 11:00:00"]
+        assert df["quand"].dt.tz is None
+
+
+def test_a_failing_conversion_leaves_the_column_as_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(series: pd.Series) -> pd.Series:
+        raise ValueError("cas imprévu de pandas")
+
+    monkeypatch.setattr(parsing, "_to_date", boom)
+    df, _ = read_table("x.csv", b"jour;n\n05/01/2026;1\n06/01/2026;2\n")
+    assert types(df) == {"jour": "string", "n": "number"}  # import réussi, jamais d'erreur 500
 
 
 def test_duplicate_and_blank_headers_are_renamed() -> None:
