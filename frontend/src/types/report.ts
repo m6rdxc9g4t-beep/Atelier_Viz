@@ -26,7 +26,8 @@ export type VisualType =
   | "slicer"
   | "parameter"
   | "button"
-  | "text";
+  | "text"
+  | "navigator";
 
 export interface FieldBinding {
   field: string;

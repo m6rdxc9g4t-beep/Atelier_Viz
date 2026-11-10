@@ -224,10 +224,15 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
     : null;
 
   // Boutons et textes : pas de cadre ni de titre par défaut (comme dans Power BI).
-  const bare = visual.type === "button" || visual.type === "text";
+  const bare = visual.type === "button" || visual.type === "text" || visual.type === "navigator";
   const style = visual.options.style as VisualStyle | undefined;
   const showTitle = visual.title !== "" && !bare && style?.showTitle !== false;
-  const frame: React.CSSProperties = bare
+  // Zone de texte « panneau » : fond discret du thème (barre de filtres, encadré), sans bordure.
+  const panel = visual.type === "text" && visual.options.panel === true;
+  const clickThrough = visual.type === "button" || visual.type === "navigator";
+  const frame: React.CSSProperties = panel
+    ? { background: "var(--surface-2)", border: "1px solid transparent", borderRadius: "var(--visual-radius)", padding: 12 }
+    : bare
     ? { background: "transparent", border: "1px solid transparent", borderRadius: "var(--visual-radius)", padding: 6 }
     : {
         background: "var(--visual-bg)",
@@ -265,6 +270,8 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
           className={clsx(
             "visual-handle absolute inset-x-0 top-0 z-20 flex h-6 cursor-move touch-none items-center justify-between rounded-t-lg px-1.5 text-muted",
             selected ? "opacity-100" : "opacity-0 group-hover/visual:opacity-100",
+            // Bouton, navigateur : la barre ne garde que la poignée et les actions, le reste reste cliquable.
+            clickThrough && "pointer-events-none [&>*]:pointer-events-auto",
           )}
         >
           <GripHorizontal className="size-3.5" aria-hidden />

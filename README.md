@@ -1,7 +1,7 @@
 # Atelier Viz
 
 Outil de Business Intelligence **local**, dans l'esprit de Power BI : import de données, rapports
-multi-pages, 23 types de visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons
+multi-pages, 24 types de visuels, segments, filtres, filtrage croisé, cartes hors ligne, boutons
 d'automatisation (URL, webhooks), assistant IA, **export PowerPoint modifiable**, signets, actualisation
 planifiée, alertes sur seuil, rapports versionnés dans GitHub — avec un interrupteur **« En ligne »** pour
 activer Claude.

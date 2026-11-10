@@ -8,6 +8,7 @@
  * et tous les visuels de données en mode « Images ».
  */
 
+import { blend } from "../theme/color";
 import type { DatasetProfile, Scalar } from "../types/dataset";
 import type { Filter } from "../types/query";
 import type { Visual } from "../types/report";
@@ -59,7 +60,16 @@ export interface BuildContext {
   /** Image du corps du visuel (PNG en data URL), quand `needsImage` l'a demandée. */
   image?: string | null;
   /** Liens des boutons : numéro de diapositive d'une page, contexte des gabarits d'URL. */
-  links: { slideOf: (pageId: string) => number | undefined; page: string; report: string; filters: Filter[] };
+  links: {
+    slideOf: (pageId: string) => number | undefined;
+    page: string;
+    report: string;
+    filters: Filter[];
+    /** Pages listées par un navigateur (ordre du rapport, sans les pages d'extraction). */
+    pages?: { id: string; name: string }[];
+    /** Page de la diapositive (mise en avant par le navigateur). */
+    pageId?: string;
+  };
 }
 
 export interface BuiltVisual {
@@ -69,7 +79,7 @@ export interface BuiltVisual {
   warnings: string[];
 }
 
-const BARE_TYPES = new Set(["button", "text"]);
+const BARE_TYPES = new Set(["button", "text", "navigator"]);
 /** Types sans équivalent natif PowerPoint (exportés en image). */
 const IMAGE_ONLY = new Set(["gauge", "treemap", "funnel", "waterfall", "heatmap", "map", "pointmap"]);
 
@@ -309,6 +319,7 @@ const pie: Builder = (ctx, body, colors, title) => {
   const { visual, def } = ctx;
   const parts: Slice[] = slices(visual, ctx.data.result, ctx.dataset, true, ctx.data.colors);
   if (!parts.length) return [message(ctx, body, colors, "Aucune donnée pour ces filtres.")];
+  if (parts.some((p) => p.value < 0)) return [message(ctx, body, colors, "Valeurs négatives : des secteurs ne peuvent pas les représenter.")];
   const m = first(visual, "values");
   const donut = visual.type === "donut";
   return [
@@ -774,8 +785,14 @@ const text: Builder = (ctx, body, colors, title) => {
   const size = opt<string>(visual, def, "size") ?? "md";
   const align = (opt<string>(visual, def, "align") ?? "left") as "left" | "center" | "right";
   const content = opt<string>(visual, def, "text") ?? "";
-  if (!content.trim()) return [];
+  // Panneau (barre de filtres…) : fond discret du thème sur tout le cadre, comme à l'écran.
+  const panel: SlideItem[] =
+    visual.options.panel === true
+      ? [{ kind: "shape", name: `Panneau — ${title}`, rect: ctx.rect, fill: { color: pptColor(blend(colors.fg, colors.surface, 0.06)), transparency: 0 }, line: null, radius: 8 * ctx.scale, shadow: false }]
+      : [];
+  if (!content.trim()) return panel;
   return [
+    ...panel,
     {
       kind: "text",
       name: title === def.label ? "Texte" : title,
@@ -831,6 +848,42 @@ const button: Builder = (ctx, body, colors) => {
   ];
 };
 
+/** Navigateur de pages : un onglet par page, chacun lié à la première diapositive de sa page. */
+const navigator: Builder = (ctx, body, colors) => {
+  const { visual, def, theme } = ctx;
+  const pages = ctx.links.pages ?? [];
+  if (!pages.length) return [];
+  const vertical = opt<string>(visual, def, "orientation") === "vertical";
+  const underline = opt<string>(visual, def, "look") === "underline";
+  const gap = 4 * ctx.scale;
+  const n = pages.length;
+  const w = vertical ? body.w : (body.w - gap * (n - 1)) / n;
+  const h = vertical ? Math.min(36 * ctx.scale, (body.h - gap * (n - 1)) / n) : body.h;
+  const accent = pptColor(theme.accent);
+  return pages.map((p, i): SlideItem => {
+    const current = p.id === ctx.links.pageId;
+    const slide = ctx.links.slideOf(p.id);
+    const rect = vertical ? { x: body.x, y: body.y + i * (h + gap), w, h } : { x: body.x + i * (w + gap), y: body.y, w, h };
+    return {
+      kind: "shape",
+      name: `Page — ${p.name}`,
+      rect,
+      fill: underline ? null : { color: current ? accent : pptColor(colors.surface), transparency: 0 },
+      line: underline ? null : current ? null : { color: pptColor(theme.border), width: 0.75 },
+      radius: underline ? 0 : Math.min(6 * ctx.scale, h / 2),
+      shadow: false,
+      text: {
+        runs: [{ text: p.name }],
+        fontSize: fontPt(13, ctx.scale, 8),
+        color: current && !underline ? pptColor(theme.accentFg) : pptColor(colors.fg),
+        bold: current,
+        align: vertical ? "left" : "center",
+      },
+      link: slide && !current ? { slide } : undefined,
+    };
+  });
+};
+
 const BUILDERS: Partial<Record<Visual["type"], Builder>> = {
   column: cartesian,
   bar: cartesian,
@@ -848,4 +901,5 @@ const BUILDERS: Partial<Record<Visual["type"], Builder>> = {
   parameter,
   text,
   button,
+  navigator,
 };
