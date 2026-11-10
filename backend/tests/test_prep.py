@@ -48,6 +48,23 @@ def test_rename_remove_cast_text() -> None:
     assert out["client"].iloc[3] is None
 
 
+def test_cast_number_reads_the_separator_of_the_whole_column() -> None:
+    cast = [{"kind": "cast", "column": "n", "to": "number"}]
+    english = pd.DataFrame({"n": ["1,234.50", "980.00", "12,000", "$3,456.78", "1e3", "n/a"]})
+    out = run(english, cast)["n"]
+    assert out.tolist()[:5] == [1234.5, 980.0, 12000.0, 3456.78, 1000.0]  # « 12,000 » : douze mille
+    assert pd.isna(out.iloc[5])
+    european = pd.DataFrame({"n": ["1.234,56 €", "12,50", "1.234.567", "v1.2.3"]})
+    out = run(european, cast)["n"]
+    assert out.tolist()[:3] == [1234.56, 12.5, 1234567.0]
+    assert pd.isna(out.iloc[3])  # pas un nombre : jamais « 123 »
+    with pytest.raises(PrepError, match="séparateur décimal"):
+        run(pd.DataFrame({"n": ["1,5", "2.5"]}), cast)
+    # Les valeurs saisies dans un filtre se lisent une à une, quelle que soit leur écriture.
+    typed = pd.DataFrame({"n": [1.5, 2.5, 1234.0]})
+    assert len(run(typed, [{"kind": "filter", "column": "n", "op": "in", "values": ["1,5", "2.5", "1,234.0"]}])) == 3
+
+
 def test_filter_replace_fill_dedupe() -> None:
     base = [{"kind": "cast", "column": "Montant", "to": "number"}, {"kind": "cast", "column": "Date", "to": "date"}]
     assert len(run(RAW, [*base, {"kind": "filter", "column": "Montant", "op": "gte", "values": ["100"]}])) == 2

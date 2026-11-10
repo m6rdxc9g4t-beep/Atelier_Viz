@@ -26,7 +26,7 @@ from app.schemas.dataset import (
     TextStep,
     UnpivotStep,
 )
-from app.services.data.parsing import _FALSE, _TRUE, MIN_MATCH_RATIO
+from app.services.data.parsing import _FALSE, _TRUE, MIN_MATCH_RATIO, to_numbers
 from app.services.data.profiling import column_type
 
 MAX_ROWS = 20_000_000
@@ -91,12 +91,14 @@ def _to_number(series: pd.Series) -> pd.Series:
         return series.astype("Float64").astype(float)
     if pd.api.types.is_numeric_dtype(series):
         return series
-    text = series.astype("string").str.strip().str.replace(r"[\s  %€$]", "", regex=True)
-    # « 1.234,5 » ou « 1234,5 » : virgule décimale ; « 1,234.5 » : virgule des milliers.
-    french = text.str.contains(r",\d+$", na=False) & ~text.str.contains(r"\.\d+,", na=False)
-    text = text.where(~french, text.str.replace(".", "", regex=False).str.replace(",", ".", regex=False))
-    text = text.where(french, text.str.replace(",", "", regex=False))
-    return pd.to_numeric(text, errors="coerce").astype(float)
+    # Séparateur décimal décidé sur toute la colonne (parsing.decimal_separator), jamais valeur par valeur.
+    numbers = to_numbers(series.astype("string").str.strip().str.replace(r"[€$]", "", regex=True))
+    if numbers is None:
+        raise _StepError(
+            "la colonne mélange « , » et « . » comme séparateur décimal : uniformisez-la d'abord "
+            "(étape « Remplacer des valeurs »)."
+        )
+    return numbers.astype(float)
 
 
 def _to_date(series: pd.Series) -> pd.Series:
@@ -141,7 +143,8 @@ def _like(series: pd.Series, values: list[Scalar]) -> list:
         return []
     kind = column_type(series)
     if kind == "number":
-        converted = _to_number(raw)
+        # Chaque valeur saisie se lit seule : « 1,5 » et « 2.5 » peuvent voisiner dans une liste.
+        converted = raw.map(lambda v: _to_number(pd.Series([v], dtype=object)).iloc[0])
     elif kind == "date":
         converted = _to_date(raw)
     elif kind == "boolean":

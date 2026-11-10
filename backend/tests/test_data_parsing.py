@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from app.services.data import DatasetError, build_profile, read_table, records
+from app.services.data.parsing import decimal_separator
 
 SAMPLE = Path(__file__).resolve().parents[2] / "samples" / "ventes_2026.csv"
 
@@ -35,6 +36,53 @@ def test_english_csv_thousands_comma_and_iso_dates() -> None:
     assert types(df) == {"day": "date", "city": "string", "revenue": "number"}
     assert df["revenue"].tolist() == [1250.75, 980.10]
     assert df["day"].iloc[0] == pd.Timestamp("2026-03-01")
+
+
+def numbers(*values: str) -> list:
+    """Colonne « montant » d'un CSV à point-virgule, telle que l'import la type."""
+    content = "nom;montant\n" + "".join(f"L{i};{v}\n" for i, v in enumerate(values))
+    return read_table("x.csv", content.encode())[0]["montant"].tolist()
+
+
+def test_european_numbers_with_dot_thousands() -> None:
+    # Le point des milliers ne doit pas faire prendre la virgule décimale pour un séparateur de milliers.
+    assert numbers("1.234,56", "12,50", "980,00") == [1234.56, 12.5, 980.0]
+    assert numbers("1.234.567", "12.000") == [1234567.0, 12000.0]
+
+
+def test_english_numbers_with_integer_thousands() -> None:
+    # « 12,000 » au milieu d'une colonne anglaise : douze mille, pas douze.
+    assert numbers("1,234.50", "980.00", "12,000", "3,456.78") == [1234.5, 980.0, 12000.0, 3456.78]
+    assert numbers("1,234,567", "12,000") == [1234567.0, 12000.0]
+
+
+def test_contradictory_separators_stay_text() -> None:
+    # Les deux conventions dans la même colonne : du texte (visible) plutôt qu'un nombre faux.
+    assert numbers("1,5", "2.5", "3,25") == ["1,5", "2.5", "3,25"]
+
+
+def test_ambiguous_numbers_keep_the_french_reading() -> None:
+    assert numbers("1,234", "12,000", "950") == [1.234, 12.0, 950.0]
+    assert numbers("1.234", "12.000") == [1.234, 12.0]
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        (["1.234,56", "12,50"], ","),  # les deux séparateurs : le dernier est la décimale
+        (["1,234.50", "12,000"], "."),
+        (["1,5", "2"], ","),  # 1 ou 2 chiffres après le séparateur : une décimale
+        (["0.25", "12,000"], "."),
+        (["1,234,567"], "."),  # séparateur répété : des milliers
+        (["1.234.567"], ","),
+        (["1,234", "950"], ","),  # aucun indice : lecture française
+        (["1234", "12"], "."),
+        (["1,5", "2.5"], None),  # indices contradictoires
+        (["1,234,567", "12,5"], None),
+    ],
+)
+def test_decimal_separator(values: list[str], expected: str | None) -> None:
+    assert decimal_separator(pd.Series(values, dtype="string")) == expected
 
 
 def test_mostly_text_column_stays_string() -> None:

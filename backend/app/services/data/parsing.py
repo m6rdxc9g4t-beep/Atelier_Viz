@@ -21,6 +21,7 @@ ENCODINGS = ("utf-8-sig", "cp1252")
 MIN_MATCH_RATIO = 0.95  # part minimale de valeurs convertibles pour retyper une colonne
 
 _NUMBER_RE = re.compile(r"^[-+]?(\d{1,3}([   .,]\d{3})+|\d+)([.,]\d+)?\s*%?$")
+_NOISE = "[\\s\u00a0\u202f%]"  # espaces (dont insécables : milliers français) et « % », retirés avant lecture
 _DATE_HINT_RE = re.compile(r"^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}")
 _TRUE = {"true", "vrai", "oui", "yes"}
 _FALSE = {"false", "faux", "non", "no"}
@@ -179,14 +180,51 @@ def _to_number(series: pd.Series) -> pd.Series | None:
     # Zéro en tête (« 01000 », « 06 ») : code postal, département, SIRET… → reste du texte.
     if sample.str.match(r"^[-+]?0\d").any():
         return None
-    # Décimale « , » si aucune valeur n'utilise « , » comme séparateur de milliers anglo-saxon.
-    comma_decimal = sample.str.contains(r",\d+\s*%?$").any() and not sample.str.contains(r"\.\d+,").any()
-    cleaned = text.str.replace(r"[\s  %]", "", regex=True)
-    if comma_decimal:
-        cleaned = cleaned.str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+    return to_numbers(text)
+
+
+def decimal_separator(sample: pd.Series) -> str | None:
+    """Séparateur décimal d'une colonne de nombres écrits en texte : « , », « . », ou None si elle se contredit.
+
+    Décidé sur toute la colonne (valeurs sans espace ni « % »), jamais valeur par valeur : « 12,000 » vaut
+    douze mille à côté de « 1,234.50 » et douze à côté de « 3,25 ». Indices, par séparateur : il suit l'autre
+    dans une même valeur (le dernier est la décimale), il précède 1, 2, ou 4 chiffres et plus en fin de valeur
+    (pas un groupe de milliers), ou l'autre est répété (« 1.234.567 » : le point groupe, la virgule décide).
+    Sans aucun indice (« 1,234 » seul), lecture française : la virgule est décimale.
+    """
+    comma = (
+        sample.str.contains(r"\..*,\d+$")
+        | sample.str.contains(r"^[^.,]*,(?:\d{1,2}|\d{4,})$")
+        | (sample.str.count(r"\.") > 1)
+    ).any()
+    dot = (
+        sample.str.contains(r",.*\.\d+$")
+        | sample.str.contains(r"^[^.,]*\.(?:\d{1,2}|\d{4,})$")
+        | (sample.str.count(",") > 1)
+    ).any()
+    if comma and dot:
+        return None
+    if comma or dot:
+        return "," if comma else "."
+    return "," if sample.str.contains(",", regex=False).any() else "."
+
+
+def to_numbers(text: pd.Series) -> pd.Series | None:
+    """Colonne de texte → nombres (vide si illisible) ; None si ses valeurs se contredisent sur le séparateur décimal.
+
+    Seules les valeurs en forme de nombre suivent le séparateur de la colonne ; les autres sont laissées telles
+    quelles à pandas (« 1e3 » reste lisible, « v1.2.3 » reste vide).
+    """
+    cleaned = text.str.replace(_NOISE, "", regex=True)
+    shaped = cleaned.str.match(_NUMBER_RE).fillna(False).astype(bool)
+    separator = decimal_separator(cleaned[shaped])
+    if separator is None:
+        return None
+    if separator == ",":
+        rewritten = cleaned.str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
     else:
-        cleaned = cleaned.str.replace(",", "", regex=False)
-    return pd.to_numeric(cleaned, errors="coerce")
+        rewritten = cleaned.str.replace(",", "", regex=False)
+    return pd.to_numeric(rewritten.where(shaped, cleaned), errors="coerce")
 
 
 def _to_date(series: pd.Series) -> pd.Series | None:
