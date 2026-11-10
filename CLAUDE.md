@@ -5,7 +5,7 @@ La spécification est dans `specification.md` : la lire avant toute nouvelle fon
 
 ## Rôle
 Tu es l'architecte et le lead developer d'un **outil de BI local dans l'esprit de Power BI** :
-import de données, rapports multi-pages, 22 types de visuels, segments, filtres, filtrage croisé,
+import de données, rapports multi-pages, 24 types de visuels, segments, filtres, filtrage croisé,
 cartes hors ligne, boutons d'automatisation, assistant IA (Ollama local ; Claude en mode « En ligne »).
 
 ## Principe n°1 : local d'abord
@@ -43,7 +43,7 @@ backend/
   tests/                      # pytest — data_dir temporaire par test, aucun réseau ni CLI réels
 frontend/src/
   theme/                      # thèmes de rapport, styles de visuels, couleurs hex
-  visuals/registry.ts         # ★ catalogue des visuels : rôles, options, requête, composant (23 types)
+  visuals/registry.ts         # ★ catalogue des visuels : rôles, options, requête, composant (24 types)
   visuals/types.ts            # contrat VisualDef / VisualProps
   visuals/common.tsx          # requête générique, couleurs, info-bulles, sélection
   visuals/{charts,data,maps,interactive}/
@@ -61,6 +61,11 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 3. Ajouter l'entrée dans `VISUALS` (`registry.ts`) : rôles, options, `query` (souvent `genericQuery`).
 4. Mettre à jour le test du registre (`logic.test.ts`) et la spec §5.
 5. Export PowerPoint : entrée dans `BUILDERS` (natif) ou `IMAGE_ONLY` (`frontend/src/export/buildVisual.ts`).
+
+## Rapports générés (jalon 11)
+- `studio/starter.ts` : `analyze(profil)` (nature `flows` / `events` / `list`, rôle des colonnes) → sections → `finish` (barre de filtres = zone de texte `panel` + segments + « Réinitialiser », titre, `navigator`). `starterPages` (un jeu), `storyPages` (exemples de la suite : tous les jeux d'une histoire). Règles testées dans `studio/starter.test.ts` (rôles et champs valides, page 1280 × 720, aucun chevauchement, navigateur dès 2 pages) : toute nouvelle recette s'y ajoute avec un profil type.
+- Jamais de secteurs sur une mesure signée sans filtre positif ; prix, taux, CPA moyennés (`natural`) ; parts qui totalisent 100 % comparées (`shares`), jamais moyennées ; fractions → option `fraction`.
+- Navigateur : `navigablePages` (sans pages d'extraction) ; export natif (`navigator` de `buildVisual.ts`, `links.pages` / `links.pageId`). En édition, la barre de déplacement d'un bouton ou d'un navigateur laisse passer les clics (`clickThrough`).
 
 ## Placement des visuels
 - Page en pixels (`Page.size`, 1280 × 720 par défaut) ; `Visual.layout` en px de page. Géométrie pure dans `studio/grid.ts` (migration des anciens rapports en grille, bornage, hauteur) et `studio/snap.ts` (déplacement, redimensionnement, repères), testée dans `studio/placement.test.ts`.

@@ -18,6 +18,7 @@ import {
   Map as MapIcon,
   MapPin,
   MousePointerClick,
+  PanelTop,
   PieChart,
   Radar,
   Rows3,
@@ -41,6 +42,7 @@ import { MatrixVisual } from "./data/MatrixVisual";
 import { matrixQuery } from "./data/pivot";
 import { TableVisual } from "./data/TableVisual";
 import { ButtonVisual, TextVisual } from "./interactive/ButtonVisual";
+import { NavigatorVisual } from "./interactive/NavigatorVisual";
 import { ParameterVisual } from "./interactive/ParameterVisual";
 import { PARAMETER_DEFAULTS } from "./interactive/parameters";
 import { SlicerVisual } from "./interactive/SlicerVisual";
@@ -411,6 +413,38 @@ export const VISUALS: Record<VisualType, VisualDef> = {
     ],
     component: ButtonVisual,
   },
+  navigator: {
+    type: "navigator",
+    label: "Navigateur de pages",
+    icon: PanelTop,
+    group: "Interactivité",
+    roles: [],
+    size: { w: 12, h: 3 },
+    defaults: { orientation: "horizontal", look: "tabs" },
+    options: [
+      {
+        key: "orientation",
+        label: "Orientation",
+        type: "select",
+        section: "Navigateur",
+        choices: [
+          { value: "horizontal", label: "Horizontale (barre)" },
+          { value: "vertical", label: "Verticale (colonne)" },
+        ],
+      },
+      {
+        key: "look",
+        label: "Apparence",
+        type: "select",
+        section: "Navigateur",
+        choices: [
+          { value: "tabs", label: "Onglets pleins" },
+          { value: "underline", label: "Soulignée" },
+        ],
+      },
+    ],
+    component: NavigatorVisual,
+  },
   text: {
     type: "text",
     label: "Zone de texte",
@@ -421,6 +455,7 @@ export const VISUALS: Record<VisualType, VisualDef> = {
     defaults: { text: "**Titre**\nTexte libre — gras avec **…**, puces avec « - ».", size: "md", align: "left" },
     options: [
       { key: "text", label: "Texte", type: "textarea", section: "Texte" },
+      { key: "panel", label: "Panneau (fond du thème, ex. barre de filtres)", type: "boolean", section: "Texte" },
       {
         key: "size",
         label: "Taille",

@@ -4,8 +4,8 @@ import type { VisualTypeSpec } from "../types/builder";
 import type { VisualType } from "../types/report";
 import { VISUALS } from "./registry";
 
-/** Visuels sans données (bouton, texte) : hors du périmètre de l'IA. */
-const EXCLUDED_TYPES: VisualType[] = ["button", "text", "parameter"];
+/** Visuels sans données (bouton, texte, navigateur) : hors du périmètre de l'IA. */
+const EXCLUDED_TYPES: VisualType[] = ["button", "text", "parameter", "navigator"];
 
 /** Options de présentation fine : inutiles à l'IA, elles allongeraient le prompt. */
 const EXCLUDED_OPTIONS = new Set(["prefix", "suffix", "decimals", "label", "url", "method", "confirm", "targetPage", "variant", "text"]);

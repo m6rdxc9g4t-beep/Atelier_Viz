@@ -9,14 +9,18 @@ export interface NumberFormat {
   compact?: boolean;
   prefix?: string;
   suffix?: string;
+  /** Valeurs stockées en fraction (0,6) affichées en pourcentage (60 %). */
+  fraction?: boolean;
 }
 
 const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
 
 export function formatNumber(value: Scalar, fmt: NumberFormat = {}): string {
   if (value === null || value === "") return "(Vide)";
-  const n = typeof value === "number" ? value : Number(value);
-  if (Number.isNaN(n)) return String(value);
+  const raw = typeof value === "number" ? value : Number(value);
+  if (Number.isNaN(raw)) return String(value);
+  if (fmt.fraction) return formatNumber(raw * 100, { ...fmt, fraction: false, compact: false, decimals: fmt.decimals ?? 0, suffix: fmt.suffix ?? " %" });
+  const n = raw;
   const auto = fmt.decimals ?? (Math.abs(n) >= 100 || Number.isInteger(n) ? 0 : 2);
   const text = new Intl.NumberFormat("fr-FR", {
     notation: fmt.compact ? "compact" : "standard",

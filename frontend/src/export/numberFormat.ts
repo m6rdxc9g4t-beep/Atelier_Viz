@@ -30,6 +30,8 @@ const UNITS = [
  */
 export function excelFormat(fmt: NumberFormat, values: number[], percent = false, target: "axis" | "label" = "axis"): string {
   if (percent) return "0%";
+  // Fraction (0,6) : le format pourcentage d'Excel multiplie par 100.
+  if (fmt.fraction) return `${literal(fmt.prefix)}0${decimalsPart(fmt.decimals ?? 0)}%`;
   const finite = values.filter(Number.isFinite);
   const maxAbs = finite.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
   const prefix = literal(fmt.prefix);

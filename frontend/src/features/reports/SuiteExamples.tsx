@@ -6,7 +6,7 @@ import { openExternal } from "../../lib/desktop";
 import { APP_LABELS, THIS_APP, pickHistoire, readRemembered, remember, stepsAround } from "../../lib/exemples";
 import { navigate } from "../../lib/router";
 import { suiteApps } from "../../lib/suite";
-import { starterPages } from "../../studio/starter";
+import { storyPages } from "../../studio/starter";
 import type { ExempleHistoire } from "../../types/exemples";
 import type { ReportSummary } from "../../types/report";
 
@@ -51,8 +51,10 @@ export function SuiteExamples({ reports, onChanged }: { reports: ReportSummary[]
         return;
       }
       const report = await api.reports.create(res.rapport, res.operations_id);
-      const profile = await api.datasets.get(res.operations_id);
-      await api.reports.save(report.id, { name: res.rapport, dataset_id: res.operations_id, theme: {}, pages: starterPages(profile) });
+      // Opérations d'abord, puis les tables métier de l'histoire (contrats, lots, commandes…) : une page chacune.
+      const ids = [res.operations_id, ...res.datasets.map((d) => d.id).filter((id) => id !== res.operations_id)];
+      const profiles = await Promise.all(ids.map((id) => api.datasets.get(id)));
+      await api.reports.save(report.id, { name: res.rapport, dataset_id: res.operations_id, theme: {}, pages: storyPages(histoire.titre, profiles) });
       navigate(`/rapports/${report.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

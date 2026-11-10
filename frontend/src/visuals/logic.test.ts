@@ -226,27 +226,20 @@ describe("édition", () => {
   });
 
   it("génère un rapport de démarrage cohérent", () => {
+    // Détail des règles : studio/starter.test.ts.
     const pages = starterPages(dataset);
-    // En pixels, dans une page 16:9 de 1280 px de large (allongée si besoin).
     for (const p of pages) {
       expect(p.size?.width).toBe(1280);
       for (const v of p.visuals) expect(v.layout.x + v.layout.w).toBeLessThanOrEqual(1280);
     }
-    expect(pages.map((p) => p.name)).toEqual(["Vue d'ensemble", "Détail"]);
     const types = pages.flatMap((p) => p.visuals.map((v) => v.type));
-    expect(types).toEqual(expect.arrayContaining(["kpi", "column", "map", "matrix", "table", "button", "slicer"]));
-    for (const v of pages.flatMap((p) => p.visuals)) {
-      for (const [roleId, bindings] of Object.entries(v.roles)) {
-        expect(VISUALS[v.type].roles.some((r) => r.id === roleId)).toBe(true);
-        for (const b of bindings) expect(dataset.columns.some((c) => c.name === b.field)).toBe(true);
-      }
-    }
+    expect(types).toEqual(expect.arrayContaining(["kpi", "bar", "table", "button", "slicer"]));
   });
 });
 
 describe("registre et cartes", () => {
   it("chaque visuel a un composant, des rôles uniques et des options cohérentes", () => {
-    expect(Object.keys(VISUALS)).toHaveLength(23);
+    expect(Object.keys(VISUALS)).toHaveLength(24);
     for (const def of Object.values(VISUALS)) {
       expect(def.component).toBeTypeOf("function");
       expect(new Set(def.roles.map((r) => r.id)).size).toBe(def.roles.length);

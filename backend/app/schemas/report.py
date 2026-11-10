@@ -40,6 +40,7 @@ VisualType = Literal[
     "parameter",
     "button",
     "text",
+    "navigator",
 ]
 
 

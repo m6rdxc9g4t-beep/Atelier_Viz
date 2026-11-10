@@ -115,6 +115,10 @@ export function PieVisual(props: VisualProps) {
   const tooltipExtras = useTooltipExtras(props);
   const data = slices(props.visual, props.result, props.dataset, true, colors);
   if (!data.length) return <VisualMessage>Aucune donnée pour ces filtres.</VisualMessage>;
+  // Des parts négatives n'ont pas de sens (anneau vide ou faux) : le dire plutôt que tracer.
+  if (data.some((sl) => sl.value < 0)) {
+    return <VisualMessage>Valeurs négatives : des secteurs ne peuvent pas les représenter. Utilisez un histogramme ou une cascade, ou filtrez les valeurs positives.</VisualMessage>;
+  }
   const fmt = numberFormat(visual);
   const total = data.reduce((t, s) => t + s.value, 0);
   const donut = visual.type === "donut";

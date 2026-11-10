@@ -312,6 +312,26 @@ describe("visuels natifs", () => {
     expect(ofKind(buildVisual(ctx(js, data(null))).items, "shape")[0]?.link).toBeUndefined();
   });
 
+  it("navigateur de pages : un onglet par page, liés aux diapositives, page courante mise en avant", () => {
+    const nav = visual("navigator", {}, { orientation: "horizontal", look: "tabs" });
+    const pages = [{ id: "p1", name: "Ventes" }, { id: "p2", name: "Détail" }];
+    const built = buildVisual(ctx(nav, data(null), { links: { slideOf: (id) => (id === "p2" ? 3 : 2), page: "Ventes", report: "R", filters: [], pages, pageId: "p1" } }));
+    const shapes = ofKind(built.items, "shape");
+    expect(shapes.map((sh) => sh.text?.runs[0]?.text)).toEqual(["Ventes", "Détail"]);
+    expect(shapes[0]?.link).toBeUndefined(); // page courante
+    expect(shapes[0]?.text?.bold).toBe(true);
+    expect(shapes[1]?.link).toEqual({ slide: 3 });
+    expect(shapes[0]!.rect.x).toBeLessThan(shapes[1]!.rect.x);
+    expect(needsImage(nav, VISUALS.navigator, "image")).toBe(false);
+  });
+
+  it("zone de texte en panneau : fond derrière le texte", () => {
+    const panel = visual("text", {}, { text: "**Filtres**", panel: true });
+    const items = buildVisual(ctx(panel, data(null))).items;
+    expect(items[0]?.kind).toBe("shape");
+    expect(items[1]?.kind).toBe("text");
+  });
+
   it("image pour ce que PowerPoint ne trace pas, et pour tout en mode Images", () => {
     const map = visual("map", { location: [{ field: "region" }], values: [{ field: "ca", agg: "sum" }] });
     const col = visual("column", { category: [{ field: "region" }], values: [{ field: "ca", agg: "sum" }] });

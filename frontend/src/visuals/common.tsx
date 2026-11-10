@@ -91,6 +91,7 @@ export function numberFormat(visual: Visual, binding?: FieldBinding): NumberForm
     compact: o.compact === true,
     prefix: typeof o.prefix === "string" ? o.prefix : undefined,
     suffix: typeof o.suffix === "string" ? o.suffix : undefined,
+    fraction: o.fraction === true,
   };
   // Pourcentages (évolution vs N-1, part du total) : « 12,5 % », même au milieu d'autres valeurs.
   const values = Object.values(visual.roles).flat().filter((b) => b.agg);
@@ -103,6 +104,7 @@ export const NUMBER_OPTIONS: OptionDef[] = [
   { key: "decimals", label: "Décimales", type: "number", min: 0, max: 6, section: "Valeurs" },
   { key: "prefix", label: "Préfixe", type: "text", placeholder: "ex. $", section: "Valeurs" },
   { key: "suffix", label: "Suffixe", type: "text", placeholder: "ex.  €", section: "Valeurs" },
+  { key: "fraction", label: "Fraction en pourcentage (0,6 → 60 %)", type: "boolean", section: "Valeurs" },
 ];
 
 export const SORT_OPTIONS: OptionDef[] = [

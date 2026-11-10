@@ -137,16 +137,16 @@ Atelier Viz fait partie d'une suite de trois applications locales — **Atelier 
 - `options` est libre côté backend ; chaque type de visuel définit les siennes (registre frontend).
 - `bookmarks` : signets du rapport (§ 6 bis). Absent des rapports antérieurs au jalon 6 : lu comme une liste vide, réécrit au prochain enregistrement.
 
-## 5. Catalogue de visuels (23)
+## 5. Catalogue de visuels (24)
 
 | Groupe | Visuels |
 |---|---|
 | Graphiques | Histogramme, Barres horizontales, Courbes, Aires, Combiné barres + courbes (un seul axe), Secteurs, Anneau, Treemap, Entonnoir, Radar, Cascade, Nuage de points, Jauge, Carte de chaleur |
 | Données | Carte KPI (cible + tendance), Table (tri, total), Matrice (lignes hiérarchiques, colonne pivot, sous-totaux exacts) ; mise en forme conditionnelle des deux (voir ci-dessous) |
 | Cartes | Choroplèthe (France régions, France départements, monde ; noms ou codes, français ou anglais), Carte à points (latitude / longitude, taille, couleur) |
-| Interactivité | Segment (liste, liste déroulante, vignettes, plage de nombres ou de dates), Paramètre de simulation (curseur), Bouton d'action, Zone de texte |
+| Interactivité | Segment (liste, liste déroulante, vignettes, plage de nombres ou de dates), Paramètre de simulation (curseur), Bouton d'action, **Navigateur de pages** (un onglet par page, page courante mise en avant, horizontal ou vertical, onglets pleins ou soulignés ; pages d'extraction exclues ; onglets liés aux diapositives dans l'export PowerPoint), Zone de texte (option « Panneau » : fond du thème, ex. barre de filtres) |
 
-Options communes : légende, étiquettes, tri (catégorie / valeur), Top N, format des nombres (compact, décimales, préfixe, suffixe), empilé / 100 %, lissage, marqueurs.
+Options communes : légende, étiquettes, tri (catégorie / valeur), Top N, format des nombres (compact, décimales, préfixe, suffixe, **fraction en pourcentage** : 0,6 → 60 %), empilé / 100 %, lissage, marqueurs. Secteurs et anneau refusent les valeurs négatives (message plutôt qu'un anneau vide ou faux, à l'écran comme dans l'export).
 
 ### Analyse : tendance et prévision (courbes, aires, histogramme)
 
@@ -401,7 +401,11 @@ Bouton **Exporter** du Studio → PowerPoint, **PDF**, **Image (PNG)** ou **Rapp
 - **Page d'extraction (drill-through)** : sur une page, sans visuel sélectionné, volet Visualisations → « Page d'extraction » et ses champs (`Page.drillthrough.fields`, 10 au plus). Clic droit sur une barre, une part, une ligne… d'une autre page → menu « Extraire vers « Détail région » » : la page s'ouvre filtrée sur l'élément (filtres transmis par relation, sinon par colonne de même nom), avec un bandeau « Extraction : region = Occitanie · Retour ». L'extraction n'est pas enregistrée (changer de page l'abandonne). Onglet marqué d'une flèche.
 - **Présentation** (bouton « Présenter ») : plein écran, page entière à l'écran, flèches / Page suivante / Espace pour avancer, Échap pour quitter ; diaporama automatique (5 à 60 s par diapositive, touche P) des pages ordinaires ou des **signets** ; barre de commande masquée quand la souris est immobile ; clic droit et pages d'extraction disponibles. Le mode d'avant (Édition / Lecture) est rétabli en sortant.
 - **Sauvegarde** automatique 0,8 s après la dernière modification.
-- **Rapport de démarrage** : mise en page générée depuis le profil d'un jeu (KPI, évolution, répartition, carte si un champ région/département/pays est reconnu, segment, matrice, table, boutons).
+- **Rapport de démarrage** (`studio/starter.ts`, sans IA) : mise en page à la Power BI, adaptée au jeu.
+  - Chaque page : **barre de filtres à gauche** (zone de texte en panneau, segments choisis pour le jeu : plage de dates, périodes « 2026-08 » en vignettes, statut et regroupements en liste ou liste déroulante, « Réinitialiser »), titre et **navigateur de pages** en haut, rangée de KPI, graphiques. Page 1280 × 720, aucun chevauchement.
+  - Nature du jeu reconnue sur les noms, types et valeurs des colonnes (`analyze`) : **flux** (débit / crédit ou montant signé → recettes, dépenses, solde, solde cumulé, dépenses par catégorie filtrées sur les débits, page « Dépenses » croisée et treemap, liste des opérations) ; **événements** (lignes datées nombreuses → évolution par la meilleure dimension, répartition, classement, page « Analyse » : tableau croisé par mois, carte si région / département / pays ou latitude / longitude, Top 15) ; **liste** (éléments nommés : contrats, lots, missions → classement, répartition par statut, avancement, comparaison cible / réalisé pour des parts qui totalisent 100 %, carte à points, table avec barres de données).
+  - Règles : mesure principale = montant qui s'additionne (jamais un prix unitaire, un taux ou un CPA, moyennés) ; secteurs seulement pour 6 parts au plus, toutes positives ; libellés quasi uniques (« Libellé ») jamais en regroupement ; colonnes d'un jeu lié après celles du jeu ; fractions (0,6) affichées en pourcentage ; montants en euros.
+  - **Exemples de la suite** : un rapport par histoire qui réunit ses jeux (opérations → Trésorerie, Dépenses, Opérations ; puis une page par table métier : contrats, sinistres, lots, commandes, plan média…) derrière un même navigateur (`storyPages`). Un rapport d'exemple créé avant cette version se régénère en retirant puis rechargeant l'exemple.
 
 ### Boutons d'automatisation
 | Action | Détail |
@@ -560,7 +564,7 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 ## 8. Exigences non fonctionnelles
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
-- Tests : pytest (543, + 2 sur serveurs réels) côté back, Vitest (245) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
+- Tests : pytest (543, + 2 sur serveurs réels) côté back, Vitest (260) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
 - Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
@@ -586,3 +590,4 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - **Jalon 8 ter — Windows** ✅ : installation depuis le dépôt sous Windows comme sur le Mac (docs/SUITE.md §9) : `scripts/windows/install.ps1` (prérequis et commandes `winget`, environnement Python dédié, lanceur sans console, raccourcis menu Démarrer / Bureau, enregistrement dans le registre, réparation, désinstallation sans toucher aux données), mise à jour automatique multiplateforme (npm par `node.exe npm-cli.js`, chemins avec espaces et accents, journaux `%LOCALAPPDATA%`, fichiers verrouillés), `.gitattributes` (fins de ligne), ouverture des autres apps de la suite avec un environnement minimal (registre sous Windows), variables héritées d'une autre app ignorées ; CI Windows (`windows.yml` : tests, compilation, installation, lanceur en mode mise à jour seule, second lancement sans rien refaire). Reste : ARM64 vérifié sur une vraie machine.
 - **Jalon 9 — Analyse et sources** ✅ : export des données d'un visuel (Excel natif, CSV pour Excel français, ce qui est affiché), ligne de tendance et prévision linéaire avec intervalle à 95 % (courbes, aires, histogramme), paramètres de simulation (curseur → `PARAM("nom", défaut)` dans les mesures, signets, export), info-bulles enrichies (puits « Info-bulles », requête exacte par élément de l'axe), connecteur « Fichier web (URL) » (CSV / Excel / JSON en http(s), jeton au trousseau, politique hors ligne des webhooks). Suite au jalon 10.
 - **Jalon 10 — Automatisation complète** ✅ : alertes par e-mail (serveur SMTP de l'utilisateur, mot de passe au trousseau, politique hors ligne), actualisation quand l'application est fermée (launchd, Planificateur de tâches, minuteur systemd ; passage sans serveur qui s'efface si l'application est ouverte), signets en groupes (diaporama par groupe) et signets personnels (jamais envoyés à GitHub), nœud Atelier : flux poussé SSE et actions d'écriture (`reports.duplicate`, `alerts.create` / `set_enabled` / `evaluate` / `delete`), connecteurs Snowflake et BigQuery (en ligne, lecture seule, plafond de coût), info-bulles enrichies des secteurs, treemap et cartes, prévision saisonnière, plages IPv6 de traduction jamais locales et webhooks hors ligne sans proxy. Reste : proposer le flux SSE au contrat commun (docs/SUITE.md, dans les trois dépôts) ; Windows ARM64 vérifié sur une vraie machine.
+- **Jalon 11 — Rapports sur mesure** ✅ : rapport de démarrage adapté à la nature du jeu (flux, événements, liste) et à la Power BI (barre de filtres à gauche, navigateur de pages en haut), rapports des exemples de la suite qui réunissent tous les jeux d'une histoire, visuel « Navigateur de pages » (24 visuels), zone de texte en panneau, format « fraction en pourcentage », secteurs refusant les valeurs négatives, barre de déplacement qui laisse cliquer boutons et navigateur en édition.

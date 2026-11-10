@@ -6,6 +6,7 @@
  * visuels sans équivalent natif → écriture pptxgenjs (chargé à la demande).
  */
 
+import { navigablePages } from "../visuals/interactive/NavigatorVisual";
 import { type SaveOutcome, saveFile } from "../lib/desktop";
 import { getProfile } from "../hooks/useDatasetProfiles";
 import type { DatasetProfile } from "../types/dataset";
@@ -271,6 +272,8 @@ export async function exportReport(input: ExportInput): Promise<ExportResult> {
           page: planned.page.name,
           report: report.name,
           filters: data.get(visual.id)?.filters ?? [],
+          pages: navigablePages(report.pages).map((p) => ({ id: p.id, name: p.name })),
+          pageId: planned.page.id,
         },
       });
       addItems(pptx, slide, built.items);
