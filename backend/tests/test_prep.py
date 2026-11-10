@@ -192,6 +192,59 @@ def test_store_rejects_steps_that_break_the_model_or_relations(store: DatasetSto
     assert store.get(ds.id).profile().rows == 5
 
 
+def test_refresh_keeps_what_was_saved_while_it_was_reading(store: DatasetStore) -> None:
+    """Une actualisation part d'un instantané du jeu lu avant de joindre la source : ce qui a été enregistré
+    entre-temps (mesure, étapes) ne doit pas être écrasé à son retour."""
+    stale = store.add("clients.csv", "csv", RAW.copy())
+    steps = STEPS.validate_python([{"kind": "cast", "column": "Montant", "to": "number"}])
+    store.set_steps(stale, steps)
+    model = DatasetModel.model_validate(
+        {
+            "columns": [{"name": "ttc", "expression": "Montant * 2"}],
+            "measures": [{"name": "total", "expression": "SUM(ttc)"}],
+        }
+    )
+    store.set_model(stale, model)  # l'écran du modèle part lui aussi d'une lecture antérieure aux étapes
+
+    fresh = RAW.assign(Montant=["10", "20", "30", "40", "50"])
+    updated = store.replace_data(stale, fresh, None)  # instantané d'avant les étapes et le modèle
+
+    profile = store.get(stale.id).profile()
+    assert updated.profile() == profile
+    assert [s.kind for s in profile.steps] == ["cast"]  # étapes gardées et rejouées
+    assert [m.name for m in profile.model.measures] == ["total"]
+    assert next(c for c in profile.columns if c.name == "ttc").calculated
+    _, rows = store.db.execute(f'SELECT SUM("ttc") FROM "{updated.source}"')
+    assert rows[0][0] == 300  # la vue calcule sur les nouvelles données, avec la colonne calculée
+    # Enregistrer des étapes depuis un instantané ancien garde aussi le modèle.
+    store.set_steps(
+        stale, [*steps, *STEPS.validate_python([{"kind": "filter", "column": "Montant", "op": "gt", "values": ["10"]}])]
+    )
+    profile = store.get(stale.id).profile()
+    assert profile.rows == 4 and [m.name for m in profile.model.measures] == ["total"]
+
+
+def test_writes_on_a_removed_dataset_change_nothing(store: DatasetStore) -> None:
+    stale = store.add("clients.csv", "csv", RAW.copy())
+    assert store.remove(stale.id)
+
+    def tables() -> list[str]:
+        _, rows = store.db.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_name LIKE ?", [f"%{stale.id}%"]
+        )
+        return [r[0] for r in rows]
+
+    for write in (
+        lambda: store.replace_data(stale, RAW.copy(), None),
+        lambda: store.set_steps(stale, STEPS.validate_python([{"kind": "cast", "column": "Montant", "to": "number"}])),
+        lambda: store.set_model(stale, DatasetModel()),
+    ):
+        with pytest.raises(ModelError, match="supprimé"):
+            write()
+        assert tables() == []  # ni table, ni source brute, ni vue orpheline
+    assert store.get(stale.id) is None
+
+
 def test_routes(client) -> None:
     ds_id = next(d for d in client.post("/api/samples").json()["datasets"] if d["name"] == "magasins.csv")["id"]
     steps = {"steps": [{"kind": "filter", "column": "ville", "op": "contains", "values": ["Paris"]}]}

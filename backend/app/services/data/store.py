@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -91,8 +92,25 @@ class StoredDataset:
         return self.profile_data
 
 
+class DatasetGoneError(ModelError):
+    """Écriture demandée sur un jeu supprimé entre-temps (actualisation en cours pendant la suppression)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            [
+                ModelIssue(
+                    kind="column", name="(jeu)", error="Ce jeu a été supprimé pendant l'opération : rien n'a changé."
+                )
+            ]
+        )
+
+
 class DatasetStore:
     """Accès aux jeux de données. Méthodes synchrones : à appeler via `asyncio.to_thread`.
+
+    Écritures d'un jeu existant (`set_model`, `set_steps`, `replace_data`, `remove`) : une à la fois, et toujours
+    sur l'état enregistré, relu sous le verrou — jamais sur l'instantané reçu, qui peut dater d'avant une longue
+    lecture de la source (une actualisation n'écrase pas le modèle enregistré pendant qu'elle lisait).
 
     Observateurs (`on_created`, `on_removed`) : appelés après chaque création / suppression, quel que soit
     le chemin (fichier, connexion, exemples, workflow) ; une erreur d'observateur est journalisée, jamais relancée.
@@ -103,6 +121,7 @@ class DatasetStore:
         self.db.execute(_META_DDL)
         self._created: list[Callable[[StoredDataset], None]] = []
         self._removed: list[Callable[[str, str], None]] = []
+        self._write_lock = threading.RLock()  # réentrant : reconstruire les jeux liés rappelle set_model
 
     def on_created(self, listener: Callable[[StoredDataset], None]) -> None:
         """Abonne un observateur appelé après la création d'un jeu (jeu créé)."""
@@ -166,21 +185,29 @@ class DatasetStore:
         )
 
     def remove(self, dataset_id: str) -> bool:
-        existing = self.get(dataset_id)
-        if existing is None:
-            return False
-        # Les jeux liés à celui-ci perdent leur relation (et ce qui en dépendait) avant la suppression.
-        for dep in self.dependents(dataset_id):
-            model = dep.profile_data.model.model_copy(
-                update={"relations": [r for r in dep.profile_data.model.relations if r.dataset_id != dataset_id]}
-            )
-            self._set_model_pruned(dep, model)
-        self.db.execute(f"DROP VIEW IF EXISTS {quote_ident(f'v_{dataset_id}')}")
-        self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'ds_{dataset_id}')}")
-        self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset_id}')}")
-        self.db.execute("DELETE FROM __datasets WHERE id = ?", [dataset_id])
+        with self._write_lock:
+            existing = self.get(dataset_id)
+            if existing is None:
+                return False
+            # Les jeux liés à celui-ci perdent leur relation (et ce qui en dépendait) avant la suppression.
+            for dep in self.dependents(dataset_id):
+                model = dep.profile_data.model.model_copy(
+                    update={"relations": [r for r in dep.profile_data.model.relations if r.dataset_id != dataset_id]}
+                )
+                self._set_model_pruned(dep, model)
+            self.db.execute(f"DROP VIEW IF EXISTS {quote_ident(f'v_{dataset_id}')}")
+            self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'ds_{dataset_id}')}")
+            self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset_id}')}")
+            self.db.execute("DELETE FROM __datasets WHERE id = ?", [dataset_id])
         self._notify(self._removed, dataset_id, existing.name)
         return True
+
+    def _current(self, dataset: StoredDataset) -> StoredDataset:
+        """État enregistré du jeu, relu sous `_write_lock` avant toute écriture (`DatasetGoneError` s'il a disparu)."""
+        current = self.get(dataset.id)
+        if current is None:
+            raise DatasetGoneError
+        return current
 
     def find_by_origin_key(self, key: str) -> StoredDataset | None:
         """Jeu alimenté par un workflow sous cette clé externe (`origin.kind == "atelier-table"`), s'il existe."""
@@ -196,33 +223,39 @@ class DatasetStore:
         Lève `ModelError` (rien n'est modifié) si une relation, une colonne ou une mesure est invalide.
         Les jeux qui dépendent de celui-ci (relations vers lui) sont reconstruits ensuite.
         """
-        profile = dataset.profile_data
-        base = [c for c in profile.columns if not c.calculated and not c.related]
-        previous = self._view_sql(dataset.id, base, profile.model)
-        try:
-            derived = self._materialize(dataset.id, base, model)
-        except duckdb.Error as exc:
-            if previous:
-                self.db.execute(previous)  # la vue précédente est rétablie : rien n'est modifié
-            raise ModelError([ModelIssue(kind="column", name="(modèle)", error=f"Calcul impossible : {exc}")]) from exc
-        updated = profile.model_copy(update={"columns": base + derived, "model": model})
-        self.db.execute("UPDATE __datasets SET profile = ? WHERE id = ?", [updated.model_dump_json(), dataset.id])
-        self._rebuild_dependents(dataset.id)
-        return StoredDataset(dataset.id, updated)
+        with self._write_lock:
+            profile = self._current(dataset).profile_data
+            base = [c for c in profile.columns if not c.calculated and not c.related]
+            previous = self._view_sql(dataset.id, base, profile.model)
+            try:
+                derived = self._materialize(dataset.id, base, model)
+            except duckdb.Error as exc:
+                if previous:
+                    self.db.execute(previous)  # la vue précédente est rétablie : rien n'est modifié
+                raise ModelError(
+                    [ModelIssue(kind="column", name="(modèle)", error=f"Calcul impossible : {exc}")]
+                ) from exc
+            updated = profile.model_copy(update={"columns": base + derived, "model": model})
+            self.db.execute("UPDATE __datasets SET profile = ? WHERE id = ?", [updated.model_dump_json(), dataset.id])
+            self._rebuild_dependents(dataset.id)
+            return StoredDataset(dataset.id, updated)
 
     def replace_data(self, dataset: StoredDataset, df: pd.DataFrame, origin: AnyOrigin | None) -> StoredDataset:
         """Actualise le contenu d'un jeu (même identifiant : les rapports restent branchés).
 
         Les étapes de préparation sont rejouées sur les nouvelles données, puis le modèle (relations,
         colonnes et mesures calculées) est revalidé : si une étape ou le modèle ne tient plus (colonne
-        disparue…), `ModelError` est levée et rien n'est modifié.
+        disparue…), `ModelError` est levée et rien n'est modifié. `dataset` ne sert qu'à désigner le jeu :
+        étapes et modèle sont ceux enregistrés au moment de l'écriture.
         """
-        steps = dataset.profile_data.steps
-        prepared = _prepare(df, steps)
-        updated = self._store(dataset, prepared, origin, raw=df if steps else None)
-        if not steps:
-            self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset.id}')}")
-        return updated
+        with self._write_lock:
+            current = self._current(dataset)
+            steps = current.profile_data.steps
+            prepared = _prepare(df, steps)
+            updated = self._store(current, prepared, origin, raw=df if steps else None)
+            if not steps:
+                self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset.id}')}")
+            return updated
 
     def set_steps(self, dataset: StoredDataset, steps: list[PrepStep]) -> StoredDataset:
         """Enregistre les étapes de préparation et les applique à la source brute.
@@ -230,14 +263,16 @@ class DatasetStore:
         La source brute est conservée dans `raw_<id>` (copiée de la table à la première étape) ;
         le modèle est revalidé sur le résultat (`ModelError` sinon, rien n'est modifié).
         """
-        raw = self.raw_frame(dataset)
-        prepared = _prepare(raw, steps)
-        if not self._has_raw(dataset.id):
-            self.db.write_dataframe(f"raw_{dataset.id}", raw)
-        updated = self._store(dataset, prepared, dataset.profile_data.origin, steps=steps)
-        if not steps:
-            self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset.id}')}")
-        return updated
+        with self._write_lock:
+            current = self._current(dataset)
+            raw = self.raw_frame(current)
+            prepared = _prepare(raw, steps)
+            if not self._has_raw(dataset.id):
+                self.db.write_dataframe(f"raw_{dataset.id}", raw)
+            updated = self._store(current, prepared, current.profile_data.origin, steps=steps)
+            if not steps:
+                self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset.id}')}")
+            return updated
 
     def preview_steps(self, dataset: StoredDataset, steps: list[PrepStep], limit: int = SAMPLE_ROWS) -> PrepPreview:
         """Résultat des étapes sans rien enregistrer ; en cas d'erreur, colonnes avant l'étape fautive."""
