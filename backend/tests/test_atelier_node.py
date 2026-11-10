@@ -489,6 +489,46 @@ def test_events_for_connection_refresh_and_alerts(node: TestClient, sqlite_sourc
     assert failed["data"]["status"] == "error" and failed["data"]["message"]
 
 
+def test_upsert_evaluates_the_alerts_of_the_dataset(node: TestClient) -> None:
+    """Un workflow qui renvoie sa table déclenche les alertes du jeu, comme une actualisation de connexion."""
+
+    def push(hours: float, key: str | None = None) -> Any:
+        rows = [{"titre": "Sprint", "heures_estimees": hours, "echeance": "2026-11-02", "fait": False}]
+        body = {"name": "Charge", "key": "nexus:charge", "table": table(rows)}
+        return node.post("/api/atelier/datasets", json=body, headers={"Idempotency-Key": key} if key else {})
+
+    ds_id = push(10).json()["dataset_id"]
+    alert = {
+        "name": "Charge élevée",
+        "dataset_id": ds_id,
+        "measure": {"field": "Heures estimées", "agg": "sum"},
+        "comparison": "gt",
+        "threshold": 20,
+        "system": False,
+    }
+    alert_id = node.post("/api/alerts", json=alert).json()["id"]  # 10 : sous le seuil
+    assert of_type(node, "viz.alert.triggered") == []
+
+    assert push(35, key="nexus:run-7:step-2").status_code == 200
+    assert node.get(f"/api/alerts/{alert_id}").json()["met"] is True
+    assert len(node.get("/api/alerts/notifications").json()) == 1
+    fired = of_type(node, "viz.alert.triggered")
+    assert len(fired) == 1 and fired[0]["data"]["value"] == 35 and fired[0]["data"]["dataset_id"] == ds_id
+    assert fired[0]["seq"] > of_type(node, "viz.dataset.refreshed")[-1]["seq"]
+    # Requête rejouée (même clé) : réponse enregistrée, aucune nouvelle évaluation.
+    assert push(35, key="nexus:run-7:step-2").headers["idempotency-replayed"] == "true"
+    # Toujours au-dessus du seuil : pas de second déclenchement (anti-rebond).
+    assert push(40).status_code == 200
+    assert len(of_type(node, "viz.alert.triggered")) == 1 and len(node.get("/api/alerts/notifications").json()) == 1
+    # Une alerte en échec n'empêche jamais le workflow de livrer sa table.
+    node.app.state.atelier.on_replaced(_boom)  # type: ignore[attr-defined]
+    assert push(5).status_code == 200 and node.get(f"/api/alerts/{alert_id}").json()["met"] is False
+
+
+async def _boom(dataset_id: str) -> None:
+    raise RuntimeError("observateur en échec")
+
+
 def test_alert_for_each_event(node: TestClient) -> None:
     ds = upload(node)
     alert = {

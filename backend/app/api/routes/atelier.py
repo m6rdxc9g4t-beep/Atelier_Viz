@@ -78,7 +78,10 @@ async def upsert_table(
     """Crée un jeu (201) ou remplace les données du jeu de cette clé (200). `Idempotency-Key` accepté (§7.4)."""
 
     async def run() -> JSONResponse:
-        return _result(await asyncio.to_thread(atelier.upsert, body))
+        result = await asyncio.to_thread(atelier.upsert, body)
+        if result.action == "updated":  # données remplacées : alertes du jeu réévaluées, comme après une actualisation
+            await atelier.notify_replaced(result.dataset_id)
+        return _result(result)
 
     return await _idempotent(UPSERT_SCOPE, idempotency_key, body.model_dump(mode="json"), idempotency, run)
 

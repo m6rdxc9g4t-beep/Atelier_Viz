@@ -105,6 +105,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.atelier_writes = AtelierWrites(app.state.reports, app.state.alerts, app.state.dataset_store)
         app.state.idempotency = IdempotencyStore(data_dir / "atelier_idempotency.json")
         app.state.scheduler.on_refreshed(app.state.alerts.evaluate_dataset)
+        # Même chose quand un workflow remplace les données d'un jeu (`datasets.upsert_table`).
+        app.state.atelier.on_replaced(app.state.alerts.evaluate_dataset)
         ticker = (
             asyncio.create_task(app.state.scheduler.run_forever(settings.scheduler_period_seconds))
             if settings.scheduler_enabled

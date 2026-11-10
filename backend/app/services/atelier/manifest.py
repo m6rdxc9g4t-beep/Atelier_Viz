@@ -132,7 +132,8 @@ def _actions() -> list[ManifestAction]:
             "datasets.upsert_table",
             "Créer ou remplacer un jeu à partir d'une table",
             "Crée un jeu à partir d'une table atelier-table/1, ou remplace les données du jeu qui porte déjà "
-            "cette clé (le modèle et les rapports branchés sont conservés et revalidés).",
+            "cette clé (le modèle et les rapports branchés sont conservés et revalidés ; les alertes du jeu sont "
+            "réévaluées après un remplacement).",
             "write",
             "POST",
             "/api/atelier/datasets",
