@@ -60,8 +60,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api${path}`, { ...init, headers: { ...headers, ...init?.headers } });
-  } catch {
-    throw new ApiError(0, "Backend injoignable — lancez `uvicorn main:app --reload` dans backend/.");
+  } catch (err) {
+    // Requête annulée par l'appelant (bouton « Arrêter », saisie suivante) : ce n'est pas une panne du serveur.
+    if (init?.signal?.aborted || (err instanceof Error && err.name === "AbortError")) {
+      throw err instanceof Error && err.name === "AbortError" ? err : new DOMException("Requête annulée.", "AbortError");
+    }
+    throw new ApiError(0, "Le serveur local d'Atelier Viz ne répond pas : relancez l'application (en développement : `uvicorn main:app --reload` dans backend/).");
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { detail?: unknown };
