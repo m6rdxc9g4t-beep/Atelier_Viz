@@ -53,7 +53,8 @@ function initialBundle(): { files: Set<string>; packages: Set<string> } {
 
 describe("paquet initial", () => {
   const bundle = initialBundle();
-  const relative = [...bundle.files].map((f) => f.slice(SRC.length + 1));
+  // Chemins relatifs à src/, toujours avec « / » (sous Windows, `resolve` rend des « \ »).
+  const relative = [...bundle.files].map((f) => f.slice(SRC.length + 1).replace(/\\/g, "/"));
 
   it("part bien de l'application", () => {
     expect(relative).toContain("App.tsx");
