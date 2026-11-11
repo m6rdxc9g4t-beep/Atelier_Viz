@@ -351,6 +351,14 @@ textarea {
   opacity: 1;
 }
 
+/* Au doigt, le texte d'un champ est à 16 px : en dessous, Safari sur iPhone zoome la page dès qu'on touche le champ
+   (Atelier_Deploy/DESIGN.md). Hors contenu du rapport, qui garde son échelle. */
+@media (pointer: coarse) {
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), textarea, select):not(.bg-canvas *) {
+    font-size: 16px;
+  }
+}
+
 /* Cases à cocher, boutons radio, curseurs : couleur signature. */
 input[type="checkbox"],
 input[type="radio"],

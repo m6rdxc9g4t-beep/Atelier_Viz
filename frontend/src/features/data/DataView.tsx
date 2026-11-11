@@ -66,7 +66,7 @@ export function DataView({ state }: { state: DatasetsState }) {
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto" role="tablist" aria-label="Jeux de données">
+            <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto max-sm:basis-full" role="tablist" aria-label="Jeux de données">
               {datasets.map((d) => (
                 <button
                   key={d.id}
@@ -212,7 +212,7 @@ export function DataView({ state }: { state: DatasetsState }) {
 
               {state.pendingReplace?.id === selected.id && <ReplaceConfirm pending={state.pendingReplace} onConfirm={(p) => void state.replaceData(p.id, p.file, true)} onCancel={state.cancelReplace} />}
 
-              <dl className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-6" aria-label="Profil du jeu de données">
+              <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6" aria-label="Profil du jeu de données">
                 <Kpi label="Lignes" value={formatCount(selected.rows)} />
                 <Kpi label="Colonnes" value={formatCount(selected.columns_count)} />
                 {(["number", "date", "string", "boolean"] as const).map((t) => {

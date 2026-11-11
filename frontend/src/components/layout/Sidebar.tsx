@@ -21,7 +21,7 @@ const NAV: NavItem[] = [
 
 /**
  * Navigation principale, à la forme du portail (docs/SUITE.md §1.7) : barre latérale neutre de 232 px, marque en haut,
- * entrées de 30 px, entrée courante sur fond neutre. Icônes seules dans le Studio et sous 1024 px.
+ * entrées de 30 px (40 px au doigt), entrée courante sur fond neutre. Icônes seules dans le Studio et sous 1024 px.
  */
 export function Sidebar({ route, compact }: { route: Route; compact: boolean }) {
   return (
@@ -29,7 +29,7 @@ export function Sidebar({ route, compact }: { route: Route; compact: boolean }) 
       <div className={clsx("flex h-(--top-h) shrink-0 items-center justify-center", !compact && "lg:justify-start lg:px-3")}>
         <AtelierBrand showName={!compact} nameClassName="hidden lg:inline" />
       </div>
-      <nav className={clsx("flex flex-col gap-px px-2 pt-1", !compact && "lg:px-2")} aria-label="Navigation principale">
+      <nav className={clsx("flex flex-col gap-px px-2 pt-1 pointer-coarse:px-1", !compact && "lg:px-2")} aria-label="Navigation principale">
         {NAV.map(({ label, icon: Icon, path, match }) => {
           const current = match.includes(route.name);
           return (
@@ -40,7 +40,7 @@ export function Sidebar({ route, compact }: { route: Route; compact: boolean }) 
               onClick={() => navigate(path)}
               aria-current={current ? "page" : undefined}
               className={clsx(
-                "flex h-[30px] items-center justify-center gap-2.5 rounded-md px-2 text-sm font-medium transition-colors duration-100",
+                "flex h-[30px] items-center justify-center gap-2.5 rounded-md px-2 text-sm font-medium transition-colors duration-100 pointer-coarse:h-10",
                 !compact && "lg:justify-start",
                 current ? "atelier-nav-active [&>svg]:text-fg" : "text-fg/80 hover:bg-surface-2 hover:text-fg [&>svg]:text-faint",
               )}

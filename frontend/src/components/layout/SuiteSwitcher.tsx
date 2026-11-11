@@ -92,7 +92,7 @@ export function SuiteSwitcher() {
             setOpen(true);
           }
         }}
-        className={clsx("grid size-[30px] place-items-center rounded-md hover:bg-surface-2 hover:text-fg", open ? "bg-surface-3 text-fg" : "text-muted")}
+        className={clsx("grid size-[30px] shrink-0 place-items-center rounded-md hover:bg-surface-2 hover:text-fg pointer-coarse:size-10", open ? "bg-surface-3 text-fg" : "text-muted")}
       >
         <LayoutGrid className="size-4" aria-hidden />
       </button>
