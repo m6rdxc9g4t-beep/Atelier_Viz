@@ -27,7 +27,15 @@ from app.schemas.dataset import (
     TextStep,
     UnpivotStep,
 )
-from app.services.data.parsing import _FALSE, _TRUE, MIN_MATCH_RATIO, to_dates, to_numbers
+from app.services.data.parsing import (
+    _FALSE,
+    _TRUE,
+    MIN_MATCH_RATIO,
+    ambiguous_number,
+    to_dates,
+    to_numbers,
+    to_numbers_each,
+)
 from app.services.data.profiling import column_type
 
 logger = logging.getLogger(__name__)
@@ -97,12 +105,16 @@ def _to_number(series: pd.Series) -> pd.Series:
         return series.astype("Float64").astype(float)
     if pd.api.types.is_numeric_dtype(series):
         return series
-    # Séparateur décimal décidé sur toute la colonne (parsing.decimal_separator), jamais valeur par valeur.
-    numbers = to_numbers(series.astype("string").str.strip().str.replace(r"[€$£]", "", regex=True))
+    # Séparateur décimal décidé sur toute la colonne (parsing.decimal_separator). Si elle se contredit (« 12,5 » à
+    # côté de « 13.2 »), chaque valeur est lue seule ; seule une valeur ambiguë (« 1,234 ») fait refuser l'étape.
+    text = series.astype("string").str.strip().str.replace(r"[€$£]", "", regex=True)
+    numbers = to_numbers(text)
+    if numbers is None:
+        numbers = to_numbers_each(text)
     if numbers is None:
         raise _StepError(
-            "la colonne mélange « , » et « . » comme séparateur décimal : uniformisez-la d'abord "
-            "(étape « Remplacer des valeurs »)."
+            f"la colonne mélange « , » et « . » comme séparateur décimal, et « {ambiguous_number(text)} » peut se "
+            "lire de deux façons : uniformisez-la d'abord (étape « Remplacer des valeurs »)."
         )
     return numbers.astype(float)
 

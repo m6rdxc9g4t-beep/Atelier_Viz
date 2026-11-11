@@ -59,8 +59,15 @@ def test_cast_number_reads_the_separator_of_the_whole_column() -> None:
     assert out.tolist()[:3] == [1234.56, 12.5, 1234567.0]
     assert pd.isna(out.iloc[3])  # pas un nombre : jamais « 123 »
     assert out.iloc[4] == -8.3  # signe moins typographique, livre sterling
-    with pytest.raises(PrepError, match="séparateur décimal"):
-        run(pd.DataFrame({"n": ["1,5", "2.5"]}), cast)
+    # Colonne qui mélange les deux écritures (saisie à la main, fusion de deux sources) : chaque valeur sans
+    # ambiguïté se lit seule, comme avant la lecture par colonne.
+    mixed = pd.DataFrame({"n": ["12,5", "13.2", "14", "1.234,5", "1,234.5", "1.234.567", "0,125", "8 %", "n/a", None]})
+    out = run(mixed, cast)["n"]
+    assert out.tolist()[:8] == [12.5, 13.2, 14.0, 1234.5, 1234.5, 1234567.0, 0.125, 8.0]
+    assert out.iloc[8:].isna().all()
+    # Refus seulement si une valeur peut se lire de deux façons (« 1,234 » : 1,234 ou 1 234 ?), et le message la cite.
+    with pytest.raises(PrepError, match="séparateur décimal.*« 1,234 »"):
+        run(pd.DataFrame({"n": ["1,5", "2.5", "1,234"]}), cast)
     # Les valeurs saisies dans un filtre se lisent une à une, quelle que soit leur écriture.
     typed = pd.DataFrame({"n": [1.5, 2.5, 1234.0]})
     assert len(run(typed, [{"kind": "filter", "column": "n", "op": "in", "values": ["1,5", "2.5", "1,234.0"]}])) == 3
