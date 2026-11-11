@@ -226,6 +226,13 @@ def test_files_without_title_are_read_as_before() -> None:
     # Première ligne d'une seule cellule, mais suivie de données : c'est l'en-tête, jamais une ligne de titre.
     df, _ = read_table("x.csv", b"nom;\nA;1\nB;2\n")
     assert list(df.columns) == ["nom", "colonne_2"] and df["nom"].tolist() == ["A", "B"]
+    # En-tête dont une seule cellule est remplie, lignes de texte dessous : toujours l'en-tête, aucune ligne perdue.
+    df, _ = read_table("x.csv", b";;total\nNord;A;abc\nSud;B;def\n")
+    assert list(df.columns) == ["colonne_1", "colonne_2", "total"] and df["total"].tolist() == ["abc", "def"]
+    df, _ = read_table("x.csv", b"Notes;\na;b\nc;d\n")
+    assert list(df.columns) == ["Notes", "colonne_2"] and df["Notes"].tolist() == ["a", "c"]
+    df, _ = read_table("x.xlsx", xlsx([["Notes", None], ["a", "b"], ["c", "d"]]))
+    assert list(df.columns) == ["Notes", "colonne_2"] and df["colonne_2"].tolist() == ["b", "d"]
     # Classeur : en-têtes en double nommés comme avant (« a.1 »), les jeux déjà importés gardent leurs colonnes.
     df, _ = read_table("x.xlsx", xlsx([["a", "a", None, "b", "a", "a.1", 2024], [1, 2, 3, 4, 5, 6, 7]]))
     assert list(df.columns) == ["a", "a.2", "colonne_3", "b", "a.3", "a.1", "2024"]
@@ -242,11 +249,30 @@ def test_files_without_title_are_read_as_before() -> None:
         ([["nom", ""], ["A", "1"], ["B", "2"]], 0),  # la ligne suivante porte un nombre : ce sont des données
         ([["Titre"], ["2026", "12"], ["2027", "15"]], 0),
         ([["code"], ["A1"], ["12"]], 0),  # tableau d'une seule colonne : rien à deviner
+        ([["", "", "total"], ["Nord", "A", "abc"], ["Sud", "B", "def"]], 0),  # cellule remplie hors première colonne
+        ([["Notes", ""], ["a", "b"], ["c", "d"]], 0),  # largeur du tableau, pas de ligne vide : c'est l'en-tête
+        ([["Notes", None], ["a", "b"], ["c", "d"]], 0),
+        ([["Titre", "", ""], ["Autre titre", "", ""], ["", "", ""], ["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"]], 3),
+        ([["Titre"], ["a", "b"], ["c", "d"]], 1),  # titre plus court que le tableau : pas besoin de ligne vide
+        ([["", ""], ["a", "b"], ["c", "d"]], 1),  # ligne vide au-dessus du tableau
+        ([["", "", ""], ["", "", ""]], 0),  # aucune cellule remplie
         ([], 0),
     ],
 )
 def test_header_row(rows: list[list[object]], expected: int) -> None:
     assert header_row(rows) == expected
+
+
+@pytest.mark.parametrize("content", [b";;\n;;\n", b'""\n""\n', b" ; \n ; \n"])
+def test_file_without_any_filled_cell(content: bytes) -> None:
+    with pytest.raises(DatasetError, match="Aucune donnée exploitable"):
+        read_table("vide.csv", content)
+
+
+def test_sheet_with_only_spaces_is_read_without_a_raw_error() -> None:
+    # Cellules d'espaces : pas des cellules vides pour Excel ; la feuille se lit (une ligne), sans « index out of range ».
+    df, _ = read_table("espaces.xlsx", xlsx([[" ", " "], [" ", " "]]))
+    assert list(df.columns) == ["colonne_1", "colonne_2"] and len(df) == 1
 
 
 def test_ragged_csv_error_is_in_french_with_the_line() -> None:

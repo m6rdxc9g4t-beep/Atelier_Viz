@@ -113,16 +113,23 @@ def header_row(rows: Sequence[Sequence[object]]) -> int:
 
     Une ligne de titre (ou vide) a une cellule remplie au plus, alors que les lignes du tableau en ont d'ordinaire
     au moins deux : l'en-tête est alors la première ligne d'au moins deux cellules, si elle ne porte que des
-    libellés (une ligne de données n'est jamais promue en en-tête). Dans le doute : 0, le fichier est lu tel quel.
+    libellés (une ligne de données n'est jamais promue en en-tête). Un en-tête dont une seule cellule est remplie
+    (« ;;total », « Notes; ») ressemble à un titre : une ligne n'en est un que si sa cellule remplie est la
+    première et qu'elle est plus courte que le tableau, ou séparée de lui par une ligne vide.
+    Dans le doute : 0, le fichier est lu tel quel.
     """
     counts = [sum(1 for cell in row if _filled(cell)) for row in rows]
     typical = Counter(n for n in counts if n).most_common(1)
-    if not counts or counts[0] > 1 or typical[0][0] < 2:
+    if not typical or counts[0] > 1 or typical[0][0] < 2:
         return 0
-    for i, n in enumerate(counts[: HEADER_SCAN + 1]):
-        if n > 1:
-            return i if all(_is_label(cell) for cell in rows[i] if _filled(cell)) else 0
-    return 0
+    top = next((i for i, n in enumerate(counts[: HEADER_SCAN + 1]) if n > 1), 0)
+    if top == 0 or not all(_is_label(cell) for cell in rows[top] if _filled(cell)):
+        return 0
+    spaced = counts[top - 1] == 0  # ligne vide entre les titres et le tableau
+    for row, n in zip(rows[:top], counts[:top], strict=False):
+        if n and not (_filled(row[0]) and (spaced or len(row) < len(rows[top]))):
+            return 0
+    return top
 
 
 def _filled(cell: object) -> bool:
@@ -361,6 +368,38 @@ def to_numbers(text: pd.Series) -> pd.Series | None:
         rewritten = cleaned.str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
     else:
         rewritten = cleaned.str.replace(",", "", regex=False)
+    return pd.to_numeric(rewritten.where(shaped, cleaned), errors="coerce")
+
+
+_AMBIGUOUS_RE = re.compile(r"^[-+]?[1-9]\d{0,2}[.,]\d{3}$")  # « 1,234 », « 12.500 » : décimale ou milliers ?
+
+
+def ambiguous_number(text: pd.Series) -> str | None:
+    """Première valeur qui, lue seule, peut être un nombre décimal ou un nombre à milliers (« 1,234 »), sinon None."""
+    cleaned = text.str.replace(_MINUS, "-", regex=False).str.replace(_NOISE, "", regex=True)
+    found = text[cleaned.str.match(_AMBIGUOUS_RE).fillna(False).astype(bool)]
+    return None if found.empty else str(found.iloc[0])
+
+
+def to_numbers_each(text: pd.Series) -> pd.Series | None:
+    """Colonne qui se contredit sur le séparateur décimal, lue valeur par valeur ; None si une valeur est ambiguë.
+
+    « 12,5 » à côté de « 13.2 » (saisie à la main, fusion de deux sources) : chaque valeur se lit seule sans doute
+    possible. Le dernier séparateur d'une valeur est sa décimale, sauf répété seul (« 1.234.567 », « 1,234,567 » :
+    des milliers). « 1,234 » peut valoir 1,234 ou 1 234 : rien ne tranche dans une telle colonne (`ambiguous_number`).
+    """
+    if ambiguous_number(text) is not None:
+        return None
+    cleaned = text.str.replace(_MINUS, "-", regex=False).str.replace(_NOISE, "", regex=True)
+    shaped = cleaned.str.match(_NUMBER_RE).fillna(False).astype(bool)
+    commas, dots = cleaned.str.count(","), cleaned.str.count(r"\.")
+    comma_last = cleaned.str.contains(r",[^.,]*$").fillna(False).astype(bool)
+    french = (comma_last & ((dots > 0) | (commas == 1))).fillna(False).astype(bool)
+    grouped = (((commas == 0) & (dots > 1)) | ((dots == 0) & (commas > 1))).fillna(False).astype(bool)
+    as_french = cleaned.str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+    as_english = cleaned.str.replace(",", "", regex=False)
+    bare = as_english.str.replace(".", "", regex=False)
+    rewritten = as_english.where(~french, as_french).where(~grouped, bare)
     return pd.to_numeric(rewritten.where(shaped, cleaned), errors="coerce")
 
 
