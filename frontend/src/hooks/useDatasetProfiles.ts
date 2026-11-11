@@ -116,8 +116,8 @@ export async function refreshDataset(id: string): Promise<DatasetProfile> {
  * Remplace les données d'un jeu importé par fichier (nouvel export du même tableau) : nouveau profil partagé,
  * et les visuels qui l'utilisent se rechargent.
  */
-export async function replaceDatasetData(id: string, file: File): Promise<DatasetProfile> {
-  const profile = await api.datasets.replaceData(id, file);
+export async function replaceDatasetData(id: string, file: File, force = false): Promise<DatasetProfile> {
+  const profile = await api.datasets.replaceData(id, file, force);
   setProfile(profile);
   datasetChanged(id);
   return profile;

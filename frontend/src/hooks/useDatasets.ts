@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { datasetChanged, forgetProfile, refreshDataset, replaceDatasetData } from "./useDatasetProfiles";
 import { onDatasetRefreshed } from "./useDataVersions";
 import type { DatasetProfile, DatasetSummary, ModelIssue } from "../types/dataset";
@@ -22,8 +22,16 @@ export interface DatasetsState {
   refresh: (id: string) => Promise<void>;
   /** Identifiant du jeu en cours d'actualisation. */
   refreshing: string | null;
-  /** Remplace les données d'un jeu importé par fichier (même jeu : rapports, modèle et alertes suivent). */
-  replaceData: (id: string, file: File) => Promise<void>;
+  /**
+   * Remplace les données d'un jeu importé par fichier (même jeu : rapports, modèle et alertes suivent).
+   * Si le fichier n'a plus certaines colonnes du jeu, rien n'est remplacé : `pendingReplace` attend la
+   * confirmation, donnée en rappelant avec `force`.
+   */
+  replaceData: (id: string, file: File, force?: boolean) => Promise<void>;
+  /** Remplacement en attente de confirmation : le fichier choisi perdrait des colonnes du jeu. */
+  pendingReplace: PendingReplace | null;
+  /** Renonce au remplacement en attente (rien n'a changé). */
+  cancelReplace: () => void;
   /** Identifiant du jeu dont les données sont en cours de remplacement. */
   replacing: string | null;
   /** Augmente à chaque remplacement de données réussi : l'aperçu se recharge même à nombre de lignes égal. */
@@ -31,7 +39,28 @@ export interface DatasetsState {
   clearError: () => void;
 }
 
+/** Fichier de remplacement auquel il manque des colonnes du jeu : à confirmer avant de l'envoyer de nouveau. */
+export interface PendingReplace {
+  id: string;
+  file: File;
+  /** Colonnes du jeu absentes du fichier (visuels, filtres et alertes qui les lisent ne fonctionneraient plus). */
+  missing: string[];
+  /** Colonnes du fichier que le jeu n'a pas. */
+  added: string[];
+}
+
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+const names = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
+
+/** Colonnes perdues annoncées par un refus de remplacement (409 `COLUMNS_LOST`), sinon `null` (autre erreur). */
+export function lostColumns(err: unknown): Pick<PendingReplace, "missing" | "added"> | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const detail = err.detail;
+  if (!detail || typeof detail !== "object" || !("code" in detail) || detail.code !== "COLUMNS_LOST") return null;
+  const missing = names("missing" in detail ? detail.missing : undefined);
+  return missing.length ? { missing, added: names("added" in detail ? detail.added : undefined) } : null;
+}
 
 /** Liste des jeux de données importés + profil du jeu sélectionné. */
 export function useDatasets(): DatasetsState {
@@ -43,6 +72,7 @@ export function useDatasets(): DatasetsState {
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [replacing, setReplacing] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const [pendingReplace, setPendingReplace] = useState<PendingReplace | null>(null);
 
   const select = useCallback((id: string) => {
     setLoading(true);
@@ -148,15 +178,22 @@ export function useDatasets(): DatasetsState {
     }
   }, []);
 
-  const replaceData = useCallback(async (id: string, file: File) => {
+  const replaceData = useCallback(async (id: string, file: File, force = false) => {
     setReplacing(id);
     setError(null);
+    setPendingReplace(null);
     try {
-      const profile = await replaceDatasetData(id, file);
+      const profile = await replaceDatasetData(id, file, force);
       setDatasets((list) => list.map((d) => (d.id === id ? profile : d)));
       setSelected((cur) => (cur?.id === id ? profile : cur));
       setRevision((n) => n + 1);
     } catch (err) {
+      // Colonnes du jeu absentes du fichier (mauvais fichier ?) : rien n'a changé, la confirmation est demandée.
+      const lost = lostColumns(err);
+      if (lost) {
+        setPendingReplace({ id, file, ...lost });
+        return;
+      }
       // Modèle qui ne tient plus (colonne disparue) : le détail dit quelle colonne ou mesure est en cause.
       const issues = (err as { detail?: { issues?: ModelIssue[] } }).detail?.issues;
       const detail = issues?.map((i) => `${i.name} : ${i.error}`).join(" ; ");
@@ -172,6 +209,8 @@ export function useDatasets(): DatasetsState {
     refreshing,
     replaceData,
     replacing,
+    pendingReplace,
+    cancelReplace: () => setPendingReplace(null),
     revision,
     datasets,
     selected,

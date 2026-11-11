@@ -105,6 +105,15 @@ class DatasetGoneError(ModelError):
         )
 
 
+class ColumnsLostError(ValueError):
+    """Les nouvelles données n'ont plus certaines colonnes du jeu (visuels et alertes qui les lisent cassés)."""
+
+    def __init__(self, missing: list[str], added: list[str]) -> None:
+        super().__init__("colonnes absentes : " + ", ".join(missing))
+        self.missing = missing
+        self.added = added
+
+
 class DatasetStore:
     """Accès aux jeux de données. Méthodes synchrones : à appeler via `asyncio.to_thread`.
 
@@ -240,19 +249,25 @@ class DatasetStore:
             self._rebuild_dependents(dataset.id)
             return StoredDataset(dataset.id, updated)
 
-    def replace_data(self, dataset: StoredDataset, df: pd.DataFrame, origin: AnyOrigin | None) -> StoredDataset:
+    def replace_data(
+        self, dataset: StoredDataset, df: pd.DataFrame, origin: AnyOrigin | None, *, keep_columns: bool = False
+    ) -> StoredDataset:
         """Actualise le contenu d'un jeu (même identifiant : les rapports restent branchés).
 
         Les étapes de préparation sont rejouées sur les nouvelles données, puis le modèle (relations,
         colonnes et mesures calculées) est revalidé : si une étape ou le modèle ne tient plus (colonne
         disparue…), `ModelError` est levée et rien n'est modifié. `dataset` ne sert qu'à désigner le jeu :
         étapes et modèle sont ceux enregistrés au moment de l'écriture.
+
+        `keep_columns` (fichier choisi à la main, erreur possible) : `ColumnsLostError` si une colonne du jeu
+        n'est plus dans les nouvelles données, même hors du modèle (rapports et alertes la lisent peut-être) ;
+        rien n'est modifié.
         """
         with self._write_lock:
             current = self._current(dataset)
             steps = current.profile_data.steps
             prepared = _prepare(df, steps)
-            updated = self._store(current, prepared, origin, raw=df if steps else None)
+            updated = self._store(current, prepared, origin, raw=df if steps else None, keep_columns=keep_columns)
             if not steps:
                 self.db.execute(f"DROP TABLE IF EXISTS {quote_ident(f'raw_{dataset.id}')}")
             return updated
@@ -309,6 +324,7 @@ class DatasetStore:
         origin: AnyOrigin | None,
         raw: pd.DataFrame | None = None,
         steps: list[PrepStep] | None = None,
+        keep_columns: bool = False,
     ) -> StoredDataset:
         profile = dataset.profile_data
         staging = f"ds_{dataset.id}__new"
@@ -317,6 +333,12 @@ class DatasetStore:
             base = build_profile(df)
             _, related, compiled = self._compile(dataset.id, base, profile.model)  # validation, avant tout remplacement
             self._check_dependents(dataset, {c.name for c in base} | set(related) | {c.name for c in compiled.columns})
+            if keep_columns:  # après le modèle : son erreur, elle, ne se confirme pas
+                before = [c.name for c in profile.columns if not c.calculated and not c.related]
+                after = [c.name for c in base]
+                missing = [name for name in before if name not in after]
+                if missing:
+                    raise ColumnsLostError(missing, [name for name in after if name not in before])
             table, new = quote_ident(dataset.table), quote_ident(staging)
             self.db.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM {new}")
         finally:

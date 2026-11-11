@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { Cable, CalendarClock, Cloud, Database, FileSpreadsheet, Link2, Loader2, RefreshCw, Replace, Trash2, TriangleAlert, Wand2, Workflow, X } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 
-import type { DatasetsState } from "../../hooks/useDatasets";
+import type { DatasetsState, PendingReplace } from "../../hooks/useDatasets";
 import { formatCount } from "../../lib/format";
 import { isConnectionOrigin } from "../../types/connection";
 import type { DatasetSummary } from "../../types/dataset";
@@ -210,6 +210,8 @@ export function DataView({ state }: { state: DatasetsState }) {
                 )}
               </div>
 
+              {state.pendingReplace?.id === selected.id && <ReplaceConfirm pending={state.pendingReplace} onConfirm={(p) => void state.replaceData(p.id, p.file, true)} onCancel={state.cancelReplace} />}
+
               <dl className="grid grid-cols-3 gap-2 sm:gap-3 lg:grid-cols-6" aria-label="Profil du jeu de données">
                 <Kpi label="Lignes" value={formatCount(selected.rows)} />
                 <Kpi label="Colonnes" value={formatCount(selected.columns_count)} />
@@ -238,6 +240,38 @@ export function DataView({ state }: { state: DatasetsState }) {
       {preparing && selected && <PrepEditor profile={selected} onClose={() => setPreparing(false)} onSaved={(p) => state.select(p.id)} />}
       {relating && selected && <RelationsDialog profile={selected} datasets={datasets} onClose={() => setRelating(false)} onSaved={(p) => state.select(p.id)} />}
       {connecting && <ConnectDialog onClose={() => setConnecting(false)} onImported={state.added} />}
+    </div>
+  );
+}
+
+const quoted = (columns: string[]) => columns.map((c) => `« ${c} »`).join(", ");
+
+/**
+ * Confirmation avant de remplacer les données par un fichier auquel il manque des colonnes du jeu (mauvais fichier
+ * choisi ?) : rien n'a encore changé ; les colonnes perdues sont nommées, « Annuler » a le focus.
+ */
+function ReplaceConfirm({ pending, onConfirm, onCancel }: { pending: PendingReplace; onConfirm: (pending: PendingReplace) => void; onCancel: () => void }) {
+  const many = pending.missing.length > 1;
+  return (
+    <div role="alertdialog" aria-label="Confirmer le remplacement des données" aria-describedby="replace-confirm-text" className="atelier-card flex flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3 text-xs">
+      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
+      <div id="replace-confirm-text" className="min-w-0 flex-1 space-y-0.5">
+        <p className="font-medium">
+          « {pending.file.name} » n'a plus {many ? "les colonnes" : "la colonne"} {quoted(pending.missing)}.
+        </p>
+        <p className="text-muted">
+          Rien n'a changé pour l'instant. Si vous remplacez, les visuels, filtres et alertes qui {many ? "les" : "l'"}utilisent ne fonctionneront plus.
+          {pending.added.length > 0 && ` ${pending.added.length > 1 ? "Nouvelles colonnes" : "Nouvelle colonne"} du fichier : ${quoted(pending.added)}.`}
+        </p>
+      </div>
+      <span className="flex shrink-0 items-center gap-3">
+        <button type="button" onClick={() => onConfirm(pending)} className="font-medium text-negative hover:underline">
+          Remplacer quand même
+        </button>
+        <button type="button" autoFocus onClick={onCancel} className="text-muted hover:underline">
+          Annuler
+        </button>
+      </span>
     </div>
   );
 }

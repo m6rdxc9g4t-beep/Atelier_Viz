@@ -24,6 +24,7 @@ from app.schemas.dataset import (
 )
 from app.services.data import DatasetError, DatasetStore, StoredDataset, read_table
 from app.services.data.model import ModelError
+from app.services.data.store import ColumnsLostError
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 logger = logging.getLogger(__name__)
@@ -123,11 +124,15 @@ async def replace_data(
     settings: SettingsDep,
     alerts: AlertsDep,
     file: Annotated[UploadFile, File(description="Nouveau fichier CSV, XLSX ou JSON du même jeu")],
+    force: Annotated[bool, Query(description="Remplacer même si des colonnes du jeu disparaissent")] = False,
 ) -> DatasetProfile:
     """Remplace les données d'un jeu importé par fichier (même identifiant : rapports, modèle et alertes suivent).
 
     Les étapes de préparation sont rejouées et le modèle revalidé ; s'il ne tient plus (colonne disparue),
-    409 et rien n'est modifié. Un jeu issu d'une connexion ou d'un workflow se met à jour par sa source.
+    409 et rien n'est modifié. Un fichier auquel il manque une colonne du jeu (mauvais fichier choisi ?) est
+    refusé de même (409, code `COLUMNS_LOST`, colonnes dans `missing`) : les visuels et les alertes qui la lisent
+    ne fonctionneraient plus ; `force=true` confirme. Un jeu issu d'une connexion ou d'un workflow se met à jour
+    par sa source.
     """
     dataset = await get_or_404(store, dataset_id)
     origin = dataset.profile_data.origin
@@ -140,13 +145,29 @@ async def replace_data(
         )
     _, df, _ = await _read_upload(file, settings)
     try:
-        updated = await asyncio.to_thread(store.replace_data, dataset, df, None)
+        updated = await asyncio.to_thread(store.replace_data, dataset, df, None, keep_columns=not force)
     except ModelError as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             {
                 "message": "Le nouveau fichier ne correspond plus au modèle (colonne disparue ?) : rien n'a changé.",
                 "issues": [i.model_dump() for i in exc.issues],
+            },
+        ) from exc
+    except ColumnsLostError as exc:
+        names = ", ".join(f"« {name} »" for name in exc.missing)
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            {
+                "code": "COLUMNS_LOST",
+                "message": (
+                    f"Le nouveau fichier n'a plus la colonne {names}"
+                    if len(exc.missing) == 1
+                    else f"Le nouveau fichier n'a plus les colonnes {names}"
+                )
+                + " : rien n'a changé.",
+                "missing": exc.missing,
+                "added": exc.added,
             },
         ) from exc
     try:

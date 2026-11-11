@@ -36,6 +36,8 @@ function state(overrides: Partial<DatasetsState> = {}): DatasetsState {
     refreshing: null,
     replaceData: vi.fn(),
     replacing: null,
+    pendingReplace: null,
+    cancelReplace: vi.fn(),
     revision: 0,
     clearError: vi.fn(),
     ...overrides,
@@ -130,6 +132,30 @@ describe("DataView", () => {
     await userEvent.upload(screen.getByLabelText("Choisir le fichier qui remplace les données de ventes.csv"), file);
     expect(replaceData).toHaveBeenCalledWith("abc", file);
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("demande confirmation, colonnes perdues à l'appui, avant de remplacer par un fichier qui n'a plus toutes les colonnes", async () => {
+    const replaceData = vi.fn();
+    const cancelReplace = vi.fn();
+    const file = new File(["date;total;note\n03/02/2026;10;ok\n"], "autre.csv", { type: "text/csv" });
+    const pendingReplace = { id: "abc", file, missing: ["montant"], added: ["total", "note"] };
+    const { rerender } = render(<DataView state={state({ replaceData, cancelReplace, pendingReplace })} />);
+    const dialog = screen.getByRole("alertdialog", { name: "Confirmer le remplacement des données" });
+    expect(dialog).toHaveTextContent("« autre.csv » n'a plus la colonne « montant ».");
+    expect(dialog).toHaveTextContent("Rien n'a changé pour l'instant.");
+    expect(dialog).toHaveTextContent("Nouvelles colonnes du fichier : « total », « note ».");
+    // « Annuler » a le focus : Entrée ne remplace jamais par mégarde.
+    expect(within(dialog).getByRole("button", { name: "Annuler" })).toHaveFocus();
+    expect(replaceData).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remplacer quand même" }));
+    expect(replaceData).toHaveBeenCalledWith("abc", file, true);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Annuler" }));
+    expect(cancelReplace).toHaveBeenCalledOnce();
+    // Plusieurs colonnes perdues : accord du message ; la demande d'un autre jeu n'est pas affichée ici.
+    rerender(<DataView state={state({ pendingReplace: { ...pendingReplace, missing: ["date", "montant"], added: [] } })} />);
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("n'a plus les colonnes « date », « montant ».");
+    rerender(<DataView state={state({ pendingReplace: { ...pendingReplace, id: "autre" } })} />);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   it("ne propose le remplacement par fichier ni pour une connexion ni pour un workflow, et le bloque pendant l'envoi", () => {

@@ -104,6 +104,45 @@ def test_replace_data_keeps_the_dataset_its_model_and_its_alerts(client: TestCli
     assert client.get(f"/api/alerts/{alert_id}").json()["met"] is True  # alertes du jeu réévaluées
 
 
+def test_replace_data_asks_before_losing_a_column(client: TestClient) -> None:
+    """Mauvais fichier choisi : une colonne du jeu disparaîtrait (visuels et alertes cassés), hors de tout modèle."""
+    dataset_id = upload(client).json()["id"]
+    alert = {
+        "name": "Mois fort",
+        "dataset_id": dataset_id,
+        "measure": {"field": "montant", "agg": "sum"},
+        "comparison": "gt",
+        "threshold": 5000,
+        "system": False,
+    }
+    assert client.post("/api/alerts", json=alert).status_code == 201
+    before = client.get(f"/api/datasets/{dataset_id}").json()
+    wrong = b"date;region;total;note\n03/02/2026;Nord;10;ok\n"
+
+    response = replace(client, dataset_id, wrong)
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert detail["code"] == "COLUMNS_LOST"
+    assert detail["missing"] == ["montant"] and detail["added"] == ["total", "note"]
+    assert "« montant »" in detail["message"] and "rien n'a changé" in detail["message"]
+    assert client.get(f"/api/datasets/{dataset_id}").json() == before  # rien n'a changé
+    query = {"dataset_id": dataset_id, "measures": [{"field": "montant", "agg": "sum"}]}
+    assert client.post("/api/query", json=query).status_code == 200
+
+    # Confirmé (`force`) : le fichier remplace les données, colonnes comprises.
+    forced = client.put(f"/api/datasets/{dataset_id}/data?force=true", files={"file": ("autre.csv", wrong, "text/csv")})
+    assert forced.status_code == 200, forced.text
+    assert [c["name"] for c in forced.json()["columns"]] == ["date", "region", "total", "note"]
+    assert forced.json()["id"] == dataset_id and forced.json()["rows"] == 1
+    # Une colonne en plus ne casse rien : aucune confirmation demandée.
+    wider = b"date;region;total;note;canal\n03/02/2026;Nord;10;ok;web\n04/02/2026;Sud;5;ok;web\n"
+    assert replace(client, dataset_id, wider).json()["rows"] == 2
+    # Plusieurs colonnes perdues : toutes citées, dans l'ordre du jeu.
+    detail = replace(client, dataset_id, b"date;region\n03/02/2026;Nord\n").json()["detail"]
+    assert detail["missing"] == ["total", "note", "canal"]
+    assert "les colonnes « total », « note », « canal »" in detail["message"]
+
+
 def test_replace_data_refusals_change_nothing(client: TestClient) -> None:
     dataset_id = upload(client).json()["id"]
     model = {"columns": [{"name": "ttc", "expression": "montant * 1.2"}], "measures": []}

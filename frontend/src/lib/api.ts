@@ -115,11 +115,14 @@ export const api = {
       form.append("file", file);
       return request<DatasetProfile>("/datasets", { method: "POST", body: form });
     },
-    /** Remplace les données d'un jeu importé par fichier (même identifiant : rapports, modèle et alertes suivent). */
-    replaceData: (id: string, file: File) => {
+    /**
+     * Remplace les données d'un jeu importé par fichier (même identifiant : rapports, modèle et alertes suivent).
+     * Sans `force`, un fichier auquel il manque une colonne du jeu est refusé (409, `detail.code` = `COLUMNS_LOST`).
+     */
+    replaceData: (id: string, file: File, force = false) => {
       const form = new FormData();
       form.append("file", file);
-      return request<DatasetProfile>(`/datasets/${id}/data`, { method: "PUT", body: form });
+      return request<DatasetProfile>(`/datasets/${id}/data${force ? "?force=true" : ""}`, { method: "PUT", body: form });
     },
     remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
     saveModel: (id: string, model: DatasetModel) =>
