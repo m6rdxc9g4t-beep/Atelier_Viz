@@ -10,6 +10,8 @@ import io
 import json
 import logging
 import re
+from collections import Counter
+from collections.abc import Sequence
 from pathlib import PurePath
 from typing import Any
 
@@ -23,6 +25,8 @@ logger = logging.getLogger(__name__)
 SEPARATORS = ",;\t|"
 ENCODINGS = ("utf-8-sig", "cp1252")
 MIN_MATCH_RATIO = 0.95  # part minimale de valeurs convertibles pour retyper une colonne
+HEADER_SCAN = 20  # lignes de titre tolérées au-dessus du tableau
+SHAPE_ROWS = 200  # premières lignes observées pour connaître la forme du tableau (séparateur, largeur)
 
 _NUMBER_RE = re.compile(r"^[-+]?(\d{1,3}([   .,]\d{3})+|\d+)([.,]\d+)?\s*%?$")
 _NOISE = "[\\s\u00a0\u202f%]"  # espaces (dont insécables : milliers français) et « % », retirés avant lecture
@@ -104,18 +108,70 @@ def _decode(content: bytes) -> str:
     raise DatasetError("Encodage non reconnu (UTF-8 ou Windows-1252 attendus).")
 
 
+def header_row(rows: Sequence[Sequence[object]]) -> int:
+    """Indice de la ligne d'en-tête parmi les premières lignes d'un fichier : 0, sauf titre posé au-dessus du tableau.
+
+    Une ligne de titre (ou vide) a une cellule remplie au plus, alors que les lignes du tableau en ont d'ordinaire
+    au moins deux : l'en-tête est alors la première ligne d'au moins deux cellules, si elle ne porte que des
+    libellés (une ligne de données n'est jamais promue en en-tête). Dans le doute : 0, le fichier est lu tel quel.
+    """
+    counts = [sum(1 for cell in row if _filled(cell)) for row in rows]
+    typical = Counter(n for n in counts if n).most_common(1)
+    if not counts or counts[0] > 1 or typical[0][0] < 2:
+        return 0
+    for i, n in enumerate(counts[: HEADER_SCAN + 1]):
+        if n > 1:
+            return i if all(_is_label(cell) for cell in rows[i] if _filled(cell)) else 0
+    return 0
+
+
+def _filled(cell: object) -> bool:
+    if isinstance(cell, str):
+        return bool(cell.strip())
+    return cell is not None and not pd.isna(cell)
+
+
+def _is_label(cell: object) -> bool:
+    return isinstance(cell, str) and not _NUMBER_RE.match(cell.strip()) and not _DATE_HINT_RE.match(cell.strip())
+
+
+def _separator(lines: list[str]) -> str:
+    """Séparateur d'un CSV que `csv.Sniffer` ne reconnaît pas (ligne de titre, lignes inégales).
+
+    Celui sur lequel le plus de lignes s'accordent (même nombre d'occurrences, non nul) ; à défaut, le plus
+    fréquent sur la première ligne.
+    """
+    best, score = "", (0, 0)
+    for sep in SEPARATORS:
+        positive = Counter(n for n in (line.count(sep) for line in lines) if n).most_common(1)
+        if positive and (positive[0][1], positive[0][0]) > score:
+            best, score = sep, (positive[0][1], positive[0][0])
+    return best or max(SEPARATORS, key=(lines[0] if lines else "").count)
+
+
 def _read_csv(content: bytes) -> pd.DataFrame:
     text = _decode(content)
     head = text[:65_536]
+    lines = head.splitlines()[:SHAPE_ROWS]
     try:
         sep = csv.Sniffer().sniff(head, delimiters=SEPARATORS).delimiter
     except csv.Error:
-        # Repli : le séparateur le plus fréquent sur la première ligne.
-        first_line = head.splitlines()[0] if head else ""
-        sep = max(SEPARATORS, key=first_line.count)
+        sep = _separator([line for line in lines if line.strip()])
+    # Lignes de titre au-dessus du tableau (« Rapport des ventes 2026 », ligne vide) : ignorées.
+    skip = header_row(list(csv.reader(lines, delimiter=sep, skipinitialspace=True)))
     # Tout est lu en texte (infer_types gère ensuite décimales et dates françaises).
     # header=None : les en-têtes dupliqués sont renommés par _clean_columns, pas par pandas (« a.1 »).
-    raw = pd.read_csv(io.StringIO(text), sep=sep, dtype=str, header=None, skipinitialspace=True)
+    try:
+        raw = pd.read_csv(io.StringIO(text), sep=sep, dtype=str, header=None, skipinitialspace=True, skiprows=skip)
+    except pd.errors.ParserError as exc:
+        uneven = re.search(r"Expected (\d+) fields in line (\d+), saw (\d+)", str(exc))
+        if uneven is None:
+            raise
+        expected, line, seen = uneven.groups()
+        raise DatasetError(
+            f"Ligne {line} : {seen} colonnes au lieu de {expected}. Vérifiez le séparateur, ou retirez du fichier "
+            "une ligne de titre ou de total."
+        ) from exc
     if raw.empty:
         raise DatasetError("Le fichier ne contient aucune ligne.")
     df = raw.iloc[1:].reset_index(drop=True)
@@ -126,8 +182,39 @@ def _read_csv(content: bytes) -> pd.DataFrame:
 def _read_excel(content: bytes, sheet: str | None) -> pd.DataFrame:
     # dtype=object : pandas ne réinterprète pas les cellules de texte (« 01000 » deviendrait 1000) ; seuls les types
     # natifs d'Excel (nombres, dates, booléens) sont retypés, le texte passe ensuite par infer_types comme un CSV.
-    raw = pd.read_excel(io.BytesIO(content), sheet_name=sheet if sheet else 0, engine="openpyxl", dtype=object)
-    return raw.infer_objects()
+    # header=None : la ligne d'en-tête est cherchée ici (lignes de titre au-dessus du tableau ignorées).
+    raw = pd.read_excel(
+        io.BytesIO(content), sheet_name=sheet if sheet else 0, engine="openpyxl", dtype=object, header=None
+    )
+    if raw.empty:
+        return raw
+    top = header_row(raw.head(SHAPE_ROWS).values.tolist())
+    df = raw.iloc[top + 1 :].reset_index(drop=True)
+    df.columns = _excel_names(list(raw.iloc[top]))
+    return df.infer_objects()
+
+
+def _excel_names(header: list[object]) -> list[object]:
+    """En-têtes d'un classeur, les doublons renommés comme pandas le faisait (« a », « a.1 », « a.2 »).
+
+    Les jeux Excel déjà importés retrouvent ainsi les mêmes noms de colonnes à l'actualisation ; les cellules
+    vides sont nommées ensuite par `_clean_columns`.
+    """
+    taken = {str(name) for name in header if _filled(name)}
+    counts: dict[str, int] = {}
+    names: list[object] = []
+    for name in header:
+        key = str(name)
+        n = counts.get(key, 0)
+        if not _filled(name) or n == 0:
+            names.append(name)
+        else:
+            while f"{key}.{n}" in taken:
+                n += 1
+            taken.add(f"{key}.{n}")
+            names.append(f"{key}.{n}")
+        counts[key] = n + 1
+    return names
 
 
 def _json_frame(data: object) -> pd.DataFrame:

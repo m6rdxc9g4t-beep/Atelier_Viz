@@ -330,6 +330,21 @@ Volet Données → **Relier** (ou page Données → **Relations**) : chaque lign
 
 Exemple : `samples/regions.csv` (13 régions : code, responsable, objectif de CA 2026, population) est relié automatiquement à `ventes_2026.csv` et `magasins.csv` à l'import des exemples.
 
+### Lecture des fichiers (CSV, Excel, JSON)
+Règles de `services/data/parsing.py`, testées dans `tests/test_data_parsing.py` :
+- **Nombres** : le séparateur décimal se décide sur toute la colonne (`decimal_separator`) : « 1.234,56 », « 1,234.50 »,
+  « 12,000 » à côté de « 3,456.78 » (douze mille), « 1 234,5 ». Sans indice (« 1,234 » seul), lecture française. Une colonne
+  qui mélange les deux conventions reste du texte. Symbole monétaire (€, $, £) en tête ou en fin et signe « − » acceptés ;
+  deux devises dans la colonne : du texte.
+- **Codes** : un zéro en tête (« 01000 », « 06 ») garde la colonne en texte, en CSV comme dans une cellule de texte Excel.
+- **Dates** : jour en premier sauf écriture ISO ; des décalages horaires différents dans une colonne sont rendus à l'heure
+  locale de la machine.
+- **Lignes de titre** : les lignes d'une seule cellule (ou vides) posées au-dessus d'un tableau d'au moins deux colonnes sont
+  ignorées (`header_row`), si la ligne suivante ne porte que des libellés. Lignes inégales : erreur avec le numéro de ligne.
+- **JSON** : objets imbriqués aplatis (`a.b`), tableaux gardés en texte JSON.
+- **Nouvel export du même fichier** : « Remplacer les données… » (écran Données) garde le jeu, ses rapports, son modèle et
+  ses alertes.
+
 ### Préparation des données (à la Power Query)
 
 Page Données → **Préparer** : éditeur plein écran avec la liste des **étapes appliquées** (Source puis étapes numérotées, cliquables pour voir l'aperçu à cette étape, modifiables, supprimables), une barre de transformations et l'aperçu des 20 premières lignes (clic sur l'en-tête d'une colonne pour la sélectionner). Rien n'est modifié avant **Appliquer**.

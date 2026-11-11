@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from app.services.data import DatasetError, build_profile, parsing, read_table, records
-from app.services.data.parsing import decimal_separator
+from app.services.data.parsing import decimal_separator, header_row
 
 SAMPLE = Path(__file__).resolve().parents[2] / "samples" / "ventes_2026.csv"
 
@@ -175,6 +175,87 @@ def test_a_failing_conversion_leaves_the_column_as_text(monkeypatch: pytest.Monk
     monkeypatch.setattr(parsing, "_to_date", boom)
     df, _ = read_table("x.csv", b"jour;n\n05/01/2026;1\n06/01/2026;2\n")
     assert types(df) == {"jour": "string", "n": "number"}  # import réussi, jamais d'erreur 500
+
+
+def xlsx(rows: list[list[object]]) -> bytes:
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    for row in rows:
+        wb.active.append(row)
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+TITLED = {"Date": "date", "Région": "string", "Montant": "number"}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "Rapport des ventes 2026\n\nDate;Région;Montant\n05/01/2026;Nord;12,5\n06/01/2026;Sud;8\n",
+        # Le même tableau enregistré depuis Excel : la ligne de titre est complétée par des séparateurs.
+        "Rapport des ventes 2026;;\n;;\nDate;Région;Montant\n05/01/2026;Nord;12,5\n06/01/2026;Sud;8\n",
+        "Société X\nExport du 12/03/2026\n\nDate;Région;Montant\n05/01/2026;Nord;12,5\n06/01/2026;Sud;8\n",
+        "Sales report 2026\n\nDate,Région,Montant\n2026-01-05,Nord,12.5\n2026-01-06,Sud,8\n",
+    ],
+)
+def test_csv_title_lines_above_the_table_are_skipped(content: str) -> None:
+    df, _ = read_table("rapport.csv", content.encode())
+    assert types(df) == TITLED
+    assert df["Montant"].tolist() == [12.5, 8.0] and df["Région"].tolist() == ["Nord", "Sud"]
+
+
+def test_xlsx_title_lines_above_the_table_are_skipped() -> None:
+    from datetime import datetime
+
+    rows = [
+        ["Rapport des ventes 2026"],
+        [],
+        ["Date", "Région", "Montant"],
+        [datetime(2026, 1, 5), "Nord", 12.5],
+        [datetime(2026, 1, 6), "Sud", 8],
+    ]
+    df, _ = read_table("rapport.xlsx", xlsx(rows))
+    assert types(df) == TITLED
+    assert df["Montant"].tolist() == [12.5, 8.0] and df["Date"].iloc[0] == pd.Timestamp("2026-01-05")
+
+
+def test_files_without_title_are_read_as_before() -> None:
+    # Première ligne d'une seule cellule, mais suivie de données : c'est l'en-tête, jamais une ligne de titre.
+    df, _ = read_table("x.csv", b"nom;\nA;1\nB;2\n")
+    assert list(df.columns) == ["nom", "colonne_2"] and df["nom"].tolist() == ["A", "B"]
+    # Classeur : en-têtes en double nommés comme avant (« a.1 »), les jeux déjà importés gardent leurs colonnes.
+    df, _ = read_table("x.xlsx", xlsx([["a", "a", None, "b", "a", "a.1", 2024], [1, 2, 3, 4, 5, 6, 7]]))
+    assert list(df.columns) == ["a", "a.2", "colonne_3", "b", "a.3", "a.1", "2024"]
+    assert types(df)["a"] == "number"
+
+
+@pytest.mark.parametrize(
+    ("rows", "expected"),
+    [
+        ([["Date", "Montant"], ["05/01/2026", "12,5"]], 0),
+        ([["Titre"], [], ["Date", "Montant"], ["05/01/2026", "12,5"], ["06/01/2026", "8"]], 2),
+        ([["Titre", None, ""], [None, None, None], ["Date", "Région", "Montant"], ["x", "N", 1], ["y", "S", 2]], 2),
+        ([["a", "a", ""], ["1", "2", "3"]], 0),  # en-tête avec une cellule vide : toujours l'en-tête
+        ([["nom", ""], ["A", "1"], ["B", "2"]], 0),  # la ligne suivante porte un nombre : ce sont des données
+        ([["Titre"], ["2026", "12"], ["2027", "15"]], 0),
+        ([["code"], ["A1"], ["12"]], 0),  # tableau d'une seule colonne : rien à deviner
+        ([], 0),
+    ],
+)
+def test_header_row(rows: list[list[object]], expected: int) -> None:
+    assert header_row(rows) == expected
+
+
+def test_ragged_csv_error_is_in_french_with_the_line() -> None:
+    with pytest.raises(DatasetError, match="Ligne 4 : 3 colonnes au lieu de 2") as info:
+        read_table("x.csv", b"a;b\n1;2\n3;4\n5;6;7\n8;9\n")
+    assert "Error tokenizing" not in str(info.value)
+    # Titre qui contient lui-même le séparateur : pas deviné, mais le message dit quoi faire.
+    with pytest.raises(DatasetError, match="Ligne 3 : 3 colonnes au lieu de 2.*ligne de titre"):
+        read_table("x.csv", b"Sales report, 2026\n\nday,city,revenue\n2026-03-01,Paris,10\n")
 
 
 def test_duplicate_and_blank_headers_are_renamed() -> None:
