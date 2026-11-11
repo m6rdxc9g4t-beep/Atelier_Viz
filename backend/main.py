@@ -119,6 +119,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await ticker
         # Actualisations en cours : annulées et attendues (délai borné) avant de fermer DuckDB.
         await app.state.scheduler.shutdown(settings.scheduler_shutdown_seconds)
+        # Alertes en cours d'évaluation après un remplacement par un workflow : même délai, puis abandon.
+        await app.state.atelier.drain(settings.scheduler_shutdown_seconds)
         app.state.atelier_events.flush()  # enregistrements de rapport en attente de regroupement
         await app.state.ai_service.aclose()
         app.state.database.close()
