@@ -3,7 +3,7 @@ import { ArrowLeft, Bookmark, Check, CircleHelp, Download, Eye, FileCode2, FileI
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLinkedProfiles } from "../hooks/useDatasetProfiles";
-import { api } from "../lib/api";
+import { ApiError, api } from "../lib/api";
 import { navigate } from "../lib/router";
 import { isNarrowScreen } from "../lib/viewport";
 import type { DatasetSummary } from "../types/dataset";
@@ -27,6 +27,8 @@ import { bodyOf, useStudio } from "./store";
 import { readTheme, themeVars } from "../theme/reportTheme";
 
 const AUTOSAVE_MS = 800;
+/** Nouvel essai d'enregistrement quand le serveur local ne répondait pas. */
+const RETRY_MS = 5000;
 
 /** Éditeur de rapport : canvas + volets, sauvegarde automatique, raccourcis clavier. */
 export function StudioPage({ reportId }: { reportId: string }) {
@@ -83,24 +85,45 @@ export function StudioPage({ reportId }: { reportId: string }) {
     };
   }, [reportId, s]);
 
-  // Sauvegarde automatique (après une pause de saisie)
+  // Sauvegarde automatique (après une pause de saisie). Serveur local injoignable (redémarrage) : nouvel essai tout
+  // seul, sans attendre une autre modification ; un refus du serveur (4xx, 5xx) n'est pas rejoué.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unreachable = useRef(false);
   useEffect(() => {
-    if (saveState !== "dirty" || !report) return;
+    const retry = saveState === "error" && unreachable.current;
+    if ((saveState !== "dirty" && !retry) || !report) return;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      const snapshot = s().report;
-      if (!snapshot) return;
-      s().setSaveState("saving");
-      api.reports
-        .save(snapshot.id, bodyOf(snapshot))
-        .then(() => {
-          if (s().report === snapshot) s().setSaveState("saved");
-          else s().setSaveState("dirty");
-        })
-        .catch((e: unknown) => s().setSaveState("error", e instanceof Error ? e.message : String(e)));
-    }, AUTOSAVE_MS);
+    timer.current = setTimeout(
+      () => {
+        const snapshot = s().report;
+        if (!snapshot) return;
+        s().setSaveState("saving");
+        api.reports
+          .save(snapshot.id, bodyOf(snapshot))
+          .then(() => {
+            if (s().report === snapshot) s().setSaveState("saved");
+            else s().setSaveState("dirty");
+          })
+          .catch((e: unknown) => {
+            unreachable.current = e instanceof ApiError && e.status === 0;
+            s().setSaveState("error", e instanceof Error ? e.message : String(e));
+          });
+      },
+      retry ? RETRY_MS : AUTOSAVE_MS,
+    );
   }, [report, saveState, s]);
+
+  // Fenêtre fermée ou rechargée avant la fin de la pause (ou pendant l'envoi) : le dernier état part quand même.
+  useEffect(() => {
+    const flush = () => {
+      const { report: current, saveState: state } = s();
+      if (!current || state === "saved") return;
+      if (timer.current) clearTimeout(timer.current);
+      api.reports.save(current.id, bodyOf(current), true).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, [s]);
 
   // Raccourcis clavier
   useEffect(() => {

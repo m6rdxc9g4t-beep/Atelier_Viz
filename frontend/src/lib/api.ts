@@ -222,8 +222,9 @@ export const api = {
     get: (id: string) => request<Report>(`/reports/${id}`),
     create: (name: string, datasetId?: string | null) =>
       request<Report>("/reports", { method: "POST", body: JSON.stringify({ name, dataset_id: datasetId ?? null }) }),
-    save: (id: string, body: ReportBody) =>
-      request<Report>(`/reports/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    /** `keepalive` : la requête survit à la fermeture ou au rechargement de la page (dernier enregistrement du Studio). */
+    save: (id: string, body: ReportBody, keepalive = false) =>
+      request<Report>(`/reports/${id}`, { method: "PUT", body: JSON.stringify(body), ...(keepalive ? { keepalive: true } : {}) }),
     remove: (id: string) => request<void>(`/reports/${id}`, { method: "DELETE" }),
   },
 
