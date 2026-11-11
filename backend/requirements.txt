@@ -1,12 +1,17 @@
-fastapi>=0.132  # 0.132 : corps JSON refusé sans Content-Type JSON (strict_content_type)
-uvicorn[standard]>=0.32
-pydantic>=2.9
-pydantic-settings>=2.6
-httpx>=0.27
-anthropic>=0.40
-pandas>=2.2
-openpyxl>=3.1
-python-multipart>=0.0.12
-duckdb>=1.1
+# Bornes hautes : la prochaine version majeure de chaque bibliothèque, jamais installée sans être validée par les
+# tests (une installation neuve, la mise à jour de l'app de bureau ou une image du VPS ne changent pas de majeure
+# toutes seules). Pour en relever une : modifier la borne, `pip install -r requirements-dev.txt`, `pytest`.
+fastapi>=0.132,<1  # 0.132 : corps JSON refusé sans Content-Type JSON (strict_content_type)
+uvicorn[standard]>=0.32,<1
+pydantic>=2.9,<3
+pydantic-settings>=2.6,<3
+httpx>=0.27,<1
+anthropic>=0.40,<3
+pandas>=2.2,<4  # 3.x : fuseaux mixtes refusés par to_datetime, chaînes « str » (services/data/parsing.py)
+openpyxl>=3.1,<4
+python-multipart>=0.0.12,<1
+duckdb>=1.1,<3
+# Sans borne haute : une majeure par trimestre (pyarrow) ou par abandon d'une version de Python (keyring), pour
+# des fonctions stables ici (échange pandas ↔ DuckDB, lecture / écriture d'un mot de passe).
 pyarrow>=17
 keyring>=25
