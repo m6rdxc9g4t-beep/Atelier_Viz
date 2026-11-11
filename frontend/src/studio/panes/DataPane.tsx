@@ -100,7 +100,7 @@ export function DataPane() {
   };
 
   return (
-    <Pane title="Données" width="w-56">
+    <Pane title="Données" width="w-56" compactOnNarrow>
       <div className="space-y-2 border-b border-line p-3">
         <label className="sr-only" htmlFor="dataset-select">
           Jeu de données

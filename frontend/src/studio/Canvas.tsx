@@ -13,6 +13,8 @@ import { VisualContainer } from "./VisualContainer";
 const SNAP_SCREEN_PX = 6;
 const ZOOMS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 const PADDING = 24;
+/** Échelle minimale de l'ajustement à la largeur (une page de 1280 px tient dans 250 px). */
+const MIN_FIT = 0.15;
 
 interface Drag {
   id: string;
@@ -49,7 +51,8 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
   const fit = fitPage
     ? fitScale(size, { width: available, height: availableH }, PADDING)
     : available > 0
-      ? Math.min(2, Math.max(0.25, (available - 2 * PADDING) / size.width))
+      ? // Plancher sous le plus petit palier de zoom : sur un téléphone, « ajuster » montre encore toute la largeur de la page.
+        Math.min(2, Math.max(MIN_FIT, (available - 2 * PADDING) / size.width))
       : 1;
   const zoom = zoomChoice === "fit" || fitPage ? fit : zoomChoice;
 

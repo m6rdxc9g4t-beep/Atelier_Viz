@@ -2,9 +2,15 @@ import clsx from "clsx";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
-/** Volet latéral repliable (comme les volets Filtres / Visualisations / Données de Power BI). */
-export function Pane({ title, width, children, defaultOpen = true }: { title: string; width: string; children: ReactNode; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
+import { isNarrowScreen } from "../../lib/viewport";
+
+/**
+ * Volet latéral repliable (comme les volets Filtres / Visualisations / Données de Power BI).
+ * Sur un écran étroit (téléphone), les volets d'édition (`compactOnNarrow`) s'ouvrent repliés et tout volet ouvert
+ * se pose par-dessus la page au lieu de la pousser hors de l'écran.
+ */
+export function Pane({ title, width, children, defaultOpen = true, compactOnNarrow = false }: { title: string; width: string; children: ReactNode; defaultOpen?: boolean; compactOnNarrow?: boolean }) {
+  const [open, setOpen] = useState(() => defaultOpen && !(compactOnNarrow && isNarrowScreen()));
   if (!open) {
     return (
       <button
@@ -19,7 +25,7 @@ export function Pane({ title, width, children, defaultOpen = true }: { title: st
     );
   }
   return (
-    <aside className={clsx("flex shrink-0 flex-col border-l border-line bg-surface", width)} aria-label={title}>
+    <aside className={clsx("flex shrink-0 flex-col border-l border-line bg-surface max-md:absolute max-md:inset-y-0 max-md:right-0 max-md:z-20 max-md:max-w-full", width)} aria-label={title}>
       <header className="flex h-10 shrink-0 items-center justify-between border-b border-line px-3">
         <h2 className="text-sm font-semibold text-fg">{title}</h2>
         <button type="button" onClick={() => setOpen(false)} aria-label={`Replier le volet ${title}`} className="grid size-6 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg">

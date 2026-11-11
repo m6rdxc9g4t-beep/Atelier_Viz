@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLinkedProfiles } from "../hooks/useDatasetProfiles";
 import { api } from "../lib/api";
 import { navigate } from "../lib/router";
+import { isNarrowScreen } from "../lib/viewport";
 import type { DatasetSummary } from "../types/dataset";
 import { Canvas } from "./Canvas";
 import { StudioDataContext } from "./context";
@@ -70,6 +71,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
       .then(([r, list]) => {
         if (!alive) return;
         s().load(r);
+        // Téléphone : le rapport s'ouvre en lecture, la page occupe l'écran (l'édition reste à un geste).
+        if (isNarrowScreen()) s().setMode("view");
         setDatasets(list);
         const used = r.pages.flatMap((p) => p.visuals).find((v) => v.dataset_id)?.dataset_id;
         setActiveDatasetId(r.dataset_id ?? used ?? list[0]?.id ?? null);
@@ -173,7 +176,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
   return (
     <StudioDataContext.Provider value={{ datasets, profiles, activeDatasetId, setActiveDatasetId }}>
       <div className="flex h-full flex-col">
-        <div className="flex h-(--top-h) shrink-0 items-center gap-2 border-b border-line bg-bg px-3">
+        {/* Écran étroit : la barre défile en largeur, toutes les actions restent atteignables. */}
+        <div className="flex h-(--top-h) shrink-0 items-center gap-2 border-b border-line bg-bg px-3 max-md:overflow-x-auto max-md:[scrollbar-width:none] max-md:[&>*]:shrink-0">
           <button type="button" onClick={() => navigate("/")} aria-label="Retour aux rapports" className="grid size-7 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg">
             <ArrowLeft className="size-4" aria-hidden />
           </button>
@@ -182,7 +186,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
             value={report.name}
             readOnly={!editing}
             onChange={(e) => s().mutate((r) => (r.name = e.target.value || "Sans titre"))}
-            className="min-w-0 max-w-72 flex-1 rounded-md px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field"
+            className="min-w-0 max-w-72 flex-1 rounded-md px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field max-md:w-36 max-md:flex-none"
           />
           <SaveBadge state={saveState} error={saveError} />
           <div className="ml-auto flex items-center gap-1">
@@ -358,12 +362,12 @@ function SaveBadge({ state, error }: { state: string; error: string | null }) {
   if (state === "saving" || state === "dirty")
     return (
       <span className="flex items-center gap-1 text-xs text-muted">
-        <Loader2 className="size-3 animate-spin" aria-hidden /> Enregistrement…
+        <Loader2 className="size-3 animate-spin" aria-hidden /> <span className="max-sm:sr-only">Enregistrement…</span>
       </span>
     );
   return (
     <span className="flex items-center gap-1 text-xs text-muted">
-      <Check className="size-3" aria-hidden /> Enregistré
+      <Check className="size-3" aria-hidden /> <span className="max-sm:sr-only">Enregistré</span>
     </span>
   );
 }

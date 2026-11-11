@@ -30,7 +30,7 @@ export function VisualizationsPane() {
   };
 
   return (
-    <Pane title="Visualisations" width="w-64">
+    <Pane title="Visualisations" width="w-64" compactOnNarrow>
       <div className="border-b border-line p-2">
         {VISUAL_GROUPS.map(({ group, items }) => (
           <div key={group} className="mb-1.5">
