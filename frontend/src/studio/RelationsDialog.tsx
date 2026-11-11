@@ -7,6 +7,7 @@ import { datasetChanged, getProfile, setProfile } from "../hooks/useDatasetProfi
 import { api } from "../lib/api";
 import type { DatasetModel, DatasetProfile, DatasetSummary, ModelIssue, Relation, RelationCheck } from "../types/dataset";
 import { checkMessages, relationName, relationSummary, suggestRelation } from "./relations";
+import { useModalFocus } from "../hooks/useModalFocus";
 
 const field = "w-full rounded-md border border-border bg-field px-2 py-1.5 text-xs outline-none focus:border-focus";
 const label = "mb-1 block text-2xs font-medium text-faint";
@@ -26,6 +27,7 @@ interface Props {
  */
 export function RelationsDialog({ profile, datasets, onClose, onSaved }: Props) {
   const titleId = useId();
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const model: DatasetModel = profile.model ?? { columns: [], measures: [] };
   const relations = model.relations ?? [];
   const [editing, setEditing] = useState<{ index: number | null; draft: Relation } | null>(relations.length ? null : { index: null, draft: emptyDraft() });
@@ -77,7 +79,7 @@ export function RelationsDialog({ profile, datasets, onClose, onSaved }: Props) 
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <Link2 className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">

@@ -10,6 +10,7 @@ import type { DatasetProfile, DatasetSummary } from "../../types/dataset";
 import type { Agg, Filter, FilterOp } from "../../types/query";
 import { AGG_LABELS, aggsFor } from "../../visuals/fields";
 import { BASIS_LABELS, COMPARISONS, alertError, basisUnit, filterLabel, formatAlertNumber, parseFilterValues, parseRecipients } from "./alerts";
+import { useModalFocus } from "../../hooks/useModalFocus";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const field = "rounded-md border border-border bg-field px-2 py-1.5 text-xs text-fg";
@@ -42,6 +43,7 @@ export function AlertEditor({
   onSaved: (a: Alert) => void;
 }) {
   const titleId = useId();
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const { prefs } = usePreferences();
   const [draft, setDraft] = useState<AlertInput>(initial);
   const [profile, setProfile] = useState<DatasetProfile | undefined>();
@@ -158,7 +160,7 @@ export function AlertEditor({
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <BellPlus className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">

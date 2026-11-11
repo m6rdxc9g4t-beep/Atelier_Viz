@@ -28,6 +28,7 @@ import type { DatasetProfile, ModelIssue, PrepKind, PrepPreview, PrepStep } from
 import { TYPE_META } from "../FieldsPanel";
 import { StepForm } from "./StepForm";
 import { STEP_LABELS, defaultStep, describeStep } from "./steps";
+import { useModalFocus } from "../../../hooks/useModalFocus";
 
 const ACTIONS: { kind: PrepKind; icon: LucideIcon; column: boolean }[] = [
   { kind: "rename", icon: TextCursorInput, column: true },
@@ -54,6 +55,7 @@ interface Props {
  */
 export function PrepEditor({ profile, onClose, onSaved }: Props) {
   const titleId = useId();
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const [steps, setSteps] = useState<PrepStep[]>(profile.steps ?? []);
   /** Étape affichée : -1 = source. */
   const [at, setAt] = useState((profile.steps ?? []).length - 1);
@@ -167,7 +169,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" onMouseDown={(e) => e.target === e.currentTarget && !dirty && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex h-[min(52rem,96vh)] w-full max-w-7xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex h-[min(52rem,96vh)] w-full max-w-7xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <Wand2 className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">

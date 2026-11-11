@@ -7,6 +7,7 @@ import { api } from "../../lib/api";
 import { openExternal } from "../../lib/desktop";
 import type { ReportVersion, ReportVersionDetail, RestoreResult } from "../../types/github";
 import { whenLabel } from "../automation/schedule";
+import { useModalFocus } from "../../hooks/useModalFocus";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -16,6 +17,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
  */
 export function VersionsDialog({ report, onClose, onRestored }: { report: { id: string; name: string }; onClose: () => void; onRestored: (r: RestoreResult) => void }) {
   const titleId = useId();
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const [versions, setVersions] = useState<ReportVersion[] | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [detail, setDetail] = useState<ReportVersionDetail | null>(null);
@@ -68,7 +70,7 @@ export function VersionsDialog({ report, onClose, onRestored }: { report: { id: 
   const index = versions?.findIndex((v) => v.sha === picked) ?? -1;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[88vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[88vh] w-full max-w-2xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <History className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 truncate text-sm font-semibold">

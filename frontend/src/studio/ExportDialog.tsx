@@ -15,6 +15,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useStudioData } from "./context";
 import { useEngine } from "../components/ai/EnginePicker";
 import { useStudio } from "./store";
+import { useModalFocus } from "../hooks/useModalFocus";
 
 const STORAGE_KEY = "atelier.export.options";
 
@@ -65,6 +66,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
   };
   const abort = useRef<AbortController | null>(null);
   const titleId = useId();
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const firstField = useRef<HTMLButtonElement>(null);
   const running = progress !== null && result === null && error === null;
 
@@ -119,7 +121,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && !running && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop w-full max-w-md rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop w-full max-w-md rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <Presentation className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">

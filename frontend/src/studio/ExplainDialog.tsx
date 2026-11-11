@@ -17,6 +17,7 @@ import { formatDimension } from "../visuals/format";
 import { defaultTitle } from "../visuals/title";
 import type { Selection } from "../visuals/types";
 import { useStudioData } from "./context";
+import { useModalFocus } from "../hooks/useModalFocus";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -26,6 +27,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
  */
 export function ExplainDialog({ page, visual, selection, onClose }: { page: Page; visual: Visual; selection: Selection; onClose: () => void }) {
   const titleId = useId();
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const { profiles } = useStudioData();
   const engine = useEngine();
   const [result, setResult] = useState<Explanation | string | null>(null);
@@ -95,7 +97,7 @@ export function ExplainDialog({ page, visual, selection, onClose }: { page: Page
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[88vh] w-full max-w-xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex max-h-[88vh] w-full max-w-xl flex-col rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <Lightbulb className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 truncate text-sm font-semibold">

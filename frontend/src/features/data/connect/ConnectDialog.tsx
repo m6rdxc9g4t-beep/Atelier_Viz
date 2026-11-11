@@ -10,6 +10,7 @@ import type { DatasetProfile } from "../../../types/dataset";
 import { ConnectionForm } from "./ConnectionForm";
 import { KIND_META, describeConnection, emptyForm, formOf } from "./meta";
 import { SourceBrowser } from "./SourceBrowser";
+import { useModalFocus } from "../../../hooks/useModalFocus";
 
 type View = { kind: "pick" } | { kind: "form"; form: ConnectionInput; editing: Connection | null } | { kind: "browse"; id: string };
 
@@ -21,6 +22,7 @@ type View = { kind: "pick" } | { kind: "form"; form: ConnectionInput; editing: C
  */
 export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: () => void; onImported: (p: DatasetProfile) => void; initialKind?: ConnectorKind }) {
   const titleId = useId();
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const { prefs } = usePreferences();
   const online = prefs?.online_mode ?? false;
   const [connectors, setConnectors] = useState<ConnectorInfo[]>([]);
@@ -54,7 +56,7 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex h-[min(46rem,92vh)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex h-[min(46rem,92vh)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <Cable className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
