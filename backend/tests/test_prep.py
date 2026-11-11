@@ -54,10 +54,11 @@ def test_cast_number_reads_the_separator_of_the_whole_column() -> None:
     out = run(english, cast)["n"]
     assert out.tolist()[:5] == [1234.5, 980.0, 12000.0, 3456.78, 1000.0]  # « 12,000 » : douze mille
     assert pd.isna(out.iloc[5])
-    european = pd.DataFrame({"n": ["1.234,56 €", "12,50", "1.234.567", "v1.2.3"]})
+    european = pd.DataFrame({"n": ["1.234,56 €", "12,50", "1.234.567", "v1.2.3", "\u22128,30 £"]})
     out = run(european, cast)["n"]
     assert out.tolist()[:3] == [1234.56, 12.5, 1234567.0]
     assert pd.isna(out.iloc[3])  # pas un nombre : jamais « 123 »
+    assert out.iloc[4] == -8.3  # signe moins typographique, livre sterling
     with pytest.raises(PrepError, match="séparateur décimal"):
         run(pd.DataFrame({"n": ["1,5", "2.5"]}), cast)
     # Les valeurs saisies dans un filtre se lisent une à une, quelle que soit leur écriture.

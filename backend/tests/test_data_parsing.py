@@ -67,6 +67,18 @@ def test_ambiguous_numbers_keep_the_french_reading() -> None:
     assert numbers("1.234", "12.000") == [1.234, 12.0]
 
 
+def test_currency_amounts_and_typographic_minus_are_numbers() -> None:
+    # Excel en français enregistre les cellules monétaires telles qu'affichées : « 1 234,56 € » (espaces insécables).
+    assert numbers("1\u202f234,56\u00a0€", "12,50 €", "-8,30 €") == [1234.56, 12.5, -8.3]
+    assert numbers("$1,234.50", "$980.00", "-$12.00") == [1234.5, 980.0, -12.0]
+    assert numbers("£ 10.50", "£3") == [10.5, 3.0]
+    assert numbers("\u221212,50", "8,30") == [-12.5, 8.3]  # signe moins typographique (U+2212)
+    # Deux devises dans la colonne : on ne les additionne pas, elle reste du texte.
+    assert numbers("12,50 €", "$8.30") == ["12,50 €", "$8.30"]
+    # Un symbole au milieu d'une valeur n'est pas un montant.
+    assert numbers("12€50", "3€20") == ["12€50", "3€20"]
+
+
 @pytest.mark.parametrize(
     ("values", "expected"),
     [

@@ -98,7 +98,7 @@ def _to_number(series: pd.Series) -> pd.Series:
     if pd.api.types.is_numeric_dtype(series):
         return series
     # Séparateur décimal décidé sur toute la colonne (parsing.decimal_separator), jamais valeur par valeur.
-    numbers = to_numbers(series.astype("string").str.strip().str.replace(r"[€$]", "", regex=True))
+    numbers = to_numbers(series.astype("string").str.strip().str.replace(r"[€$£]", "", regex=True))
     if numbers is None:
         raise _StepError(
             "la colonne mélange « , » et « . » comme séparateur décimal : uniformisez-la d'abord "

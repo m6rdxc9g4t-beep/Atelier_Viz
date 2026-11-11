@@ -26,6 +26,8 @@ MIN_MATCH_RATIO = 0.95  # part minimale de valeurs convertibles pour retyper une
 
 _NUMBER_RE = re.compile(r"^[-+]?(\d{1,3}([   .,]\d{3})+|\d+)([.,]\d+)?\s*%?$")
 _NOISE = "[\\s\u00a0\u202f%]"  # espaces (dont insécables : milliers français) et « % », retirés avant lecture
+_MINUS = "\u2212"  # signe moins typographique (exports Excel, PDF) : lu comme « - »
+CURRENCIES = "€$£"
 _DATE_HINT_RE = re.compile(r"^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}")
 _TRUE = {"true", "vrai", "oui", "yes"}
 _FALSE = {"false", "faux", "non", "no"}
@@ -202,7 +204,9 @@ def _to_bool(series: pd.Series) -> pd.Series | None:
 
 
 def _to_number(series: pd.Series) -> pd.Series | None:
-    text = series.astype("string").str.strip()
+    text = _without_currency(series.astype("string").str.strip().str.replace(_MINUS, "-", regex=False))
+    if text is None:
+        return None
     sample = text.dropna()
     if sample.empty or not sample.str.match(_NUMBER_RE).mean() >= MIN_MATCH_RATIO:
         return None
@@ -210,6 +214,23 @@ def _to_number(series: pd.Series) -> pd.Series | None:
     if sample.str.match(r"^[-+]?0\d").any():
         return None
     return to_numbers(text)
+
+
+def _without_currency(text: pd.Series) -> pd.Series | None:
+    """Retire le symbole monétaire en tête ou en fin de valeur (« 1 234,56 € », « $1,234.50 », « -$12 »).
+
+    None si la colonne en utilise plusieurs : des devises différentes ne s'additionnent pas, elle reste du texte.
+    """
+    used = [c for c in CURRENCIES if text.str.contains(c, regex=False).any()]
+    if not used:
+        return text
+    if len(used) > 1:
+        return None
+    symbol, gap = re.escape(used[0]), "[\\s\u00a0\u202f]*"
+    # Motifs compilés : pandas passe alors par `re` quel que soit le stockage des chaînes (référence « \1 »).
+    leading = re.compile(rf"^([-+]?){gap}{symbol}{gap}")
+    trailing = re.compile(rf"{gap}{symbol}$")
+    return text.str.replace(leading, r"\1", regex=True).str.replace(trailing, "", regex=True)
 
 
 def decimal_separator(sample: pd.Series) -> str | None:
@@ -244,7 +265,7 @@ def to_numbers(text: pd.Series) -> pd.Series | None:
     Seules les valeurs en forme de nombre suivent le séparateur de la colonne ; les autres sont laissées telles
     quelles à pandas (« 1e3 » reste lisible, « v1.2.3 » reste vide).
     """
-    cleaned = text.str.replace(_NOISE, "", regex=True)
+    cleaned = text.str.replace(_MINUS, "-", regex=False).str.replace(_NOISE, "", regex=True)
     shaped = cleaned.str.match(_NUMBER_RE).fillna(False).astype(bool)
     separator = decimal_separator(cleaned[shaped])
     if separator is None:
