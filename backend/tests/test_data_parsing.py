@@ -252,7 +252,7 @@ def test_files_without_title_are_read_as_before() -> None:
         ([["", "", "total"], ["Nord", "A", "abc"], ["Sud", "B", "def"]], 0),  # cellule remplie hors première colonne
         ([["Notes", ""], ["a", "b"], ["c", "d"]], 0),  # largeur du tableau, pas de ligne vide : c'est l'en-tête
         ([["Notes", None], ["a", "b"], ["c", "d"]], 0),
-        ([["Titre", "", ""], ["Autre titre", "", ""], ["", "", ""], ["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"]], 3),
+        ([["Titre", "", ""], ["Autre", "", ""], ["", "", ""], ["a", "b", "c"], ["d", "e", "f"], ["g", "h", "i"]], 3),
         ([["Titre"], ["a", "b"], ["c", "d"]], 1),  # titre plus court que le tableau : pas besoin de ligne vide
         ([["", ""], ["a", "b"], ["c", "d"]], 1),  # ligne vide au-dessus du tableau
         ([["", "", ""], ["", "", ""]], 0),  # aucune cellule remplie
@@ -270,7 +270,7 @@ def test_file_without_any_filled_cell(content: bytes) -> None:
 
 
 def test_sheet_with_only_spaces_is_read_without_a_raw_error() -> None:
-    # Cellules d'espaces : pas des cellules vides pour Excel ; la feuille se lit (une ligne), sans « index out of range ».
+    # Cellules d'espaces : pas des cellules vides pour Excel ; la feuille se lit, sans « index out of range ».
     df, _ = read_table("espaces.xlsx", xlsx([[" ", " "], [" ", " "]]))
     assert list(df.columns) == ["colonne_1", "colonne_2"] and len(df) == 1
 
