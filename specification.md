@@ -581,7 +581,8 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
 - Tests : pytest (543, + 2 sur serveurs réels) côté back, Vitest (260) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
-- Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
+- Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés) ; dialogues modaux qui gardent le focus (Tab y boucle) et le rendent à leur déclencheur ; menus parcourus aux flèches.
+- Téléphone (consultation) : un rapport s'ouvre en lecture, page ajustée à la largeur, volets repliés ; cibles tactiles de 40 px dans la coquille, champs à 16 px, dialogues empilés sous 768 px. L'édition d'un rapport reste pensée pour un ordinateur.
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
 ## 9. Roadmap

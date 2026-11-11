@@ -178,6 +178,8 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - Palette catégorielle en ordre fixe, 8 séries max puis « Autres » ; 3 max pour nuages / cartes à points.
 - **Jamais de double axe.** Info-bulle sur tout graphique. Légende dès 2 séries. Texte en encre neutre, pas en couleur de série.
 - Toute modification visuelle se vérifie en capture d'écran (clair + sombre).
+- Téléphone : sous 768 px (`lib/viewport.ts`, palier `md`), le Studio s'ouvre en lecture, ses volets d'édition repliés (`Pane compactOnNarrow`) et tout volet ouvert posé par-dessus la page ; les dialogues à deux colonnes empilent leur colonne de gauche. Au doigt (`pointer-coarse:`) : cibles de la coquille de 40 px, champs à 16 px (règle de `index.css`, sinon Safari zoome), et jamais d'action visible au survol seul (`pointer-coarse:opacity-100`).
+- Menus (`ContextMenu`) : flèches, Début / Fin, Échap et Tab rendent le focus au déclencheur. Erreur d'une requête annulée : `AbortError` tel quel (`lib/api.ts`), jamais « serveur injoignable ».
 
 ## Commandes
 ```bash
