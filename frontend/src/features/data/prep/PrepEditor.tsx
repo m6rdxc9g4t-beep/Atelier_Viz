@@ -180,8 +180,9 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
           </button>
         </header>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[16rem_minmax(0,1fr)]">
-          <aside className="flex min-h-0 flex-col border-r border-line" aria-label="Étapes appliquées">
+        {/* Écran étroit : les étapes passent au-dessus de l'aperçu (bandeau de hauteur bornée) au lieu de l'écraser. */}
+        <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[16rem_minmax(0,1fr)] md:grid-rows-1">
+          <aside className="flex max-h-44 min-h-0 flex-col border-b border-line md:max-h-none md:border-r md:border-b-0" aria-label="Étapes appliquées">
             <p className="px-3 pt-3 text-2xs font-medium text-faint">Étapes appliquées</p>
             <ol className="min-h-0 flex-1 space-y-0.5 overflow-y-auto p-2">
               <li>
@@ -220,10 +221,10 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                         </span>
                         <span className="block truncate text-[11px] text-muted">{describeStep(s)}</span>
                       </button>
-                      <button type="button" onClick={() => setForm({ index: i, step: s })} aria-label={`Modifier l'étape ${i + 1}`} className="rounded p-0.5 text-muted opacity-0 hover:text-fg focus:opacity-100 group-hover/step:opacity-100">
+                      <button type="button" onClick={() => setForm({ index: i, step: s })} aria-label={`Modifier l'étape ${i + 1}`} className="rounded p-0.5 text-muted opacity-0 hover:text-fg focus:opacity-100 group-hover/step:opacity-100 pointer-coarse:p-2 pointer-coarse:opacity-100">
                         <Pencil className="size-3" aria-hidden />
                       </button>
-                      <button type="button" onClick={() => remove(i)} aria-label={`Supprimer l'étape ${i + 1}`} className="rounded p-0.5 text-muted opacity-0 hover:text-negative focus:opacity-100 group-hover/step:opacity-100">
+                      <button type="button" onClick={() => remove(i)} aria-label={`Supprimer l'étape ${i + 1}`} className="rounded p-0.5 text-muted opacity-0 hover:text-negative focus:opacity-100 group-hover/step:opacity-100 pointer-coarse:p-2 pointer-coarse:opacity-100">
                         <X className="size-3" aria-hidden />
                       </button>
                     </div>
@@ -231,7 +232,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                 );
               })}
             </ol>
-            <p className="border-t border-line px-3 py-2 text-[11px] leading-snug text-muted">
+            <p className="border-t border-line px-3 py-2 text-[11px] leading-snug text-muted max-md:hidden">
               Les étapes sont rejouées sur la source à chaque actualisation. Une nouvelle étape s'insère après celle affichée.
             </p>
           </aside>
@@ -267,7 +268,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
               />
             )}
 
-            <div className="flex items-center gap-2 text-xs text-muted" role="status" aria-live="polite">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted" role="status" aria-live="polite">
               {loading && <Loader2 className="size-3 animate-spin" aria-hidden />}
               {preview && (
                 <span>
@@ -281,7 +282,7 @@ export function PrepEditor({ profile, onClose, onSaved }: Props) {
                   <TriangleAlert className="size-3.5" aria-hidden /> {preview.error}
                 </span>
               )}
-              {!selected && <span className="ml-auto">Cliquez sur l'en-tête d'une colonne pour la transformer.</span>}
+              {!selected && <span className="ml-auto max-sm:hidden">Cliquez sur l'en-tête d'une colonne pour la transformer.</span>}
             </div>
 
             <div className="atelier-card min-h-0 flex-1 overflow-auto rounded-lg border border-border">

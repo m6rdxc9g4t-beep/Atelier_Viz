@@ -332,6 +332,15 @@ textarea {
 /* Focus clavier : anneau signature de 2 px décalé de 2 px, commun à tout élément focalisable
    (couche base : un composant qui dessine son propre focus garde la main avec `outline-none`). */
 @layer base {
+  /* Un groupe de champs ou une liste déroulante ne dépasse jamais son conteneur : sans cela, une option au libellé long
+     élargit le <fieldset> (largeur minimale = contenu) et fait déborder un dialogue sur un écran étroit. */
+  fieldset {
+    min-width: 0;
+  }
+  select {
+    max-width: 100%;
+  }
+
   :focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
