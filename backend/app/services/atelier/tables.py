@@ -25,6 +25,7 @@ from app.schemas.atelier import AtelierColumn, AtelierTable, AtelierType
 from app.schemas.dataset import ColumnType
 from app.schemas.query import DateBin, Measure, QueryRequest, QueryResponse, ShowKind
 from app.services.connectors.base import unique_names
+from app.services.data.parsing import local_naive
 from app.services.data.profiling import to_json
 from app.services.data.store import StoredDataset
 from app.services.engine.database import LocalDatabase, quote_ident
@@ -272,8 +273,7 @@ def _series(kind: AtelierType, values: list[Any]) -> pd.Series:
         if kind == "date":  # AAAA-MM-JJ : jour calendaire, sans décalage horaire
             return converted.dt.tz_localize(None).dt.normalize().astype("datetime64[ns]")
         # Horodatage avec fuseau → heure locale de la machine, sans fuseau (comme le connecteur Atelier Projets).
-        local = [None if pd.isna(ts) else ts.to_pydatetime().astimezone().replace(tzinfo=None) for ts in converted]
-        return pd.Series(pd.to_datetime(local), dtype="datetime64[ns]")
+        return local_naive(converted)
     return pd.Series([_text(v) for v in values], dtype="string")
 
 

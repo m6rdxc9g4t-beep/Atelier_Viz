@@ -60,8 +60,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api${path}`, { ...init, headers: { ...headers, ...init?.headers } });
-  } catch {
-    throw new ApiError(0, "Backend injoignable — lancez `uvicorn main:app --reload` dans backend/.");
+  } catch (err) {
+    // Requête annulée par l'appelant (bouton « Arrêter », saisie suivante) : ce n'est pas une panne du serveur.
+    if (init?.signal?.aborted || (err instanceof Error && err.name === "AbortError")) {
+      throw err instanceof Error && err.name === "AbortError" ? err : new DOMException("Requête annulée.", "AbortError");
+    }
+    throw new ApiError(0, "Le serveur local d'Atelier Viz ne répond pas : relancez l'application (en développement : `uvicorn main:app --reload` dans backend/).");
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as { detail?: unknown };
@@ -114,6 +118,15 @@ export const api = {
       const form = new FormData();
       form.append("file", file);
       return request<DatasetProfile>("/datasets", { method: "POST", body: form });
+    },
+    /**
+     * Remplace les données d'un jeu importé par fichier (même identifiant : rapports, modèle et alertes suivent).
+     * Sans `force`, un fichier auquel il manque une colonne du jeu est refusé (409, `detail.code` = `COLUMNS_LOST`).
+     */
+    replaceData: (id: string, file: File, force = false) => {
+      const form = new FormData();
+      form.append("file", file);
+      return request<DatasetProfile>(`/datasets/${id}/data${force ? "?force=true" : ""}`, { method: "PUT", body: form });
     },
     remove: (id: string) => request<void>(`/datasets/${id}`, { method: "DELETE" }),
     saveModel: (id: string, model: DatasetModel) =>
@@ -209,8 +222,9 @@ export const api = {
     get: (id: string) => request<Report>(`/reports/${id}`),
     create: (name: string, datasetId?: string | null) =>
       request<Report>("/reports", { method: "POST", body: JSON.stringify({ name, dataset_id: datasetId ?? null }) }),
-    save: (id: string, body: ReportBody) =>
-      request<Report>(`/reports/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    /** `keepalive` : la requête survit à la fermeture ou au rechargement de la page (dernier enregistrement du Studio). */
+    save: (id: string, body: ReportBody, keepalive = false) =>
+      request<Report>(`/reports/${id}`, { method: "PUT", body: JSON.stringify(body), ...(keepalive ? { keepalive: true } : {}) }),
     remove: (id: string) => request<void>(`/reports/${id}`, { method: "DELETE" }),
   },
 

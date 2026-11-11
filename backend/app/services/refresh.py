@@ -185,7 +185,7 @@ class RefreshScheduler:
         if origin is None:
             raise ConnectorError(
                 "Seul un jeu importé depuis une connexion peut être actualisé : "
-                "réimportez ce fichier pour le mettre à jour."
+                "pour un fichier, utilisez « Remplacer les données… » dans l'écran Données."
             )
         if origin.kind == "atelier-table":
             raise ConnectorError(

@@ -5,7 +5,7 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from app.schemas.dataset import DatasetModel, PrepStep
-from app.services.data import DatasetStore
+from app.services.data import DatasetStore, prep
 from app.services.data.model import ModelError
 from app.services.data.prep import PrepError, apply_steps
 from app.services.engine import LocalDatabase
@@ -46,6 +46,48 @@ def test_rename_remove_cast_text() -> None:
     assert out["Date"].iloc[1] == pd.Timestamp(2026, 1, 20)  # jour en premier
     assert out["client"].tolist()[:2] == ["Dupont Jean", "Martin Claire"]
     assert out["client"].iloc[3] is None
+
+
+def test_cast_number_reads_the_separator_of_the_whole_column() -> None:
+    cast = [{"kind": "cast", "column": "n", "to": "number"}]
+    english = pd.DataFrame({"n": ["1,234.50", "980.00", "12,000", "$3,456.78", "1e3", "n/a"]})
+    out = run(english, cast)["n"]
+    assert out.tolist()[:5] == [1234.5, 980.0, 12000.0, 3456.78, 1000.0]  # « 12,000 » : douze mille
+    assert pd.isna(out.iloc[5])
+    european = pd.DataFrame({"n": ["1.234,56 €", "12,50", "1.234.567", "v1.2.3", "\u22128,30 £"]})
+    out = run(european, cast)["n"]
+    assert out.tolist()[:3] == [1234.56, 12.5, 1234567.0]
+    assert pd.isna(out.iloc[3])  # pas un nombre : jamais « 123 »
+    assert out.iloc[4] == -8.3  # signe moins typographique, livre sterling
+    # Colonne qui mélange les deux écritures (saisie à la main, fusion de deux sources) : chaque valeur sans
+    # ambiguïté se lit seule, comme avant la lecture par colonne.
+    mixed = pd.DataFrame({"n": ["12,5", "13.2", "14", "1.234,5", "1,234.5", "1.234.567", "0,125", "8 %", "n/a", None]})
+    out = run(mixed, cast)["n"]
+    assert out.tolist()[:8] == [12.5, 13.2, 14.0, 1234.5, 1234.5, 1234567.0, 0.125, 8.0]
+    assert out.iloc[8:].isna().all()
+    # Refus seulement si une valeur peut se lire de deux façons (« 1,234 » : 1,234 ou 1 234 ?), et le message la cite.
+    with pytest.raises(PrepError, match="séparateur décimal.*« 1,234 »"):
+        run(pd.DataFrame({"n": ["1,5", "2.5", "1,234"]}), cast)
+    # Les valeurs saisies dans un filtre se lisent une à une, quelle que soit leur écriture.
+    typed = pd.DataFrame({"n": [1.5, 2.5, 1234.0]})
+    assert len(run(typed, [{"kind": "filter", "column": "n", "op": "in", "values": ["1,5", "2.5", "1,234.0"]}])) == 3
+
+
+def test_cast_date_with_different_utc_offsets(local_tz) -> None:
+    local_tz("Europe/Paris")
+    df = pd.DataFrame({"quand": ["2026-03-28T10:30:00+01:00", "2026-03-29T11:00:00+02:00", "n/a"]})
+    out = run(df, [{"kind": "cast", "column": "quand", "to": "date"}])["quand"]
+    assert [str(v) for v in out[:2]] == ["2026-03-28 10:30:00", "2026-03-29 11:00:00"] and pd.isna(out.iloc[2])
+
+
+def test_unexpected_failure_of_a_step_is_a_prep_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(df: pd.DataFrame, step: object) -> pd.DataFrame:
+        raise TypeError("cas imprévu de pandas")
+
+    monkeypatch.setitem(prep._APPLY, "dedupe", boom)
+    with pytest.raises(PrepError, match="Étape 2 .*impossible") as info:
+        run(RAW, [{"kind": "cast", "column": "Montant", "to": "number"}, {"kind": "dedupe", "columns": []}])
+    assert info.value.index == 1 and "pandas" not in info.value.message
 
 
 def test_filter_replace_fill_dedupe() -> None:
@@ -173,6 +215,59 @@ def test_store_rejects_steps_that_break_the_model_or_relations(store: DatasetSto
         store.replace_data(store.get(ds.id), RAW.drop(columns=["Montant"]), None)
     assert exc.value.issues[0].kind == "step"
     assert store.get(ds.id).profile().rows == 5
+
+
+def test_refresh_keeps_what_was_saved_while_it_was_reading(store: DatasetStore) -> None:
+    """Une actualisation part d'un instantané du jeu lu avant de joindre la source : ce qui a été enregistré
+    entre-temps (mesure, étapes) ne doit pas être écrasé à son retour."""
+    stale = store.add("clients.csv", "csv", RAW.copy())
+    steps = STEPS.validate_python([{"kind": "cast", "column": "Montant", "to": "number"}])
+    store.set_steps(stale, steps)
+    model = DatasetModel.model_validate(
+        {
+            "columns": [{"name": "ttc", "expression": "Montant * 2"}],
+            "measures": [{"name": "total", "expression": "SUM(ttc)"}],
+        }
+    )
+    store.set_model(stale, model)  # l'écran du modèle part lui aussi d'une lecture antérieure aux étapes
+
+    fresh = RAW.assign(Montant=["10", "20", "30", "40", "50"])
+    updated = store.replace_data(stale, fresh, None)  # instantané d'avant les étapes et le modèle
+
+    profile = store.get(stale.id).profile()
+    assert updated.profile() == profile
+    assert [s.kind for s in profile.steps] == ["cast"]  # étapes gardées et rejouées
+    assert [m.name for m in profile.model.measures] == ["total"]
+    assert next(c for c in profile.columns if c.name == "ttc").calculated
+    _, rows = store.db.execute(f'SELECT SUM("ttc") FROM "{updated.source}"')
+    assert rows[0][0] == 300  # la vue calcule sur les nouvelles données, avec la colonne calculée
+    # Enregistrer des étapes depuis un instantané ancien garde aussi le modèle.
+    store.set_steps(
+        stale, [*steps, *STEPS.validate_python([{"kind": "filter", "column": "Montant", "op": "gt", "values": ["10"]}])]
+    )
+    profile = store.get(stale.id).profile()
+    assert profile.rows == 4 and [m.name for m in profile.model.measures] == ["total"]
+
+
+def test_writes_on_a_removed_dataset_change_nothing(store: DatasetStore) -> None:
+    stale = store.add("clients.csv", "csv", RAW.copy())
+    assert store.remove(stale.id)
+
+    def tables() -> list[str]:
+        _, rows = store.db.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_name LIKE ?", [f"%{stale.id}%"]
+        )
+        return [r[0] for r in rows]
+
+    for write in (
+        lambda: store.replace_data(stale, RAW.copy(), None),
+        lambda: store.set_steps(stale, STEPS.validate_python([{"kind": "cast", "column": "Montant", "to": "number"}])),
+        lambda: store.set_model(stale, DatasetModel()),
+    ):
+        with pytest.raises(ModelError, match="supprimé"):
+            write()
+        assert tables() == []  # ni table, ni source brute, ni vue orpheline
+    assert store.get(stale.id) is None
 
 
 def test_routes(client) -> None:

@@ -191,7 +191,7 @@ Tout reste sur la machine : mêmes gardes que le reste de l'API (`Host` de boucl
 | `GET /api/atelier/manifest` | Actions et événements disponibles (schémas JSON générés des modèles Pydantic) |
 | `GET /api/atelier/datasets/{id}/table?offset=&limit=` | Lignes d'un jeu en table d'échange `atelier-table/1` (1 000 par défaut, 5 000 au plus) |
 | `POST /api/atelier/query` | Même corps que `POST /api/query` ; résultat `atelier-table/1`, clés `snake_case` (`sum(CA)@ytd` → `sum_ca_ytd`), libellés « Somme de CA » |
-| `POST /api/atelier/datasets` | `{name, key, table}` : crée le jeu (201) ou remplace les données du jeu de cette clé (200, modèle revalidé) ; `Idempotency-Key` accepté (rejeu : `Idempotency-Replayed: true`, autre corps : 409) ; 100 000 lignes, 200 colonnes |
+| `POST /api/atelier/datasets` | `{name, key, table}` : crée le jeu (201) ou remplace les données du jeu de cette clé (200, modèle revalidé, alertes du jeu réévaluées) ; `Idempotency-Key` accepté (rejeu : `Idempotency-Replayed: true`, autre corps : 409) ; 100 000 lignes, 200 colonnes |
 | `GET /api/atelier/events?since=&limit=&types=` | Journal : `viz.dataset.created` / `refreshed` / `refresh_failed` / `deleted`, `viz.alert.triggered`, `viz.report.saved` |
 
 Actions du manifeste : `datasets.list`, `datasets.get`, `datasets.table`, `datasets.query`, `datasets.upsert_table` (écriture),

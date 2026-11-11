@@ -105,6 +105,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.atelier_writes = AtelierWrites(app.state.reports, app.state.alerts, app.state.dataset_store)
         app.state.idempotency = IdempotencyStore(data_dir / "atelier_idempotency.json")
         app.state.scheduler.on_refreshed(app.state.alerts.evaluate_dataset)
+        # Même chose quand un workflow remplace les données d'un jeu (`datasets.upsert_table`).
+        app.state.atelier.on_replaced(app.state.alerts.evaluate_dataset)
         ticker = (
             asyncio.create_task(app.state.scheduler.run_forever(settings.scheduler_period_seconds))
             if settings.scheduler_enabled
@@ -117,6 +119,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await ticker
         # Actualisations en cours : annulées et attendues (délai borné) avant de fermer DuckDB.
         await app.state.scheduler.shutdown(settings.scheduler_shutdown_seconds)
+        # Alertes en cours d'évaluation après un remplacement par un workflow : même délai, puis abandon.
+        await app.state.atelier.drain(settings.scheduler_shutdown_seconds)
         app.state.atelier_events.flush()  # enregistrements de rapport en attente de regroupement
         await app.state.ai_service.aclose()
         app.state.database.close()

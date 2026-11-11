@@ -5,7 +5,10 @@ Méthodes synchrones (DuckDB, pandas) : via `asyncio.to_thread`.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import threading
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
 from app.schemas.atelier import AtelierTable, UpsertTableInput, UpsertTableResult
@@ -19,6 +22,10 @@ from app.services.data.store import DatasetStore, StoredDataset
 from app.services.engine.database import LocalDatabase
 from app.services.engine.query import QueryError, run_query
 
+logger = logging.getLogger(__name__)
+
+ReplacedListener = Callable[[str], Awaitable[object]]
+
 
 class AtelierService:
     """Jeux de données vus par un workflow (Atelier Nexus)."""
@@ -28,6 +35,54 @@ class AtelierService:
         self.db = db
         self.events = events
         self._upsert_lock = threading.Lock()  # recherche par clé + création : jamais deux jeux pour une clé
+        self._replaced: list[ReplacedListener] = []
+        self._notifying: set[asyncio.Task[None]] = set()  # références fortes : une tâche oubliée peut être ramassée
+        self._notify_lock: asyncio.Lock | None = None  # créé dans la boucle du serveur, au premier remplacement
+
+    def on_replaced(self, listener: ReplacedListener) -> None:
+        """Abonne un observateur appelé après le remplacement des données d'un jeu par un workflow (identifiant).
+
+        Pendant de `RefreshScheduler.on_refreshed` pour les jeux `atelier-table` (alertes à réévaluer).
+        """
+        self._replaced.append(listener)
+
+    async def notify_replaced(self, dataset_id: str) -> None:
+        """Prévient les observateurs ; une erreur est journalisée, jamais relancée (la table est déjà enregistrée)."""
+        for listener in self._replaced:
+            try:
+                await listener(dataset_id)
+            except Exception as exc:  # noqa: BLE001 — un observateur en échec ne fait pas échouer l'upsert
+                logger.warning("Observateur de remplacement en échec pour %s : %s", dataset_id, exc)
+
+    def replaced(self, dataset_id: str) -> None:
+        """Prévient les observateurs en tâche de fond : la réponse au workflow n'attend ni webhook ni e-mail d'alerte.
+
+        Une alerte dont le webhook ne répond pas prend jusqu'à 15 s ; attendue, elle ferait échouer l'étape du
+        workflow (délai de 20 s côté Nexus) alors que la table est enregistrée. Une notification à la fois, dans
+        l'ordre des remplacements ; `drain` attend la fin (arrêt du serveur, tests).
+        """
+        task = asyncio.get_running_loop().create_task(self._notify_in_order(dataset_id))
+        self._notifying.add(task)
+        task.add_done_callback(self._notifying.discard)
+
+    async def _notify_in_order(self, dataset_id: str) -> None:
+        if self._notify_lock is None:
+            self._notify_lock = asyncio.Lock()
+        async with self._notify_lock:
+            await self.notify_replaced(dataset_id)
+
+    async def drain(self, timeout: float | None = None) -> int:
+        """Attend les notifications en cours, au plus `timeout` secondes ; annule et compte celles qui restent."""
+        tasks = list(self._notifying)
+        if not tasks:
+            return 0
+        _, pending = await asyncio.wait(tasks, timeout=timeout)
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.wait(pending, timeout=1.0)
+            logger.warning("Arrêt : %d évaluation(s) d'alertes après un remplacement abandonnée(s).", len(pending))
+        return len(pending)
 
     def dataset(self, dataset_id: str) -> StoredDataset:
         dataset = self.store.get(dataset_id)

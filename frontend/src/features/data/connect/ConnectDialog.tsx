@@ -10,6 +10,7 @@ import type { DatasetProfile } from "../../../types/dataset";
 import { ConnectionForm } from "./ConnectionForm";
 import { KIND_META, describeConnection, emptyForm, formOf } from "./meta";
 import { SourceBrowser } from "./SourceBrowser";
+import { useModalFocus } from "../../../hooks/useModalFocus";
 
 type View = { kind: "pick" } | { kind: "form"; form: ConnectionInput; editing: Connection | null } | { kind: "browse"; id: string };
 
@@ -21,6 +22,7 @@ type View = { kind: "pick" } | { kind: "form"; form: ConnectionInput; editing: C
  */
 export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: () => void; onImported: (p: DatasetProfile) => void; initialKind?: ConnectorKind }) {
   const titleId = useId();
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const { prefs } = usePreferences();
   const online = prefs?.online_mode ?? false;
   const [connectors, setConnectors] = useState<ConnectorInfo[]>([]);
@@ -54,13 +56,13 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex h-[min(46rem,92vh)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
-        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop flex h-[min(46rem,92vh)] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-border bg-surface text-fg shadow-2xl">
+        <header className="flex flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-line px-4 py-3">
           <Cable className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">
             Se connecter à une source
           </h2>
-          <span className={clsx("rounded-full px-2 py-0.5 text-[11px]", online ? "bg-accent-soft text-accent-ink" : "bg-surface-2 text-muted")}>
+          <span className={clsx("rounded-full px-2 py-0.5 text-[11px] max-sm:order-last", online ? "bg-accent-soft text-accent-ink" : "bg-surface-2 text-muted")}>
             {online ? "En ligne" : "Hors ligne : réseau local et VPN uniquement"}
           </span>
           <button type="button" onClick={onClose} aria-label="Fermer" className="rounded p-1 text-muted hover:bg-surface-2 hover:text-fg">
@@ -68,8 +70,9 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
           </button>
         </header>
 
-        <div className="flex min-h-0 flex-1">
-          <nav aria-label="Connexions enregistrées" className="flex w-60 shrink-0 flex-col border-r border-line bg-bg/40">
+        {/* Écran étroit : les connexions passent au-dessus (bandeau de hauteur bornée) au lieu d'écraser le formulaire. */}
+        <div className="flex min-h-0 flex-1 max-md:flex-col">
+          <nav aria-label="Connexions enregistrées" className="flex w-60 shrink-0 flex-col border-r border-line bg-bg/40 max-md:max-h-40 max-md:w-full max-md:border-r-0 max-md:border-b">
             <p className="px-3 pt-3 pb-1 text-2xs font-medium text-faint">Connexions</p>
             <div className="min-h-0 flex-1 overflow-y-auto px-2">
               {connections === null && !error && <Loader2 className="mx-auto mt-4 size-4 animate-spin text-muted" aria-label="Chargement" />}

@@ -13,7 +13,7 @@ import type { ColumnProfile, DatasetProfile } from "../types/dataset";
 import type { Filter } from "../types/query";
 import type { FieldBinding, Layout, Page, Visual, VisualOptions, VisualType } from "../types/report";
 import { normalize } from "../visuals/maps/geo";
-import { uid } from "./store";
+import { uid } from "./uid";
 
 // ─── Analyse des colonnes ────────────────────────────────────────────────────────────────────────────────
 

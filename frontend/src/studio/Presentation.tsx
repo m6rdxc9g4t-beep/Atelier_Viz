@@ -1,7 +1,8 @@
 import clsx from "clsx";
 import { Bookmark, ChevronLeft, ChevronRight, CornerUpLeft, Files, Pause, Play, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { useModalFocus } from "../hooks/useModalFocus";
 import type { Report } from "../types/report";
 import { readTheme, themeVars } from "../theme/reportTheme";
 import { Canvas } from "./Canvas";
@@ -19,7 +20,9 @@ const HUD_IDLE_MS = 2500;
 export function Presentation({ report, onExit }: { report: Report; onExit: () => void }) {
   const pageId = useStudio((s) => s.pageId);
   const extraction = useStudio((s) => s.extraction);
-  const rootRef = useRef<HTMLDivElement>(null);
+  // Dialogue modal : le focus y entre, Tab y boucle (la page reste derrière quand le plein écran est refusé) et il
+  // revient au bouton « Présenter » en sortant.
+  const rootRef = useModalFocus<HTMLDivElement>();
   const allBookmarks = report.bookmarks ?? [];
   const groups = [...new Set(allBookmarks.map((b) => bookmarkGroup(b)).filter((g): g is string => g !== null))];
   const [group, setGroup] = useState<string | null>(null);

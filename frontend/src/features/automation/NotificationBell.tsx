@@ -59,7 +59,7 @@ export function NotificationBell() {
         aria-expanded={open}
         aria-label={unread ? `Notifications : ${unread} non lue${unread > 1 ? "s" : ""}` : "Notifications"}
         title="Notifications des alertes"
-        className={clsx("relative grid size-[30px] place-items-center rounded-md hover:bg-surface-2 hover:text-fg", unread ? "text-fg" : "text-muted")}
+        className={clsx("relative grid size-[30px] place-items-center rounded-md hover:bg-surface-2 hover:text-fg pointer-coarse:size-10", unread ? "text-fg" : "text-muted")}
       >
         <Icon className="size-4" aria-hidden />
         {unread > 0 && (
@@ -69,7 +69,7 @@ export function NotificationBell() {
         )}
       </button>
       {open && (
-        <div role="dialog" aria-label="Notifications" className="atelier-pop absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden rounded-lg border border-border bg-surface shadow-xl">
+        <div role="dialog" aria-label="Notifications" className="atelier-pop absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden rounded-lg border border-border bg-surface shadow-xl max-sm:fixed max-sm:inset-x-2 max-sm:top-(--top-h) max-sm:w-auto">
           <header className="flex items-center justify-between border-b border-line px-3 py-2">
             <h2 className="text-xs font-semibold">Alertes déclenchées</h2>
             {unread > 0 && (

@@ -21,6 +21,31 @@ describe("api", () => {
 
   it("explique quand le backend ne répond pas", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
-    await expect(api.health()).rejects.toThrow(/uvicorn/);
+    const err = (await api.health().catch((e: unknown) => e)) as ApiError;
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(0);
+    expect(err.message).toMatch(/relancez l'application/);
+  });
+
+  it("laisse passer une annulation : ce n'est pas un serveur injoignable", async () => {
+    // fetch rejette avec « AbortError » quand le signal est annulé (bouton « Arrêter », aperçu remplacé par le suivant).
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("The user aborted a request.", "AbortError"))))),
+    );
+    const ctrl = new AbortController();
+    const pending = api.query({ dataset_id: "abc" } as never, ctrl.signal).catch((e: unknown) => e);
+    ctrl.abort();
+    const err = (await pending) as Error;
+    expect(err.name).toBe("AbortError");
+    expect(err).not.toBeInstanceOf(ApiError);
+  });
+
+  it("traite en annulation un échec de fetch dont le signal est annulé", async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    const err = (await api.query({ dataset_id: "abc" } as never, ctrl.signal).catch((e: unknown) => e)) as Error;
+    expect(err.name).toBe("AbortError");
   });
 });

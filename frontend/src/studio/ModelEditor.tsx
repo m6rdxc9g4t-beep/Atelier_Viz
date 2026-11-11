@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import type { DatasetModel, DatasetProfile, ExpressionResult, ModelIssue } from "../types/dataset";
 import { formatDimension, formatNumber } from "../visuals/format";
 import { useStudio } from "./store";
+import { useModalFocus } from "../hooks/useModalFocus";
 
 export type ModelItemKind = "column" | "measure";
 
@@ -74,6 +75,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
   const titleId = useId();
+  const dialogRef = useModalFocus<HTMLDivElement>();
   const report = useStudio((s) => s.report);
   const model: DatasetModel = profile.model ?? { columns: [], measures: [] };
   const Icon = kind === "measure" ? Calculator : SquareFunction;
@@ -162,7 +164,7 @@ export function ModelEditor({ profile, kind, initial, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop w-full max-w-2xl rounded-xl border border-border bg-surface text-fg shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="atelier-pop w-full max-w-2xl rounded-xl border border-border bg-surface text-fg shadow-2xl">
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <Icon className="size-4 text-muted" aria-hidden />
           <h2 id={titleId} className="flex-1 text-sm font-semibold">

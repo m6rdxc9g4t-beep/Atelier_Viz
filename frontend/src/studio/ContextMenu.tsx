@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export interface MenuItem {
@@ -19,10 +19,19 @@ interface Props {
   onClose: () => void;
 }
 
-/** Menu contextuel (clic droit) : rendu dans <body>, gardé dans la fenêtre, fermé par Échap ou un clic ailleurs. */
+/**
+ * Menu contextuel (clic droit, bouton « Exporter ») : rendu dans <body>, gardé dans la fenêtre, fermé par Échap ou un
+ * clic ailleurs. Au clavier : flèches haut / bas, Début et Fin parcourent les entrées ; Échap, Tab ou un choix rendent
+ * le focus à l'élément qui a ouvert le menu.
+ */
 export function ContextMenu({ x, y, title, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: x, top: y });
+  // Élément qui avait le focus à l'ouverture (bouton du menu) : il le reprend à la fermeture au clavier ou après un choix.
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null));
+  const restoreFocus = useCallback(() => {
+    if (opener?.isConnected) opener.focus();
+  }, [opener]);
 
   useLayoutEffect(() => {
     const el = ref.current;
@@ -34,8 +43,13 @@ export function ContextMenu({ x, y, title, items, onClose }: Props) {
 
   useEffect(() => {
     const close = (e: Event) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e instanceof KeyboardEvent && e.key !== "Escape" && e.key !== "Tab") return;
       if (e.type === "pointerdown" && ref.current?.contains(e.target as Node)) return;
+      if (e instanceof KeyboardEvent) {
+        // Tab ne part pas dans la page derrière le menu : il le ferme, comme Échap.
+        e.preventDefault();
+        restoreFocus();
+      }
       onClose();
     };
     window.addEventListener("pointerdown", close, true);
@@ -48,7 +62,20 @@ export function ContextMenu({ x, y, title, items, onClose }: Props) {
       window.removeEventListener("resize", close);
       window.removeEventListener("blur", close);
     };
-  }, [onClose]);
+  }, [onClose, restoreFocus]);
+
+  /** Flèches, Début, Fin : d'une entrée active à l'autre, en boucle. */
+  const onKeyDown = (e: ReactKeyboardEvent) => {
+    const entries = [...(ref.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [])];
+    if (!entries.length) return;
+    const at = entries.indexOf(document.activeElement as HTMLButtonElement);
+    const next = e.key === "ArrowDown" ? (at + 1) % entries.length : e.key === "ArrowUp" ? (at <= 0 ? entries.length - 1 : at - 1) : e.key === "Home" ? 0 : e.key === "End" ? entries.length - 1 : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    // La touche est consommée par le menu : elle n'atteint pas les raccourcis de la page (flèches du Studio).
+    e.stopPropagation();
+    entries[next]?.focus();
+  };
 
   return createPortal(
     <div
@@ -59,6 +86,7 @@ export function ContextMenu({ x, y, title, items, onClose }: Props) {
       style={pos}
       onContextMenu={(e) => e.preventDefault()}
       onClick={(e) => e.stopPropagation()}
+      onKeyDown={onKeyDown}
     >
       {title && <p className="truncate px-2 pt-1 pb-1.5 text-[11px] text-muted">{title}</p>}
       {items.map((item, i) => (
@@ -68,6 +96,8 @@ export function ContextMenu({ x, y, title, items, onClose }: Props) {
           role="menuitem"
           disabled={item.disabled}
           onClick={() => {
+            // Avant l'action : un dialogue ouvert par l'entrée retient ce déclencheur et lui rendra le focus.
+            restoreFocus();
             item.onSelect?.();
             onClose();
           }}

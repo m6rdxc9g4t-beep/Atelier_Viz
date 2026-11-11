@@ -1,4 +1,5 @@
-import { Suspense, lazy, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { Suspense, lazy, useEffect, useState } from "react";
 
 import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
@@ -10,12 +11,16 @@ import { SettingsView } from "./features/settings/SettingsView";
 import { useDatasets } from "./hooks/useDatasets";
 import { useDataVersions } from "./hooks/useDataVersions";
 import { useProviders } from "./hooks/useProviders";
+import { useStudioDatasetId } from "./hooks/useStudioDataset";
 import { useTheme } from "./hooks/useTheme";
 import { useRoute } from "./lib/router";
-import { useStudio } from "./studio/store";
 
 // Le Studio (graphiques, cartes, grille) est chargé à la demande : accueil et page Données s'ouvrent plus vite.
-const StudioPage = lazy(() => import("./studio/StudioPage").then((m) => ({ default: m.StudioPage })));
+// Rien d'autre ici ne doit importer `studio/store` ni `visuals/registry` (vérifié par lib/bundle.test.ts).
+const loadStudio = () => import("./studio/StudioPage");
+const StudioPage = lazy(() => loadStudio().then((m) => ({ default: m.StudioPage })));
+/** Délai avant de précharger le Studio, une fois l'écran d'arrivée affiché. */
+const PRELOAD_MS = 1500;
 
 const TITLES = { reports: "Rapports", data: "Données", automation: "Automatisation", settings: "Réglages" } as const;
 
@@ -26,12 +31,16 @@ export default function App() {
   const datasets = useDatasets();
   // Actualisations planifiées : les visuels ouverts se rechargent quand un jeu change.
   useDataVersions();
+  // Le Studio se précharge une fois l'écran d'arrivée affiché : ouvrir un rapport reste immédiat.
+  useEffect(() => {
+    const timer = setTimeout(() => void loadStudio().catch(() => undefined), PRELOAD_MS);
+    return () => clearTimeout(timer);
+  }, []);
   const [assistantOpen, setAssistantOpen] = useState(false);
-  const studioReport = useStudio((s) => s.report);
   const inStudio = route.name === "studio";
 
   // Dans le Studio, l'assistant reçoit le jeu de données du rapport ; ailleurs, celui de la page Données.
-  const studioDatasetId = studioReport?.dataset_id ?? studioReport?.pages.flatMap((p) => p.visuals).find((v) => v.dataset_id)?.dataset_id;
+  const studioDatasetId = useStudioDatasetId(inStudio);
   const assistantDataset = inStudio
     ? (datasets.datasets.find((d) => d.id === studioDatasetId) ?? null)
     : datasets.selected;
@@ -53,7 +62,13 @@ export default function App() {
         />
         <main className="min-h-0 flex-1 overflow-y-auto">
           {route.name === "studio" && (
-            <Suspense fallback={null}>
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center">
+                  <Loader2 className="size-5 animate-spin text-muted" aria-label="Chargement du rapport" />
+                </div>
+              }
+            >
               <StudioPage reportId={route.id} />
             </Suspense>
           )}

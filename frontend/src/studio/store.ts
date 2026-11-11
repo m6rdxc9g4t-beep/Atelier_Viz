@@ -15,6 +15,7 @@ import { DEFAULT_PAGE, GAP, clampToPage, fitHeight, migratePage, sizePx } from "
 
 const MIN_TEXT_H = 72;
 import { findFreeSpot, placeVisuals } from "./placement";
+import { uid } from "./uid";
 
 export type SaveState = "saved" | "dirty" | "saving" | "error";
 export type Mode = "edit" | "view";
@@ -22,7 +23,7 @@ export type Mode = "edit" | "view";
 const HISTORY = 60;
 const lastEdit: { key: string | null; at: number } = { key: null, at: 0 };
 
-export const uid = (): string => Math.random().toString(36).slice(2, 10);
+export { uid };
 
 export function bodyOf(r: Report): ReportBody {
   return { name: r.name, dataset_id: r.dataset_id ?? null, pages: r.pages, theme: r.theme, bookmarks: r.bookmarks ?? [] };

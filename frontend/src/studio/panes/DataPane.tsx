@@ -90,7 +90,7 @@ export function DataPane() {
             type="button"
             onClick={edit}
             aria-label={`Modifier ${field.name}`}
-            className="rounded p-1 text-muted opacity-0 hover:text-fg focus:opacity-100 group-hover/field:opacity-100"
+            className="rounded p-1 text-muted opacity-0 hover:text-fg focus:opacity-100 group-hover/field:opacity-100 pointer-coarse:opacity-100"
           >
             <Pencil className="size-3" aria-hidden />
           </button>
@@ -100,7 +100,7 @@ export function DataPane() {
   };
 
   return (
-    <Pane title="Données" width="w-56">
+    <Pane title="Données" width="w-56" compactOnNarrow>
       <div className="space-y-2 border-b border-line p-3">
         <label className="sr-only" htmlFor="dataset-select">
           Jeu de données

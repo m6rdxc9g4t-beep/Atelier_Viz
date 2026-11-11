@@ -8,7 +8,7 @@ import json
 import os
 import shutil
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -334,21 +334,6 @@ def test_atelier_projets_lists_imports_and_refreshes(client: TestClient, projets
     # Tous les projets : pas de paramètre projectId.
     all_rows = client.post(f"/api/connections/{c['id']}/preview", json={"table": table}).json()
     assert len(all_rows["rows"]) == 4 and "projectId" not in projets.requests[-1].url.params
-
-
-@pytest.fixture
-def local_tz(monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[str], None]]:
-    """Force le fuseau local de la machine (variable `TZ`), puis rétablit l'original."""
-    if not hasattr(time, "tzset"):
-        pytest.skip("time.tzset n'existe pas sous Windows : fuseau de la machine non modifiable")
-
-    def force(name: str) -> None:
-        monkeypatch.setenv("TZ", name)
-        time.tzset()
-
-    yield force
-    monkeypatch.undo()
-    time.tzset()
 
 
 def test_atelier_projets_types_are_kept(local_tz: Callable[[str], None]) -> None:

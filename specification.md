@@ -330,6 +330,21 @@ Volet Données → **Relier** (ou page Données → **Relations**) : chaque lign
 
 Exemple : `samples/regions.csv` (13 régions : code, responsable, objectif de CA 2026, population) est relié automatiquement à `ventes_2026.csv` et `magasins.csv` à l'import des exemples.
 
+### Lecture des fichiers (CSV, Excel, JSON)
+Règles de `services/data/parsing.py`, testées dans `tests/test_data_parsing.py` :
+- **Nombres** : le séparateur décimal se décide sur toute la colonne (`decimal_separator`) : « 1.234,56 », « 1,234.50 »,
+  « 12,000 » à côté de « 3,456.78 » (douze mille), « 1 234,5 ». Sans indice (« 1,234 » seul), lecture française. Une colonne
+  qui mélange les deux conventions reste du texte. Symbole monétaire (€, $, £) en tête ou en fin et signe « − » acceptés ;
+  deux devises dans la colonne : du texte.
+- **Codes** : un zéro en tête (« 01000 », « 06 ») garde la colonne en texte, en CSV comme dans une cellule de texte Excel.
+- **Dates** : jour en premier sauf écriture ISO ; des décalages horaires différents dans une colonne sont rendus à l'heure
+  locale de la machine.
+- **Lignes de titre** : les lignes d'une seule cellule (ou vides) posées au-dessus d'un tableau d'au moins deux colonnes sont
+  ignorées (`header_row`), si la ligne suivante ne porte que des libellés. Lignes inégales : erreur avec le numéro de ligne.
+- **JSON** : objets imbriqués aplatis (`a.b`), tableaux gardés en texte JSON.
+- **Nouvel export du même fichier** : « Remplacer les données… » (écran Données) garde le jeu, ses rapports, son modèle et
+  ses alertes.
+
 ### Préparation des données (à la Power Query)
 
 Page Données → **Préparer** : éditeur plein écran avec la liste des **étapes appliquées** (Source puis étapes numérotées, cliquables pour voir l'aperçu à cette étape, modifiables, supprimables), une barre de transformations et l'aperçu des 20 premières lignes (clic sur l'en-tête d'une colonne pour la sélectionner). Rien n'est modifié avant **Appliquer**.
@@ -514,6 +529,7 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | POST | `/api/ai/summary` | Faits d'une page → synthèse vérifiée (`SummaryResponse` : titre, points reliés aux visuels, moteur, éléments écartés) |
 | POST | `/api/datasets` | Import multipart (CSV/XLSX/JSON, 50 Mo) → profil ; persisté dans DuckDB |
 | GET | `/api/datasets` · `/api/datasets/{id}` · `/api/datasets/{id}/rows` | Liste, profil, lignes paginées |
+| PUT | `/api/datasets/{id}/data` | Remplacement des données d'un jeu importé par fichier (multipart, 50 Mo) : même identifiant, étapes rejouées, modèle revalidé, alertes réévaluées (409 + liste d'erreurs si le modèle ne tient plus, 409 pour un jeu de connexion ou de workflow) |
 | DELETE | `/api/datasets/{id}` | Suppression (table et vue) |
 | PUT | `/api/datasets/{id}/model` | Relations, colonnes et mesures calculées : validation complète, vue recréée, profil mis à jour (422 + liste d'erreurs sinon) |
 | POST | `/api/datasets/{id}/model/check` | Vérification d'une expression pendant la saisie : erreur localisée, type, aperçu |
@@ -565,7 +581,8 @@ Sécurité du moteur : aucun SQL ne vient du client ; champs validés contre le 
 - Fonctionne sans Internet (aucune ressource externe au chargement).
 - Secrets uniquement côté backend (`.env`).
 - Tests : pytest (543, + 2 sur serveurs réels) côté back, Vitest (260) côté front ; parcours vérifiés dans un vrai navigateur (Playwright) ; fichiers PowerPoint validés et rendus.
-- Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés).
+- Accessibilité : noms accessibles des visuels = titre affiché, navigation clavier dans les volets, couleurs jamais seules porteuses de sens (légendes, libellés) ; dialogues modaux qui gardent le focus (Tab y boucle) et le rendent à leur déclencheur ; menus parcourus aux flèches.
+- Téléphone (consultation) : un rapport s'ouvre en lecture, page ajustée à la largeur, volets repliés ; cibles tactiles de 40 px dans la coquille, champs à 16 px, dialogues empilés sous 768 px. L'édition d'un rapport reste pensée pour un ordinateur.
 - Performance : 10 000 lignes importées et profilées en 0,17 s ; agrégations DuckDB.
 
 ## 9. Roadmap

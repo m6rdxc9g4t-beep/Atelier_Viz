@@ -3,8 +3,9 @@ import { ArrowLeft, Bookmark, Check, CircleHelp, Download, Eye, FileCode2, FileI
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLinkedProfiles } from "../hooks/useDatasetProfiles";
-import { api } from "../lib/api";
+import { ApiError, api } from "../lib/api";
 import { navigate } from "../lib/router";
+import { isNarrowScreen } from "../lib/viewport";
 import type { DatasetSummary } from "../types/dataset";
 import { Canvas } from "./Canvas";
 import { StudioDataContext } from "./context";
@@ -26,6 +27,8 @@ import { bodyOf, useStudio } from "./store";
 import { readTheme, themeVars } from "../theme/reportTheme";
 
 const AUTOSAVE_MS = 800;
+/** Nouvel essai d'enregistrement quand le serveur local ne répondait pas. */
+const RETRY_MS = 5000;
 
 /** Éditeur de rapport : canvas + volets, sauvegarde automatique, raccourcis clavier. */
 export function StudioPage({ reportId }: { reportId: string }) {
@@ -70,6 +73,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
       .then(([r, list]) => {
         if (!alive) return;
         s().load(r);
+        // Téléphone : le rapport s'ouvre en lecture, la page occupe l'écran (l'édition reste à un geste).
+        if (isNarrowScreen()) s().setMode("view");
         setDatasets(list);
         const used = r.pages.flatMap((p) => p.visuals).find((v) => v.dataset_id)?.dataset_id;
         setActiveDatasetId(r.dataset_id ?? used ?? list[0]?.id ?? null);
@@ -80,30 +85,53 @@ export function StudioPage({ reportId }: { reportId: string }) {
     };
   }, [reportId, s]);
 
-  // Sauvegarde automatique (après une pause de saisie)
+  // Sauvegarde automatique (après une pause de saisie). Serveur local injoignable (redémarrage) : nouvel essai tout
+  // seul, sans attendre une autre modification ; un refus du serveur (4xx, 5xx) n'est pas rejoué.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unreachable = useRef(false);
   useEffect(() => {
-    if (saveState !== "dirty" || !report) return;
+    const retry = saveState === "error" && unreachable.current;
+    if ((saveState !== "dirty" && !retry) || !report) return;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      const snapshot = s().report;
-      if (!snapshot) return;
-      s().setSaveState("saving");
-      api.reports
-        .save(snapshot.id, bodyOf(snapshot))
-        .then(() => {
-          if (s().report === snapshot) s().setSaveState("saved");
-          else s().setSaveState("dirty");
-        })
-        .catch((e: unknown) => s().setSaveState("error", e instanceof Error ? e.message : String(e)));
-    }, AUTOSAVE_MS);
+    timer.current = setTimeout(
+      () => {
+        const snapshot = s().report;
+        if (!snapshot) return;
+        s().setSaveState("saving");
+        api.reports
+          .save(snapshot.id, bodyOf(snapshot))
+          .then(() => {
+            if (s().report === snapshot) s().setSaveState("saved");
+            else s().setSaveState("dirty");
+          })
+          .catch((e: unknown) => {
+            unreachable.current = e instanceof ApiError && e.status === 0;
+            s().setSaveState("error", e instanceof Error ? e.message : String(e));
+          });
+      },
+      retry ? RETRY_MS : AUTOSAVE_MS,
+    );
   }, [report, saveState, s]);
+
+  // Fenêtre fermée ou rechargée avant la fin de la pause (ou pendant l'envoi) : le dernier état part quand même.
+  useEffect(() => {
+    const flush = () => {
+      const { report: current, saveState: state } = s();
+      if (!current || state === "saved") return;
+      if (timer.current) clearTimeout(timer.current);
+      api.reports.save(current.id, bodyOf(current), true).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", flush);
+    return () => window.removeEventListener("pagehide", flush);
+  }, [s]);
 
   // Raccourcis clavier
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest("input, textarea, select, [contenteditable]")) return;
+      // Touche tapée dans un menu ou un dialogue : elle leur appartient, jamais au visuel sélectionné derrière.
+      if (target.closest('[role="menu"], [role="dialog"]')) return;
       const st = s();
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === "z") {
@@ -173,7 +201,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
   return (
     <StudioDataContext.Provider value={{ datasets, profiles, activeDatasetId, setActiveDatasetId }}>
       <div className="flex h-full flex-col">
-        <div className="flex h-(--top-h) shrink-0 items-center gap-2 border-b border-line bg-bg px-3">
+        {/* Écran étroit : la barre défile en largeur, toutes les actions restent atteignables. */}
+        <div className="flex h-(--top-h) shrink-0 items-center gap-2 border-b border-line bg-bg px-3 max-md:overflow-x-auto max-md:[scrollbar-width:none] max-md:[&>*]:shrink-0">
           <button type="button" onClick={() => navigate("/")} aria-label="Retour aux rapports" className="grid size-7 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-fg">
             <ArrowLeft className="size-4" aria-hidden />
           </button>
@@ -182,7 +211,7 @@ export function StudioPage({ reportId }: { reportId: string }) {
             value={report.name}
             readOnly={!editing}
             onChange={(e) => s().mutate((r) => (r.name = e.target.value || "Sans titre"))}
-            className="min-w-0 max-w-72 flex-1 rounded-md px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field"
+            className="min-w-0 max-w-72 flex-1 rounded-md px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field max-md:w-36 max-md:flex-none"
           />
           <SaveBadge state={saveState} error={saveError} />
           <div className="ml-auto flex items-center gap-1">
@@ -358,12 +387,12 @@ function SaveBadge({ state, error }: { state: string; error: string | null }) {
   if (state === "saving" || state === "dirty")
     return (
       <span className="flex items-center gap-1 text-xs text-muted">
-        <Loader2 className="size-3 animate-spin" aria-hidden /> Enregistrement…
+        <Loader2 className="size-3 animate-spin" aria-hidden /> <span className="max-sm:sr-only">Enregistrement…</span>
       </span>
     );
   return (
     <span className="flex items-center gap-1 text-xs text-muted">
-      <Check className="size-3" aria-hidden /> Enregistré
+      <Check className="size-3" aria-hidden /> <span className="max-sm:sr-only">Enregistré</span>
     </span>
   );
 }

@@ -6,6 +6,7 @@ import asyncio
 import json
 import re
 import sqlite3
+import threading
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -487,6 +488,90 @@ def test_events_for_connection_refresh_and_alerts(node: TestClient, sqlite_sourc
     failed = of_type(node, "viz.dataset.refresh_failed")[-1]
     assert failed["subject"]["id"] == ds["id"] and failed["data"]["trigger"] == "manual"
     assert failed["data"]["status"] == "error" and failed["data"]["message"]
+
+
+def test_upsert_evaluates_the_alerts_of_the_dataset(node: TestClient) -> None:
+    """Un workflow qui renvoie sa table déclenche les alertes du jeu, comme une actualisation de connexion."""
+
+    def push(hours: float, key: str | None = None) -> Any:
+        rows = [{"titre": "Sprint", "heures_estimees": hours, "echeance": "2026-11-02", "fait": False}]
+        body = {"name": "Charge", "key": "nexus:charge", "table": table(rows)}
+        return node.post("/api/atelier/datasets", json=body, headers={"Idempotency-Key": key} if key else {})
+
+    ds_id = push(10).json()["dataset_id"]
+    alert = {
+        "name": "Charge élevée",
+        "dataset_id": ds_id,
+        "measure": {"field": "Heures estimées", "agg": "sum"},
+        "comparison": "gt",
+        "threshold": 20,
+        "system": False,
+    }
+    alert_id = node.post("/api/alerts", json=alert).json()["id"]  # 10 : sous le seuil
+    assert of_type(node, "viz.alert.triggered") == []
+
+    assert push(35, key="nexus:run-7:step-2").status_code == 200
+    settle(node)
+    assert node.get(f"/api/alerts/{alert_id}").json()["met"] is True
+    assert len(node.get("/api/alerts/notifications").json()) == 1
+    fired = of_type(node, "viz.alert.triggered")
+    assert len(fired) == 1 and fired[0]["data"]["value"] == 35 and fired[0]["data"]["dataset_id"] == ds_id
+    assert fired[0]["seq"] > of_type(node, "viz.dataset.refreshed")[-1]["seq"]
+    # Requête rejouée (même clé) : réponse enregistrée, aucune nouvelle évaluation.
+    assert push(35, key="nexus:run-7:step-2").headers["idempotency-replayed"] == "true"
+    settle(node)
+    # Toujours au-dessus du seuil : pas de second déclenchement (anti-rebond).
+    assert push(40).status_code == 200
+    settle(node)
+    assert len(of_type(node, "viz.alert.triggered")) == 1 and len(node.get("/api/alerts/notifications").json()) == 1
+    # Une alerte en échec n'empêche jamais le workflow de livrer sa table.
+    node.app.state.atelier.on_replaced(_boom)  # type: ignore[attr-defined]
+    assert push(5).status_code == 200
+    settle(node)
+    assert node.get(f"/api/alerts/{alert_id}").json()["met"] is False
+
+
+async def _boom(dataset_id: str) -> None:
+    raise RuntimeError("observateur en échec")
+
+
+def settle(node: TestClient, timeout: float | None = None) -> int:
+    """Attend la fin des évaluations lancées en tâche de fond par un upsert (nombre de tâches abandonnées)."""
+    return node.portal.call(node.app.state.atelier.drain, timeout)  # type: ignore[attr-defined, union-attr]
+
+
+def test_upsert_answers_without_waiting_for_the_alerts(node: TestClient) -> None:
+    """Un webhook d'alerte qui ne répond pas ne retient pas la réponse au workflow (Nexus coupe à 20 s)."""
+    release, seen = threading.Event(), []
+
+    async def slow(dataset_id: str) -> None:
+        seen.append(f"début {dataset_id}")
+        await asyncio.to_thread(release.wait, 30)
+        seen.append(f"fin {dataset_id}")
+
+    def push(hours: float) -> Any:
+        rows = [{"titre": "Sprint", "heures_estimees": hours, "echeance": "2026-11-02", "fait": False}]
+        return node.post("/api/atelier/datasets", json={"name": "Charge", "key": "nexus:charge", "table": table(rows)})
+
+    ds_id = push(10).json()["dataset_id"]
+    node.app.state.atelier.on_replaced(slow)  # type: ignore[attr-defined]
+    try:
+        # Deux remplacements : chaque réponse part alors que l'observateur du premier est encore bloqué.
+        assert push(20).status_code == 200 and push(30).status_code == 200
+        assert not [s for s in seen if s.startswith("fin")]
+        assert node.get(f"/api/datasets/{ds_id}").json()["sample"][0]["Heures estimées"] == 30
+    finally:
+        release.set()
+    assert settle(node) == 0
+    # Une notification à la fois, dans l'ordre des remplacements.
+    assert seen == [f"début {ds_id}", f"fin {ds_id}"] * 2
+    # À l'arrêt, une évaluation qui dépasse le délai est abandonnée, pas attendue indéfiniment.
+    release.clear()
+    assert push(40).status_code == 200
+    try:
+        assert settle(node, timeout=0.05) == 1
+    finally:
+        release.set()
 
 
 def test_alert_for_each_event(node: TestClient) -> None:

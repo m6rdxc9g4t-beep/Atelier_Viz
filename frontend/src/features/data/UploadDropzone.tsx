@@ -2,7 +2,8 @@ import clsx from "clsx";
 import { FileUp, Loader2 } from "lucide-react";
 import { type DragEvent, useRef, useState } from "react";
 
-const ACCEPT = ".csv,.tsv,.txt,.xlsx,.json";
+/** Extensions lues par l'import (et par le remplacement des données d'un jeu). */
+export const ACCEPT = ".csv,.tsv,.txt,.xlsx,.json";
 
 interface UploadDropzoneProps {
   onFile: (file: File) => void;
