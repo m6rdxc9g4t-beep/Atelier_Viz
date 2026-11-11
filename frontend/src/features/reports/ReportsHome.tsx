@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { FileBarChart2, Loader2, Plus, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -22,16 +23,25 @@ export function ReportsHome() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
+  // Échecs de la liste : lecture impossible (la liste n'est alors pas « vide ») ou suppression refusée.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const [version, setVersion] = useState(0);
   useEffect(() => {
+    let alive = true;
+    setLoadError(null);
     Promise.all([api.reports.list(), api.datasets.list()])
       .then(([r, d]) => {
+        if (!alive) return;
         setReports(r);
         setDatasets(d);
-        setDatasetId(d[0]?.id ?? "");
+        setDatasetId((current) => (d.some((x) => x.id === current) ? current : (d[0]?.id ?? "")));
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+      .catch((e: unknown) => alive && setLoadError(e instanceof Error ? e.message : String(e)));
+    return () => {
+      alive = false;
+    };
   }, [version]);
 
   const create = async (starter: boolean) => {
@@ -73,9 +83,14 @@ export function ReportsHome() {
     }
   };
 
-  const remove = async (id: string) => {
-    await api.reports.remove(id);
-    setReports((list) => list?.filter((r) => r.id !== id) ?? null);
+  const remove = async (report: ReportSummary) => {
+    setRemoveError(null);
+    try {
+      await api.reports.remove(report.id);
+      setReports((list) => list?.filter((r) => r.id !== report.id) ?? null);
+    } catch (e) {
+      setRemoveError(`« ${report.name} » n'a pas été supprimé : ${e instanceof Error ? e.message : String(e)}`);
+    }
     setConfirm(null);
   };
 
@@ -105,7 +120,7 @@ export function ReportsHome() {
             {!datasets.length && <option value="">Aucun jeu de données</option>}
             {datasets.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.name} ({d.rows.toLocaleString("fr-FR")} lignes)
+                {d.name} ({d.rows.toLocaleString("fr-FR")} ligne{d.rows > 1 ? "s" : ""})
               </option>
             ))}
           </select>
@@ -148,15 +163,28 @@ export function ReportsHome() {
           Mes rapports
           {reports !== null && reports.length > 0 && <span className="text-2xs font-medium text-faint tabular-nums">{reports.length}</span>}
         </h2>
+        {removeError && (
+          <p role="alert" className="mb-2 text-xs text-negative">
+            {removeError}
+          </p>
+        )}
+        {loadError && (
+          <p role="alert" className="mb-2 text-sm text-negative">
+            Les rapports n'ont pas pu être lus : {loadError}{" "}
+            <button type="button" onClick={() => setVersion((v) => v + 1)} className="font-medium text-accent-ink underline underline-offset-2">
+              Réessayer
+            </button>
+          </p>
+        )}
         {reports === null ? (
-          <Loader2 className="size-4 animate-spin text-muted" aria-label="Chargement" />
+          !loadError && <Loader2 className="size-4 animate-spin text-muted" aria-label="Chargement" />
         ) : reports.length === 0 ? (
           <p className="text-sm text-muted">Aucun rapport pour l'instant.</p>
         ) : (
           <ul className="atelier-card overflow-hidden">
             {reports.map((r) => (
               <li key={r.id} className="group relative flex min-h-(--row-h) items-center border-b border-line last:border-b-0 hover:bg-surface-2">
-                <button type="button" onClick={() => navigate(`/rapports/${r.id}`)} className="flex min-h-(--row-h) min-w-0 flex-1 items-center gap-3 py-2 pr-12 pl-4 text-left outline-offset-[-2px]">
+                <button type="button" onClick={() => navigate(`/rapports/${r.id}`)} className={clsx("flex min-h-(--row-h) min-w-0 flex-1 items-center gap-3 py-2 pl-4 text-left outline-offset-[-2px]", confirm === r.id ? "pr-40" : "pr-12")}>
                   <FileBarChart2 className="size-4 shrink-0 text-faint" aria-hidden />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.name}</span>
                   <span className="hidden shrink-0 text-xs text-muted tabular-nums sm:block">
@@ -166,10 +194,10 @@ export function ReportsHome() {
                 </button>
                 {confirm === r.id ? (
                   <span className="absolute right-2 flex gap-1 text-xs">
-                    <button type="button" onClick={() => void remove(r.id)} className="rounded-md px-1.5 py-1 font-medium text-negative hover:bg-surface-3">
+                    <button type="button" onClick={() => void remove(r)} className="rounded-md px-1.5 py-1 font-medium text-negative hover:bg-surface-3">
                       Supprimer
                     </button>
-                    <button type="button" onClick={() => setConfirm(null)} className="rounded-md px-1.5 py-1 text-muted hover:bg-surface-3 hover:text-fg">
+                    <button type="button" autoFocus onClick={() => setConfirm(null)} className="rounded-md px-1.5 py-1 text-muted hover:bg-surface-3 hover:text-fg">
                       Annuler
                     </button>
                   </span>
@@ -178,7 +206,7 @@ export function ReportsHome() {
                     type="button"
                     onClick={() => setConfirm(r.id)}
                     aria-label={`Supprimer ${r.name}`}
-                    className="absolute right-2 grid size-7 place-items-center rounded-md text-muted opacity-0 hover:bg-surface-3 hover:text-negative focus:opacity-100 group-hover:opacity-100"
+                    className="absolute right-2 grid size-7 place-items-center rounded-md text-muted opacity-0 hover:bg-surface-3 hover:text-negative focus:opacity-100 group-hover:opacity-100 pointer-coarse:size-10 pointer-coarse:opacity-100"
                   >
                     <Trash2 className="size-3.5" aria-hidden />
                   </button>
