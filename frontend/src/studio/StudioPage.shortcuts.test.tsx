@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resetPreferencesCache } from "../hooks/usePreferences";
@@ -112,5 +113,48 @@ describe("raccourcis clavier du Studio", () => {
     } finally {
       dialog.remove();
     }
+  });
+});
+
+describe("présentation : dialogue modal", () => {
+  beforeEach(() => {
+    resetPreferencesCache();
+    resetProvidersCache();
+    useStudio.setState({ mode: "edit", report: null, saveState: "saved" });
+    vi.spyOn(api.reports, "get").mockResolvedValue(structuredClone(report));
+    vi.spyOn(api.reports, "save").mockResolvedValue(report);
+    vi.spyOn(api.datasets, "list").mockResolvedValue([]);
+    vi.spyOn(api.datasets, "get").mockRejectedValue(new Error("absent"));
+    vi.spyOn(api.settings, "get").mockResolvedValue({ online_mode: false, ai_provider: "auto", claude_model: "sonnet", ollama_model: null });
+    vi.spyOn(api, "providers").mockResolvedValue({ providers: [] });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    useStudio.setState({ mode: "edit", report: null, saveState: "saved" });
+  });
+
+  it("le focus entre dans la présentation, Tab y boucle, et il revient à « Présenter » en sortant", async () => {
+    render(<StudioPage reportId="r-keys" />);
+    const opener = await screen.findByRole("button", { name: "Présenter" });
+    await userEvent.click(opener);
+    const dialog = screen.getByRole("dialog", { name: "Présentation" });
+    expect(dialog).toHaveFocus();
+
+    await userEvent.tab();
+    const first = within(dialog).getByRole("button", { name: "Précédent (←)" });
+    expect(first).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(within(dialog).getByRole("button", { name: "Quitter la présentation (Échap)" })).toHaveFocus();
+    await userEvent.tab();
+    expect(first).toHaveFocus();
+    for (let i = 0; i < 12; i += 1) {
+      await userEvent.tab();
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    }
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Quitter la présentation (Échap)" }));
+    expect(screen.queryByRole("dialog", { name: "Présentation" })).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+    expect(useStudio.getState().mode).toBe("edit");
   });
 });

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { useModalFocus } from "../hooks/useModalFocus";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
 
 function Harness({ items }: { items: MenuItem[] }) {
@@ -15,6 +16,21 @@ function Harness({ items }: { items: MenuItem[] }) {
       <button type="button">Présenter</button>
       {open && <ContextMenu x={10} y={10} title="Exporter" items={items} onClose={() => setOpen(false)} />}
     </>
+  );
+}
+
+/** Dialogue modal dont le dernier bouton ouvre un menu (présentation : clic droit, menus des visuels). */
+function ModalHarness() {
+  const ref = useModalFocus<HTMLDivElement>();
+  const [open, setOpen] = useState(false);
+  return (
+    <div ref={ref} role="dialog" aria-modal="true" aria-label="Présentation">
+      <button type="button">Précédent</button>
+      <button type="button" onClick={() => setOpen(true)}>
+        Options
+      </button>
+      {open && <ContextMenu x={10} y={10} items={items()} onClose={() => setOpen(false)} />}
+    </div>
   );
 }
 
@@ -75,5 +91,15 @@ describe("ContextMenu au clavier", () => {
     } finally {
       window.removeEventListener("keydown", onKey);
     }
+  });
+
+  it("dans un dialogue modal, Tab ferme le menu et laisse le focus au déclencheur (pas de saut au premier élément)", async () => {
+    render(<ModalHarness />);
+    const opener = screen.getByRole("button", { name: "Options" });
+    await userEvent.click(opener);
+    expect(screen.getByRole("menuitem", { name: "PowerPoint" })).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
   });
 });

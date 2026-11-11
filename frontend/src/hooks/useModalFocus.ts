@@ -36,6 +36,8 @@ export function useModalFocus<T extends HTMLElement>(): RefObject<T | null> {
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Tab" || stack[stack.length - 1] !== ref) return;
+      // Tab déjà traité (un menu ouvert dans le dialogue se ferme et rend le focus) : rien à déplacer.
+      if (e.defaultPrevented) return;
       const items = focusables(root);
       const first = items[0];
       const last = items[items.length - 1];
