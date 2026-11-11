@@ -61,4 +61,19 @@ describe("ContextMenu au clavier", () => {
     expect(focused).toEqual(["Exporter"]);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
+
+  it("les touches de parcours ne remontent pas aux raccourcis de la page (flèches du Studio)", async () => {
+    const pageKeys: string[] = [];
+    const onKey = (e: KeyboardEvent) => pageKeys.push(e.key);
+    window.addEventListener("keydown", onKey);
+    try {
+      render(<Harness items={items()} />);
+      await userEvent.click(screen.getByRole("button", { name: "Exporter" }));
+      await userEvent.keyboard("{ArrowDown}{ArrowUp}{Home}{End}");
+      expect(screen.getByRole("menuitem", { name: "Image" })).toHaveFocus();
+      expect(pageKeys).toEqual([]);
+    } finally {
+      window.removeEventListener("keydown", onKey);
+    }
+  });
 });

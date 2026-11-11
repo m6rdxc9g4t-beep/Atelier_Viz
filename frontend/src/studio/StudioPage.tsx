@@ -130,6 +130,8 @@ export function StudioPage({ reportId }: { reportId: string }) {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest("input, textarea, select, [contenteditable]")) return;
+      // Touche tapée dans un menu ou un dialogue : elle leur appartient, jamais au visuel sélectionné derrière.
+      if (target.closest('[role="menu"], [role="dialog"]')) return;
       const st = s();
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === "z") {

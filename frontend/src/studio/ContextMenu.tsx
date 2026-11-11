@@ -72,6 +72,8 @@ export function ContextMenu({ x, y, title, items, onClose }: Props) {
     const next = e.key === "ArrowDown" ? (at + 1) % entries.length : e.key === "ArrowUp" ? (at <= 0 ? entries.length - 1 : at - 1) : e.key === "Home" ? 0 : e.key === "End" ? entries.length - 1 : -1;
     if (next < 0) return;
     e.preventDefault();
+    // La touche est consommée par le menu : elle n'atteint pas les raccourcis de la page (flèches du Studio).
+    e.stopPropagation();
     entries[next]?.focus();
   };
 
