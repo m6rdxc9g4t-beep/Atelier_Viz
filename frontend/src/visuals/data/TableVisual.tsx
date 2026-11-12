@@ -10,6 +10,17 @@ import { formatDimension, formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
 import { type CondFormat, type Decor, GLYPHS, decorStyle, decorate, formatFor, statsOf, toneCss } from "./conditional";
 
+/**
+ * Lignes d'en-tête et de total figées : `position: sticky` se pose sur les **cellules**, jamais sur `tr`,
+ * `thead` ou `tfoot` (Safari place mal une ligne collante, des lignes se dessinent alors sous le total).
+ * Bordures séparées (`border-separate`) : en `border-collapse`, le trait d'une cellule collante ne la suit pas.
+ * Les cellules débordent d'un pixel de la zone défilante : à une échelle de page fractionnaire, un liseré des
+ * lignes qui défilent apparaissait sinon au-dessus de l'en-tête et sous le total.
+ */
+export const STICKY_HEAD = "sticky -top-px z-10 bg-surface";
+export const STICKY_FOOT = "sticky -bottom-px z-10 bg-surface";
+export const DATA_TABLE = "w-full border-separate border-spacing-0 text-xs";
+
 /** Table : dimensions + mesures, tri par clic sur l'en-tête, total, barres de données. */
 export function TableVisual(props: VisualProps) {
   const { visual, def, result, dataset, selection, onSelect } = props;
@@ -49,7 +60,7 @@ export function TableVisual(props: VisualProps) {
   const header = (key: string, label: string, numeric: boolean) => {
     const active = sort?.key === key;
     return (
-      <th key={key} scope="col" className={clsx("sticky top-0 z-10 border-b border-border bg-surface px-2 py-1.5 font-medium text-muted", numeric ? "text-right" : "text-left")}>
+      <th key={key} scope="col" className={clsx(STICKY_HEAD, "border-b border-border px-2 py-1.5 font-medium text-muted", numeric ? "text-right" : "text-left")}>
         <button
           type="button"
           onClick={() => setSort((s) => (s?.key === key ? (s.desc ? null : { key, desc: true }) : { key, desc: false }))}
@@ -64,7 +75,7 @@ export function TableVisual(props: VisualProps) {
 
   return (
     <div className="h-full overflow-auto">
-      <table className="w-full border-collapse text-xs">
+      <table className={DATA_TABLE}>
         <thead>
           <tr>
             {dims.map((d) => header(bindingKey(d), bindingLabel(d), false))}
@@ -79,12 +90,12 @@ export function TableVisual(props: VisualProps) {
                 key={i}
                 onClick={() => firstDim && toggleSelection(selection, visual, firstDim, firstValue, onSelect)}
                 className={clsx(
-                  "cursor-pointer border-b border-border/60 hover:bg-surface-2",
+                  "cursor-pointer hover:bg-surface-2",
                   firstDim && dimmed(selection, visual, firstValue) && "opacity-40",
                 )}
               >
                 {dims.map((d) => (
-                  <td key={bindingKey(d)} className="whitespace-nowrap px-2 py-1">
+                  <td key={bindingKey(d)} className="whitespace-nowrap border-b border-border/60 px-2 py-1">
                     {formatDimension(r[bindingKey(d)] ?? null, columnType(dataset, d.field), d.bin)}
                   </td>
                 ))}
@@ -93,7 +104,7 @@ export function TableVisual(props: VisualProps) {
                   const raw = r[key] ?? null;
                   const decor = formats.get(key) ? decorate(typeof raw === "number" ? raw : null, formats.get(key) as CondFormat, stats.get(key) ?? null) : {};
                   return (
-                    <td key={key} className="relative whitespace-nowrap px-2 py-1 text-right tabular-nums" style={decorStyle(decor)}>
+                    <td key={key} className="relative whitespace-nowrap border-b border-border/60 px-2 py-1 text-right tabular-nums" style={decorStyle(decor)}>
                       <DecoratedValue decor={decor} text={formatNumber(raw, numberFormat(visual, m))} />
                     </td>
                   );
@@ -104,14 +115,14 @@ export function TableVisual(props: VisualProps) {
         </tbody>
         {showTotals && measures.length > 0 && (
           <tfoot>
-            <tr className="sticky bottom-0 bg-surface font-semibold">
+            <tr className="font-semibold">
               {dims.map((d, i) => (
-                <td key={bindingKey(d)} className="border-t border-border px-2 py-1.5">
+                <td key={bindingKey(d)} className={clsx(STICKY_FOOT, "border-t border-border px-2 py-1.5")}>
                   {i === 0 ? "Total" : ""}
                 </td>
               ))}
               {measures.map((m) => (
-                <td key={bindingKey(m)} className="border-t border-border px-2 py-1.5 text-right tabular-nums">
+                <td key={bindingKey(m)} className={clsx(STICKY_FOOT, "border-t border-border px-2 py-1.5 text-right tabular-nums")}>
                   {totals[bindingKey(m)] === null ? "" : formatNumber(totals[bindingKey(m)] ?? null, numberFormat(visual, m))}
                 </td>
               ))}
@@ -124,14 +135,19 @@ export function TableVisual(props: VisualProps) {
   );
 }
 
-/** Valeur d'une cellule avec sa barre de données et son icône éventuelles. */
+/**
+ * Valeur d'une cellule avec sa barre de données et son icône éventuelles. La barre part du bord gauche de la
+ * cellule (base commune à toute la colonne, comme dans un tableur) : collée au nombre aligné à droite, une
+ * barre courte se lisait comme un surlignage du texte.
+ */
 export function DecoratedValue({ decor, text }: { decor: Decor; text: string }) {
   return (
     <>
       {decor.bar && (
         <span
           aria-hidden
-          className="absolute inset-y-1 right-1 rounded-sm"
+          data-bar
+          className="absolute inset-y-1 left-1 rounded-sm"
           style={{
             width: `calc(${decor.bar.ratio * 100}% - 8px)`,
             backgroundColor: `color-mix(in oklab, ${toneCss(decor.bar.negative ? "div-neg" : "seq")} 30%, transparent)`,
