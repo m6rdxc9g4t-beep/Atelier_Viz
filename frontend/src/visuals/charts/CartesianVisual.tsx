@@ -167,7 +167,9 @@ export function CartesianVisual(props: VisualProps) {
                   <LabelList
                     dataKey={s.key}
                     position={horizontal ? "right" : "top"}
-                    className="fill-[var(--muted)] text-[10px]"
+                    // Taille en attribut SVG (pas en classe) : l'export image / PDF la garde, les étiquettes ne grossissent pas.
+                    fontSize={10}
+                    className="fill-[var(--muted)]"
                     formatter={valueLabel}
                   />
                 ) : null;
