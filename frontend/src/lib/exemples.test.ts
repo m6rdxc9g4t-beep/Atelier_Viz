@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ExempleHistoire } from "../types/exemples";
-import { pickHistoire, readRemembered, remember, stepsAround } from "./exemples";
+import { EXAMPLES_EVENT, announceExamplesChange, onExamplesChange, pickHistoire, readRemembered, remember, showExamplesOnHome, stepsAround } from "./exemples";
 
 const apps = ["convert", "tab", "viz", "tresorerie", "nexus", "projets", "wiki"] as const;
 const h = (id: string): ExempleHistoire => ({
@@ -47,5 +47,29 @@ describe("exemples de la suite", () => {
     const map = new Map<string, string>();
     remember("b", { setItem: (k, v) => void map.set(k, v) });
     expect(readRemembered({ getItem: (k) => map.get(k) ?? null })).toBe("b");
+  });
+});
+
+describe("annonce des chargements et retraits", () => {
+  it("prévient les écrans abonnés, jusqu'à leur désabonnement", () => {
+    const target = new EventTarget();
+    let calls = 0;
+    const off = onExamplesChange(() => calls++, target);
+    announceExamplesChange(target);
+    announceExamplesChange(target);
+    expect(calls).toBe(2);
+    off();
+    announceExamplesChange(target);
+    expect(calls).toBe(2);
+    expect(EXAMPLES_EVENT).toBe("atelier-viz:exemples");
+  });
+});
+
+describe("section d'exemples de l'accueil", () => {
+  it("guide tant qu'il n'y a aucun rapport, puis laisse la place à la liste", () => {
+    expect(showExamplesOnHome([])).toBe(true);
+    expect(showExamplesOnHome([{ id: "aaaaaaaaaaaa" }])).toBe(false);
+    // Liste pas encore lue (ou illisible) : rien, pour ne pas afficher puis retirer la section.
+    expect(showExamplesOnHome(null)).toBe(false);
   });
 });

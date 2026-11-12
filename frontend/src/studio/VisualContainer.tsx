@@ -23,6 +23,8 @@ import { ExplainDialog } from "./ExplainDialog";
 import { FIELD_MIME, type DraggedField, useStudioData } from "./context";
 import { drillTargets, extractionLabel } from "./extraction";
 import { pageActiveFilters, visualFilters } from "./filters";
+import { DEFAULT_PAGE } from "./grid";
+import { HANDLE_LAYER, TOOLBAR_LAYER, toolbarSide } from "./toolbar";
 import { useSnapshot } from "./snapshot";
 import { useStudio } from "./store";
 
@@ -242,6 +244,9 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
         padding: 12,
       };
   const pageColor = readTheme(report.theme)?.page ?? null;
+  // La barre d'actions évite les visuels cliquables de la page (onglets du navigateur, boutons).
+  const controls = page.visuals.filter((v) => v.id !== visual.id && (v.type === "button" || v.type === "navigator")).map((v) => v.layout);
+  const side = toolbarSide(visual.layout, page.size ?? DEFAULT_PAGE, controls);
 
   return (
     <section
@@ -265,19 +270,34 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
         selected || dropping ? "outline-2 outline-accent" : bare && editing ? "hover:outline-1 hover:outline-dashed hover:outline-border" : "",
       )}
     >
-      {editing && (
+      {editing && !clickThrough && (
+        // Poignée de déplacement : bande du haut du cadre, dans sa marge (le titre reste entier).
         <div
           className={clsx(
-            "visual-handle absolute inset-x-0 z-20 flex h-6 cursor-move touch-none items-center justify-between px-1.5 text-muted",
-            // Bouton, navigateur : la barre se pose au-dessus du visuel, pour que tout le contenu reste cliquable.
-            clickThrough ? "bottom-full mb-0.5 rounded-md border border-border bg-surface" : "top-0 rounded-t-lg",
-            selected
-              ? "opacity-100"
-              : clsx("opacity-0 group-hover/visual:opacity-100", clickThrough && "pointer-events-none group-hover/visual:pointer-events-auto"),
+            "visual-handle absolute inset-x-0 top-0 flex h-6 cursor-move touch-none items-start rounded-t-lg pl-3.5 text-muted",
+            HANDLE_LAYER,
+            selected ? "opacity-100" : "opacity-0 group-hover/visual:opacity-100",
           )}
         >
-          <GripHorizontal className="size-3.5" aria-hidden />
-          <span className="flex gap-0.5">
+          <GripHorizontal className="size-3" aria-hidden />
+        </div>
+      )}
+      {editing && (
+        // Actions du visuel : barre flottante hors du cadre (au-dessus, sinon dessous), pour ne recouvrir ni le
+        // titre ni la valeur. Bouton, navigateur : elle porte aussi la poignée, tout le contenu reste cliquable.
+        // Elle déborde sur le visuel voisin : toujours devant sa poignée de déplacement (`TOOLBAR_LAYER`).
+        <div
+          data-visual-toolbar={side}
+          className={clsx(
+            "absolute right-2",
+            TOOLBAR_LAYER,
+            side === "above" ? "bottom-full pb-1.5" : side === "below" ? "top-full pt-1.5" : "top-1",
+            clickThrough && "visual-handle cursor-move touch-none",
+            selected ? "opacity-100" : "pointer-events-none opacity-0 group-hover/visual:pointer-events-auto group-hover/visual:opacity-100",
+          )}
+        >
+          <span className="flex items-center gap-0.5 rounded-md border border-border bg-surface p-0.5 text-muted shadow-md">
+            {clickThrough && <GripHorizontal className="mx-1 size-3.5" aria-hidden />}
             {alertDraft && (
               <button
                 type="button"
@@ -348,7 +368,7 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
       )}
       {showTitle && (
         <header className="mb-1.5 flex min-h-5 items-center gap-2">
-          <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium" style={titleCss(style)}>
+          <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium" style={titleCss(style)} title={visual.title ?? defaultTitle(visual)}>
             {visual.title ?? defaultTitle(visual)}
           </h3>
           {loading && result && <Loader2 className="size-3 animate-spin text-muted" aria-label="Actualisation" />}

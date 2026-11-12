@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ColumnProfile, DatasetProfile } from "../types/dataset";
 import type { Page, Visual } from "../types/report";
+import { kpiMinHeight, navigatorTabMins, navigatorTabWidth, navigatorWidth, rangeSlicerMinHeight, textWidth } from "../visuals/fit";
 import { VISUALS } from "../visuals/registry";
 import { analyze, shortName, starterPages, storyPages } from "./starter";
 
@@ -96,6 +97,28 @@ function checkPages(pages: Page[], datasets: DatasetProfile[]) {
   }
   // Navigateur sur chaque page dès qu'il y en a plusieurs.
   for (const page of pages) expect(page.visuals.some((v) => v.type === "navigator")).toBe(pages.length > 1);
+  checkRoom(pages);
+}
+
+/** Chaque visuel a la place de son contenu : rien de rogné à l'ouverture du rapport (voir `visuals/fit.ts`). */
+function checkRoom(pages: Page[]) {
+  const names = pages.map((p) => p.name);
+  for (const page of pages) {
+    for (const v of page.visuals) {
+      const where = `${page.name} : ${v.type} « ${v.title ?? ""} »`;
+      // KPI : titre, valeur et, s'il y en a une, mini-tendance l'un sous l'autre.
+      if (v.type === "kpi") expect(v.layout.h, where).toBeGreaterThanOrEqual(kpiMinHeight(!!v.roles.trend?.length));
+      // Plage de dates : les deux champs montrent l'année entière (l'un sous l'autre dans la colonne des filtres).
+      if (v.type === "slicer" && v.options.style === "range") expect(v.layout.h, where).toBeGreaterThanOrEqual(rangeSlicerMinHeight(v.layout.w));
+      // Navigateur : aucun nom de page abrégé.
+      if (v.type === "navigator") expect(v.layout.w, where).toBeGreaterThanOrEqual(navigatorWidth(names));
+    }
+    // Titre de la page : sur une seule ligne, à gauche du navigateur.
+    const title = page.visuals.find((v) => v.type === "text" && !v.options.panel);
+    const text = String(title?.options.text ?? "");
+    const [bold = "", rest = ""] = text.replace(/^\*\*/, "").split("**");
+    expect(textWidth(bold, 18, true) + textWidth(rest, 18), `${page.name} : titre`).toBeLessThanOrEqual((title?.layout.w ?? 0) - 12);
+  }
 }
 
 describe("analyse des jeux", () => {
@@ -194,6 +217,82 @@ describe("parts d'une allocation", () => {
     // Aucune moyenne de parts en KPI ; un segment sur les classes faute d'autre regroupement.
     expect(pages[0]!.visuals.filter((v) => v.type === "kpi").some((v) => v.roles.values?.[0]?.field === "Cible")).toBe(false);
     expect(pages[0]!.visuals.find((v) => v.type === "slicer")?.roles.field?.[0]?.field).toBe("Classe d'actifs");
+  });
+});
+
+describe("place du contenu", () => {
+  const factures = profile("fact00000001", "Studio Garance — Clients et factures", 8, [
+    col("Facture", "string", 8, { top_values: [{ value: "2026-043", count: 1 }] }),
+    col("Statut", "string", 2),
+    col("Client", "string", 4),
+    col("Émise le", "date", 8, { min: "2026-07-28", max: "2026-10-28" }),
+    col("Montant HT", "number", 6, { min: 800, max: 2650 }),
+  ]);
+
+  it("Studio Garance : KPI à mini-tendance, dates et navigateur ont la place de leur contenu", () => {
+    const pages = storyPages("Studio Garance", [operations, factures]);
+    checkPages(pages, [operations, factures]);
+    expect(pages.map((p) => p.name)).toEqual(["Trésorerie", "Dépenses", "Opérations", "Clients et factures"]);
+    // Le KPI « Solde de la période » porte une mini-tendance : sa rangée est assez haute pour elle.
+    const solde = pages[0]!.visuals.find((v) => v.title === "Solde de la période");
+    expect(solde?.roles.trend?.[0]?.field).toBe("Date");
+    expect(solde!.layout.h).toBeGreaterThanOrEqual(kpiMinHeight(true));
+    // Même navigateur, à la même place, sur toutes les pages.
+    const navs = pages.map((p) => p.visuals.find((v) => v.type === "navigator")!.layout);
+    for (const n of navs) expect(n).toEqual(navs[0]);
+  });
+
+  it("un titre très long garde sa ligne : le navigateur lui cède de la place sans disparaître", () => {
+    const pages = storyPages("Coopérative agricole des Alpilles et du pays d'Arles — exercice 2026", [operations]);
+    const nav = pages[0]!.visuals.find((v) => v.type === "navigator")!;
+    const title = pages[0]!.visuals.find((v) => v.type === "text" && !v.options.panel)!;
+    expect(nav.layout.w).toBeGreaterThanOrEqual(96 * pages.length);
+    expect(title.layout.x + title.layout.w).toBeLessThanOrEqual(nav.layout.x);
+    expect(title.layout.w).toBeGreaterThan(300);
+  });
+});
+
+describe("navigateur des histoires à cinq pages", () => {
+  const table = (id: string, name: string) =>
+    profile(id, name, 12, [col("Poste", "string", 12, { top_values: [{ value: "Affichage", count: 1 }] }), col("Statut", "string", 3), col("Budget", "number", 10, { min: 500, max: 9000 })]);
+  const stories: [string, string[]][] = [
+    ["Campagne Brume", ["Plan média", "Performances des régies"]],
+    ["Librairie Les Pages Vives", ["Stock et commandes", "Caisse par rayon"]],
+  ];
+
+  it.each(stories)("%s : aucun nom de page abrégé, le titre perd le nom de la page plutôt que de serrer les onglets", (story, tables) => {
+    const ops = { ...operations, name: `${story} — opérations août-oct. 2026` };
+    const sets = [ops, ...tables.map((t, i) => table(`tab00000000${i}`, `${story} — ${t}`))];
+    const pages = storyPages(story, sets);
+    checkPages(pages, sets);
+    const names = ["Trésorerie", "Dépenses", "Opérations", ...tables];
+    expect(pages.map((p) => p.name)).toEqual(names);
+    for (const page of pages) {
+      const nav = page.visuals.find((v) => v.type === "navigator")!;
+      const title = page.visuals.find((v) => v.type === "text" && !v.options.panel)!;
+      // Tous les noms entiers (`checkRoom` le vérifie aussi) ; le titre reste sur sa ligne, sans le nom de la page.
+      expect(nav.layout.w).toBeGreaterThanOrEqual(navigatorWidth(names));
+      expect(title.options.text).toBe(`**${story}**`);
+      expect(title.layout.x + title.layout.w).toBeLessThanOrEqual(nav.layout.x);
+      expect(title.layout.w).toBeGreaterThanOrEqual(300);
+    }
+  });
+
+  it("dans un navigateur trop étroit (ancien gabarit de 572 px), seuls les noms plus longs qu'une part égale sont abrégés", () => {
+    for (const [, tables] of stories) {
+      const names = ["Trésorerie", "Dépenses", "Opérations", ...tables];
+      const inner = 572 - 14;
+      const mins = navigatorTabMins(names, inner);
+      const share = (inner - 4 * 4) / 5;
+      names.forEach((n, i) => {
+        const full = navigatorTabWidth(n);
+        // Nom court : jamais sous sa largeur ; nom long : jamais sous la part égale d'avant.
+        expect(mins[i], n).toBe(full <= share ? full : share);
+      });
+      expect(names.filter((n) => navigatorTabWidth(n) <= share)).toEqual(expect.arrayContaining(["Trésorerie", "Dépenses", "Opérations"]));
+      // Les bornes tiennent toujours dans le navigateur : aucun onglet ne déborde.
+      expect(mins.reduce((s, m) => s + m, 0) + 4 * 4).toBeLessThanOrEqual(inner);
+    }
   });
 });
 

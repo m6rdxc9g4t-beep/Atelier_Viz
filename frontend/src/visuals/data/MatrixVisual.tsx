@@ -9,7 +9,7 @@ import { formatDimension, formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
 import { type MatrixNode, buildMatrix } from "./pivot";
 import { type CondFormat, type Stats, decorStyle, decorate, formatFor, statsOf } from "./conditional";
-import { DecoratedValue } from "./TableVisual";
+import { DecoratedValue, PinnedTotalTable, STICKY_HEAD, type TotalCell } from "./TableVisual";
 
 /** Matrice : lignes hiérarchiques dépliables, colonne pivot, sous-totaux et total général exacts. */
 export function MatrixVisual(props: VisualProps) {
@@ -60,8 +60,8 @@ export function MatrixVisual(props: VisualProps) {
     const expanded = expandAll || open.has(node.path);
     return (
       <Fragment key={node.path}>
-        <tr className={clsx("border-b border-border/60 hover:bg-surface-2", !isLeaf && "font-medium")}>
-          <th scope="row" className="whitespace-nowrap px-2 py-1 text-left font-[inherit]" style={{ paddingLeft: 8 + (node.level - 1) * 16 }}>
+        <tr className={clsx("hover:bg-surface-2", !isLeaf && "font-medium")}>
+          <th scope="row" className="whitespace-nowrap border-b border-border/60 px-2 py-1 text-left font-[inherit]" style={{ paddingLeft: 8 + (node.level - 1) * 16 }}>
             {!isLeaf ? (
               <button type="button" onClick={() => toggle(node.path)} aria-expanded={expanded} className="inline-flex items-center gap-1">
                 <ChevronRight className={clsx("size-3 transition-transform", expanded && "rotate-90")} aria-hidden />
@@ -78,7 +78,7 @@ export function MatrixVisual(props: VisualProps) {
               return (
                 <td
                   key={`${ck}-${bindingKey(m)}`}
-                  className={clsx("relative whitespace-nowrap px-2 py-1 text-right tabular-nums", ck === "__total" && "bg-surface-2/60")}
+                  className={clsx("relative whitespace-nowrap border-b border-border/60 px-2 py-1 text-right tabular-nums", ck === "__total" && "bg-surface-2/60")}
                   style={decorStyle(decor)}
                 >
                   {node.cells.get(ck) ? <DecoratedValue decor={decor} text={formatNumber(raw, numberFormat(visual, m))} /> : ""}
@@ -92,16 +92,23 @@ export function MatrixVisual(props: VisualProps) {
     );
   };
 
+  const total: TotalCell[] = [
+    { key: "__label", text: "Total", numeric: false, header: true },
+    ...colKeys.flatMap((ck) =>
+      values.map((m) => ({ key: `t-${ck}-${bindingKey(m)}`, text: formatNumber(model.root.cells.get(ck)?.[bindingKey(m)] ?? null, numberFormat(visual, m)), numeric: true })),
+    ),
+  ];
+
   return (
-    <div className="h-full overflow-auto">
-      <table className="w-full border-collapse text-xs">
-        <thead className="sticky top-0 z-10 bg-surface">
+    <PinnedTotalTable
+      head={
+        <>
           <tr>
-            <th rowSpan={values.length > 1 ? 2 : 1} className="border-b border-border px-2 py-1.5 text-left font-medium text-muted">
+            <th rowSpan={values.length > 1 ? 2 : 1} className={clsx(STICKY_HEAD, "border-b border-border px-2 py-1.5 text-left font-medium text-muted")}>
               {rows.map(bindingLabel).join(" › ")}
             </th>
             {colKeys.map((ck, i) => (
-              <th key={ck} colSpan={values.length} className="whitespace-nowrap border-b border-border px-2 py-1.5 text-right font-medium text-muted">
+              <th key={ck} colSpan={values.length} className={clsx(STICKY_HEAD, "whitespace-nowrap border-b border-border px-2 py-1.5 text-right font-medium text-muted")}>
                 {column ? colLabel(ck, i) : values.length === 1 && values[0] ? bindingLabel(values[0]) : "Valeurs"}
               </th>
             ))}
@@ -110,30 +117,19 @@ export function MatrixVisual(props: VisualProps) {
             <tr>
               {colKeys.map((ck) =>
                 values.map((m) => (
-                  <th key={`${ck}-${bindingKey(m)}`} className="whitespace-nowrap border-b border-border px-2 py-1 text-right text-[10px] font-normal text-muted">
+                  // Seconde ligne d'en-tête : collée sous la première (29 px : 12 px de marges, 16 px de texte, 1 px de trait).
+                  <th key={`${ck}-${bindingKey(m)}`} className="sticky top-[28px] z-10 whitespace-nowrap border-b border-border bg-surface px-2 py-1 text-right text-[10px] font-normal text-muted">
                     {bindingLabel(m)}
                   </th>
                 )),
               )}
             </tr>
           )}
-        </thead>
-        <tbody>{model.root.children.map(renderNode)}</tbody>
-        <tfoot>
-          <tr className="sticky bottom-0 bg-surface font-semibold">
-            <th scope="row" className="border-t border-border px-2 py-1.5 text-left">
-              Total
-            </th>
-            {colKeys.map((ck) =>
-              values.map((m) => (
-                <td key={`t-${ck}-${bindingKey(m)}`} className="border-t border-border px-2 py-1.5 text-right tabular-nums">
-                  {formatNumber(model.root.cells.get(ck)?.[bindingKey(m)] ?? null, numberFormat(visual, m))}
-                </td>
-              )),
-            )}
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+        </>
+      }
+      total={total}
+    >
+      {model.root.children.map(renderNode)}
+    </PinnedTotalTable>
   );
 }

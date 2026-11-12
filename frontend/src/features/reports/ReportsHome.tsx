@@ -3,6 +3,7 @@ import { FileBarChart2, Loader2, Plus, Sparkles, Trash2, Wand2 } from "lucide-re
 import { useEffect, useState } from "react";
 
 import { api } from "../../lib/api";
+import { onExamplesChange, showExamplesOnHome } from "../../lib/exemples";
 import { navigate } from "../../lib/router";
 import { starterPages } from "../../studio/starter";
 import type { DatasetSummary } from "../../types/dataset";
@@ -43,6 +44,9 @@ export function ReportsHome() {
       alive = false;
     };
   }, [version]);
+
+  // Histoire chargée ou retirée (ici ou depuis le dialogue de la barre latérale) : rapports et jeux relus.
+  useEffect(() => onExamplesChange(() => setVersion((v) => v + 1)), []);
 
   const create = async (starter: boolean) => {
     setBusy(true);
@@ -156,7 +160,8 @@ export function ReportsHome() {
           </p>
         )}
       </section>
-      <SuiteExamples reports={reports} onChanged={() => setVersion((v) => v + 1)} />
+      {/* Premier lancement (aucun rapport) : les exemples guident. Ensuite ils sont au pied de la barre latérale. */}
+      {showExamplesOnHome(reports) && <SuiteExamples reports={reports} />}
 
       <section aria-labelledby="mes-rapports">
         <h2 id="mes-rapports" className="mb-2 flex items-baseline gap-2 text-sm font-semibold">

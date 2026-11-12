@@ -40,6 +40,7 @@ import {
   valueKey,
 } from "../common";
 import { bindingKey, bindingLabel } from "../fields";
+import { textWidth, truncateEnd } from "../fit";
 import { formatDimension, formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
 import type { QueryResult } from "../useQueryResult";
@@ -214,18 +215,23 @@ export function TreemapVisual(props: VisualProps) {
         content={(node: unknown) => {
           const n = node as { x: number; y: number; width: number; height: number; name?: string; value?: number; color?: string; raw?: Scalar; depth: number };
           if (n.depth === 0) return <g />;
-          const show = n.width > 56 && n.height > 30;
+          // Libellé abrégé par la fin à la largeur du rectangle ; la valeur seulement si ses deux lignes tiennent.
+          const show = n.width > 40 && n.height > 22;
+          const valueText = formatNumber(n.value ?? 0, { ...fmt, compact: true });
+          const showValue = n.height > 38 && textWidth(valueText, 10) <= n.width - 14;
           return (
             <g style={{ cursor: "pointer" }} opacity={dimmed(selection, visual, n.raw ?? null) ? 0.3 : 1}>
               <rect x={n.x} y={n.y} width={n.width} height={n.height} rx={4} fill={n.color} stroke="var(--surface)" strokeWidth={2} />
               {show && (
                 <>
                   <text x={n.x + 8} y={n.y + 16} fontSize={11} fontWeight={600} {...HALO}>
-                    {String(n.name).slice(0, Math.floor(n.width / 7))}
+                    {truncateEnd(String(n.name), n.width - 14, 11.7)}
                   </text>
-                  <text x={n.x + 8} y={n.y + 30} fontSize={10} {...HALO}>
-                    {formatNumber(n.value ?? 0, { ...fmt, compact: true })}
-                  </text>
+                  {showValue && (
+                    <text x={n.x + 8} y={n.y + 30} fontSize={10} {...HALO}>
+                      {valueText}
+                    </text>
+                  )}
                 </>
               )}
             </g>

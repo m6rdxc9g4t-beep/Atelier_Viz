@@ -14,6 +14,7 @@ import {
 } from "recharts";
 
 import { AXIS, Legend, TooltipBox, VisualMessage, dimmed, first, numberFormat, toggleSelection } from "../common";
+import { categoryAxis, lastTickMargin, truncateEnd, valueLabelMargin, valueLabelTopMargin, AXIS_FONT } from "../fit";
 import { formatNumber } from "../format";
 import { useTooltipExtras } from "../tooltips";
 import { opt, type VisualProps } from "../types";
@@ -71,16 +72,31 @@ export function CartesianVisual(props: VisualProps) {
   const select = (d: TrendDatum | undefined) => d && !d.__forecast && category && toggleSelection(selection, visual, category, d.__cat, onSelect);
 
   const valueAxisProps = { ...AXIS, tickFormatter: valueTick, width: horizontal ? undefined : 56 };
-  // Largeur de l'axe des catégories (barres horizontales) : selon le libellé le plus long, bornée.
-  const catWidth = Math.min(180, Math.max(48, ...data.map((d) => d.__label.length * 6.2 + 8)));
+  // Axe des catégories des barres horizontales : large comme son libellé le plus long (borné), le reste abrégé par la fin.
+  const catAxis = categoryAxis(data.map((d) => d.__label));
+  const catTick = (v: string) => (horizontal ? catAxis.format(v) : truncateEnd(v, 84, AXIS_FONT));
   const catAxisProps = {
     ...AXIS,
     dataKey: "__label",
     // Recharts masque les étiquettes qui se chevauchent ; les longues sont abrégées (texte complet dans l'info-bulle).
     interval: "preserveStartEnd" as const,
     minTickGap: 6,
-    tickFormatter: (v: string) => (!horizontal && v.length > 14 ? `${v.slice(0, 13)}…` : v),
+    tickFormatter: catTick,
   };
+  const valueLabel = (v: unknown) => (percent || v === null || v === undefined ? "" : formatNumber(v as number, { ...fmt, compact: true }));
+  // Marge droite : la place des étiquettes de valeur (barres horizontales) ou de la moitié de la dernière
+  // graduation quand le dernier point est au bord du tracé (lignes, aires : pas de bande autour du point).
+  const hasBars = [...series.map((s) => kindOf(s.role))].includes("bar");
+  const marginRight = horizontal
+    ? showLabels
+      ? valueLabelMargin(stackId ? [] : data.flatMap((d) => series.map((s) => valueLabel(d[s.key]))), 44)
+      : 12
+    : hasBars
+      ? 12
+      : lastTickMargin(catTick(data[data.length - 1]?.__label ?? ""));
+  // Marge haute : la place de l'étiquette posée sur la plus haute colonne ou le plus haut point (à droite pour
+  // des barres horizontales ; en pourcentage, pas d'étiquette).
+  const marginTop = valueLabelTopMargin(showLabels && !horizontal && !percent);
 
   return (
     <div className="flex h-full flex-col">
@@ -91,7 +107,7 @@ export function CartesianVisual(props: VisualProps) {
             data={data}
             layout={horizontal ? "vertical" : "horizontal"}
             stackOffset={percent ? "expand" : undefined}
-            margin={{ top: 8, right: horizontal && showLabels ? 44 : 12, bottom: 0, left: 0 }}
+            margin={{ top: marginTop, right: marginRight, bottom: 0, left: 0 }}
             barCategoryGap="20%"
             barGap={2}
             onClick={(state) => {
@@ -104,7 +120,7 @@ export function CartesianVisual(props: VisualProps) {
             {horizontal ? (
               <>
                 <XAxis type="number" {...valueAxisProps} />
-                <YAxis type="category" {...catAxisProps} width={catWidth} interval={0} />
+                <YAxis type="category" {...catAxisProps} width={catAxis.width} interval={0} />
               </>
             ) : (
               <>
@@ -154,8 +170,10 @@ export function CartesianVisual(props: VisualProps) {
                   <LabelList
                     dataKey={s.key}
                     position={horizontal ? "right" : "top"}
-                    className="fill-[var(--muted)] text-[10px]"
-                    formatter={(v: unknown) => (percent || v === null || v === undefined ? "" : formatNumber(v as number, { ...fmt, compact: true }))}
+                    // Taille en attribut SVG (pas en classe) : l'export image / PDF la garde, les étiquettes ne grossissent pas.
+                    fontSize={10}
+                    className="fill-[var(--muted)]"
+                    formatter={valueLabel}
                   />
                 ) : null;
               if (kind === "bar") {
