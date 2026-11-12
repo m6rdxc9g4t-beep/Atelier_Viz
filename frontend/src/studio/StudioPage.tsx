@@ -208,10 +208,12 @@ export function StudioPage({ reportId }: { reportId: string }) {
           </button>
           <input
             aria-label="Nom du rapport"
+            // Barre étroite : le nom s'abrège par « … » (au lieu d'être coupé net) et reste lisible en info-bulle.
+            title={report.name}
             value={report.name}
             readOnly={!editing}
             onChange={(e) => s().mutate((r) => (r.name = e.target.value || "Sans titre"))}
-            className="min-w-0 max-w-72 flex-1 rounded-md px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field max-md:w-36 max-md:flex-none"
+            className="min-w-0 max-w-72 flex-1 truncate rounded-md px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 focus:bg-field max-md:w-36 max-md:flex-none"
           />
           <SaveBadge state={saveState} error={saveError} />
           <div className="ml-auto flex items-center gap-1">
