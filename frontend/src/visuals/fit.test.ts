@@ -1,21 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  CATEGORY_AXIS_MAX,
-  RANGE_SIDE_BY_SIDE,
-  categoryAxis,
-  kpiMinHeight,
-  lastTickMargin,
-  navigatorTabMinCss,
-  navigatorTabMins,
-  navigatorTabWidth,
-  navigatorWidth,
-  rangeSlicerMinHeight,
-  textWidth,
-  truncateEnd,
-  valueLabelMargin,
-  valueLabelTopMargin,
-} from "./fit";
+import { CATEGORY_AXIS_MAX, RANGE_SIDE_BY_SIDE, categoryAxis, kpiMinHeight, lastTickMargin, navigatorTabMinCss, navigatorTabMins, navigatorTabWidth, navigatorWidth, rangeSlicerMinHeight, textWidth, truncateEnd, valueLabelMargin, valueLabelTopMargin, barsMinHeight, tableMinHeight, TABLE_HEAD_HEIGHT, TABLE_ROW_HEIGHT } from "./fit";
 
 /** Largeurs réelles mesurées dans Chromium (Inter, 11 px), pour étalonner l'estimation. */
 const MEASURED_11: Record<string, number> = {
@@ -156,5 +141,22 @@ describe("place minimale des visuels", () => {
     // La même règle en CSS, sans connaître la largeur du navigateur.
     expect(navigatorTabMinCss(names[4]!, 5)).toBe(`min(${navigatorTabWidth(names[4]!)}px, calc((100% - 16px) / 5))`);
     expect(navigatorTabMinCss("Seule", 1)).toBe(`min(${navigatorTabWidth("Seule")}px, calc((100% - 0px) / 1))`);
+  });
+
+  it("tableau : la hauteur de l'en-tête, de chaque ligne et du total, sans défilement", () => {
+    // Mesuré dans le navigateur : cadre et titre 51 px, en-tête 29 px, lignes de 25 px, total 29 px.
+    expect(TABLE_HEAD_HEIGHT).toBe(29);
+    expect(TABLE_ROW_HEIGHT).toBe(25);
+    // 8 factures et leur total : 258 px en montraient 6 (zone défilante de 177 px pour 230 px de lignes).
+    expect(tableMinHeight(8, true)).toBe(52 + 29 + 8 * 25 + 29);
+    expect(tableMinHeight(8, true)).toBeGreaterThan(258);
+    expect(tableMinHeight(8, false)).toBe(tableMinHeight(8, true) - 29);
+    expect(tableMinHeight(0, false)).toBe(52 + 29);
+  });
+
+  it("barres horizontales : un libellé de 11 px par barre", () => {
+    expect(barsMinHeight(8)).toBe(80 + 8 * 14);
+    expect(barsMinHeight(12)).toBeLessThanOrEqual(254);
+    expect(barsMinHeight(0)).toBe(barsMinHeight(1));
   });
 });

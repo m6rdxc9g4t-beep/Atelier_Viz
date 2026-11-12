@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ColumnProfile, DatasetProfile } from "../types/dataset";
 import type { Page, Visual } from "../types/report";
-import { kpiMinHeight, navigatorTabMins, navigatorTabWidth, navigatorWidth, rangeSlicerMinHeight, textWidth } from "../visuals/fit";
+import { barsMinHeight, kpiMinHeight, navigatorTabMins, navigatorTabWidth, navigatorWidth, rangeSlicerMinHeight, tableMinHeight, textWidth } from "../visuals/fit";
 import { VISUALS } from "../visuals/registry";
 import { analyze, shortName, starterPages, storyPages } from "./starter";
 
@@ -97,15 +97,25 @@ function checkPages(pages: Page[], datasets: DatasetProfile[]) {
   }
   // Navigateur sur chaque page dès qu'il y en a plusieurs.
   for (const page of pages) expect(page.visuals.some((v) => v.type === "navigator")).toBe(pages.length > 1);
-  checkRoom(pages);
+  checkRoom(pages, datasets);
 }
 
 /** Chaque visuel a la place de son contenu : rien de rogné à l'ouverture du rapport (voir `visuals/fit.ts`). */
-function checkRoom(pages: Page[]) {
+function checkRoom(pages: Page[], datasets: DatasetProfile[] = []) {
   const names = pages.map((p) => p.name);
   for (const page of pages) {
     for (const v of page.visuals) {
       const where = `${page.name} : ${v.type} « ${v.title ?? ""} »`;
+      const ds = datasets.find((d) => d.id === v.dataset_id);
+      // Matrice au-dessus d'un graphique : toutes ses lignes et son total, sans ligne à moitié cachée, tant que
+      // ses catégories tiennent dans la colonne (au-delà elle défile, le graphique garde 240 px).
+      const groups = ds?.columns.find((c) => c.name === v.roles.rows?.[0]?.field)?.distinct;
+      if (v.type === "matrix" && v.roles.rows?.length === 1 && groups && groups <= 12) expect(v.layout.h, where).toBeGreaterThanOrEqual(tableMinHeight(groups, true));
+      // Tableau d'une liste courte (une ligne par élément) : toutes les lignes et le total, rien à faire défiler.
+      if (v.type === "table" && ds && ds.rows <= 8 && v.options.totals && !v.options.topN) expect(v.layout.h, where).toBeGreaterThanOrEqual(tableMinHeight(ds.rows, true));
+      // Barres horizontales : la place d'un libellé par barre.
+      const bars = ds?.columns.find((c) => c.name === v.roles.category?.[0]?.field)?.distinct;
+      if (v.type === "bar" && bars && !v.roles.series?.length && (v.roles.values?.length ?? 0) === 1) expect(v.layout.h, where).toBeGreaterThanOrEqual(barsMinHeight(Math.min(bars, Number(v.options.topN ?? 12))));
       // KPI : titre, valeur et, s'il y en a une, mini-tendance l'un sous l'autre.
       if (v.type === "kpi") expect(v.layout.h, where).toBeGreaterThanOrEqual(kpiMinHeight(!!v.roles.trend?.length));
       // Plage de dates : les deux champs montrent l'année entière (l'un sous l'autre dans la colonne des filtres).
@@ -240,6 +250,45 @@ describe("place du contenu", () => {
     // Même navigateur, à la même place, sur toutes les pages.
     const navs = pages.map((p) => p.visuals.find((v) => v.type === "navigator")!.layout);
     for (const n of navs) expect(n).toEqual(navs[0]);
+  });
+
+  it("Studio Garance : le tableau des 8 factures montre toutes ses lignes et son total, sans défilement", () => {
+    const pages = storyPages("Studio Garance", [operations, factures]);
+    const page = pages[3]!;
+    const table = page.visuals.find((v) => v.type === "table")!;
+    const bars = page.visuals.find((v) => v.type === "bar")!;
+    const cards = page.visuals.filter((v) => v.type === "kpi");
+    expect(table.layout.h).toBeGreaterThanOrEqual(tableMinHeight(8, true));
+    // La place vient des KPI (sans mini-tendance ici) puis des graphiques, qui gardent celle de leur contenu.
+    for (const k of cards) expect(k.layout.h).toBeGreaterThanOrEqual(kpiMinHeight(false) + 8);
+    expect(bars.layout.h).toBeGreaterThanOrEqual(barsMinHeight(8));
+    // Les rangées restent jointives et dans la page.
+    expect(bars.layout.y).toBe(cards[0]!.layout.y + cards[0]!.layout.h + 12);
+    expect(table.layout.y).toBe(bars.layout.y + bars.layout.h + 12);
+    expect(table.layout.y + table.layout.h).toBe(712);
+  });
+
+  it("une liste trop longue pour tenir garde les rangées habituelles : son tableau défile de toute façon", () => {
+    const longue = { ...factures, id: "fact00000002", rows: 30, columns: factures.columns.map((c) => (c.name === "Facture" ? { ...c, distinct: 30 } : c)) };
+    const page = starterPages(longue)[0]!;
+    expect(page.visuals.find((v) => v.type === "kpi")!.layout).toMatchObject({ y: 60, h: 116 });
+    expect(page.visuals.find((v) => v.type === "table")!.layout).toMatchObject({ y: 454, h: 258 });
+  });
+
+  it("Dépenses : la matrice a la hauteur de ses catégories et de son total, le graphique dessous reste lisible", () => {
+    const pages = storyPages("Studio Garance", [operations, factures]);
+    const page = pages[1]!;
+    const matrix = page.visuals.find((v) => v.type === "matrix")!;
+    const column = page.visuals.find((v) => v.type === "column")!;
+    expect(matrix.layout.h).toBeGreaterThanOrEqual(tableMinHeight(9, true));
+    expect(column.layout.y).toBe(matrix.layout.y + matrix.layout.h + 12);
+    expect(column.layout.h).toBeGreaterThanOrEqual(240);
+    expect(column.layout.y + column.layout.h).toBe(712);
+    // Beaucoup de catégories : la matrice défile, le graphique garde sa hauteur minimale.
+    const many = { ...operations, rows: 120, columns: operations.columns.map((c) => (c.name === "Catégorie" ? { ...c, distinct: 30 } : c)) };
+    const big = starterPages(many)[1]!;
+    expect(big.visuals.find((v) => v.type === "column")!.layout.h).toBe(240);
+    expect(big.visuals.find((v) => v.type === "matrix")!.layout.h).toBe(652 - 12 - 240);
   });
 
   it("un titre très long garde sa ligne : le navigateur lui cède de la place sans disparaître", () => {

@@ -104,6 +104,27 @@ export function kpiMinHeight(trend: boolean): number {
   return FRAME_PADDING + TITLE_HEIGHT + 34 + (trend ? 32 : 0);
 }
 
+/** Tableaux et matrices : hauteur de la ligne d'en-tête (celle du total est la même) et d'une ligne de données. */
+export const TABLE_HEAD_HEIGHT = 29;
+export const TABLE_ROW_HEIGHT = 25;
+
+/**
+ * Hauteur qu'il faut à un tableau (ou une matrice) pour montrer `rows` lignes sans défilement : cadre, titre,
+ * en-tête, lignes et, s'il y en a un, total posé sous la zone défilante.
+ */
+export function tableMinHeight(rows: number, totals: boolean): number {
+  // 2 px : filet sous l'en-tête et arrondi des hauteurs de ligne.
+  return FRAME_PADDING + TITLE_HEIGHT + 2 + TABLE_HEAD_HEIGHT + Math.max(0, rows) * TABLE_ROW_HEIGHT + (totals ? TABLE_HEAD_HEIGHT : 0);
+}
+
+/**
+ * Hauteur qu'il faut à des barres horizontales : cadre, titre, axe des valeurs et 14 px par barre (chaque
+ * barre a son libellé de 11 px : en dessous, les libellés se toucheraient).
+ */
+export function barsMinHeight(bars: number): number {
+  return FRAME_PADDING + TITLE_HEIGHT + 30 + Math.max(1, bars) * 14;
+}
+
 /** Largeur qu'il faut à un champ de date pour montrer l'année entière (Safari : « 12 / 11 / 2026 »). */
 export const DATE_INPUT_WIDTH = 120;
 /** Largeur intérieure à partir de laquelle les deux champs d'une plage tiennent côte à côte. */
