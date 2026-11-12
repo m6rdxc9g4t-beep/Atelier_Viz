@@ -65,7 +65,10 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 ## Rapports générés (jalon 11)
 - `studio/starter.ts` : `analyze(profil)` (nature `flows` / `events` / `list`, rôle des colonnes) → sections → `finish` (barre de filtres = zone de texte `panel` + segments + « Réinitialiser », titre, `navigator`). `starterPages` (un jeu), `storyPages` (exemples de la suite : tous les jeux d'une histoire). Règles testées dans `studio/starter.test.ts` (rôles et champs valides, page 1280 × 720, aucun chevauchement, navigateur dès 2 pages) : toute nouvelle recette s'y ajoute avec un profil type.
 - Jamais de secteurs sur une mesure signée sans filtre positif ; prix, taux, CPA moyennés (`natural`) ; parts qui totalisent 100 % comparées (`shares`), jamais moyennées ; fractions → option `fraction`.
-- Navigateur : `navigablePages` (sans pages d'extraction) ; export natif (`navigator` de `buildVisual.ts`, `links.pages` / `links.pageId`). En édition, la barre de déplacement d'un bouton ou d'un navigateur se pose au-dessus du visuel (`clickThrough`) : tout son contenu reste cliquable.
+- Navigateur : `navigablePages` (sans pages d'extraction) ; export natif (`navigator` de `buildVisual.ts`, `links.pages` / `links.pageId`). Onglets à la largeur de leur nom (`flex-auto`), jamais à largeur égale.
+- Place du contenu : `visuals/fit.ts` (pur, testé : `textWidth` étalonnée sur Inter, `truncateEnd`, `categoryAxis`, `lastTickMargin`, `kpiMinHeight`, `rangeSlicerMinHeight`, `navigatorWidth`). Un visuel ne rogne ni sa valeur ni son titre : il s'adapte (la mini-tendance d'un KPI cède la place, un libellé long s'abrège par la fin avec info-bulle, les champs d'une plage passent l'un sous l'autre) ; jamais de largeur d'axe comptée « par caractère ». Le gabarit donne à chaque visuel la place de son contenu : `checkRoom` de `starter.test.ts` s'étend avec chaque nouveau type de contrainte.
+- Tableaux (table, matrice) : en-tête et total figés par `position: sticky` sur les **cellules** (`STICKY_HEAD` / `STICKY_FOOT` de `TableVisual.tsx`, `border-separate`), jamais sur `tr` / `thead` / `tfoot` (Safari place mal une ligne collante) ; barres de données depuis le bord gauche de la cellule.
+- Édition : la barre d'actions d'un visuel flotte hors de son cadre (`toolbarSide` de `studio/toolbar.ts` : au-dessus, sinon dessous), jamais sur son titre ; la poignée de déplacement (`.visual-handle`) est la bande du haut du cadre, sauf pour un bouton ou un navigateur (`clickThrough`) où elle est portée par la barre flottante : tout leur contenu reste cliquable.
 
 ## Placement des visuels
 - Page en pixels (`Page.size`, 1280 × 720 par défaut) ; `Visual.layout` en px de page. Géométrie pure dans `studio/grid.ts` (migration des anciens rapports en grille, bornage, hauteur) et `studio/snap.ts` (déplacement, redimensionnement, repères), testée dans `studio/placement.test.ts`.
@@ -94,7 +97,10 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
 - `services/exemples.py` charge par `AtelierService.upsert` et `AlertService` (créée puis évaluée, comme la route : le
   `viz.alert.triggered` que Nexus transforme en tâche Projets) ; retirer = jeux de ces clés, leurs alertes, rapport
   « Exemple — <histoire> ». Routes `GET/POST/DELETE /api/exemples-suite[/{histoire}]` ; réglage `EXEMPLES_DIR`
-  (`FOREIGN_ENV`, paquet autonome : `datas` du `.spec`). Front : `features/reports/SuiteExamples.tsx`, `lib/exemples.ts`.
+  (`FOREIGN_ENV`, paquet autonome : `datas` du `.spec`). Front : `features/reports/SuiteExamples.tsx`
+  (une seule logique, deux habillages : carte de l'accueil tant qu'il n'y a aucun rapport — `showExamplesOnHome` —, et
+  `SuiteExamplesDialog`, ouvert par « Exemples de la suite » au pied de `components/layout/Sidebar.tsx`), `lib/exemples.ts`.
+  Tout chargement ou retrait passe par `announceExamplesChange` : les écrans qui en dépendent s'abonnent (`onExamplesChange`).
 
 ## Partage et automatisation (jalon 6)
 - **Signets** : capture / application pures dans `studio/bookmarks.ts` ; tout nouvel état de visuel « à retenir » (comme `options.selected`, `options.drill`) s'ajoute à `BookmarkVisualState` (schéma + miroir TS + `captured`). Appliquer un signet n'entre pas dans l'historique. `report.bookmarks` est facultatif : toujours lire `r.bookmarks ?? []`. Groupes (`group`) et signets personnels (`personal`, jamais envoyés à GitHub : `without_personal` / `keep_personal` de `report_privacy.py`, jamais copiés par `reports.duplicate`) : champs `exclude_if` (absents du JSON par défaut).
