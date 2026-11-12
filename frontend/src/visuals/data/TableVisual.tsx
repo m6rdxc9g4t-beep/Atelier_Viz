@@ -116,13 +116,15 @@ export function PinnedTotalTable({ head, children, total, note }: { head: ReactN
               <tr ref={sizer} className="font-semibold">
                 {total.map((c) => {
                   // Sans hauteur (1 px rattrapé par la marge) mais à sa largeur : la colonne fait la place du total.
+                  // La cellule coupe ce pixel (`overflow-hidden`) : sans cela il dépasse du tableau et la zone
+                  // défile de 1 px — sous Windows, une barre de défilement sur un tableau qui tient en entier.
                   const inner = <div className="-mb-px h-px overflow-hidden">{c.text}</div>;
                   return c.header ? (
-                    <th key={c.key} scope="row" className={clsx(totalCell(c), "py-0 font-[inherit]")}>
+                    <th key={c.key} scope="row" className={clsx(totalCell(c), "overflow-hidden py-0 font-[inherit]")}>
                       {inner}
                     </th>
                   ) : (
-                    <td key={c.key} className={clsx(totalCell(c), "py-0")}>
+                    <td key={c.key} className={clsx(totalCell(c), "overflow-hidden py-0")}>
                       {inner}
                     </td>
                   );
