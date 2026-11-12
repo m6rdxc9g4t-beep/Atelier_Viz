@@ -1,6 +1,7 @@
 import clsx from "clsx";
-import { Maximize2, Minus, Plus } from "lucide-react";
+import { Minus, MoveHorizontal, Plus, Scan } from "lucide-react";
 import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { Layout, Page, Report } from "../types/report";
 import { fitScale } from "./extraction";
@@ -8,15 +9,13 @@ import { DEFAULT_PAGE, GAP } from "./grid";
 import { type Guides, RESIZE_DIRS, type ResizeDir, moveRect, resizeCursor, resizeRect } from "./snap";
 import { useStudio } from "./store";
 import { VisualContainer } from "./VisualContainer";
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_SLOT_ID, type ZoomChoice, resolveZoom, stepZoom, wheelZoom } from "./zoom";
 
 /** Distance d'accroche aux repères, en pixels d'écran. */
 const SNAP_SCREEN_PX = 6;
-const ZOOMS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 const PADDING = 24;
-/** Hauteur du contrôle de zoom flottant (en bas à droite), que la page doit pouvoir dégager en défilant. */
+/** Hauteur du contrôle de zoom quand il flotte sur le canvas (sans barre de pages où se ranger). */
 const ZOOM_CLEARANCE = 32;
-/** Échelle minimale de l'ajustement à la largeur (une page de 1280 px tient dans 250 px). */
-const MIN_FIT = 0.15;
 
 interface Drag {
   id: string;
@@ -44,21 +43,25 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(0);
   const [availableH, setAvailableH] = useState(0);
-  const [zoomChoice, setZoomChoice] = useState<number | "fit">("fit");
+  // « Ajusté » tant que l'utilisateur n'a pas choisi un zoom : la page suit la place (volets, fenêtre).
+  const [zoomChoice, setZoomChoice] = useState<ZoomChoice>("fit");
+  const [zoomSlot, setZoomSlot] = useState<HTMLElement | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
   dragRef.current = drag;
 
   const size = page.size ?? DEFAULT_PAGE;
-  const fit = fitPage
-    ? fitScale(size, { width: available, height: availableH }, PADDING)
-    : available > 0
-      ? // Plancher sous le plus petit palier de zoom : sur un téléphone, « ajuster » montre encore toute la largeur de la page.
-        Math.min(2, Math.max(MIN_FIT, (available - 2 * PADDING) / size.width))
-      : 1;
-  const zoom = zoomChoice === "fit" || fitPage ? fit : zoomChoice;
+  // Place utile : la zone de défilement moins ses marges (et moins le contrôle de zoom quand il flotte dessus).
+  const floating = !fitPage && !zoomSlot;
+  const area = { width: available - 2 * PADDING, height: availableH - 2 * PADDING - (floating ? ZOOM_CLEARANCE : 0) };
+  const zoom = fitPage ? fitScale(size, { width: available, height: availableH }, PADDING) : available > 0 ? resolveZoom(zoomChoice, size, area) : 1;
 
-  // Largeur disponible (ajustement à la largeur, comme « Ajuster à la largeur » de Power BI).
+  // Le contrôle de zoom se range dans la barre des pages quand elle existe (sinon il flotte en bas à droite).
+  useLayoutEffect(() => {
+    setZoomSlot(fitPage ? null : document.getElementById(ZOOM_SLOT_ID));
+  }, [fitPage]);
+
+  // Place disponible : remesurée quand un volet s'ouvre ou se replie et quand la fenêtre change de taille.
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -79,14 +82,11 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      setZoomChoice((cur) => {
-        const z = cur === "fit" ? fit : cur;
-        return Math.min(2, Math.max(0.25, Math.round((z * (e.deltaY < 0 ? 1.1 : 1 / 1.1)) * 100) / 100));
-      });
+      setZoomChoice(wheelZoom(zoom, e.deltaY));
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [fit]);
+  }, [zoom]);
 
   const start = (e: ReactPointerEvent, id: string, dir: ResizeDir | null) => {
     const v = page.visuals.find((x) => x.id === id);
@@ -138,8 +138,8 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
       <div
         ref={scrollRef}
         className="absolute inset-0 overflow-auto"
-        // Marge basse : le bas de la page (ligne Total d'un tableau…) se fait défiler au-dessus du contrôle de zoom.
-        style={{ padding: PADDING, paddingTop: fitPage ? Math.max(PADDING, (availableH - px(size.height)) / 2) : PADDING, paddingBottom: fitPage ? PADDING : PADDING + ZOOM_CLEARANCE }}
+        // Marge basse : le bas de la page (ligne Total d'un tableau…) reste au-dessus d'un contrôle de zoom flottant.
+        style={{ padding: PADDING, paddingTop: fitPage ? Math.max(PADDING, (availableH - px(size.height)) / 2) : PADDING, paddingBottom: floating ? PADDING + ZOOM_CLEARANCE : PADDING }}
       >
         <div
           role="presentation"
@@ -225,7 +225,14 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
           )}
         </div>
       </div>
-      {!fitPage && <ZoomControl zoom={zoom} isFit={zoomChoice === "fit"} onChange={setZoomChoice} size={size} />}
+      {!fitPage &&
+        (zoomSlot ? (
+          createPortal(<ZoomControl zoom={zoom} choice={zoomChoice} onChange={setZoomChoice} size={size} />, zoomSlot)
+        ) : (
+          <div className="absolute right-3 bottom-3 z-20 rounded-md border border-border bg-surface/95 p-0.5 shadow-sm backdrop-blur">
+            <ZoomControl zoom={zoom} choice={zoomChoice} onChange={setZoomChoice} size={size} />
+          </div>
+        ))}
     </>
   );
 }
@@ -243,39 +250,44 @@ function handlePos(dir: ResizeDir): React.CSSProperties {
   return s;
 }
 
-/** Zoom de la page : ajuster à la largeur, paliers, et taille de la page pour repère. */
-function ZoomControl({
-  zoom,
-  isFit,
-  onChange,
-  size,
-}: {
-  zoom: number;
-  isFit: boolean;
-  onChange: (z: number | "fit") => void;
-  size: { width: number; height: number };
-}) {
-  const step = (dir: 1 | -1) => {
-    const next = dir > 0 ? ZOOMS.find((z) => z > zoom + 0.001) : [...ZOOMS].reverse().find((z) => z < zoom - 0.001);
-    if (next) onChange(next);
-  };
-  const btn = "rounded p-1 text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30";
+/**
+ * Zoom de la page : taille de la page pour repère, paliers, « Ajuster » (page entière dans la place, le choix
+ * par défaut) et ajustement à la largeur. Un zoom choisi à la main reste jusqu'à ce qu'on revienne à « Ajuster ».
+ */
+function ZoomControl({ zoom, choice, onChange, size }: { zoom: number; choice: ZoomChoice; onChange: (z: ZoomChoice) => void; size: { width: number; height: number } }) {
+  const btn = "grid size-6 place-items-center rounded text-muted hover:bg-surface-2 hover:text-fg disabled:opacity-30 pointer-coarse:size-9";
   return (
-    <div className="absolute right-3 bottom-3 z-20 flex items-center gap-0.5 rounded-md border border-border bg-surface/95 p-0.5 text-xs shadow-sm backdrop-blur" role="group" aria-label="Zoom">
-      <span className="px-1.5 text-[11px] text-muted tabular-nums" title="Taille de la page (px)">
+    <div className="flex items-center gap-0.5 text-xs" role="group" aria-label="Zoom">
+      <span className="px-1.5 text-[11px] text-muted tabular-nums max-md:hidden" title="Taille de la page (px)">
         {size.width} × {size.height}
       </span>
-      <button type="button" className={btn} onClick={() => step(-1)} disabled={zoom <= (ZOOMS[0] ?? 0.25) + 0.001} aria-label="Zoom arrière">
+      <button type="button" className={btn} onClick={() => onChange(stepZoom(zoom, -1) ?? ZOOM_MIN)} disabled={zoom <= ZOOM_MIN + 0.001} aria-label="Zoom arrière">
         <Minus className="size-3.5" aria-hidden />
       </button>
-      <button type="button" className="min-w-11 rounded px-1 py-0.5 tabular-nums hover:bg-surface-2" onClick={() => onChange(1)} title="Taille réelle (100 %)">
+      <button type="button" className="h-6 min-w-11 rounded px-1 tabular-nums hover:bg-surface-2 pointer-coarse:h-9" onClick={() => onChange(1)} title="Taille réelle (100 %)">
         {Math.round(zoom * 100)} %
       </button>
-      <button type="button" className={btn} onClick={() => step(1)} disabled={zoom >= (ZOOMS[ZOOMS.length - 1] ?? 2) - 0.001} aria-label="Zoom avant">
+      <button type="button" className={btn} onClick={() => onChange(stepZoom(zoom, 1) ?? ZOOM_MAX)} disabled={zoom >= ZOOM_MAX - 0.001} aria-label="Zoom avant">
         <Plus className="size-3.5" aria-hidden />
       </button>
-      <button type="button" className={clsx(btn, isFit && "text-accent")} onClick={() => onChange("fit")} aria-pressed={isFit} aria-label="Ajuster à la largeur" title="Ajuster à la largeur">
-        <Maximize2 className="size-3.5" aria-hidden />
+      <button
+        type="button"
+        className={clsx("flex h-6 items-center gap-1 rounded px-1.5 pointer-coarse:h-9", choice === "fit" ? "bg-surface-3 font-medium text-fg" : "text-muted hover:bg-surface-2 hover:text-fg")}
+        onClick={() => onChange("fit")}
+        aria-pressed={choice === "fit"}
+        title="Ajuster : la page entière dans la place disponible (suit les volets et la fenêtre)"
+      >
+        <Scan className="size-3.5" aria-hidden /> Ajuster
+      </button>
+      <button
+        type="button"
+        className={clsx(btn, choice === "width" && "bg-surface-3 text-fg")}
+        onClick={() => onChange("width")}
+        aria-pressed={choice === "width"}
+        aria-label="Ajuster à la largeur"
+        title="Ajuster à la largeur (le bas de la page se lit en défilant)"
+      >
+        <MoveHorizontal className="size-3.5" aria-hidden />
       </button>
     </div>
   );

@@ -4,6 +4,7 @@ import type { Page, Report, Visual } from "../types/report";
 import { clampToPage, fitHeight, gridRect, migratePage } from "./grid";
 import { moveRect, resizeRect } from "./snap";
 import { useStudio } from "./store";
+import { FIT_MIN, fitZoom, resolveZoom, stepZoom, wheelZoom, widthZoom } from "./zoom";
 
 const PAGE = { width: 1280, height: 720 };
 
@@ -127,5 +128,68 @@ describe("actions du Studio", () => {
   it("décale une copie de 16 px", () => {
     useStudio.getState().duplicateVisual("a");
     expect(useStudio.getState().page()?.visuals.at(-1)?.layout).toEqual({ x: 32, y: 32, w: 200, h: 100 });
+  });
+});
+
+describe("zoom ajusté à la place disponible", () => {
+  /** Place utile du canvas : fenêtre moins barres, volets et marges (24 px de chaque côté). */
+  const area = (width: number, height: number) => ({ width: width - 48, height: height - 48 });
+
+  it("écran de 1500 × 730 en lecture : la page entière tient, le bas n'est plus coupé", () => {
+    // Avant : ajustée à la largeur seule (110 %), la page faisait 790 px de haut dans 602.
+    const a = area(1452, 602);
+    const z = fitZoom(PAGE, a);
+    expect(z).toBeCloseTo(0.769, 3);
+    expect(PAGE.height * z).toBeLessThanOrEqual(a.height);
+    expect(PAGE.width * z).toBeLessThanOrEqual(a.width);
+    expect(widthZoom(PAGE, a)).toBeGreaterThan(1);
+  });
+
+  it("volet ouvert ou replié, fenêtre plus petite : l'ajustement suit la place, la page reste entière", () => {
+    // Largeurs du canvas à 1500 px : sans volet, Résumé (320), Demander (384), volets d'édition, Filtres en plus.
+    for (const [w, h] of [[1452, 602], [1132, 602], [1068, 602], [940, 602], [748, 602], [1318, 522], [998, 522], [806, 522], [1232, 472], [912, 472], [720, 472], [528, 472]] as const) {
+      const a = area(w, h);
+      const z = fitZoom(PAGE, a);
+      expect(PAGE.width * z, `${w} × ${h}`).toBeLessThanOrEqual(a.width);
+      expect(PAGE.height * z, `${w} × ${h}`).toBeLessThanOrEqual(a.height);
+      // Jamais plus petit que nécessaire : un des deux côtés touche la place (à l'arrondi du millième près).
+      expect(Math.max((PAGE.width * (z + 0.001)) / a.width, (PAGE.height * (z + 0.001)) / a.height), `${w} × ${h}`).toBeGreaterThan(1);
+    }
+    // Volets d'édition ouverts : c'est la largeur qui borne (70 % comme avant).
+    expect(fitZoom(PAGE, area(940, 602))).toBeCloseTo(0.696, 3);
+  });
+
+  it("téléphone : la largeur borne, avec un plancher sous lequel on ne descend pas", () => {
+    expect(fitZoom(PAGE, area(390, 600))).toBeCloseTo(0.267, 3);
+    expect(fitZoom(PAGE, area(200, 600))).toBe(FIT_MIN);
+    expect(fitZoom(PAGE, { width: 0, height: 0 })).toBe(1);
+  });
+
+  it("page longue : ajustée à la largeur seulement, elle se lit en défilant", () => {
+    const tall = { width: 1280, height: 2400 };
+    const a = area(1452, 602);
+    expect(fitZoom(tall, a)).toBe(widthZoom(tall, a));
+    // Une page un peu allongée par un visuel (816 px) reste entière.
+    const longer = { width: 1280, height: 816 };
+    expect(longer.height * fitZoom(longer, a)).toBeLessThanOrEqual(a.height);
+  });
+
+  it("un zoom choisi à la main ne suit plus la place ; « Ajuster » y revient", () => {
+    expect(resolveZoom(0.75, PAGE, area(1452, 602))).toBe(0.75);
+    expect(resolveZoom(0.75, PAGE, area(940, 602))).toBe(0.75);
+    expect(resolveZoom("fit", PAGE, area(940, 602))).toBe(fitZoom(PAGE, area(940, 602)));
+    expect(resolveZoom("width", PAGE, area(1452, 602))).toBe(widthZoom(PAGE, area(1452, 602)));
+  });
+
+  it("paliers et molette", () => {
+    expect(stepZoom(0.769, 1)).toBe(1);
+    expect(stepZoom(0.769, -1)).toBe(0.75);
+    expect(stepZoom(1, 1)).toBe(1.25);
+    expect(stepZoom(2, 1)).toBeNull();
+    expect(stepZoom(0.2, -1)).toBeNull();
+    expect(wheelZoom(1, -100)).toBe(1.1);
+    expect(wheelZoom(1, 100)).toBe(0.91);
+    expect(wheelZoom(2, -100)).toBe(2);
+    expect(wheelZoom(0.25, 100)).toBe(0.25);
   });
 });
