@@ -2,6 +2,7 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { NARROW_QUERY } from "../lib/viewport";
 import type { Page, Report } from "../types/report";
 import { Canvas } from "./Canvas";
 import { PageTabs } from "./PageTabs";
@@ -119,5 +120,17 @@ describe("zoom du canvas : ajusté à la place disponible", () => {
     expect(screen.getByRole("group", { name: "Zoom" })).toBeInTheDocument();
     expect(frame().parentElement!.style.paddingBottom).toBe("56px");
     expect(parseFloat(frame().style.height)).toBeLessThanOrEqual(602 - 48 - 32);
+  });
+
+  it("téléphone : le contrôle reste flottant, la barre du bas garde toute sa largeur pour les onglets des pages", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === NARROW_QUERY, media: query, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    place = { width: 342, height: 600 };
+    open();
+    const bar = screen.getByRole("navigation", { name: "Pages du rapport" }).parentElement!;
+    expect(within(bar).queryByRole("group", { name: "Zoom" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Zoom" })).toBeInTheDocument();
+    // La largeur borne (23 %) ; la page laisse sa place au contrôle flottant.
+    expect(zoomShown()).toBe("23 %");
+    expect(frame().parentElement!.style.paddingBottom).toBe("56px");
   });
 });

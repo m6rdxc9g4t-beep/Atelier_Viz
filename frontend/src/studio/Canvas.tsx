@@ -3,6 +3,7 @@ import { Minus, MoveHorizontal, Plus, Scan } from "lucide-react";
 import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useNarrowScreen } from "../lib/viewport";
 import type { Layout, Page, Report } from "../types/report";
 import { fitScale } from "./extraction";
 import { DEFAULT_PAGE, GAP } from "./grid";
@@ -57,9 +58,12 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
   const zoom = fitPage ? fitScale(size, { width: available, height: availableH }, PADDING) : available > 0 ? resolveZoom(zoomChoice, size, area) : 1;
 
   // Le contrôle de zoom se range dans la barre des pages quand elle existe (sinon il flotte en bas à droite).
+  // Téléphone : il reste flottant — dans la barre, il ne laisserait presque rien aux onglets des pages, et la
+  // page, ajustée à la largeur de l'écran, laisse toute la place sous elle.
+  const narrow = useNarrowScreen();
   useLayoutEffect(() => {
-    setZoomSlot(fitPage ? null : document.getElementById(ZOOM_SLOT_ID));
-  }, [fitPage]);
+    setZoomSlot(fitPage || narrow ? null : document.getElementById(ZOOM_SLOT_ID));
+  }, [fitPage, narrow]);
 
   // Place disponible : remesurée quand un volet s'ouvre ou se replie et quand la fenêtre change de taille.
   useLayoutEffect(() => {
@@ -281,7 +285,8 @@ function ZoomControl({ zoom, choice, onChange, size }: { zoom: number; choice: Z
       </button>
       <button
         type="button"
-        className={clsx(btn, choice === "width" && "bg-surface-3 text-fg")}
+        // Téléphone : la page ajustée y est déjà à la largeur de l'écran ; le bouton céderait sa place pour rien.
+        className={clsx(btn, "max-md:hidden", choice === "width" && "bg-surface-3 text-fg")}
         onClick={() => onChange("width")}
         aria-pressed={choice === "width"}
         aria-label="Ajuster à la largeur"
