@@ -30,7 +30,9 @@ export function NavigatorVisual(props: VisualProps) {
             onClick={() => !current && actions.goToPage(p.id)}
             className={clsx(
               "min-w-0 truncate rounded-md px-3 text-sm transition-colors",
-              vertical ? "py-2 text-left" : "flex-1 text-center",
+              // Horizontal : chaque onglet part de la largeur de son nom, puis se partage la place qui reste
+              // (à égalité, un nom long était abrégé alors que ses voisins avaient de la marge).
+              vertical ? "shrink-0 py-2 text-left" : "flex-auto text-center",
               editing && "pointer-events-auto",
               style === "underline"
                 ? current
