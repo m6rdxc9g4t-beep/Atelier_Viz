@@ -13,6 +13,8 @@ import { VisualContainer } from "./VisualContainer";
 const SNAP_SCREEN_PX = 6;
 const ZOOMS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 const PADDING = 24;
+/** Hauteur du contrôle de zoom flottant (en bas à droite), que la page doit pouvoir dégager en défilant. */
+const ZOOM_CLEARANCE = 32;
 /** Échelle minimale de l'ajustement à la largeur (une page de 1280 px tient dans 250 px). */
 const MIN_FIT = 0.15;
 
@@ -136,7 +138,8 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
       <div
         ref={scrollRef}
         className="absolute inset-0 overflow-auto"
-        style={{ padding: PADDING, paddingTop: fitPage ? Math.max(PADDING, (availableH - px(size.height)) / 2) : PADDING }}
+        // Marge basse : le bas de la page (ligne Total d'un tableau…) se fait défiler au-dessus du contrôle de zoom.
+        style={{ padding: PADDING, paddingTop: fitPage ? Math.max(PADDING, (availableH - px(size.height)) / 2) : PADDING, paddingBottom: fitPage ? PADDING : PADDING + ZOOM_CLEARANCE }}
       >
         <div
           role="presentation"
