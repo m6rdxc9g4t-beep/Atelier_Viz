@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DatasetProfile } from "../types/dataset";
 import type { Page, Visual } from "../types/report";
 import { RANGE_SIDE_BY_SIDE } from "./fit";
-import { KPI_VALUE_SIZE, KpiVisual } from "./data/KpiVisual";
+import { KPI_VALUE_SIZE, KpiVisual, kpiValueSize } from "./data/KpiVisual";
 import { MatrixVisual } from "./data/MatrixVisual";
 import { TableVisual } from "./data/TableVisual";
 import { NavigatorVisual } from "./interactive/NavigatorVisual";
@@ -136,13 +136,29 @@ describe("carte KPI", () => {
     expect(value.className).toMatch(/\bshrink-0\b/);
     expect(value.title).toBe(value.textContent);
     // Taille bornée par la hauteur de la carte, pas seulement par sa largeur.
-    expect(KPI_VALUE_SIZE).toMatch(/min\(\d+cqw, \d+cqh\)/);
+    expect(KPI_VALUE_SIZE).toMatch(/min\(max\(\d+cqw, [\d.]+rem\), \d+cqh\)/);
     const trend = container.querySelector("[data-kpi-trend]") as HTMLElement;
     expect(trend.className).toMatch(/\bmin-h-0\b/);
     expect(trend.className).toMatch(/\bshrink\b/);
     expect(trend.className).not.toMatch(/\bh-10\b/);
     // L'ordre garde la valeur au-dessus de la courbe.
     expect(value.compareDocumentPosition(trend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("la valeur garde 24 px dans une carte étroite du gabarit, avec ou sans mini-tendance", () => {
+    expect(KPI_VALUE_SIZE).toBe("clamp(1.125rem, min(max(8cqw, 1.5rem), 44cqh), 3.25rem)");
+    // Quatre KPI par rangée : contenu d'environ 215 × 64 px (rangée de 116 px), 56 px dans l'ancienne rangée de 108 px.
+    expect(kpiValueSize(215, 64)).toBe(24);
+    expect(kpiValueSize(215, 56)).toBe(24);
+    // Une ligne de 24 px (interligne 1,25) laisse au moins 18 px à la courbe, sous l'écart de 4 px.
+    for (const h of [56, 64]) expect(h - kpiValueSize(215, h) * 1.25 - 4).toBeGreaterThanOrEqual(18);
+    // Carte large : la valeur grandit avec la largeur, sans dépasser la hauteur ni 52 px.
+    expect(kpiValueSize(500, 200)).toBe(40);
+    expect(kpiValueSize(900, 300)).toBe(52);
+    // Carte large et basse : la ligne de la valeur et celle de l'écart à la cible (20 px) tiennent dans la hauteur.
+    for (const h of [48, 56, 64, 90]) expect(kpiValueSize(600, h) * 1.25 + 20).toBeLessThanOrEqual(h);
+    // Carte minuscule : jamais sous 18 px.
+    expect(kpiValueSize(120, 30)).toBe(18);
   });
 
   it("sans champ de tendance, pas de courbe", () => {

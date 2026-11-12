@@ -25,10 +25,20 @@ export function kpiGap(value: number, target: number | null): number | null {
 }
 
 /**
- * Taille de la valeur : suit la largeur de la carte (8 %) sans dépasser 36 % de sa hauteur, pour que la ligne
- * tienne toujours entière au-dessus de la mini-tendance.
+ * Taille de la valeur (px) : 8 % de la largeur de la carte, jamais sous 24 px tant que la hauteur le permet
+ * (une carte étroite du gabarit garde un chiffre nettement plus grand que son titre), bornée par 44 % de la
+ * hauteur pour que la ligne tienne entière au-dessus de l'écart à la cible ou de la mini-tendance.
  */
-export const KPI_VALUE_SIZE = "clamp(1.125rem, min(8cqw, 36cqh), 3.25rem)";
+export const KPI_VALUE = { min: 18, floor: 24, widthShare: 8, heightShare: 44, max: 52 } as const;
+
+/** La même règle en CSS (unités de conteneur : la carte est un conteneur `size`). */
+export const KPI_VALUE_SIZE = `clamp(${KPI_VALUE.min / 16}rem, min(max(${KPI_VALUE.widthShare}cqw, ${KPI_VALUE.floor / 16}rem), ${KPI_VALUE.heightShare}cqh), ${KPI_VALUE.max / 16}rem)`;
+
+/** Taille de la valeur pour une carte dont le contenu fait `width` × `height` px (miroir de `KPI_VALUE_SIZE`). */
+export function kpiValueSize(width: number, height: number): number {
+  const wanted = Math.max((width * KPI_VALUE.widthShare) / 100, KPI_VALUE.floor);
+  return Math.min(KPI_VALUE.max, Math.max(KPI_VALUE.min, Math.min(wanted, (height * KPI_VALUE.heightShare) / 100)));
+}
 
 /** Carte KPI : valeur héroïque, écart à la cible, mini-tendance optionnelle. */
 export function KpiVisual(props: VisualProps) {
