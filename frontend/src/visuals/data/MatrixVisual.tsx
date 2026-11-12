@@ -9,7 +9,7 @@ import { formatDimension, formatNumber } from "../format";
 import { opt, type VisualProps } from "../types";
 import { type MatrixNode, buildMatrix } from "./pivot";
 import { type CondFormat, type Stats, decorStyle, decorate, formatFor, statsOf } from "./conditional";
-import { DATA_TABLE, DecoratedValue, STICKY_FOOT, STICKY_HEAD } from "./TableVisual";
+import { DecoratedValue, PinnedTotalTable, STICKY_HEAD, type TotalCell } from "./TableVisual";
 
 /** Matrice : lignes hiérarchiques dépliables, colonne pivot, sous-totaux et total général exacts. */
 export function MatrixVisual(props: VisualProps) {
@@ -92,10 +92,17 @@ export function MatrixVisual(props: VisualProps) {
     );
   };
 
+  const total: TotalCell[] = [
+    { key: "__label", text: "Total", numeric: false, header: true },
+    ...colKeys.flatMap((ck) =>
+      values.map((m) => ({ key: `t-${ck}-${bindingKey(m)}`, text: formatNumber(model.root.cells.get(ck)?.[bindingKey(m)] ?? null, numberFormat(visual, m)), numeric: true })),
+    ),
+  ];
+
   return (
-    <div className="h-full overflow-auto">
-      <table className={DATA_TABLE}>
-        <thead>
+    <PinnedTotalTable
+      head={
+        <>
           <tr>
             <th rowSpan={values.length > 1 ? 2 : 1} className={clsx(STICKY_HEAD, "border-b border-border px-2 py-1.5 text-left font-medium text-muted")}>
               {rows.map(bindingLabel).join(" › ")}
@@ -118,23 +125,11 @@ export function MatrixVisual(props: VisualProps) {
               )}
             </tr>
           )}
-        </thead>
-        <tbody>{model.root.children.map(renderNode)}</tbody>
-        <tfoot>
-          <tr className="font-semibold">
-            <th scope="row" className={clsx(STICKY_FOOT, "border-t border-border px-2 py-1.5 text-left")}>
-              Total
-            </th>
-            {colKeys.map((ck) =>
-              values.map((m) => (
-                <td key={`t-${ck}-${bindingKey(m)}`} className={clsx(STICKY_FOOT, "border-t border-border px-2 py-1.5 text-right tabular-nums")}>
-                  {formatNumber(model.root.cells.get(ck)?.[bindingKey(m)] ?? null, numberFormat(visual, m))}
-                </td>
-              )),
-            )}
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+        </>
+      }
+      total={total}
+    >
+      {model.root.children.map(renderNode)}
+    </PinnedTotalTable>
   );
 }

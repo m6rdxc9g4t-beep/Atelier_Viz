@@ -6,7 +6,7 @@ import type { Page, Visual } from "../types/report";
 import { RANGE_SIDE_BY_SIDE } from "./fit";
 import { KPI_VALUE_SIZE, KpiVisual, kpiValueSize } from "./data/KpiVisual";
 import { MatrixVisual } from "./data/MatrixVisual";
-import { TableVisual } from "./data/TableVisual";
+import { TableVisual, columnFit } from "./data/TableVisual";
 import { NavigatorVisual } from "./interactive/NavigatorVisual";
 import { SlicerVisual } from "./interactive/SlicerVisual";
 import { VISUALS } from "./registry";
@@ -69,38 +69,79 @@ function props(v: Visual, result: QueryResult | null): VisualProps {
 
 const result = (rows: QueryResult["rows"]): QueryResult => ({ columns: [], truncated: false, rows });
 
-/** Aucune ligne ni groupe de lignes n'est collant : seulement des cellules (Safari place mal un `tr` collant). */
-function expectStickyCellsOnly(table: HTMLElement) {
+/**
+ * En-tête collé en haut par ses cellules ; plus rien n'est collé en bas : sous le `transform: scale` du canvas,
+ * Safari pose un `sticky` + `bottom` à hauteur × zoom (le Total au milieu du tableau, des lignes dessous).
+ */
+function expectPinnedTotal(container: HTMLElement) {
+  const table = screen.getByRole("table");
   for (const el of table.querySelectorAll("tr, thead, tbody, tfoot")) expect(el.className, el.tagName).not.toMatch(/\bsticky\b/);
   const head = [...table.querySelectorAll("thead th")];
-  const foot = [...table.querySelectorAll("tfoot th, tfoot td")];
   expect(head.length).toBeGreaterThan(0);
-  expect(foot.length).toBeGreaterThan(0);
   for (const cell of head) expect(cell.className).toMatch(/\bsticky\b.*\bbg-surface\b|\bbg-surface\b.*\bsticky\b/);
-  for (const cell of foot) {
-    expect(cell.className).toMatch(/\bsticky\b/);
-    expect(cell.className).toMatch(/-bottom-px/);
-    expect(cell.className).toMatch(/\bbg-surface\b/);
-  }
+  for (const el of container.querySelectorAll("*")) expect(String(el.getAttribute("class") ?? ""), el.tagName).not.toMatch(/(^|\s)-?bottom-/);
   // Bordures séparées : en `border-collapse`, le trait d'une cellule collante ne la suit pas.
   expect(table.className).toMatch(/border-separate/);
   expect(table.className).not.toMatch(/border-collapse/);
+
+  // Zone défilante (en-tête + lignes), puis le total dessous, hors défilement : rien ne se dessine sous lui.
+  const scroll = container.querySelector("[data-table-scroll]") as HTMLElement;
+  const foot = container.querySelector("[data-table-total]") as HTMLElement;
+  expect(scroll.contains(table)).toBe(true);
+  expect(scroll.className).toMatch(/\boverflow-auto\b/);
+  expect(scroll.className).toMatch(/\bmin-h-0\b/);
+  expect(scroll.contains(foot)).toBe(false);
+  expect(scroll.nextElementSibling).toBe(foot);
+  expect(foot.nextElementSibling).toBeNull();
+  expect(foot.className).toMatch(/\bshrink-0\b/);
+  expect(foot.className).not.toMatch(/\bsticky\b/);
+  expect(scroll.parentElement?.className).toMatch(/\bh-full\b/);
+  expect(scroll.parentElement?.className).toMatch(/\bflex-col\b/);
+
+  // Le total reste une ligne du tableau (sans hauteur) ; le pied visible en est le double, ignoré des lecteurs d'écran.
+  const semantic = [...table.querySelectorAll("tfoot tr > *")];
+  const shown = [...foot.querySelectorAll("td")];
+  expect(semantic.length).toBeGreaterThan(0);
+  expect(shown.map((c) => c.textContent)).toEqual(semantic.map((c) => c.textContent));
+  expect(semantic[0]?.tagName).toBe("TH");
+  expect(semantic[0]?.getAttribute("scope")).toBe("row");
+  for (const cell of semantic) expect(cell.firstElementChild?.className).toMatch(/\bh-px\b.*\boverflow-hidden\b/);
+  expect(foot.getAttribute("aria-hidden")).toBe("true");
+  expect(table.closest("[aria-hidden]")).toBeNull();
+  return { table, foot, shown };
 }
 
-describe("tableau et matrice : en-tête et total figés", () => {
+describe("tableau et matrice : en-tête figé, total sous la zone défilante", () => {
   const rows = [
     { "Catégorie": "Locaux", "sum(Montant)": 1150 },
     { "Catégorie": "Banque", "sum(Montant)": 9 },
   ];
 
-  it("table : le total est collé en bas par ses cellules, les lignes défilent dans la zone du visuel", () => {
+  it("table : le total est hors de la zone défilante, jamais collé en bas", () => {
     const v = visual("table", { columns: [{ field: "Catégorie" }], values: [{ field: "Montant", agg: "sum" }] }, { totals: true, conditional: { "sum(Montant)": { bars: true } } });
-    render(<TableVisual {...props(v, result(rows))} />);
-    const table = screen.getByRole("table");
-    expectStickyCellsOnly(table);
-    expect(table.parentElement?.className).toMatch(/h-full/);
-    expect(table.parentElement?.className).toMatch(/overflow-auto/);
-    expect(screen.getByText("Total").closest("tfoot")).not.toBeNull();
+    const { container } = render(<TableVisual {...props(v, result(rows))} />);
+    const { shown } = expectPinnedTotal(container);
+    expect(shown.map((c) => c.textContent?.replace(/\s/g, " "))).toEqual(["Total", "1 159"]);
+    expect(shown[1]?.className).toMatch(/\btext-right\b.*\btabular-nums\b/);
+  });
+
+  it("table : sans l'option Total, ni pied ni ligne de total", () => {
+    const v = visual("table", { columns: [{ field: "Catégorie" }], values: [{ field: "Montant", agg: "sum" }] }, { totals: false });
+    const { container } = render(<TableVisual {...props(v, result(rows))} />);
+    expect(container.querySelector("[data-table-total]")).toBeNull();
+    expect(container.querySelector("tfoot")).toBeNull();
+    expect(screen.queryByText("Total")).toBeNull();
+  });
+
+  it("report des largeurs de colonnes sur le pied : en parts, quelle que soit l'échelle du canvas", () => {
+    // Tableau de 600 px de page affiché à 66 % : cellules de 132, 198 et 66 px à l'écran.
+    const zoomed = columnFit([132, 198, 66], 396, 600, 0);
+    expect(zoomed).toEqual({ columns: [33.333, 50, 16.667], width: 600, gutter: 0 });
+    // Les mêmes colonnes à 100 % donnent les mêmes parts ; la barre de défilement décale le pied d'autant.
+    expect(columnFit([200, 300, 100], 600, 600, 15)).toEqual({ columns: [33.333, 50, 16.667], width: 600, gutter: 15 });
+    // Rien à reporter tant que le tableau n'est pas mesuré.
+    expect(columnFit([0, 0], 0, 0, 0)).toBeNull();
+    expect(columnFit([], 600, 600, 0)).toBeNull();
   });
 
   it("table : la barre de données part du bord gauche de la cellule, pas du nombre", () => {
@@ -122,8 +163,11 @@ describe("tableau et matrice : en-tête et total figés", () => {
       { "Catégorie": "Locaux", Mois: "2026-08", "sum(Montant)": 1150 },
       { "Catégorie": "Banque", Mois: "2026-09", "sum(Montant)": 9 },
     ];
-    render(<MatrixVisual {...props(v, result(data))} />);
-    expectStickyCellsOnly(screen.getByRole("table"));
+    const { container } = render(<MatrixVisual {...props(v, result(data))} />);
+    const { shown } = expectPinnedTotal(container);
+    // Intitulé, deux mois, colonne Total : une cellule par colonne, sans fusion.
+    expect(shown).toHaveLength(4);
+    expect(shown[0]?.textContent).toBe("Total");
   });
 });
 
