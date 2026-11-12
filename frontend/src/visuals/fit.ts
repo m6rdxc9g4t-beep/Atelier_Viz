@@ -109,11 +109,31 @@ export function rangeSlicerMinHeight(width: number): number {
 /** Taille du texte des onglets du navigateur de pages, marge horizontale d'un onglet, écart entre onglets. */
 const NAV_FONT = 14;
 const NAV_TAB_PADDING = 12 * 2 + 2;
-const NAV_GAP = 4;
+export const NAV_GAP = 4;
+
+/** Largeur d'un onglet qui montre le nom entier d'une page (en gras : l'onglet courant est le plus large). */
+export function navigatorTabWidth(name: string): number {
+  return Math.ceil(textWidth(name, NAV_FONT, true)) + NAV_TAB_PADDING;
+}
 
 /** Largeur qu'il faut à un navigateur horizontal pour montrer le nom entier de chaque page. */
 export function navigatorWidth(names: string[]): number {
-  const tabs = names.reduce((s, n) => s + Math.ceil(textWidth(n, NAV_FONT, true)) + NAV_TAB_PADDING, 0);
+  const tabs = names.reduce((s, n) => s + navigatorTabWidth(n), 0);
   // 12 px : marge intérieure du cadre « nu » du navigateur (6 px de chaque côté).
   return tabs + NAV_GAP * Math.max(0, names.length - 1) + 12;
+}
+
+/**
+ * Largeur sous laquelle chaque onglet d'un navigateur horizontal de `width` px (intérieur) ne descend pas :
+ * celle de son nom, sans dépasser une part égale. Quand la place manque, un nom court reste donc entier et
+ * seuls les noms plus longs qu'une part égale sont abrégés, jamais plus qu'à largeur égale.
+ */
+export function navigatorTabMins(names: string[], width: number): number[] {
+  const share = Math.max(0, (width - NAV_GAP * Math.max(0, names.length - 1)) / Math.max(1, names.length));
+  return names.map((n) => Math.min(navigatorTabWidth(n), share));
+}
+
+/** La même borne en CSS, pour un navigateur de n'importe quelle largeur (`100%` = sa largeur intérieure). */
+export function navigatorTabMinCss(name: string, count: number): string {
+  return `min(${navigatorTabWidth(name)}px, calc((100% - ${NAV_GAP * Math.max(0, count - 1)}px) / ${Math.max(1, count)}))`;
 }

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DatasetProfile } from "../types/dataset";
 import type { Page, Visual } from "../types/report";
-import { RANGE_SIDE_BY_SIDE } from "./fit";
+import { RANGE_SIDE_BY_SIDE, navigatorTabMinCss, navigatorTabWidth } from "./fit";
 import { KPI_VALUE_SIZE, KpiVisual, kpiValueSize } from "./data/KpiVisual";
 import { MatrixVisual } from "./data/MatrixVisual";
 import { TableVisual, columnFit } from "./data/TableVisual";
@@ -244,5 +244,22 @@ describe("navigateur de pages", () => {
       expect(tab.title).toBe(tab.textContent);
     }
     expect(tabs[0]?.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("quand la place manque, un onglet ne descend ni sous son nom ni sous une part égale", () => {
+    const v = visual("navigator", {}, { orientation: "horizontal", look: "tabs" }, "");
+    render(<NavigatorVisual {...props(v, null)} />);
+    const tabs = screen.getAllByRole("button");
+    for (const tab of tabs) {
+      // La borne remplace `min-w-0` (qui laissait rétrécir tous les onglets à la fois).
+      expect(tab.className).toMatch(/min-w-\[var\(--tab-min\)\]/);
+      expect(tab.className).not.toMatch(/\bmin-w-0\b/);
+      expect(tab.style.getPropertyValue("--tab-min")).toBe(navigatorTabMinCss(tab.textContent ?? "", 4));
+    }
+    expect(navigatorTabMinCss("Dépenses", 4)).toBe(`min(${navigatorTabWidth("Dépenses")}px, calc((100% - 12px) / 4))`);
+    // Vertical : un onglet par ligne, sans borne de largeur.
+    const vertical = visual("navigator", {}, { orientation: "vertical", look: "tabs" }, "");
+    const { container } = render(<NavigatorVisual {...props(vertical, null)} />);
+    for (const tab of container.querySelectorAll("button")) expect(tab.style.getPropertyValue("--tab-min")).toBe("");
   });
 });

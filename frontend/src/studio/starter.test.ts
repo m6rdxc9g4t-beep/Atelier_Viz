@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ColumnProfile, DatasetProfile } from "../types/dataset";
 import type { Page, Visual } from "../types/report";
-import { kpiMinHeight, navigatorWidth, rangeSlicerMinHeight, textWidth } from "../visuals/fit";
+import { kpiMinHeight, navigatorTabMins, navigatorTabWidth, navigatorWidth, rangeSlicerMinHeight, textWidth } from "../visuals/fit";
 import { VISUALS } from "../visuals/registry";
 import { analyze, shortName, starterPages, storyPages } from "./starter";
 
@@ -249,6 +249,50 @@ describe("place du contenu", () => {
     expect(nav.layout.w).toBeGreaterThanOrEqual(96 * pages.length);
     expect(title.layout.x + title.layout.w).toBeLessThanOrEqual(nav.layout.x);
     expect(title.layout.w).toBeGreaterThan(300);
+  });
+});
+
+describe("navigateur des histoires à cinq pages", () => {
+  const table = (id: string, name: string) =>
+    profile(id, name, 12, [col("Poste", "string", 12, { top_values: [{ value: "Affichage", count: 1 }] }), col("Statut", "string", 3), col("Budget", "number", 10, { min: 500, max: 9000 })]);
+  const stories: [string, string[]][] = [
+    ["Campagne Brume", ["Plan média", "Performances des régies"]],
+    ["Librairie Les Pages Vives", ["Stock et commandes", "Caisse par rayon"]],
+  ];
+
+  it.each(stories)("%s : aucun nom de page abrégé, le titre perd le nom de la page plutôt que de serrer les onglets", (story, tables) => {
+    const ops = { ...operations, name: `${story} — opérations août-oct. 2026` };
+    const sets = [ops, ...tables.map((t, i) => table(`tab00000000${i}`, `${story} — ${t}`))];
+    const pages = storyPages(story, sets);
+    checkPages(pages, sets);
+    const names = ["Trésorerie", "Dépenses", "Opérations", ...tables];
+    expect(pages.map((p) => p.name)).toEqual(names);
+    for (const page of pages) {
+      const nav = page.visuals.find((v) => v.type === "navigator")!;
+      const title = page.visuals.find((v) => v.type === "text" && !v.options.panel)!;
+      // Tous les noms entiers (`checkRoom` le vérifie aussi) ; le titre reste sur sa ligne, sans le nom de la page.
+      expect(nav.layout.w).toBeGreaterThanOrEqual(navigatorWidth(names));
+      expect(title.options.text).toBe(`**${story}**`);
+      expect(title.layout.x + title.layout.w).toBeLessThanOrEqual(nav.layout.x);
+      expect(title.layout.w).toBeGreaterThanOrEqual(300);
+    }
+  });
+
+  it("dans un navigateur trop étroit (ancien gabarit de 572 px), seuls les noms plus longs qu'une part égale sont abrégés", () => {
+    for (const [, tables] of stories) {
+      const names = ["Trésorerie", "Dépenses", "Opérations", ...tables];
+      const inner = 572 - 14;
+      const mins = navigatorTabMins(names, inner);
+      const share = (inner - 4 * 4) / 5;
+      names.forEach((n, i) => {
+        const full = navigatorTabWidth(n);
+        // Nom court : jamais sous sa largeur ; nom long : jamais sous la part égale d'avant.
+        expect(mins[i], n).toBe(full <= share ? full : share);
+      });
+      expect(names.filter((n) => navigatorTabWidth(n) <= share)).toEqual(expect.arrayContaining(["Trésorerie", "Dépenses", "Opérations"]));
+      // Les bornes tiennent toujours dans le navigateur : aucun onglet ne déborde.
+      expect(mins.reduce((s, m) => s + m, 0) + 4 * 4).toBeLessThanOrEqual(inner);
+    }
   });
 });
 

@@ -6,6 +6,9 @@ import {
   categoryAxis,
   kpiMinHeight,
   lastTickMargin,
+  navigatorTabMinCss,
+  navigatorTabMins,
+  navigatorTabWidth,
   navigatorWidth,
   rangeSlicerMinHeight,
   textWidth,
@@ -122,5 +125,24 @@ describe("place minimale des visuels", () => {
     expect(w).toBeGreaterThanOrEqual(68 + 65 + 74 + 122 + 4 * 26 + 3 * 4);
     expect(w).toBeLessThan(572);
     expect(navigatorWidth([...names, "Commandes"])).toBeGreaterThan(w);
+  });
+
+  it("navigateur trop étroit : un onglet ne descend ni sous son nom ni sous une part égale", () => {
+    const names = ["Trésorerie", "Dépenses", "Opérations", "Plan média", "Performances des régies"];
+    // Largeur réelle de « Trésorerie » en gras à 14 px : 68 px ; l'estimation reste juste au-dessus.
+    expect(navigatorTabWidth("Trésorerie")).toBeGreaterThanOrEqual(68 + 26);
+    expect(navigatorTabWidth("Trésorerie")).toBeLessThan(68 * 1.15 + 26);
+    const inner = 558;
+    const share = (inner - 4 * 4) / 5;
+    const mins = navigatorTabMins(names, inner);
+    // Les quatre noms courts gardent leur largeur ; seul le nom long cède, jusqu'à la part égale d'avant.
+    expect(mins.slice(0, 4)).toEqual(names.slice(0, 4).map(navigatorTabWidth));
+    expect(mins[4]).toBeCloseTo(share);
+    expect(navigatorTabWidth(names[4]!)).toBeGreaterThan(share);
+    // Assez de place : la borne est la largeur du nom, pour tous.
+    expect(navigatorTabMins(names, 2000)).toEqual(names.map(navigatorTabWidth));
+    // La même règle en CSS, sans connaître la largeur du navigateur.
+    expect(navigatorTabMinCss(names[4]!, 5)).toBe(`min(${navigatorTabWidth(names[4]!)}px, calc((100% - 16px) / 5))`);
+    expect(navigatorTabMinCss("Seule", 1)).toBe(`min(${navigatorTabWidth("Seule")}px, calc((100% - 0px) / 1))`);
   });
 });

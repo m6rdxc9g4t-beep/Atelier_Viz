@@ -288,16 +288,22 @@ function finish(sections: Section[], title: string): Page[] {
   const pages: Page[] = sections.map((s) => ({ id: uid(), name: s.name, size: { ...PAGE }, filters: [], visuals: [] }));
   // Navigateur : la largeur des noms de pages (aucun onglet abrégé), tant que le titre le plus long tient sur sa ligne.
   const names = sections.map((s) => s.name);
-  const titleW = Math.ceil(textWidth(title, TITLE_FONT, true) + Math.max(0, ...names.map((n) => (n === title ? 0 : textWidth(` — ${n}`, TITLE_FONT))))) + 24;
-  const navMax = X1 - X0 - GAP - Math.max(TITLE_MIN, titleW);
-  const navW = sections.length > 1 ? Math.min(navigatorWidth(names) + 8 * names.length, Math.max(navMax, NAV_TAB_MIN * names.length)) : 0;
+  const navNeed = navigatorWidth(names);
+  const boldW = textWidth(title, TITLE_FONT, true);
+  const fullW = Math.ceil(boldW + Math.max(0, ...names.map((n) => (n === title ? 0 : textWidth(` — ${n}`, TITLE_FONT))))) + 24;
+  const room = (titleW: number) => X1 - X0 - GAP - Math.max(TITLE_MIN, titleW);
+  // Titre et navigateur ne tiennent pas côte à côte : le titre perd le nom de la page (l'onglet courant le
+  // porte déjà) plutôt que d'abréger tous les onglets — sur toutes les pages, pour que rien ne bouge de l'une à l'autre.
+  const named = sections.length <= 1 || navNeed <= room(fullW);
+  const navMax = room(named ? fullW : Math.ceil(boldW) + 24);
+  const navW = sections.length > 1 ? Math.min(navNeed + 8 * names.length, Math.max(navMax, NAV_TAB_MIN * names.length)) : 0;
   const titleRight = navW ? X1 - navW - GAP : X1;
   sections.forEach((s, i) => {
     const page = pages[i];
     if (!page) return;
     page.visuals = [
       ...sidebar(s.analysis),
-      header(title, s.name, titleRight),
+      header(title, named ? s.name : "", titleRight),
       ...(sections.length > 1 ? [visual("navigator", "", { x: X1 - navW, y: 8, w: navW, h: 44 }, {}, { orientation: "horizontal", look: "tabs" })] : []),
       ...s.visuals,
     ];
