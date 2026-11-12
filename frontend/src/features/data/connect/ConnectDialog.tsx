@@ -147,6 +147,11 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
                   onImported(p);
                   onClose();
                 }}
+                onImportedMany={(profiles, complete) => {
+                  // Du dernier au premier : chaque jeu se place en tête, le premier finit affiché, l'ordre est gardé.
+                  for (const p of [...profiles].reverse()) onImported(p);
+                  if (complete) onClose();
+                }}
               />
             )}
           </main>

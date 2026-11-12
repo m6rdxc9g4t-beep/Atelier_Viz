@@ -1,11 +1,13 @@
 import clsx from "clsx";
-import { Copy, ExternalLink, Eye, Loader2, LogOut, Pencil, PlugZap, Search, Table2, TriangleAlert } from "lucide-react";
+import { Copy, ExternalLink, Eye, Layers, Loader2, LogOut, Pencil, PlugZap, Search, Table2, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../../../lib/api";
 import type { Connection, DeviceCodeStart, PreviewResult, ProjectRef, SourceSpec, TableRef, TestResult } from "../../../types/connection";
 import { SQL_KINDS } from "../../../types/connection";
+import { type SheetChoice, importEach, needsSheetChoice, skippedMessage } from "../../../lib/workbook";
 import type { DatasetProfile } from "../../../types/dataset";
+import { SheetsDialog } from "../SheetsDialog";
 import { KIND_META, describeConnection, groupSnapshots, groupTables, sourceDetails, suggestedName } from "./meta";
 
 const PREVIEW_ROWS = 50;
@@ -19,10 +21,15 @@ interface Props {
   onEdit: () => void;
   onChanged: (c: Connection) => void;
   onImported: (profile: DatasetProfile) => void;
+  /**
+   * Plusieurs feuilles d'un classeur importées d'un coup (un jeu par feuille, dans l'ordre du classeur).
+   * `complete` : toutes les feuilles demandées l'ont été — sinon le parcours reste ouvert et dit lesquelles manquent.
+   */
+  onImportedMany?: (profiles: DatasetProfile[], complete: boolean) => void;
 }
 
 /** Parcours d'une source enregistrée : tables, requête, feuilles ou lien SharePoint → aperçu → import. */
-export function SourceBrowser({ connection: c, online, sharepointConfigured = true, onEdit, onChanged, onImported }: Props) {
+export function SourceBrowser({ connection: c, online, sharepointConfigured = true, onEdit, onChanged, onImported, onImportedMany }: Props) {
   const meta = KIND_META[c.kind];
   const sql = SQL_KINDS.includes(c.kind);
   const [mode, setMode] = useState<"tables" | "query">("tables");
@@ -43,6 +50,13 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
   const [location, setLocation] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const needsLogin = c.kind === "sharepoint" && !c.signed_in;
+  // Classeur à plusieurs feuilles (fichier synchronisé, fichier web, SharePoint) : choix des feuilles à importer d'un coup.
+  const [choosingSheets, setChoosingSheets] = useState(false);
+  const [sheetsNotice, setSheetsNotice] = useState<string | null>(null);
+  const sheetList = (tables ?? []).filter((t) => t.kind === "sheet");
+  const manySheets = (c.kind === "file" || c.kind === "web" || c.kind === "sharepoint") && needsSheetChoice(sheetList);
+  const sheetSpec = (table: TableRef): SourceSpec => (c.kind === "sharepoint" ? { url: url.trim(), table } : { table });
+  const sheetOptions: SheetChoice[] = sheetList.map((t) => ({ name: t.name, dataset_name: suggestedName(c, sheetSpec(t)), summary: "", error: null }));
 
   const loadTables = useCallback(
     async (forUrl?: string) => {
@@ -117,14 +131,57 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
     }
   };
 
+  /**
+   * Importe les feuilles cochées, un jeu par feuille ; chaque jeu garde sa feuille comme origine (« Actualiser » la
+   * relit). De la dernière à la première : la liste des jeux, le plus récent d'abord, suit l'ordre du classeur.
+   * Une feuille vide ou illisible n'arrête rien : elle est nommée avec sa raison une fois les autres importées.
+   */
+  const importSheets = async (names: string[]) => {
+    setLoading("import");
+    setSheetsNotice(null);
+    const limit = Number(maxRows.replace(/\s/g, ""));
+    const { imported, skipped } = await importEach([...names].reverse(), (name) => {
+      const table = sheetList.find((t) => t.name === name);
+      if (!table) return Promise.reject(new Error("Feuille absente du classeur."));
+      return api.connections.import(c.id, { ...sheetSpec(table), name: null, max_rows: limit > 0 ? limit : null });
+    });
+    setLoading(null);
+    setChoosingSheets(false);
+    setSheetsNotice(skippedMessage(imported.length, [...skipped].reverse()));
+    if (imported.length) onImportedMany?.([...imported].reverse(), skipped.length === 0);
+  };
+
   const openSharePoint = async () => {
     if (!url.trim()) return;
     const sheets = await loadTables(url.trim());
     void show({ url: url.trim(), table: sheets[0] ?? null });
   };
 
+  const allSheetsButton = (
+    <button
+      type="button"
+      onClick={() => {
+        setSheetsNotice(null);
+        setChoosingSheets(true);
+      }}
+      disabled={loading === "import" || !onImportedMany}
+      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-xs font-medium hover:bg-surface-2 disabled:opacity-50 pointer-coarse:py-2.5"
+    >
+      <Layers className="size-3.5 text-muted" aria-hidden /> Importer plusieurs feuilles…
+    </button>
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {choosingSheets && (
+        <SheetsDialog
+          filename={c.kind === "sharepoint" ? suggestedName(c, { url: url.trim() }) : c.name}
+          sheets={sheetOptions}
+          importing={loading === "import"}
+          onImport={(names) => void importSheets(names)}
+          onClose={() => setChoosingSheets(false)}
+        />
+      )}
       <header className="flex items-center gap-3 border-b border-line px-5 py-3">
         <meta.icon className="size-5 shrink-0 text-muted" aria-hidden />
         <div className="min-w-0 flex-1">
@@ -253,6 +310,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                   <Table2 className="size-3.5 opacity-60" aria-hidden /> {t.name}
                 </button>
               ))}
+              {manySheets && allSheetsButton}
             </div>
           )}
 
@@ -356,6 +414,7 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
                           <Table2 className="size-3.5 opacity-60" aria-hidden /> {t.name}
                         </button>
                       ))}
+                      {manySheets && allSheetsButton}
                     </div>
                   )}
                 </>
@@ -370,6 +429,12 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
             {error && (
               <p role="alert" className="m-4 rounded-md border border-negative/40 px-3 py-2 text-xs text-negative">
                 {error}
+              </p>
+            )}
+            {sheetsNotice && (
+              <p role="status" className="m-4 flex items-start gap-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-xs">
+                <TriangleAlert className="mt-px size-3.5 shrink-0 text-warn" aria-hidden />
+                <span>{sheetsNotice}</span>
               </p>
             )}
             {loading === "preview" && <Loader2 className="mx-auto mt-16 size-5 animate-spin text-muted" aria-label="Chargement de l'aperçu" />}
