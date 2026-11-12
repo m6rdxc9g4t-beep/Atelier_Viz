@@ -35,11 +35,13 @@ export function SlicerVisual(props: VisualProps) {
     const toInput = (v: Scalar) => (v === null ? "" : type === "date" ? String(v).slice(0, 10) : String(v));
     const fromInput = (s: string): Scalar => (s === "" ? null : type === "date" ? s : Number(s));
     return (
-      <div className="flex h-full flex-col justify-center gap-2 text-xs">
-        <div className="grid grid-cols-2 gap-2">
+      // Plage : les deux champs côte à côte s'il y a la place d'afficher l'année entière (248 px, voir
+      // `RANGE_SIDE_BY_SIDE`), sinon l'un sous l'autre avec son libellé à gauche.
+      <div className="@container flex h-full flex-col justify-center gap-2 text-xs">
+        <div className="grid grid-cols-1 gap-1.5 @[248px]:grid-cols-2 @[248px]:gap-2">
           {(["Du", "Au"] as const).map((label, i) => (
-            <label key={label} className="flex flex-col gap-1 text-muted">
-              {label}
+            <label key={label} className="flex min-w-0 items-center gap-2 text-muted @[248px]:flex-col @[248px]:items-stretch @[248px]:gap-1">
+              <span className="w-5 shrink-0 @[248px]:w-auto">{label}</span>
               <input
                 type={input}
                 value={toInput(range[i] ?? null)}
@@ -51,7 +53,7 @@ export function SlicerVisual(props: VisualProps) {
                   next[i] = fromInput(e.target.value);
                   setOptions({ range: next });
                 }}
-                className="w-full rounded-md border border-border bg-bg px-2 py-1 text-fg"
+                className="min-w-0 flex-1 rounded-md border border-border bg-bg px-2 py-1 text-fg @[248px]:w-full @[248px]:flex-none"
               />
             </label>
           ))}
