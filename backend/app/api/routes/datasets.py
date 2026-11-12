@@ -5,7 +5,7 @@ import logging
 from typing import Annotated
 
 import pandas as pd
-from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, Response, UploadFile, status
 
 from app.api.deps import AlertsDep, SchedulerDep, SettingsDep, StoreDep
 from app.core.config import Settings
@@ -20,9 +20,23 @@ from app.schemas.dataset import (
     PrepRequest,
     Relation,
     RelationCheck,
+    SkippedSheet,
     SourceFormat,
+    WorkbookImport,
+    WorkbookSheet,
+    WorkbookSheets,
 )
-from app.services.data import DatasetError, DatasetStore, StoredDataset, read_table
+from app.services.data import (
+    DatasetError,
+    DatasetStore,
+    SheetRead,
+    StoredDataset,
+    excel_sheets,
+    is_workbook,
+    read_sheets,
+    read_table,
+    sheet_dataset_names,
+)
 from app.services.data.model import ModelError
 from app.services.data.store import ColumnsLostError
 
@@ -49,20 +63,122 @@ async def upload_dataset(
     return dataset.profile()
 
 
-async def _read_upload(file: UploadFile, settings: Settings) -> tuple[str, pd.DataFrame, SourceFormat]:
-    """Fichier envoyé → (nom, données typées, format) ; 413 au-delà de `MAX_UPLOAD_MB`, 422 s'il est illisible."""
+@router.post("/sheets", response_model=WorkbookSheets)
+async def inspect_workbook(
+    settings: SettingsDep,
+    file: Annotated[UploadFile, File(description="Classeur Excel (.xlsx)")],
+) -> WorkbookSheets:
+    """Feuilles d'un classeur avant import : lignes, colonnes, feuilles vides ou illisibles. Rien n'est enregistré.
+
+    Un fichier qui n'est pas un classeur (CSV, JSON) n'a pas de feuilles : liste vide, il s'importe tel quel.
+    """
+    filename, content = await _upload_bytes(file, settings)
+    if not is_workbook(filename):
+        return WorkbookSheets(filename=filename, sheets=[])
+    sheets = await _read_sheets(content)
+    names = sheet_dataset_names(filename, [s.name for s in sheets])
+    return WorkbookSheets(
+        filename=filename, sheets=[_sheet_info(name, s) for name, s in zip(names, sheets, strict=True)]
+    )
+
+
+@router.post("/workbook", response_model=WorkbookImport, status_code=status.HTTP_201_CREATED)
+async def import_workbook(
+    store: StoreDep,
+    settings: SettingsDep,
+    file: Annotated[UploadFile, File(description="Classeur Excel (.xlsx)")],
+    sheets: Annotated[
+        list[str] | None, Form(description="Feuilles à importer (répéter le champ) ; absent : toutes.")
+    ] = None,
+) -> WorkbookImport:
+    """Importe les feuilles d'un classeur, un jeu par feuille, nommé « Classeur — Feuille ».
+
+    Une feuille vide, illisible ou absente est laissée à part (`skipped`) sans bloquer les autres ; 422 seulement
+    si aucune feuille n'a pu être importée. Chaque jeu garde sa feuille : « Remplacer les données » la relit.
+    """
+    filename, content = await _upload_bytes(file, settings)
+    if not is_workbook(filename):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Seul un classeur Excel (.xlsx) a des feuilles.")
+    read = await _read_sheets(content, sheets)
+    readable = [item for item in read if item.df is not None]
+    skipped = [
+        SkippedSheet(name=item.name, reason=item.error or "Feuille illisible.") for item in read if item.df is None
+    ]
+    names = sheet_dataset_names(filename, [item.name for item in readable])
+    # Créés de la dernière feuille à la première : la liste des jeux (le plus récent d'abord) suit l'ordre du classeur.
+    created: list[DatasetProfile] = []
+    for name, item in reversed(list(zip(names, readable, strict=True))):
+        dataset = await asyncio.to_thread(store.add, name, "xlsx", item.df, None, item.name)
+        created.insert(0, dataset.profile())
+    if not created:
+        reasons = " ; ".join(f"« {s.name} » : {s.reason}" for s in skipped)
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"Aucune feuille à importer dans ce classeur. {reasons}" if reasons else "Aucune feuille à importer.",
+        )
+    return WorkbookImport(datasets=created, skipped=skipped)
+
+
+def _sheet_info(name: str, sheet: SheetRead) -> WorkbookSheet:
+    """Feuille examinée (`name` : nom du jeu qu'elle donnerait)."""
+    if sheet.df is None:
+        return WorkbookSheet(name=sheet.name, dataset_name=name, error=sheet.error or "Feuille illisible.")
+    return WorkbookSheet(
+        name=sheet.name, dataset_name=name, rows=len(sheet.df), columns=[str(c) for c in sheet.df.columns]
+    )
+
+
+async def _read_sheets(content: bytes, only: list[str] | None = None) -> list[SheetRead]:
+    try:
+        return await asyncio.to_thread(read_sheets, content, only)
+    except DatasetError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+
+async def _upload_bytes(file: UploadFile, settings: Settings) -> tuple[str, bytes]:
+    """Fichier envoyé → (nom, contenu) ; 413 au-delà de `MAX_UPLOAD_MB`."""
     max_bytes = settings.max_upload_mb * 1024 * 1024
     content = await file.read(max_bytes + 1)
     if len(content) > max_bytes:
         raise HTTPException(
             status.HTTP_413_CONTENT_TOO_LARGE, f"Fichier trop volumineux (max {settings.max_upload_mb} Mo)."
         )
-    filename = file.filename or "donnees.csv"
+    return file.filename or "donnees.csv", content
+
+
+async def _read_upload(
+    file: UploadFile, settings: Settings, sheet: str | None = None
+) -> tuple[str, pd.DataFrame, SourceFormat]:
+    """Fichier envoyé → (nom, données typées, format) ; 413 au-delà de `MAX_UPLOAD_MB`, 422 s'il est illisible.
+
+    `sheet` : feuille d'où vient le jeu à remplacer (`_sheet_for`) ; sans elle, la première feuille d'un classeur.
+    """
+    filename, content = await _upload_bytes(file, settings)
     try:
-        df, fmt = await asyncio.to_thread(read_table, filename, content)
+        chosen = await asyncio.to_thread(_sheet_for, filename, content, sheet)
+        df, fmt = await asyncio.to_thread(read_table, filename, content, chosen)
     except DatasetError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     return filename, df, fmt
+
+
+def _sheet_for(filename: str, content: bytes, sheet: str | None) -> str | None:
+    """Feuille à relire pour un jeu importé de la feuille `sheet` d'un classeur.
+
+    La même feuille si le nouveau classeur l'a encore ; sa seule feuille s'il n'en a qu'une (extrait enregistré à
+    part) ; sinon rien n'est deviné : erreur qui nomme les feuilles disponibles. Fichier CSV ou JSON : sans objet.
+    """
+    if sheet is None or not is_workbook(filename):
+        return None
+    names = excel_sheets(content)
+    if sheet in names:
+        return sheet
+    if len(names) == 1:
+        return names[0]
+    listed = ", ".join(f"« {n} »" for n in names)
+    raise DatasetError(
+        f"Ce jeu vient de la feuille « {sheet} », absente de ce classeur (feuilles : {listed}). Rien n'a changé."
+    )
 
 
 @router.get("", response_model=list[DatasetSummary])
@@ -128,6 +244,7 @@ async def replace_data(
 ) -> DatasetProfile:
     """Remplace les données d'un jeu importé par fichier (même identifiant : rapports, modèle et alertes suivent).
 
+    Un jeu importé d'une feuille d'un classeur relit la même feuille (`DatasetProfile.sheet`).
     Les étapes de préparation sont rejouées et le modèle revalidé ; s'il ne tient plus (colonne disparue),
     409 et rien n'est modifié. Un fichier auquel il manque une colonne du jeu (mauvais fichier choisi ?) est
     refusé de même (409, code `COLUMNS_LOST`, colonnes dans `missing`) : les visuels et les alertes qui la lisent
@@ -143,7 +260,7 @@ async def replace_data(
             if origin.kind == "atelier-table"
             else "Ce jeu vient d'une connexion : utilisez « Actualiser » pour relire sa source.",
         )
-    _, df, _ = await _read_upload(file, settings)
+    _, df, _ = await _read_upload(file, settings, dataset.profile_data.sheet)
     try:
         updated = await asyncio.to_thread(store.replace_data, dataset, df, None, keep_columns=not force)
     except ModelError as exc:
