@@ -342,6 +342,11 @@ Règles de `services/data/parsing.py`, testées dans `tests/test_data_parsing.py
 - **Lignes de titre** : les lignes d'une seule cellule (ou vides) posées au-dessus d'un tableau d'au moins deux colonnes sont
   ignorées (`header_row`), si la ligne suivante ne porte que des libellés. Lignes inégales : erreur avec le numéro de ligne.
 - **JSON** : objets imbriqués aplatis (`a.b`), tableaux gardés en texte JSON.
+- **Classeur à plusieurs feuilles** : à l'import d'un `.xlsx` de deux feuilles ou plus, un dialogue liste toutes les
+  feuilles (lignes, colonnes, nom du jeu), toutes cochées ; chaque feuille cochée devient un jeu « Classeur — Feuille ».
+  Une feuille vide ou illisible est signalée et laissée, sans bloquer les autres. Un classeur à une seule feuille
+  s'importe comme avant. Chaque jeu garde sa feuille : « Remplacer les données… » relit la même. Depuis une connexion
+  (fichier synchronisé, fichier web, SharePoint) : « Importer plusieurs feuilles… ». `.xls` n'est pas pris en charge.
 - **Nouvel export du même fichier** : « Remplacer les données… » (écran Données) garde le jeu, ses rapports, son modèle et
   ses alertes.
 
@@ -410,7 +415,7 @@ Bouton **Exporter** du Studio → PowerPoint, **PDF**, **Image (PNG)** ou **Rapp
 - **Filtrage croisé** : clic sur une barre, une part, une case de treemap, une région ou une ligne de table ; nouveau clic ou Échap pour annuler.
 - **Édition** : glisser un champ sur un visuel ou dans un puits ; clic sur un champ = ajout au visuel sélectionné, ou création d'un visuel adapté ; clic sur une icône = ajout, ou changement de type en conservant les champs.
 - **Placement** : déplacement par la poignée du haut du visuel, redimensionnement par 8 poignées (Maj : proportions conservées), repères d'alignement roses sur les bords et centres des autres visuels, les marges et le centre de la page (Alt : sans accroche), cote x/y ou L × H pendant le geste ; flèches du clavier pour 1 px (Maj : 10 px, un seul retour arrière pour une suite d'ajustements) ; X / Y / L / H au pixel près dans l'onglet Format ; premier plan / arrière-plan ; une copie (Ctrl+D) est décalée de 16 px. Un nouveau visuel prend le premier espace libre de la page.
-- **Zoom** : ajusté à la largeur par défaut, paliers de 25 % à 200 %, Ctrl + molette ; la page est mise à l'échelle d'un bloc (textes compris), info-bulles exactes à tout zoom.
+- **Zoom** : page **ajustée** par défaut — entière dans la place disponible, en largeur et en hauteur, recalculée quand un volet s'ouvre ou se replie et quand la fenêtre change, tant qu'aucun zoom n'est choisi à la main ; bouton « Ajuster » pour y revenir, « Ajuster à la largeur » au choix, paliers de 25 % à 200 %, Ctrl + molette ; contrôle rangé dans la barre des pages ; la page est mise à l'échelle d'un bloc (textes compris), info-bulles exactes à tout zoom.
 - **Raccourcis** : Ctrl+Z / Ctrl+Y (annuler / rétablir, 60 niveaux), Ctrl+D (dupliquer), Suppr (supprimer), flèches (ajuster), Échap.
 - **Modes** : Édition (volets, déplacement, redimensionnement), Lecture et Présentation.
 - **Page d'extraction (drill-through)** : sur une page, sans visuel sélectionné, volet Visualisations → « Page d'extraction » et ses champs (`Page.drillthrough.fields`, 10 au plus). Clic droit sur une barre, une part, une ligne… d'une autre page → menu « Extraire vers « Détail région » » : la page s'ouvre filtrée sur l'élément (filtres transmis par relation, sinon par colonne de même nom), avec un bandeau « Extraction : region = Occitanie · Retour ». L'extraction n'est pas enregistrée (changer de page l'abandonne). Onglet marqué d'une flèche.
@@ -530,6 +535,8 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | POST | `/api/ai/visuals/repair` | Visuels de l'historique « Créer avec l'IA » revalidés contre le profil actuel (un résultat par visuel : réparé ou écarté avec la raison), sans appel à l'IA |
 | POST | `/api/ai/summary` | Faits d'une page → synthèse vérifiée (`SummaryResponse` : titre, points reliés aux visuels, moteur, éléments écartés) |
 | POST | `/api/datasets` | Import multipart (CSV/XLSX/JSON, 50 Mo) → profil ; persisté dans DuckDB |
+| POST | `/api/datasets/sheets` | Feuilles d'un classeur Excel avant import (multipart) : nom, lignes, colonnes, nom du jeu, feuille vide ou illisible ; rien n'est enregistré |
+| POST | `/api/datasets/workbook` | Import d'un classeur (multipart, champ `sheets` répété ; absent : toutes) : un jeu par feuille, « Classeur — Feuille » ; feuilles laissées dans `skipped` ; 422 si aucune n'est importée |
 | GET | `/api/datasets` · `/api/datasets/{id}` · `/api/datasets/{id}/rows` | Liste, profil, lignes paginées |
 | PUT | `/api/datasets/{id}/data` | Remplacement des données d'un jeu importé par fichier (multipart, 50 Mo) : même identifiant, étapes rejouées, modèle revalidé, alertes réévaluées (409 + liste d'erreurs si le modèle ne tient plus, 409 pour un jeu de connexion ou de workflow) |
 | DELETE | `/api/datasets/{id}` | Suppression (table et vue) |

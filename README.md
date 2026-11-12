@@ -219,7 +219,7 @@ pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (
 | SQLite | Chemin du fichier `.db`, ouvert en lecture seule. |
 | Snowflake | Mode « En ligne » requis. Compte (`organisation-compte`), base, entrepôt, rôle en lecture seule conseillé, utilisateur et mot de passe. |
 | Google BigQuery | Mode « En ligne » requis. Projet et clé JSON d'un compte de service (BigQuery Data Viewer + Job User). Plafond de Go lus par requête (10 Go par défaut) : une requête trop coûteuse échoue sans être facturée. |
-| Fichier synchronisé | CSV, Excel (choix de la feuille) ou JSON d'un dossier **OneDrive / SharePoint / Teams synchronisé** (sur Mac : `~/Library/CloudStorage/OneDrive-<Entreprise>/…`) ou d'un partage réseau. Fonctionne hors ligne. |
+| Fichier synchronisé | CSV, Excel (choix de la feuille, ou « Importer plusieurs feuilles… » : un jeu par feuille) ou JSON d'un dossier **OneDrive / SharePoint / Teams synchronisé** (sur Mac : `~/Library/CloudStorage/OneDrive-<Entreprise>/…`) ou d'un partage réseau. Fonctionne hors ligne. |
 | Fichier web (URL) | CSV, Excel ou JSON à une adresse http(s) : données ouvertes, export publié, serveur interne ; jeton facultatif rangé au trousseau. Hors ligne : serveurs de la machine ou du réseau de l'entreprise seulement. |
 | SharePoint Online | Fichier d'une bibliothèque (lien « Copier le lien ») ou **liste** SharePoint, avec votre compte Microsoft 365. Mode « En ligne » requis. |
 
