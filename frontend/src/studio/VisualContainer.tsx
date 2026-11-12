@@ -24,7 +24,7 @@ import { FIELD_MIME, type DraggedField, useStudioData } from "./context";
 import { drillTargets, extractionLabel } from "./extraction";
 import { pageActiveFilters, visualFilters } from "./filters";
 import { DEFAULT_PAGE } from "./grid";
-import { toolbarSide } from "./toolbar";
+import { HANDLE_LAYER, TOOLBAR_LAYER, toolbarSide } from "./toolbar";
 import { useSnapshot } from "./snapshot";
 import { useStudio } from "./store";
 
@@ -272,7 +272,8 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
         // Poignée de déplacement : bande du haut du cadre, dans sa marge (le titre reste entier).
         <div
           className={clsx(
-            "visual-handle absolute inset-x-0 top-0 z-20 flex h-6 cursor-move touch-none items-start rounded-t-lg pl-3.5 text-muted",
+            "visual-handle absolute inset-x-0 top-0 flex h-6 cursor-move touch-none items-start rounded-t-lg pl-3.5 text-muted",
+            HANDLE_LAYER,
             selected ? "opacity-100" : "opacity-0 group-hover/visual:opacity-100",
           )}
         >
@@ -282,10 +283,12 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
       {editing && (
         // Actions du visuel : barre flottante hors du cadre (au-dessus, sinon dessous), pour ne recouvrir ni le
         // titre ni la valeur. Bouton, navigateur : elle porte aussi la poignée, tout le contenu reste cliquable.
+        // Elle déborde sur le visuel voisin : toujours devant sa poignée de déplacement (`TOOLBAR_LAYER`).
         <div
           data-visual-toolbar={side}
           className={clsx(
-            "absolute right-2 z-20",
+            "absolute right-2",
+            TOOLBAR_LAYER,
             side === "above" ? "bottom-full pb-1.5" : side === "below" ? "top-full pt-1.5" : "top-1",
             clickThrough && "visual-handle cursor-move touch-none",
             selected ? "opacity-100" : "pointer-events-none opacity-0 group-hover/visual:pointer-events-auto group-hover/visual:opacity-100",
