@@ -244,7 +244,9 @@ export const VisualContainer = memo(function VisualContainer({ visual, page, rep
         padding: 12,
       };
   const pageColor = readTheme(report.theme)?.page ?? null;
-  const side = toolbarSide(visual.layout, page.size ?? DEFAULT_PAGE);
+  // La barre d'actions évite les visuels cliquables de la page (onglets du navigateur, boutons).
+  const controls = page.visuals.filter((v) => v.id !== visual.id && (v.type === "button" || v.type === "navigator")).map((v) => v.layout);
+  const side = toolbarSide(visual.layout, page.size ?? DEFAULT_PAGE, controls);
 
   return (
     <section
