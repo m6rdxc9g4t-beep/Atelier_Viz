@@ -12,6 +12,7 @@
 import type { ColumnProfile, DatasetProfile } from "../types/dataset";
 import type { Filter } from "../types/query";
 import type { FieldBinding, Layout, Page, Visual, VisualOptions, VisualType } from "../types/report";
+import { navigatorWidth, rangeSlicerMinHeight, textWidth } from "../visuals/fit";
 import { normalize } from "../visuals/maps/geo";
 import { uid } from "./uid";
 
@@ -221,9 +222,13 @@ const SIDE = { x: 0, w: 232 };
 const X0 = 248;
 const X1 = 1272;
 const GAP = 12;
-/** Début du navigateur de pages (à droite du titre). */
-const NAV_X = 700;
-const ROWS = { kpi: { y: 60, h: 108 }, mid: { y: 180, h: 258 }, low: { y: 450, h: 262 }, full: { y: 180, h: 532 } };
+/** Largeur gardée au titre de la page, à gauche du navigateur, et taille de son texte (`size: "lg"`). */
+const TITLE_MIN = 300;
+const TITLE_FONT = 18;
+/** Largeur en dessous de laquelle un onglet du navigateur ne descend pas, même face à un titre très long. */
+const NAV_TAB_MIN = 96;
+// Rangée des KPI : assez haute pour un titre, la valeur et une mini-tendance (`kpiMinHeight`).
+const ROWS = { kpi: { y: 60, h: 116 }, mid: { y: 188, h: 254 }, low: { y: 454, h: 258 }, full: { y: 188, h: 524 } };
 
 /** Découpe la largeur de contenu en colonnes (fractions de 12). */
 function cols(y: number, h: number, spans: number[]): Layout[] {
@@ -249,7 +254,8 @@ function sidebar(a: Analysis): Visual[] {
     out.push(visual("slicer", a.ds.id, { x, y, w, h }, { field: [dim(field)] }, { style, multi: style !== "range", search: false }, field.name));
     y += h + 8;
   };
-  if (a.date) add(a.date, "range", 128);
+  // Plage de dates : dans cette colonne étroite, les deux champs passent l'un sous l'autre (année entière visible).
+  if (a.date) add(a.date, "range", rangeSlicerMinHeight(w));
   if (a.period) add(a.period, "tiles", 56 + Math.ceil(a.period.distinct / 2) * 34);
   // Segments : statut puis regroupements du jeu lui-même (les colonnes d'un jeu lié seulement à défaut).
   const own = [a.status, ...a.dims].filter((c, i, all): c is ColumnProfile => !!c && all.indexOf(c) === i && c !== a.name);
@@ -264,10 +270,10 @@ function sidebar(a: Analysis): Visual[] {
   return out;
 }
 
-/** En-tête : titre de la page à gauche, navigateur de pages à droite (ajouté par `finish`). */
-function header(title: string, subtitle: string): Visual {
+/** En-tête : titre de la page à gauche, jusqu'au navigateur de pages (ajouté par `finish`). */
+function header(title: string, subtitle: string, right: number): Visual {
   const text = subtitle && subtitle !== title ? `**${title}** — ${subtitle}` : `**${title}**`;
-  return visual("text", "", { x: X0, y: 8, w: NAV_X - X0 - GAP, h: 44 }, {}, { text, size: "lg" });
+  return visual("text", "", { x: X0, y: 8, w: right - X0, h: 44 }, {}, { text, size: "lg" });
 }
 
 interface Section {
@@ -280,13 +286,18 @@ interface Section {
 /** Assemble les pages : barre de filtres, titre, navigateur (horizontal) sur chaque page. */
 function finish(sections: Section[], title: string): Page[] {
   const pages: Page[] = sections.map((s) => ({ id: uid(), name: s.name, size: { ...PAGE }, filters: [], visuals: [] }));
-  const navW = Math.min(X1 - NAV_X, 150 * sections.length);
+  // Navigateur : la largeur des noms de pages (aucun onglet abrégé), tant que le titre le plus long tient sur sa ligne.
+  const names = sections.map((s) => s.name);
+  const titleW = Math.ceil(textWidth(title, TITLE_FONT, true) + Math.max(0, ...names.map((n) => (n === title ? 0 : textWidth(` — ${n}`, TITLE_FONT))))) + 24;
+  const navMax = X1 - X0 - GAP - Math.max(TITLE_MIN, titleW);
+  const navW = sections.length > 1 ? Math.min(navigatorWidth(names) + 8 * names.length, Math.max(navMax, NAV_TAB_MIN * names.length)) : 0;
+  const titleRight = navW ? X1 - navW - GAP : X1;
   sections.forEach((s, i) => {
     const page = pages[i];
     if (!page) return;
     page.visuals = [
       ...sidebar(s.analysis),
-      header(title, s.name),
+      header(title, s.name, titleRight),
       ...(sections.length > 1 ? [visual("navigator", "", { x: X1 - navW, y: 8, w: navW, h: 44 }, {}, { orientation: "horizontal", look: "tabs" })] : []),
       ...s.visuals,
     ];
