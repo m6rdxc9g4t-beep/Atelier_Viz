@@ -14,6 +14,7 @@ import {
   textWidth,
   truncateEnd,
   valueLabelMargin,
+  valueLabelTopMargin,
 } from "./fit";
 
 /** Largeurs réelles mesurées dans Chromium (Inter, 11 px), pour étalonner l'estimation. */
@@ -101,6 +102,17 @@ describe("marges des graphiques", () => {
     expect(valueLabelMargin(["3,5 k €", "27 €"], 44)).toBe(44);
     expect(valueLabelMargin(["1 234,56 M€"], 44)).toBeGreaterThan(60);
     expect(valueLabelMargin([], 44)).toBe(44);
+  });
+
+  it("colonnes étiquetées : la marge haute fait la place de l'étiquette de la plus haute colonne", () => {
+    // Étiquette de 10 px (ligne de 12 px) posée 5 px au-dessus d'une colonne qui atteint le haut du tracé :
+    // avec les 8 px d'avant, « 280 » était rogné par le cadre.
+    expect(valueLabelTopMargin(true)).toBeGreaterThanOrEqual(12 + 5);
+    expect(valueLabelTopMargin(true)).toBeLessThanOrEqual(20);
+    // Sans étiquette, la marge ne change pas ; une marge demandée plus grande est gardée.
+    expect(valueLabelTopMargin(false)).toBe(8);
+    expect(valueLabelTopMargin(false, 4)).toBe(4);
+    expect(valueLabelTopMargin(true, 24)).toBe(24);
   });
 });
 

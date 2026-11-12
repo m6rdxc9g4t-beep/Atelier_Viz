@@ -81,6 +81,18 @@ export function valueLabelMargin(labels: string[], min = 28): number {
   return Math.max(min, Math.ceil(longest) + 8);
 }
 
+/** Taille des étiquettes de valeur et écart que Recharts laisse entre une barre (ou un point) et son étiquette. */
+const VALUE_LABEL_FONT = 10;
+const VALUE_LABEL_OFFSET = 5;
+
+/**
+ * Marge haute d'un graphique vertical : avec des étiquettes de valeur, la hauteur d'une étiquette posée sur la
+ * plus haute colonne (elle touche le haut du tracé quand sa valeur est le maximum de l'axe), sinon `min`.
+ */
+export function valueLabelTopMargin(labels: boolean, min = 8): number {
+  return labels ? Math.max(min, Math.ceil(VALUE_LABEL_FONT * 1.2) + VALUE_LABEL_OFFSET + 1) : min;
+}
+
 // ─── Place minimale des visuels (gabarit généré) ───────────────────────────────────────────────────────
 
 /** Marges intérieures du cadre d'un visuel (12 px de chaque côté) et hauteur de sa ligne de titre. */

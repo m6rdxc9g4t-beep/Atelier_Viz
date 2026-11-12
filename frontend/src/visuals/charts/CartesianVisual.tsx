@@ -14,7 +14,7 @@ import {
 } from "recharts";
 
 import { AXIS, Legend, TooltipBox, VisualMessage, dimmed, first, numberFormat, toggleSelection } from "../common";
-import { categoryAxis, lastTickMargin, truncateEnd, valueLabelMargin, AXIS_FONT } from "../fit";
+import { categoryAxis, lastTickMargin, truncateEnd, valueLabelMargin, valueLabelTopMargin, AXIS_FONT } from "../fit";
 import { formatNumber } from "../format";
 import { useTooltipExtras } from "../tooltips";
 import { opt, type VisualProps } from "../types";
@@ -94,6 +94,9 @@ export function CartesianVisual(props: VisualProps) {
     : hasBars
       ? 12
       : lastTickMargin(catTick(data[data.length - 1]?.__label ?? ""));
+  // Marge haute : la place de l'étiquette posée sur la plus haute colonne ou le plus haut point (à droite pour
+  // des barres horizontales ; en pourcentage, pas d'étiquette).
+  const marginTop = valueLabelTopMargin(showLabels && !horizontal && !percent);
 
   return (
     <div className="flex h-full flex-col">
@@ -104,7 +107,7 @@ export function CartesianVisual(props: VisualProps) {
             data={data}
             layout={horizontal ? "vertical" : "horizontal"}
             stackOffset={percent ? "expand" : undefined}
-            margin={{ top: 8, right: marginRight, bottom: 0, left: 0 }}
+            margin={{ top: marginTop, right: marginRight, bottom: 0, left: 0 }}
             barCategoryGap="20%"
             barGap={2}
             onClick={(state) => {
