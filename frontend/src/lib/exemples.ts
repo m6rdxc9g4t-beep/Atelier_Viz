@@ -55,3 +55,25 @@ export function remember(id: string, storage: Pick<Storage, "setItem"> | undefin
     // stockage indisponible (navigation privée, iframe) : le choix n'est simplement pas gardé
   }
 }
+
+/** Événement émis quand une histoire est chargée ou retirée : l'accueil et la section d'exemples se relisent. */
+export const EXAMPLES_EVENT = "atelier-viz:exemples";
+
+/** Annonce qu'une histoire vient d'être chargée ou retirée (depuis l'accueil ou le dialogue de la barre latérale). */
+export function announceExamplesChange(target: Pick<EventTarget, "dispatchEvent"> = window): void {
+  target.dispatchEvent(new Event(EXAMPLES_EVENT));
+}
+
+/** Écoute les chargements et retraits d'histoires ; renvoie la fonction de désabonnement. */
+export function onExamplesChange(listener: () => void, target: Pick<EventTarget, "addEventListener" | "removeEventListener"> = window): () => void {
+  target.addEventListener(EXAMPLES_EVENT, listener);
+  return () => target.removeEventListener(EXAMPLES_EVENT, listener);
+}
+
+/**
+ * La section d'exemples de l'accueil guide tant qu'il n'y a aucun rapport ; ensuite elle céderait la place à la
+ * liste des rapports, et les exemples restent à portée dans la barre latérale (« Exemples de la suite »).
+ */
+export function showExamplesOnHome(reports: readonly unknown[] | null): boolean {
+  return reports !== null && reports.length === 0;
+}

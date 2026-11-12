@@ -1,9 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, api } from "../../lib/api";
+import { announceExamplesChange } from "../../lib/exemples";
 import type { DatasetSummary } from "../../types/dataset";
+import type { ExempleHistoire } from "../../types/exemples";
 import type { ReportSummary } from "../../types/report";
 import { ReportsHome } from "./ReportsHome";
 
@@ -63,5 +65,56 @@ describe("accueil des rapports", () => {
     expect(remove).toHaveBeenCalledWith("bbbbbbbbbbbb");
     expect(screen.queryByText("Budget")).not.toBeInTheDocument();
     expect(screen.getByText("Ventes")).toBeInTheDocument();
+  });
+});
+
+describe("accueil : exemples de la suite", () => {
+  const histoire = {
+    id: "studio-garance",
+    titre: "Studio Garance",
+    sous_titre: "Clôture comptable",
+    secteur: "Compta",
+    resume: "Un studio clôture son mois.",
+    parcours: [{ app: "viz", titre: "Viz", texte: "L'alerte se déclenche." }],
+    jeux: ["Studio Garance — opérations"],
+    alerte: "Matériel",
+    rapport: "Exemple — Studio Garance",
+    charge: false,
+  } as ExempleHistoire;
+
+  beforeEach(() => {
+    vi.spyOn(api.exemples, "list").mockResolvedValue([histoire]);
+    vi.spyOn(api.datasets, "list").mockResolvedValue(datasets);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("guide le premier lancement : la section est là tant qu'il n'y a aucun rapport", async () => {
+    vi.spyOn(api.reports, "list").mockResolvedValue([]);
+    render(<ReportsHome />);
+    expect(await screen.findByRole("heading", { name: "Exemples de la suite" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Charger l'exemple" })).toBeInTheDocument();
+  });
+
+  it("cède la place à la liste dès qu'il y a des rapports (les exemples restent dans la barre latérale)", async () => {
+    vi.spyOn(api.reports, "list").mockResolvedValue(structuredClone(reports));
+    render(<ReportsHome />);
+    expect(await screen.findByText("Ventes")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Exemples de la suite" })).not.toBeInTheDocument();
+  });
+
+  it("se relit quand une histoire est chargée ou retirée depuis le dialogue de la barre latérale", async () => {
+    const list = vi.spyOn(api.reports, "list").mockResolvedValue(structuredClone(reports));
+    render(<ReportsHome />);
+    expect(await screen.findByText("Ventes")).toBeInTheDocument();
+    // Le dialogue retire l'histoire : son rapport disparaît de la liste, sans recharger la page.
+    list.mockResolvedValue([reports[1]!]);
+    act(() => announceExamplesChange());
+    await waitFor(() => expect(screen.queryByText("Ventes")).not.toBeInTheDocument());
+    expect(screen.getByText("Budget")).toBeInTheDocument();
+    expect(list).toHaveBeenCalledTimes(2);
+    // Dernier rapport retiré : la section d'exemples revient guider.
+    list.mockResolvedValue([]);
+    act(() => announceExamplesChange());
+    expect(await screen.findByRole("heading", { name: "Exemples de la suite" })).toBeInTheDocument();
   });
 });

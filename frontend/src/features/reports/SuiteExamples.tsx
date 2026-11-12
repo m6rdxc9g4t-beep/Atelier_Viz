@@ -1,9 +1,10 @@
 import { ExternalLink, Loader2, Trash2, Wand2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import clsx from "clsx";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { api } from "../../lib/api";
 import { openExternal } from "../../lib/desktop";
-import { APP_LABELS, THIS_APP, pickHistoire, readRemembered, remember, stepsAround } from "../../lib/exemples";
+import { APP_LABELS, THIS_APP, announceExamplesChange, onExamplesChange, pickHistoire, readRemembered, remember, stepsAround } from "../../lib/exemples";
 import { navigate } from "../../lib/router";
 import { suiteApps } from "../../lib/suite";
 import { storyPages } from "../../studio/starter";
@@ -15,23 +16,75 @@ const euroFmt = new Intl.NumberFormat("fr-FR");
 /**
  * « Exemples de la suite » : une histoire fictive suivie d'une app à l'autre. Ici, ses jeux de données (opérations
  * catégorisées, tables de Tab, exports de Convert) et son alerte, qui se déclenche ; on ouvre un rapport de démarrage.
+ *
+ * Deux habillages pour une seule logique : la carte de l'accueil (`card`, rien tant qu'aucune histoire n'est lue) et
+ * le contenu du dialogue de la barre latérale (`dialog` : son titre est celui du dialogue, il dit aussi qu'il charge
+ * ou qu'il n'a rien à proposer). Tout chargement ou retrait est annoncé (`announceExamplesChange`).
  */
-export function SuiteExamples({ reports, onChanged }: { reports: ReportSummary[] | null; onChanged: () => void }) {
+export function SuiteExamples({
+  reports,
+  variant = "card",
+  titleId,
+  onOpen,
+}: {
+  /** Rapports déjà lus par l'appelant (accueil) ; sinon ils sont relus au moment d'ouvrir l'exemple. */
+  reports?: ReportSummary[] | null;
+  variant?: "card" | "dialog";
+  /** Identifiant du titre (dialogue : `aria-labelledby`). */
+  titleId?: string;
+  /** Juste avant d'ouvrir le rapport de l'exemple (le dialogue se ferme). */
+  onOpen?: () => void;
+}) {
+  const ownId = useId();
+  const headingId = titleId ?? ownId;
   const [histoires, setHistoires] = useState<ExempleHistoire[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [selected, setSelected] = useState<string | null>(readRemembered());
   const [busy, setBusy] = useState<"load" | "remove" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = () => api.exemples.list().then(setHistoires, () => undefined);
+  const refresh = () =>
+    api.exemples.list().then(
+      (list) => {
+        setHistoires(list);
+        setStatus("ready");
+      },
+      () => setStatus("error"),
+    );
   useEffect(() => {
     void refresh();
+    // Une histoire chargée ou retirée ailleurs (accueil ↔ dialogue) : même état partout.
+    return onExamplesChange(() => void refresh());
   }, []);
 
   const histoire = pickHistoire(histoires, selected);
   const steps = histoire ? stepsAround(histoire) : null;
   const nextUrl = useMemo(() => (steps?.next ? suiteApps().find((a) => a.id === steps.next?.app)?.url : undefined), [steps?.next]);
 
-  if (!histoire || !steps) return null;
+  if (!histoire || !steps) {
+    if (variant === "card") return null;
+    return (
+      <div className="space-y-2 p-4">
+        <h2 id={headingId} className="text-sm font-semibold">
+          Exemples de la suite
+        </h2>
+        {status === "loading" ? (
+          <p className="flex items-center gap-2 text-xs text-muted">
+            <Loader2 className="size-4 animate-spin" aria-hidden /> Lecture des exemples…
+          </p>
+        ) : status === "error" ? (
+          <p role="alert" className="text-xs text-negative">
+            Les exemples n'ont pas pu être lus.{" "}
+            <button type="button" onClick={() => void refresh()} className="font-medium text-accent-ink underline underline-offset-2">
+              Réessayer
+            </button>
+          </p>
+        ) : (
+          <p className="text-xs text-muted">Aucun exemple n'est livré avec cette installation.</p>
+        )}
+      </div>
+    );
+  }
 
   const choose = (id: string) => {
     setSelected(id);
@@ -45,8 +98,10 @@ export function SuiteExamples({ reports, onChanged }: { reports: ReportSummary[]
     setError(null);
     try {
       const res = await api.exemples.load(histoire.id);
-      const existing = reports?.find((r) => r.name === res.rapport);
+      const existing = (reports ?? (await api.reports.list())).find((r) => r.name === res.rapport);
       if (existing) {
+        announceExamplesChange();
+        onOpen?.();
         navigate(`/rapports/${existing.id}`);
         return;
       }
@@ -55,6 +110,8 @@ export function SuiteExamples({ reports, onChanged }: { reports: ReportSummary[]
       const ids = [res.operations_id, ...res.datasets.map((d) => d.id).filter((id) => id !== res.operations_id)];
       const profiles = await Promise.all(ids.map((id) => api.datasets.get(id)));
       await api.reports.save(report.id, { name: res.rapport, dataset_id: res.operations_id, theme: {}, pages: storyPages(histoire.titre, profiles) });
+      announceExamplesChange();
+      onOpen?.();
       navigate(`/rapports/${report.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -68,7 +125,7 @@ export function SuiteExamples({ reports, onChanged }: { reports: ReportSummary[]
     try {
       await api.exemples.remove(histoire.id);
       await refresh();
-      onChanged();
+      announceExamplesChange();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -77,11 +134,12 @@ export function SuiteExamples({ reports, onChanged }: { reports: ReportSummary[]
   };
 
   return (
-    <section aria-labelledby="suite-examples-title" className="atelier-card overflow-hidden">
+    <section aria-labelledby={headingId} className={clsx(variant === "card" && "atelier-card overflow-hidden")}>
       <div className="space-y-3 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        {/* Dialogue : la place du bouton « Fermer », en haut à droite. */}
+        <div className={clsx("flex flex-wrap items-start justify-between gap-x-4 gap-y-2", variant === "dialog" && "pr-9")}>
           <div className="min-w-0">
-            <h2 id="suite-examples-title" className="text-sm font-semibold">
+            <h2 id={headingId} className="text-sm font-semibold">
               Exemples de la suite
             </h2>
             <p className="mt-0.5 text-xs text-muted">
