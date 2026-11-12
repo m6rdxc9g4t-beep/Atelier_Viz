@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, ApiError } from "../lib/api";
+import { onExamplesChange } from "../lib/exemples";
 import { datasetChanged, forgetProfile, refreshDataset, replaceDatasetData } from "./useDatasetProfiles";
 import { onDatasetRefreshed } from "./useDataVersions";
 import type { DatasetProfile, DatasetSummary, ModelIssue } from "../types/dataset";
@@ -106,6 +107,34 @@ export function useDatasets(): DatasetsState {
         setSelected((cur) => (cur?.id === profile.id ? profile : cur));
       }),
     [],
+  );
+
+  // Exemples de la suite chargés ou retirés (accueil, dialogue de la barre latérale) : leurs jeux apparaissent ou
+  // disparaissent sans passer par cet écran. La liste est relue ; un jeu affiché qui n'existe plus cède la place.
+  const latest = useRef({ datasets, selected });
+  latest.current = { datasets, selected };
+  useEffect(
+    () =>
+      onExamplesChange(() => {
+        api.datasets
+          .list()
+          .then((list) => {
+            const kept = new Set(list.map((d) => d.id));
+            for (const d of latest.current.datasets) {
+              if (kept.has(d.id)) continue;
+              forgetProfile(d.id);
+              datasetChanged(d.id);
+            }
+            setDatasets(list);
+            const shown = latest.current.selected;
+            if (shown && kept.has(shown.id)) return;
+            setSelected(null);
+            const first = list[0];
+            if (first) select(first.id);
+          })
+          .catch((err: unknown) => setError(message(err)));
+      }),
+    [select],
   );
 
   const upload = useCallback(async (file: File) => {

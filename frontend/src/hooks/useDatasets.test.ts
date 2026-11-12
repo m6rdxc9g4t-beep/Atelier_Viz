@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 import { ApiError } from "../lib/api";
+import { announceExamplesChange } from "../lib/exemples";
 import type { DatasetProfile } from "../types/dataset";
 import { lostColumns, useDatasets } from "./useDatasets";
 
@@ -91,5 +92,74 @@ describe("useDatasets — remplacement des données", () => {
     await act(() => result.current.replaceData("abc", file));
     expect(result.current.pendingReplace).toBeNull();
     expect(result.current.error).toBe("notes.pdf : Format « .pdf » non pris en charge (CSV, XLSX ou JSON).");
+  });
+});
+
+describe("useDatasets — exemples de la suite", () => {
+  const story = { ...profile, id: "sci1", name: "SCI Les Tilleuls — État locatif" };
+  const stub = (lists: DatasetProfile[][]) => {
+    let calls = 0;
+    const asked: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        asked.push(url);
+        if (url.endsWith("/datasets")) return json(lists[Math.min(calls++, lists.length - 1)]);
+        const found = [story, profile].find((p) => url.endsWith(`/datasets/${p.id}`));
+        return found ? json(found) : json({ detail: "Jeu de données introuvable." }, 404);
+      }),
+    );
+    return asked;
+  };
+
+  it("histoire retirée depuis la barre latérale : ses jeux quittent la liste, le jeu affiché cède la place", async () => {
+    const asked = stub([[story, profile], [profile]]);
+    const { result } = renderHook(() => useDatasets());
+    await waitFor(() => expect(result.current.selected?.id).toBe("sci1"));
+
+    act(() => announceExamplesChange());
+    await waitFor(() => expect(result.current.datasets.map((d) => d.id)).toEqual(["abc"]));
+    // Le jeu supprimé n'est plus affiché ni redemandé (il répondrait 404) : le suivant le remplace.
+    await waitFor(() => expect(result.current.selected?.id).toBe("abc"));
+    expect(result.current.error).toBeNull();
+    expect(asked.filter((u) => u.endsWith("/datasets/sci1"))).toHaveLength(1);
+  });
+
+  it("dernière histoire retirée : plus aucun jeu, plus de jeu affiché", async () => {
+    stub([[story], []]);
+    const { result } = renderHook(() => useDatasets());
+    await waitFor(() => expect(result.current.selected?.id).toBe("sci1"));
+    act(() => announceExamplesChange());
+    await waitFor(() => expect(result.current.datasets).toEqual([]));
+    expect(result.current.selected).toBeNull();
+  });
+
+  it("histoire chargée : ses jeux s'ajoutent, le jeu affiché ne change pas", async () => {
+    const asked = stub([[profile], [story, profile]]);
+    const { result } = renderHook(() => useDatasets());
+    await waitFor(() => expect(result.current.selected?.id).toBe("abc"));
+    act(() => announceExamplesChange());
+    await waitFor(() => expect(result.current.datasets.map((d) => d.id)).toEqual(["sci1", "abc"]));
+    expect(result.current.selected?.id).toBe("abc");
+    expect(asked.some((u) => u.endsWith("/datasets/sci1"))).toBe(false);
+  });
+
+  it("premier chargement d'une histoire sur une liste vide : son premier jeu s'affiche", async () => {
+    stub([[], [story]]);
+    const { result } = renderHook(() => useDatasets());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => announceExamplesChange());
+    await waitFor(() => expect(result.current.selected?.id).toBe("sci1"));
+  });
+
+  it("ne s'abonne plus une fois démonté", async () => {
+    const asked = stub([[profile]]);
+    const { result, unmount } = renderHook(() => useDatasets());
+    await waitFor(() => expect(result.current.selected?.id).toBe("abc"));
+    unmount();
+    const before = asked.length;
+    announceExamplesChange();
+    expect(asked).toHaveLength(before);
   });
 });

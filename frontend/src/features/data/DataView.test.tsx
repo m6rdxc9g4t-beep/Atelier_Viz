@@ -1,7 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { DatasetsState } from "../../hooks/useDatasets";
+import { useDatasets, type DatasetsState } from "../../hooks/useDatasets";
+import { announceExamplesChange } from "../../lib/exemples";
 import { formatValue } from "../../lib/format";
 import type { DatasetProfile } from "../../types/dataset";
 import { DataView } from "./DataView";
@@ -170,5 +171,39 @@ describe("DataView", () => {
   it("affiche les erreurs d'import", () => {
     render(<DataView state={state({ error: "notes.pdf : Format non pris en charge" })} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Format non pris en charge");
+  });
+});
+
+describe("DataView — exemples de la suite", () => {
+  /** L'écran branché sur le vrai état des jeux, comme dans `App`. */
+  function Screen() {
+    return <DataView state={useDatasets()} />;
+  }
+
+  it("histoire retirée depuis le dialogue de la barre latérale : ses jeux disparaissent de la liste et de l'aperçu", async () => {
+    const story = { ...profile, id: "sci1", name: "SCI Les Tilleuls — État locatif" };
+    let removed = false;
+    const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/datasets")) return json(removed ? [profile] : [story, profile]);
+        if (url.includes("/datasets/sci1")) return removed ? json({ detail: "Jeu de données « sci1 » introuvable." }, 404) : url.endsWith("/sci1") ? json(story) : json({ columns: [], rows: [], total: 0, offset: 0, limit: 100 });
+        return url.endsWith("/abc") ? json(profile) : json({ columns: [], rows: [], total: 0, offset: 0, limit: 100 });
+      }),
+    );
+    render(<Screen />);
+    const tabs = await screen.findByRole("tablist", { name: "Jeux de données" });
+    await waitFor(() => expect(within(tabs).getByRole("tab", { name: /SCI Les Tilleuls/ })).toHaveAttribute("aria-selected", "true"));
+    expect(await screen.findByRole("heading", { name: "SCI Les Tilleuls — État locatif" })).toBeInTheDocument();
+
+    removed = true;
+    act(() => announceExamplesChange());
+    await waitFor(() => expect(within(tabs).queryByRole("tab", { name: /SCI Les Tilleuls/ })).toBeNull());
+    // Le jeu retiré n'est plus affiché : le suivant prend sa place, sans message « introuvable ».
+    expect(await screen.findByRole("heading", { name: "ventes.csv" })).toBeInTheDocument();
+    expect(within(tabs).getByRole("tab", { name: /ventes\.csv/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByText(/introuvable/)).toBeNull();
   });
 });

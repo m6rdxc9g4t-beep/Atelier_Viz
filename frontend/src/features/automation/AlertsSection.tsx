@@ -3,6 +3,7 @@ import { Bell, BellOff, BellRing, CircleAlert, History, Loader2, Pencil, Play, P
 import { useCallback, useEffect, useState } from "react";
 
 import { onDatasetRefreshed } from "../../hooks/useDataVersions";
+import { onExamplesChange } from "../../lib/exemples";
 import { api } from "../../lib/api";
 import type { Alert, AlertInput } from "../../types/alert";
 import type { DatasetSummary } from "../../types/dataset";
@@ -35,7 +36,13 @@ export function AlertsSection() {
 
   useEffect(() => {
     load();
-    return onDatasetRefreshed(load); // évaluées après actualisation : état à jour
+    const refreshed = onDatasetRefreshed(load); // évaluées après actualisation : état à jour
+    // Exemples de la suite chargés ou retirés depuis la barre latérale : leurs jeux et leurs alertes suivent.
+    const examples = onExamplesChange(load);
+    return () => {
+      refreshed();
+      examples();
+    };
   }, [load]);
 
   const replace = (a: Alert) => setAlerts((list) => (list?.some((x) => x.id === a.id) ? list.map((x) => (x.id === a.id ? a : x)) : [...(list ?? []), a]));
