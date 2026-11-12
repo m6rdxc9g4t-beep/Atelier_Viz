@@ -3,7 +3,7 @@
 import type { ChatRequest, ChatResponse, ClaudeModel, ProviderChoice, ProvidersResponse } from "../types/ai";
 import type { BuildRequest, BuildResponse, RepairRequest, RepairResponse } from "../types/builder";
 import type { AnswerRequest, AnswerResponse, SummaryRequest, SummaryResponse } from "../types/summary";
-import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult, PrepPreview, PrepStep, Relation, RelationCheck, SampleFile, SamplesImport } from "../types/dataset";
+import type { DatasetModel, DatasetProfile, DatasetRows, DatasetSummary, ExpressionCheck, ExpressionResult, PrepPreview, PrepStep, Relation, RelationCheck, SampleFile, SamplesImport, WorkbookImport, WorkbookSheets } from "../types/dataset";
 import type { QueryRequest, QueryResponse } from "../types/query";
 import type { ExempleCharge, ExempleHistoire } from "../types/exemples";
 import type {
@@ -118,6 +118,19 @@ export const api = {
       const form = new FormData();
       form.append("file", file);
       return request<DatasetProfile>("/datasets", { method: "POST", body: form });
+    },
+    /** Feuilles d'un classeur Excel avant import (lignes, colonnes, feuilles vides) ; rien n'est enregistré. */
+    sheets: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return request<WorkbookSheets>("/datasets/sheets", { method: "POST", body: form });
+    },
+    /** Importe les feuilles choisies d'un classeur : un jeu par feuille, nommé « Classeur — Feuille ». */
+    importWorkbook: (file: File, sheets: string[]) => {
+      const form = new FormData();
+      form.append("file", file);
+      for (const name of sheets) form.append("sheets", name);
+      return request<WorkbookImport>("/datasets/workbook", { method: "POST", body: form });
     },
     /**
      * Remplace les données d'un jeu importé par fichier (même identifiant : rapports, modèle et alertes suivent).

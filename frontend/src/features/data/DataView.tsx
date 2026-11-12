@@ -4,6 +4,7 @@ import { useRef, useState, type ReactNode } from "react";
 
 import type { DatasetsState, PendingReplace } from "../../hooks/useDatasets";
 import { formatCount } from "../../lib/format";
+import { sheetChoices } from "../../lib/workbook";
 import { isConnectionOrigin } from "../../types/connection";
 import type { DatasetSummary } from "../../types/dataset";
 import { RelationsDialog } from "../../studio/RelationsDialog";
@@ -12,6 +13,7 @@ import { ConnectDialog } from "./connect/ConnectDialog";
 import { KIND_META, sinceLabel } from "./connect/meta";
 import { DataPreview } from "./DataPreview";
 import { PrepEditor } from "./prep/PrepEditor";
+import { SheetsDialog } from "./SheetsDialog";
 import { FieldsPanel, TYPE_META } from "./FieldsPanel";
 import { ACCEPT, UploadDropzone } from "./UploadDropzone";
 
@@ -40,6 +42,16 @@ export function DataView({ state }: { state: DatasetsState }) {
         <div role="alert" className="flex items-start gap-3 rounded-lg border border-negative/40 px-4 py-3 text-sm text-negative">
           <span className="flex-1">{error}</span>
           <button type="button" onClick={state.clearError} aria-label="Fermer le message">
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+      )}
+
+      {state.notice && (
+        <div role="status" className="flex items-start gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" aria-hidden />
+          <span className="flex-1">{state.notice}</span>
+          <button type="button" onClick={state.clearNotice} aria-label="Fermer le message" className="text-muted hover:text-fg">
             <X className="size-4" aria-hidden />
           </button>
         </div>
@@ -240,6 +252,16 @@ export function DataView({ state }: { state: DatasetsState }) {
       {preparing && selected && <PrepEditor profile={selected} onClose={() => setPreparing(false)} onSaved={(p) => state.select(p.id)} />}
       {relating && selected && <RelationsDialog profile={selected} datasets={datasets} onClose={() => setRelating(false)} onSaved={(p) => state.select(p.id)} />}
       {connecting && <ConnectDialog onClose={() => setConnecting(false)} onImported={state.added} />}
+      {state.pendingWorkbook && (
+        <SheetsDialog
+          filename={state.pendingWorkbook.file.name}
+          sheets={sheetChoices(state.pendingWorkbook.sheets)}
+          importing={uploading}
+          error={state.pendingWorkbook.error}
+          onImport={(sheets) => void state.importSheets(sheets)}
+          onClose={state.cancelWorkbook}
+        />
+      )}
     </div>
   );
 }
