@@ -404,6 +404,12 @@ def test_desktop_update_never_inherits_the_token(monkeypatch: pytest.MonkeyPatch
     assert kept is not None and kept.reveal() == TOKEN  # le serveur, lancé ensuite, le retrouve en mémoire
 
 
+def test_the_desktop_launcher_keeps_the_variable_for_the_application() -> None:
+    """`CLAUDE_OAUTH_TOKEN` est un réglage de Viz (préfixe `CLAUDE_`) : jamais pris pour celui d'une autre app."""
+    assert launcher.foreign_env_names({"CLAUDE_OAUTH_TOKEN": TOKEN, "DATA_DIR": "/ailleurs"}) == ["DATA_DIR"]
+    assert "CLAUDE_OAUTH_TOKEN".startswith(launcher.KEPT_ENV_PREFIXES)
+
+
 def test_command_line_update_drops_the_token() -> None:
     env = {"PATH": "/usr/bin", "CLAUDE_OAUTH_TOKEN": TOKEN, "Claude_OAuth_Token": TOKEN, "CLAUDE_CLI": "/opt/claude"}
     launcher.drop_claude_token(env)
