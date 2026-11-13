@@ -8,7 +8,7 @@ import type { Connection, ConnectionInput, ConnectorInfo, ConnectorKind } from "
 import { SUITE_KINDS } from "../../../types/connection";
 import type { DatasetProfile } from "../../../types/dataset";
 import { ConnectionForm } from "./ConnectionForm";
-import { KIND_META, describeConnection, emptyForm, formOf } from "./meta";
+import { KIND_META, describeConnection, driverNote, emptyForm, formOf, isRemoteHost } from "./meta";
 import { SourceBrowser } from "./SourceBrowser";
 import { useModalFocus } from "../../../hooks/useModalFocus";
 
@@ -47,6 +47,12 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // Application Entra ID renseignée depuis le formulaire : « à renseigner » disparaît de la liste des sources.
+  const reloadConnectors = useCallback(() => {
+    api.connections.connectors().then(setConnectors, () => undefined);
+  }, []);
+  const remote = isRemoteHost(window.location.hostname);
 
   const upsert = useCallback((c: Connection) => {
     setConnections((list) => (list?.some((x) => x.id === c.id) ? list.map((x) => (x.id === c.id ? c : x)) : [...(list ?? []), c]));
@@ -115,7 +121,7 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
                 {error}
               </p>
             )}
-            {view.kind === "pick" && <ConnectorPicker connectors={connectors} online={online} onPick={(k) => setView({ kind: "form", form: emptyForm(k), editing: null })} />}
+            {view.kind === "pick" && <ConnectorPicker connectors={connectors} online={online} remote={remote} onPick={(k) => setView({ kind: "form", form: emptyForm(k), editing: null })} />}
             {view.kind === "form" && (
               <ConnectionForm
                 key={view.editing?.id ?? `new-${view.form.kind}`}
@@ -123,6 +129,8 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
                 value={view.form}
                 onChange={(form) => setView({ ...view, form })}
                 editing={view.editing}
+                onConnectorsChanged={reloadConnectors}
+                remote={remote}
                 onSaved={(c) => {
                   upsert(c);
                   setView({ kind: "browse", id: c.id });
@@ -162,7 +170,7 @@ export function ConnectDialog({ onClose, onImported, initialKind }: { onClose: (
 }
 
 /** Choix du type de source (« Obtenir des données » de Power BI) : Suite Atelier d'abord, puis bases et fichiers. */
-function ConnectorPicker({ connectors, online, onPick }: { connectors: ConnectorInfo[]; online: boolean; onPick: (k: ConnectorKind) => void }) {
+function ConnectorPicker({ connectors, online, remote, onPick }: { connectors: ConnectorInfo[]; online: boolean; remote: boolean; onPick: (k: ConnectorKind) => void }) {
   const suite = connectors.filter((c) => SUITE_KINDS.includes(c.kind));
   const others = connectors.filter((c) => !SUITE_KINDS.includes(c.kind));
   return (
@@ -172,27 +180,25 @@ function ConnectorPicker({ connectors, online, onPick }: { connectors: Connector
       {suite.length > 0 && (
         <>
           <p className="mt-4 text-2xs font-medium text-faint">Suite Atelier</p>
-          <ConnectorGrid connectors={suite} online={online} onPick={onPick} />
+          <ConnectorGrid connectors={suite} online={online} remote={remote} onPick={onPick} />
           <p className="mt-4 text-2xs font-medium text-faint">Bases et fichiers</p>
         </>
       )}
-      <ConnectorGrid connectors={others} online={online} onPick={onPick} />
+      <ConnectorGrid connectors={others} online={online} remote={remote} onPick={onPick} />
     </div>
   );
 }
 
-function ConnectorGrid({ connectors, online, onPick }: { connectors: ConnectorInfo[]; online: boolean; onPick: (k: ConnectorKind) => void }) {
+function ConnectorGrid({ connectors, online, remote, onPick }: { connectors: ConnectorInfo[]; online: boolean; remote: boolean; onPick: (k: ConnectorKind) => void }) {
   return (
     <div className="mt-2 grid gap-2 sm:grid-cols-2">
         {connectors.map((info) => {
           const Icon = KIND_META[info.kind].icon;
-          const note = !info.driver_installed
-            ? `Pilote à installer : ${info.install_hint ?? ""}`
-            : info.needs_online && !online
-              ? "Mode « En ligne » requis"
-              : !info.configured
-                ? "Application Entra ID à renseigner"
-                : null;
+          // SharePoint : les deux manques se disent ensemble (application à renseigner, mode « En ligne »).
+          const needs = [!info.configured ? "Application Entra ID à renseigner à l'étape suivante" : null, info.needs_online && !online ? "Mode « En ligne » requis" : null].filter(Boolean);
+          const note = !info.driver_installed ? driverNote(info.install_hint, remote) : needs.length ? needs.join(" · ") : null;
+          // Sur un serveur, « un dossier de la machine » est un dossier du serveur : le dire dès le choix de la source.
+          const where = remote && (info.kind === "file" || info.kind === "sqlite") ? "Lit un fichier du serveur qui fait tourner Atelier Viz, pas de cet ordinateur." : null;
           return (
             <button
               key={info.kind}
@@ -206,7 +212,8 @@ function ConnectorGrid({ connectors, online, onPick }: { connectors: ConnectorIn
               <span className="min-w-0">
                 <span className="block text-sm font-medium">{info.label}</span>
                 <span className="block text-xs text-muted">{info.description}</span>
-                {note && <span className={clsx("mt-1 block text-[11px]", info.driver_installed ? "text-muted" : "font-mono text-negative")}>{note}</span>}
+                {where && <span className="mt-1 block text-[11px] text-muted">{where}</span>}
+                {note && <span className={clsx("mt-1 block text-[11px]", info.driver_installed ? "text-muted" : remote ? "text-negative" : "font-mono text-negative")}>{note}</span>}
               </span>
             </button>
           );

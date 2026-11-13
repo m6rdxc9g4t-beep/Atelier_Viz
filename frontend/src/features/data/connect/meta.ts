@@ -83,6 +83,10 @@ export function missingField(form: ConnectionInput): string | null {
   if (form.kind === "snowflake" && !form.database?.trim()) return "Indiquez la base Snowflake (ex. ANALYTICS).";
   if (form.kind === "bigquery" && !/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(form.database?.trim() ?? "")) return "Indiquez le projet Google Cloud (ex. mon-projet-123).";
   if ((form.kind === "sqlite" || form.kind === "file") && !form.path?.trim()) return "Indiquez le chemin du fichier.";
+  if (form.kind === "sharepoint") {
+    const entra = entraAppError(form.client_id, form.tenant);
+    if (entra) return entra;
+  }
   if (form.kind === "web") {
     const url = form.base_url?.trim() ?? "";
     if (!url) return "Indiquez l'adresse du fichier.";
@@ -101,6 +105,63 @@ export function missingField(form: ConnectionInput): string | null {
     if (!isLoopbackUrl(url)) return "Atelier Projets doit tourner sur cette machine : utilisez 127.0.0.1, localhost ou ::1 (par exemple http://127.0.0.1:3000).";
   }
   return null;
+}
+
+const ENTRA_GUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+const ENTRA_TENANT = /^[a-z0-9](?:[a-z0-9.-]{0,198}[a-z0-9])?$/i;
+
+/** Autorisations Microsoft Graph déléguées demandées à la connexion (les mêmes que `SCOPES` du backend). */
+export const ENTRA_PERMISSIONS = ["Sites.Read.All", "Files.Read.All", "User.Read", "offline_access"] as const;
+
+/**
+ * Étapes à suivre dans Entra pour créer l'application de SharePoint, dans l'ordre des écrans du centre
+ * d'administration (entra.microsoft.com). Écrites dans la fenêtre : rien n'est à chercher ailleurs.
+ */
+export const ENTRA_STEPS: { title: string; detail: string }[] = [
+  {
+    title: "Créer l'inscription",
+    detail: "Sur entra.microsoft.com : Applications → Inscriptions d'applications → Nouvelle inscription. Nom : « Atelier Viz ». Types de comptes pris en charge : « Comptes dans cet annuaire d'organisation uniquement » (locataire unique). URI de redirection : laisser vide. Puis « S'inscrire ».",
+  },
+  {
+    title: "En faire un client public",
+    detail: "Dans l'application : Authentification → Paramètres avancés → « Autoriser les flux de clients publics » : Oui, puis Enregistrer. C'est ce qui permet la connexion par code d'appareil ; aucun secret client n'est à créer.",
+  },
+  {
+    title: "Donner les autorisations de lecture",
+    detail: `API autorisées → Ajouter une autorisation → Microsoft Graph → Autorisations déléguées : ${ENTRA_PERMISSIONS.join(", ")}. Puis « Accorder un consentement d'administrateur » si votre organisation l'exige.`,
+  },
+  {
+    title: "Recopier les deux identifiants",
+    detail: "Page Vue d'ensemble : « ID d'application (client) » et « ID de l'annuaire (locataire) », à coller ci-dessous.",
+  },
+  {
+    title: "Se connecter par code d'appareil",
+    detail: "Une fois la connexion SharePoint enregistrée, en mode « En ligne » : « Se connecter à Microsoft 365 » affiche un code à saisir sur microsoft.com/devicelogin avec votre compte. Atelier Viz ne voit jamais votre mot de passe.",
+  },
+];
+
+/** Identifiant d'application ou locataire mal formés (mêmes règles que l'API), ou null. Les deux peuvent être vides. */
+export function entraAppError(clientId: string | null | undefined, tenant: string | null | undefined): string | null {
+  const id = clientId?.trim() ?? "";
+  const dir = tenant?.trim() ?? "";
+  if (id && !ENTRA_GUID.test(id)) return "Identifiant d'application attendu : 36 caractères, comme 00000000-0000-0000-0000-000000000000 (« ID d'application (client) » dans Entra).";
+  if (dir && !ENTRA_TENANT.test(dir)) return "Locataire attendu : l'« ID de l'annuaire (locataire) » d'Entra ou le domaine de l'entreprise (contoso.fr), sans adresse ni espace.";
+  return null;
+}
+
+/**
+ * Vrai si l'interface est servie par une autre machine que celle de la personne (Atelier Viz sur un serveur) :
+ * un « chemin sur cette machine » y désigne alors le serveur, pas l'ordinateur devant soi.
+ */
+export function isRemoteHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "" || host === "localhost" || host === "::1" || host.endsWith(".localhost")) return false;
+  return !/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
+}
+
+/** Mention d'un pilote absent : la commande sur son ordinateur ; sur un serveur, ce qui manque à l'installation. */
+export function driverNote(installHint: string | null, remote: boolean): string {
+  return remote ? "Pilote absent sur le serveur d'Atelier Viz" : `Pilote à installer : ${installHint ?? ""}`;
 }
 
 /** Nom de fichier à la fin d'une adresse (« ventes.csv »), sans paramètres. */

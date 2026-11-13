@@ -16,7 +16,7 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 interface Props {
   connection: Connection;
   online: boolean;
-  /** SharePoint : application Entra ID renseignée côté serveur (SHAREPOINT_CLIENT_ID). */
+  /** SharePoint : application Entra ID renseignée (depuis l'interface, ou SHAREPOINT_CLIENT_ID sur le serveur). */
   sharepointConfigured?: boolean;
   onEdit: () => void;
   onChanged: (c: Connection) => void;
@@ -208,8 +208,8 @@ export function SourceBrowser({ connection: c, online, sharepointConfigured = tr
         <p role="alert" className="mx-5 mt-3 flex items-start gap-2 rounded-md border border-border bg-surface-2 px-3 py-2 text-xs">
           <TriangleAlert className="mt-px size-3.5 shrink-0 text-negative" aria-hidden />
           <span>
-            Il manque l'application Entra ID de votre entreprise : renseignez son identifiant via « Modifier », ou SHAREPOINT_CLIENT_ID dans backend/.env (voir README,
-            « Connecteurs »). En attendant, un fichier SharePoint synchronisé par OneDrive s'ouvre avec « Fichier synchronisé ».
+            Il manque l'application Entra ID de votre entreprise : « Modifier » ouvre les étapes à suivre dans Entra et les deux identifiants à recopier (identifiant
+            d'application et locataire). En attendant, un fichier partagé par un lien se lit avec « Fichier web (URL) ».
           </span>
         </p>
       )}

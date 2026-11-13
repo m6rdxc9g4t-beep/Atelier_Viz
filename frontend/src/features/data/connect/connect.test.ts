@@ -2,7 +2,23 @@ import { describe, expect, it } from "vitest";
 
 import type { AnyOrigin, Connection } from "../../../types/connection";
 import { isConnectionOrigin } from "../../../types/connection";
-import { describeConnection, emptyForm, formOf, groupSnapshots, groupTables, missingField, sinceLabel, sourceDetails, suggestedName, toInput } from "./meta";
+import {
+  ENTRA_PERMISSIONS,
+  ENTRA_STEPS,
+  describeConnection,
+  driverNote,
+  emptyForm,
+  entraAppError,
+  formOf,
+  groupSnapshots,
+  groupTables,
+  isRemoteHost,
+  missingField,
+  sinceLabel,
+  sourceDetails,
+  suggestedName,
+  toInput,
+} from "./meta";
 
 const pg: Connection = {
   id: "c1",
@@ -167,5 +183,44 @@ describe("entrepôts Snowflake et BigQuery", () => {
     expect(emptyForm("bigquery").max_gb).toBe(10);
     const sf: Connection = { ...pg, id: "s1", kind: "snowflake", host: "monorg-moncompte", database: "VENTES", warehouse: "WH" };
     expect(describeConnection(sf)).toBe("monorg-moncompte · VENTES · WH");
+  });
+});
+
+describe("SharePoint : application Entra ID", () => {
+  const APP = "11111111-2222-3333-4444-555555555555";
+
+  it("écrit les étapes exactes à suivre dans Entra, dans l'ordre", () => {
+    const text = ENTRA_STEPS.map((s) => `${s.title} ${s.detail}`);
+    expect(ENTRA_STEPS.map((s) => s.title)).toEqual(["Créer l'inscription", "En faire un client public", "Donner les autorisations de lecture", "Recopier les deux identifiants", "Se connecter par code d'appareil"]);
+    expect(text[0]).toMatch(/entra\.microsoft\.com.*Inscriptions d'applications.*Nouvelle inscription.*locataire unique.*URI de redirection : laisser vide/);
+    expect(text[1]).toMatch(/Autoriser les flux de clients publics.*Oui.*aucun secret client/);
+    expect(text[2]).toMatch(/Microsoft Graph.*Autorisations déléguées.*Sites\.Read\.All, Files\.Read\.All, User\.Read, offline_access.*consentement d'administrateur/);
+    expect(text[3]).toMatch(/ID d'application \(client\).*ID de l'annuaire \(locataire\)/);
+    expect(text[4]).toMatch(/En ligne.*microsoft\.com\/devicelogin.*jamais votre mot de passe/);
+    // Les mêmes autorisations que celles que demande le backend (SCOPES de sharepoint.py).
+    expect([...ENTRA_PERMISSIONS].sort()).toEqual(["Files.Read.All", "Sites.Read.All", "User.Read", "offline_access"]);
+  });
+
+  it("refuse un identifiant ou un locataire mal formés, comme l'API", () => {
+    expect(entraAppError(APP, "contoso.fr")).toBeNull();
+    expect(entraAppError(` ${APP.toUpperCase()} `, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")).toBeNull();
+    expect(entraAppError("", "")).toBeNull();
+    expect(entraAppError("mon-application", "")).toMatch(/36 caractères/);
+    for (const tenant of ["contoso.fr/../common", "https://login.microsoftonline.com/x", "contoso fr", "a?b"]) expect(entraAppError(APP, tenant)).toMatch(/Locataire attendu/);
+    // Le formulaire d'une connexion applique la même règle à son application propre.
+    expect(missingField({ ...emptyForm("sharepoint"), client_id: "abc" })).toMatch(/36 caractères/);
+    expect(missingField({ ...emptyForm("sharepoint"), client_id: APP, tenant: "contoso.fr" })).toBeNull();
+  });
+});
+
+describe("Atelier Viz sur un serveur", () => {
+  it("reconnaît une interface servie par une autre machine", () => {
+    for (const host of ["localhost", "127.0.0.1", "127.8.9.1", "[::1]", "::1", "viz.localhost", ""]) expect(isRemoteHost(host)).toBe(false);
+    for (const host of ["viz.atelier.141-227-149-233.sslip.io", "192.168.1.20", "viz.entreprise.fr", "127.0.0.1.exemple.fr"]) expect(isRemoteHost(host)).toBe(true);
+  });
+
+  it("ne demande pas de lancer pip sur son ordinateur pour un pilote qui manque au serveur", () => {
+    expect(driverNote("pip install pymssql", false)).toBe("Pilote à installer : pip install pymssql");
+    expect(driverNote("pip install pymssql", true)).toBe("Pilote absent sur le serveur d'Atelier Viz");
   });
 });
