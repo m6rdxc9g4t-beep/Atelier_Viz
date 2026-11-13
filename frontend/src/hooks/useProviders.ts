@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { api } from "../lib/api";
+import { api, onEngineDown } from "../lib/api";
 import type { ProviderStatus } from "../types/ai";
 
 interface ProvidersState {
@@ -37,7 +37,13 @@ function load(force = false) {
     .finally(() => publish({ loading: false }));
 }
 
-/** État d'Ollama et de Claude (/api/ai/providers), interrogé une fois puis à la demande. */
+// Un moteur vient de refuser une demande (503 : Ollama injoignable, jeton du forfait Claude refusé…) : l'état affiché
+// est périmé. Relu sans forcer : « Revérifier » seul redonne sa chance à un jeton refusé.
+onEngineDown(() => {
+  if (loaded && listeners.size > 0) load();
+});
+
+/** État d'Ollama et de Claude (/api/ai/providers), interrogé une fois, à la demande, et après le refus d'un moteur. */
 export function useProviders(): ProvidersState {
   const [state, setState] = useState<Shared>(shared);
 

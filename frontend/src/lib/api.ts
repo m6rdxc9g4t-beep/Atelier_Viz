@@ -84,19 +84,42 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+const engineDownListeners = new Set<() => void>();
+
+/**
+ * S'abonner aux refus « moteur indisponible » (503) des routes d'IA : Ollama injoignable, jeton du forfait Claude
+ * refusé… L'état des moteurs affiché (pastilles, sélecteur) est alors périmé. Retourne la fonction de désabonnement.
+ */
+export function onEngineDown(listener: () => void): () => void {
+  engineDownListeners.add(listener);
+  return () => {
+    engineDownListeners.delete(listener);
+  };
+}
+
+/** Demande à un moteur d'IA : un 503 prévient les abonnés d'`onEngineDown`, puis l'erreur suit son cours. */
+async function aiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  try {
+    return await request<T>(path, init);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 503) engineDownListeners.forEach((listener) => listener());
+    throw err;
+  }
+}
+
 export const api = {
   health: () => request<{ status: "ok"; version: string; environment: string }>("/health"),
   /** `refresh` : revérifie Claude tout de suite (sinon état gardé 60 s par le serveur). */
   providers: (refresh = false) => request<ProvidersResponse>(`/ai/providers${refresh ? "?refresh=true" : ""}`),
-  chat: (body: ChatRequest) => request<ChatResponse>("/ai/chat", { method: "POST", body: JSON.stringify(body) }),
+  chat: (body: ChatRequest) => aiRequest<ChatResponse>("/ai/chat", { method: "POST", body: JSON.stringify(body) }),
   buildVisuals: (body: BuildRequest, signal?: AbortSignal) =>
-    request<BuildResponse>("/ai/visuals", { method: "POST", body: JSON.stringify(body), signal }),
+    aiRequest<BuildResponse>("/ai/visuals", { method: "POST", body: JSON.stringify(body), signal }),
   /** Revalide des visuels de l'historique « Créer avec l'IA » (même `repair` que la génération). */
   repairVisuals: (body: RepairRequest) => request<RepairResponse>("/ai/visuals/repair", { method: "POST", body: JSON.stringify(body) }),
   summarizePage: (body: SummaryRequest, signal?: AbortSignal) =>
-    request<SummaryResponse>("/ai/summary", { method: "POST", body: JSON.stringify(body), signal }),
+    aiRequest<SummaryResponse>("/ai/summary", { method: "POST", body: JSON.stringify(body), signal }),
   /** Réponse vérifiée à une question (ou explication d'un écart) à partir de faits calculés ici. */
-  answer: (body: AnswerRequest, signal?: AbortSignal) => request<AnswerResponse>("/ai/answer", { method: "POST", body: JSON.stringify(body), signal }),
+  answer: (body: AnswerRequest, signal?: AbortSignal) => aiRequest<AnswerResponse>("/ai/answer", { method: "POST", body: JSON.stringify(body), signal }),
 
   exemples: {
     list: () => request<ExempleHistoire[]>("/exemples-suite"),
