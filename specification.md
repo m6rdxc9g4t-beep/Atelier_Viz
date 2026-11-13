@@ -232,14 +232,16 @@ Mesuré avec Claude (CLI, Sonnet) sur `ventes_2026.csv` : 5 à 6 s par demande ;
 
 ### Résumé de la page (« Résumer »)
 
-Bouton **Résumer** du Studio (édition et lecture) : un titre et 3 à 5 points sur la page affichée, avec ses filtres.
+Bouton **Résumer** du Studio (édition et lecture) : une phrase d'ouverture et 2 à 6 points qui **lisent** la page affichée (ce qui ressort, ce qui évolue, ce qui mérite l'attention), avec ses filtres — jamais la liste des cartes recopiée.
 
 | Étape | Détail |
 |---|---|
 | Faits | Calculés dans le navigateur à partir des résultats affichés : total, trois premiers et dernier avec leur part, évolution début → fin, maximum / minimum, répartition par légende, KPI et cible, sous-totaux de matrice… Écrits comme à l'écran (« 974 k », « 22 % »). Deux visuels aux faits identiques ne sont envoyés qu'une fois |
 | Confidentialité | Seuls ces faits partent vers l'IA (≈ 25 chiffres pour une page de tableau de bord), **jamais les lignes** ; liste consultable (« Voir les chiffres envoyés »). Hors ligne : Ollama uniquement |
-| Rédaction | Sortie JSON contrainte (titre, points, numéros des visuels cités). Consigne : recopier les nombres, ne rien calculer, aucune cause ni prévision inventée |
-| Vérification | Chaque nombre du texte est relu (formats français, k / M / Md, %, « millions ») et comparé aux faits à la précision écrite près ; dénombrements ≤ 10 et années admis. Un écart → une relance avec la liste ; ce qui reste invérifiable est écarté et signalé |
+| Lecture calculée | Écrite dans le navigateur, sans IA, à partir des mêmes résultats : ouverture (page, période couverte, filtres actifs, chiffres clés) puis constats rédigés — rapport entre deux cartes de même unité (« Dépenses » représente 70 % de « Recettes »), évolution d'une série (début, fin, sens, plus haut, plus bas), premier d'un classement et sa part, poids des trois premiers, maximum rapporté à la moyenne, écart à une cible. Envoyée avec les faits ; ses nombres sont vérifiés comme eux |
+| Rédaction | Sortie JSON contrainte (ouverture, points, numéros des visuels cités). Consignes courtes, avec un exemple, pour un petit modèle : une lecture qui compare, situe ou relie, appuyée sur la lecture calculée ; recopier les nombres, ne rien calculer, aucune cause ni prévision inventée |
+| Vérification | Chaque nombre du texte est relu (formats français, k / M / Md, %, « millions ») et comparé aux faits à la précision écrite près ; dénombrements ≤ 10 et années admis. Un point qui recopie une carte ou un fait tel quel (« Recettes : 13 k € ») est refusé de la même façon. Un écart → une relance avec la liste ; ce qui reste invérifiable ou recopié est écarté et signalé |
+| Repli | Une phrase écartée laisse sa place à un constat de la lecture calculée (marqué « calculé sans IA ») ; si le moteur ne répond pas ou ne donne aucune phrase vérifiable, toute la synthèse vient de la lecture calculée (« Synthèse · calculée sans IA », avec la raison). Claude demandé hors ligne reste un refus (403) |
 | Studio | Points reliés à leurs visuels (clic = défilement + sélection), « Insérer dans la page » (zone de texte modifiable en haut, Ctrl+Z), « Copier » |
 | Export | Option « Synthèse de chaque page par l'IA » : en tête des notes du présentateur |
 
@@ -533,7 +535,7 @@ Pour tout jeu importé depuis une connexion (`origin`) : page **Données → Pla
 | POST | `/api/ai/chat` | Assistant ; `dataset_id` optionnel joint le schéma et 5 lignes au dernier message de l'utilisateur (jamais au prompt système) |
 | POST | `/api/ai/visuals` | Phrase + catalogue → visuels validés (`BuildResponse` : visuels, explication, moteur, corrections) |
 | POST | `/api/ai/visuals/repair` | Visuels de l'historique « Créer avec l'IA » revalidés contre le profil actuel (un résultat par visuel : réparé ou écarté avec la raison), sans appel à l'IA |
-| POST | `/api/ai/summary` | Faits d'une page → synthèse vérifiée (`SummaryResponse` : titre, points reliés aux visuels, moteur, éléments écartés) |
+| POST | `/api/ai/summary` | Faits et lecture calculée d'une page → synthèse vérifiée (`SummaryResponse` : ouverture, points reliés aux visuels, moteur, éléments écartés, `local` quand elle vient de la lecture calculée) |
 | POST | `/api/datasets` | Import multipart (CSV/XLSX/JSON, 50 Mo) → profil ; persisté dans DuckDB |
 | POST | `/api/datasets/sheets` | Feuilles d'un classeur Excel avant import (multipart) : nom, lignes, colonnes, nom du jeu, feuille vide ou illisible ; rien n'est enregistré |
 | POST | `/api/datasets/workbook` | Import d'un classeur (multipart, champ `sheets` répété ; absent : toutes) : un jeu par feuille, « Classeur — Feuille » ; feuilles laissées dans `skipped` ; 422 si aucune n'est importée |
