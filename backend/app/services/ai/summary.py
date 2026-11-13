@@ -76,8 +76,8 @@ _FACTOR_BEFORE = re.compile(r"(?:\bpar|\bx|×)[\s\u00a0\u202f]*$", re.IGNORECASE
 _FACTOR_AFTER = re.compile(r"[\s\u00a0\u202f]*(?:fois\b|[x×][\s\u00a0\u202f]*\d)", re.IGNORECASE)
 # Mots qui disent qu'un montant est négatif sans l'écrire avec son signe (« un déficit de 1,2 k € »).
 _NEGATIVE_WORDS = re.compile(
-    r"baiss|recul|défici|négati|negati|perte|perd|moins|diminu|chut|repli|découvert|dessous|défavorable|retard|"
-    r"manqu|dette|débit|dépens|sorti|rouge|réduction|réduit|inférieur",
+    r"baiss|recul|défici|négati|negati|perte|perd|moins|diminu|chut|repli|découvert|dessous|\bsous\b|défavorable|"
+    r"retard|retrait|manqu|dette|débit|dépens|sorti|rouge|réduction|réduit|inférieur|fléchi|tass|érod|régress|contract",
     re.IGNORECASE,
 )
 

@@ -364,6 +364,7 @@ def test_the_sign_of_a_negative_fact_is_checked() -> None:
     assert ungrounded("Le solde cumulé part de -1,2 k € fin juillet et atteint 3,9 k €.", pool) == []
     assert ungrounded("Le solde cumulé part de −1,2 k € fin juillet.", pool) == []
     assert ungrounded("Le solde part d'un déficit de 1,2 k € et finit à 3,9 k €.", pool) == []
+    assert ungrounded("Le solde commence sous zéro, à 1,2 k € de retrait.", pool) == []
     # Un fait positif ne se cite pas avec un signe moins ; son « + » peut manquer.
     assert ungrounded("Le solde finit à -3,9 k €.", pool) == ["-3,9 k"]
     assert ungrounded("Le solde gagne 5 k € sur la période.", pool) == []
