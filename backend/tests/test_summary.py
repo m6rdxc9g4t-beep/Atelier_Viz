@@ -62,7 +62,7 @@ def test_numbers_read_french_formats() -> None:
 
 def test_grounding_accepts_rounding_counts_years_and_rejects_invented_numbers() -> None:
     pool = allowed_numbers(req())
-    assert ungrounded("Environ 4,4 millions, soit 4 412 000 ; 3 mois en 2026 ; hausse de 48 %", pool) == []
+    assert ungrounded("Environ 4,4 millions, soit 4 412 000 ; les 3 premiers en 2026 ; hausse de 48 %", pool) == []
     assert ungrounded("Une marge de 12 % et 7,5 M de commandes", pool) == ["12 %", "7,5 M"]
     # Un pourcentage ne valide pas un montant de même valeur.
     assert ungrounded("48 k", pool) == ["48 k"]
@@ -317,3 +317,89 @@ def test_route_returns_the_computed_reading_when_the_engine_fails(client: TestCl
     body = res.json()
     assert body["local"] is True and body["points"][0]["local"] is True
     assert client.post("/api/ai/summary", json={**BODY, "reading": {**READING, "points": []}}).status_code == 422
+
+
+# --- Vérification resserrée : montants pris pour des années, signe, multiplications et durées -------------------
+
+TREASURY: dict[str, Any] = {
+    "report": "Exemple — Studio Garance",
+    "page": "Trésorerie",
+    "filters": [],
+    "visuals": [
+        {"id": "rec", "title": "Recettes", "type": "kpi", "facts": ["Recettes : 13 k €"]},
+        {"id": "dep", "title": "Dépenses", "type": "kpi", "facts": ["Dépenses : 9,1 k €"]},
+        {
+            "id": "cumul",
+            "title": "Solde cumulé",
+            "type": "area",
+            "facts": [
+                "Solde cumulé — période : sem. 27/07 → sem. 26/10 (14 périodes)",
+                "Début : sem. 27/07 — -1,2 k € ; fin : sem. 26/10 — 3,9 k €",
+                "Variation du début à la fin : +5 k €",
+            ],
+        },
+    ],
+}
+
+
+def treasury(**kw: Any) -> SummaryRequest:
+    return SummaryRequest.model_validate({**TREASURY, **kw})
+
+
+def test_an_amount_is_never_taken_for_a_year() -> None:
+    """« 2 050 € » et « 1 950 € » ne sont pas des années : séparateur de milliers ou devise, donc à vérifier."""
+    pool = allowed_numbers(treasury())
+    assert ungrounded("Le loyer atteint 2 050 € en 2026, soit 1 950 € de plus.", pool) == ["2 050", "1 950"]
+    assert ungrounded("Le loyer atteint 2050 € puis 1950 euros.", pool) == ["2050", "1950"]
+    assert ungrounded("Le loyer atteint 2\u202f050\u00a0€.", pool) == ["2\u202f050"]
+    # Une année reste libre : 4 chiffres, sans séparateur ni devise.
+    assert ungrounded("En 2026, les recettes atteignent 13 k €, contre 2025.", pool) == []
+
+
+def test_the_sign_of_a_negative_fact_is_checked() -> None:
+    pool = allowed_numbers(treasury())
+    # Le fait dit « -1,2 k € » : le citer sans signe ni mot de baisse le rend positif.
+    assert ungrounded("Le solde cumulé part de 1,2 k € fin juillet et atteint 3,9 k € fin octobre.", pool) == ["1,2 k"]
+    assert ungrounded("Le solde cumulé part de +1,2 k € fin juillet.", pool) == ["+1,2 k"]
+    assert ungrounded("Le solde cumulé part de -1,2 k € fin juillet et atteint 3,9 k €.", pool) == []
+    assert ungrounded("Le solde cumulé part de −1,2 k € fin juillet.", pool) == []
+    assert ungrounded("Le solde part d'un déficit de 1,2 k € et finit à 3,9 k €.", pool) == []
+    # Un fait positif ne se cite pas avec un signe moins ; son « + » peut manquer.
+    assert ungrounded("Le solde finit à -3,9 k €.", pool) == ["-3,9 k"]
+    assert ungrounded("Le solde gagne 5 k € sur la période.", pool) == []
+    # Tiret d'une date ou d'une période : pas un signe.
+    assert [n.sign for n in numbers("2026-08 → 2026-10")] == ["", "", "", ""]
+
+
+def test_small_integers_are_free_only_as_counts() -> None:
+    pool = allowed_numbers(treasury())
+    assert ungrounded("Les dépenses ont été multipliées par 9 en 3 mois.", pool) == ["9", "3"]
+    assert ungrounded("Les recettes valent 2 fois les dépenses, soit x 2.", pool) == ["2", "2"]
+    assert ungrounded("Les dépenses gagnent 9 € en 2 semaines.", pool) == ["9", "2"]
+    # Dénombrements : toujours libres. Une durée donnée par les faits (« 14 périodes ») est vérifiée comme un chiffre.
+    assert ungrounded("Les 3 cartes et les 2 graphiques de la page couvrent 14 semaines.", pool) == []
+    assert ungrounded("Le solde progresse sur 12 semaines.", pool) == ["12"]
+
+
+def test_summarize_drops_the_three_unverified_sentences() -> None:
+    """Les trois phrases de la relecture : montant « année », signe perdu, multiplication inventée."""
+    reading = {
+        "headline": "Trésorerie : Recettes 13 k €, Dépenses 9,1 k €.",
+        "points": [
+            {"text": "« Dépenses » (9,1 k €) représente 70 % de « Recettes » (13 k €).", "visuals": ["dep", "rec"]}
+        ],
+    }
+    wrong = {
+        "headline": "Les recettes dépassent les dépenses.",
+        "points": [
+            {"text": "Le loyer atteint 2 050 € en 2026, soit 1 950 € de plus.", "visuels": [2]},
+            {"text": "Le solde cumulé part de 1,2 k € fin juillet.", "visuels": [3]},
+            {"text": "Les dépenses ont été multipliées par 9 en 3 mois.", "visuels": [2]},
+            {"text": "Les dépenses pèsent 70 % des recettes.", "visuels": [1, 2]},
+        ],
+    }
+    svc, ollama = service(wrong, wrong)
+    res = asyncio.run(summarize(svc, treasury(reading=reading)))
+    assert len(ollama.calls) == 2
+    assert [p.text for p in res.points if not p.local] == ["Les dépenses pèsent 70\u00a0% des recettes."]
+    assert len([w for w in res.warnings if "non vérifiable" in w]) == 3

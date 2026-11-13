@@ -4,8 +4,10 @@
    lecture calculée de la page (une ouverture, quelques constats rédigés sans IA).
 2. L'IA rédige une phrase d'ouverture et quelques points — une lecture, pas la liste des cartes —, en ne recopiant
    que ces chiffres (sortie JSON contrainte).
-3. Chaque nombre du texte est comparé aux faits (à la précision écrite près). Un chiffre introuvable, ou un point
-   qui recopie un fait tel quel, déclenche une relance avec la liste des écarts ; ce qui reste est écarté.
+3. Chaque nombre du texte est comparé aux faits (à la précision écrite près, avec le même signe). Seuls restent
+   libres un dénombrement (« les 3 premiers ») et une année (« en 2026 ») : jamais un montant, une multiplication
+   ni une durée. Un chiffre introuvable, ou un point qui recopie un fait tel quel, déclenche une relance avec la
+   liste des écarts ; ce qui reste est écarté.
 4. Repli : un point écarté est remplacé par un constat de la lecture calculée ; si le modèle échoue ou ne donne
    rien d'exploitable, toute la synthèse vient de cette lecture (`local`).
 """
@@ -62,6 +64,23 @@ UNITS = {"k": 1e3, "millier": 1e3, "milliers": 1e3, "m": 1e6, "million": 1e6, "m
 BILLIONS = {"md", "mds", "milliard", "milliards"}
 
 
+# Ce qui suit un nombre et en fait un montant ou une grandeur, pas une année ni un dénombrement.
+_CURRENCY_AFTER = re.compile(r"[\s\u00a0\u202f]*(?:[€$£]|(?:euros?|eur|dollars?|usd|livres?)\b)", re.IGNORECASE)
+# Durée : « en 3 mois » se vérifie comme un chiffre (les faits donnent le nombre de périodes).
+_DURATION_AFTER = re.compile(
+    r"[\s\u00a0\u202f]*(?:mois|ans?|années?|semaines?|jours?|trimestres?|semestres?|heures?|périodes?)\b", re.IGNORECASE
+)
+# Multiplication : « multiplié par 9 », « divisé par 2 », « 3 fois plus », « x 4 ».
+_FACTOR_BEFORE = re.compile(r"(?:\bpar|\bx|×)[\s\u00a0\u202f]*$", re.IGNORECASE)
+_FACTOR_AFTER = re.compile(r"[\s\u00a0\u202f]*(?:fois\b|[x×][\s\u00a0\u202f]*\d)", re.IGNORECASE)
+# Mots qui disent qu'un montant est négatif sans l'écrire avec son signe (« un déficit de 1,2 k € »).
+_NEGATIVE_WORDS = re.compile(
+    r"baiss|recul|défici|négati|negati|perte|perd|moins|diminu|chut|repli|découvert|dessous|défavorable|retard|"
+    r"manqu|dette|débit|dépens|sorti|rouge|réduction|réduit|inférieur",
+    re.IGNORECASE,
+)
+
+
 @dataclass(frozen=True)
 class Number:
     """Nombre lu dans un texte : valeur, demi-unité du dernier chiffre écrit, pourcentage ou non."""
@@ -71,25 +90,51 @@ class Number:
     precision: float
     percent: bool
     bare_integer: bool
+    # Signe écrit devant le nombre : « + », « - » ou rien (la valeur, elle, est toujours positive).
+    sign: str = ""
+    # Entier libre : dénombrement (« les 3 premiers ») ou année (« en 2026 ») — admis sans figurer dans les faits.
+    free: bool = False
+    # Le texte dit par un mot que le montant est négatif (« baisse », « déficit ») : le signe peut manquer.
+    negative_context: bool = False
+
+
+def _free(whole: str, value: float, before: str, after: str) -> bool:
+    """Entier sans décimale ni unité qui n'a pas à figurer dans les faits : dénombrement ou année.
+
+    Jamais un montant (devise derrière), une multiplication (« par 9 », « 3 fois ») ni une durée (« en 3 mois ») ;
+    une année s'écrit en 4 chiffres, sans séparateur de milliers (« 2 050 » est un montant).
+    """
+    if _CURRENCY_AFTER.match(after):
+        return False
+    if value <= 10:
+        return not (_FACTOR_BEFORE.search(before) or _FACTOR_AFTER.match(after) or _DURATION_AFTER.match(after))
+    return 1900 <= value <= 2100 and re.fullmatch(r"\d{4}", whole) is not None
 
 
 def numbers(text: str) -> list[Number]:
     """Extrait les nombres écrits à la française (« 1 234,5 », « 4,4 M », « +48 % », « 2 millions »)."""
     found: list[Number] = []
+    negative_context = _NEGATIVE_WORDS.search(text) is not None
     for m in NUMBER.finditer(text):
-        _sign, whole, frac, unit = m.groups()
+        sign, whole, frac, unit = m.groups()
         digits = re.sub(r"\D", "", whole)
         value = float(f"{digits}.{frac}" if frac else digits)
         u = (unit or "").lower()
         scale = 1e9 if u in BILLIONS else UNITS.get(u, 1.0)
         precision = 0.5 * 10 ** (-len(frac or "")) * scale
+        bare = not frac and not unit
         found.append(
             Number(
                 text=m.group(0).strip(),
                 value=value * scale,
                 precision=precision,
                 percent=unit == "%",
-                bare_integer=not frac and not unit,
+                bare_integer=bare,
+                sign="-" if sign in ("-", "−") else sign,
+                free=bare
+                and not sign
+                and _free(whole, value, text[max(0, m.start() - 12) : m.start()], text[m.end() :]),
+                negative_context=negative_context,
             )
         )
     return found
@@ -106,15 +151,26 @@ def allowed_numbers(req: SummaryRequest) -> list[Number]:
     return [n for t in texts for n in numbers(t)]
 
 
+def _same_sign(n: Number, fact: Number) -> bool:
+    """Le signe écrit concorde-t-il avec celui du fait ?
+
+    Un fait négatif (« -1,2 k € ») se cite avec son signe, ou sans lui si la phrase dit la baisse ou le déficit ;
+    jamais avec un « + ». Un fait positif ne se cite pas avec un « - ».
+    """
+    if fact.sign == "-":
+        return n.sign == "-" or (n.sign == "" and n.negative_context)
+    return n.sign != "-"
+
+
 def grounded(n: Number, pool: list[Number]) -> bool:
-    """Le nombre figure-t-il dans les faits (à la précision écrite près) ?"""
-    if n.bare_integer and not n.percent and (n.value <= 10 or 1900 <= n.value <= 2100):
+    """Le nombre figure-t-il dans les faits (à la précision écrite près, avec le même signe) ?"""
+    if n.free:
         return True  # dénombrements (« les 3 premiers ») et années
     for f in pool:
         if f.percent != n.percent:
             continue
         tolerance = max(n.precision, f.precision) + 1e-9 * max(abs(n.value), abs(f.value), 1)
-        if abs(n.value - f.value) <= tolerance:
+        if abs(n.value - f.value) <= tolerance and _same_sign(n, f):
             return True
     return False
 
