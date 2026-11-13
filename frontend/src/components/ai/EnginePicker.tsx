@@ -4,7 +4,7 @@ import { useId } from "react";
 
 import { usePreferences } from "../../hooks/usePreferences";
 import { useProviders } from "../../hooks/useProviders";
-import { CLAUDE_MODELS, claudeModelLabel, effectiveProvider, ollamaChoices, ollamaSelected, respondingEngine } from "../../lib/engine";
+import { CLAUDE_MODELS, claudeModelLabel, effectiveProvider, engineDownMessage, ollamaChoices, ollamaSelected, respondingEngine } from "../../lib/engine";
 import type { ClaudeModel, ProviderChoice, ProviderStatus } from "../../types/ai";
 
 const PROVIDERS: { value: ProviderChoice; label: string }[] = [
@@ -145,7 +145,7 @@ export function EnginePicker({ engine, note }: { engine: Engine; note: string })
       </div>
       <p className={clsx("mt-2 flex items-start gap-1.5 text-[11px]", engine.down ? "text-negative" : "text-muted")}>
         {engine.down ? <TriangleAlert className="mt-px size-3 shrink-0" aria-hidden /> : <ShieldCheck className="mt-px size-3 shrink-0" aria-hidden />}
-        <span>{engine.down ? `${engine.label} n'est pas disponible (voir Réglages).` : `Réponse par ${engine.label}${engine.model ? ` (${engine.model})` : ""}. ${note}`}</span>
+        <span>{engine.down ? engineDownMessage(engine.label, claudeSide ? engine.claude : engine.ollama) : `Réponse par ${engine.label}${engine.model ? ` (${engine.model})` : ""}. ${note}`}</span>
       </p>
     </>
   );
