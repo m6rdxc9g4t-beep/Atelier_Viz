@@ -22,21 +22,24 @@ export function useNarrowScreen(): boolean {
   return narrow;
 }
 
-let classicScrollbar: number | null = null;
+/** Épaisseur mesurée, et le zoom du navigateur auquel elle l'a été (elle change avec lui, en px de la page). */
+let classicScrollbar: { size: number; ratio: number } | null = null;
 
 /**
  * Épaisseur d'une barre de défilement de ce navigateur, en px : 15 à 17 sous Windows, 0 quand les barres se
- * superposent au contenu (macOS, téléphone) ou hors navigateur. Mesurée une fois, sur un élément jetable.
+ * superposent au contenu (macOS, téléphone) ou hors navigateur. Mesurée sur un élément jetable, une fois par
+ * niveau de zoom du navigateur.
  */
 export function scrollbarSize(): number {
-  if (classicScrollbar !== null) return classicScrollbar;
   if (typeof document === "undefined" || !document.body) return 0;
+  const ratio = window.devicePixelRatio || 1;
+  if (classicScrollbar?.ratio === ratio) return classicScrollbar.size;
   const probe = document.createElement("div");
   probe.style.cssText = "position:absolute;top:-9999px;left:-9999px;width:100px;height:100px;overflow:scroll;visibility:hidden";
   document.body.appendChild(probe);
-  classicScrollbar = Math.max(0, probe.offsetWidth - probe.clientWidth);
+  classicScrollbar = { size: Math.max(0, probe.offsetWidth - probe.clientWidth), ratio };
   probe.remove();
-  return classicScrollbar;
+  return classicScrollbar.size;
 }
 
 /** Oublie l'épaisseur mesurée (tests). */
