@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 ProviderName = Literal["ollama", "anthropic"]
 ProviderChoice = Literal["auto", "ollama", "anthropic"]
 TaskComplexity = Literal["simple", "complex"]
+ClaudeAccess = Literal["cli", "token", "api"]
+"""Accès à Claude : session `claude` de l'utilisateur, jeton du forfait (`CLAUDE_OAUTH_TOKEN`) ou clé API."""
 
 
 class ChatMessage(BaseModel):
@@ -54,6 +56,11 @@ class ProviderStatus(BaseModel):
     )
     version: str | None = Field(default=None, description="Version de la CLI Claude (`claude --version`).")
     executable: str | None = Field(default=None, description="Chemin de l'exécutable `claude` trouvé.")
+    access: ClaudeAccess | None = Field(
+        default=None,
+        description="Claude seulement : `cli` (session de l'utilisateur), `token` (forfait, par jeton — le jeton "
+        "lui-même n'est jamais renvoyé) ou `api` (clé de la Console).",
+    )
 
 
 class ProvidersResponse(BaseModel):

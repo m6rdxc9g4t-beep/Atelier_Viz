@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from app import claude_token
 from app.api.deps import get_ai_service
 from app.core.config import Settings
 from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
@@ -39,6 +40,15 @@ class FakeProvider:
 
     async def aclose(self) -> None:
         return None
+
+
+@pytest.fixture(autouse=True)
+def no_claude_token(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Jamais le jeton du forfait Claude de la machine : chaque test repart sans jeton (lu une fois par processus)."""
+    monkeypatch.delenv(claude_token.TOKEN_ENV, raising=False)
+    claude_token.forget()
+    yield
+    claude_token.forget()
 
 
 @pytest.fixture

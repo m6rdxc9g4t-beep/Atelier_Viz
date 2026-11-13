@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app import __version__
+from app import __version__, claude_token
 from app.api.deps import build_ai_service
 from app.api.router import api_router
 from app.background import read_status
@@ -43,6 +43,9 @@ from app.services.system_notify import system_notifier
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Fabrique de l'application (permet d'injecter une configuration en test)."""
     settings = settings or get_settings()
+    # Jeton du forfait Claude (`CLAUDE_OAUTH_TOKEN`) : lu une fois, dès la création de l'application, puis retiré
+    # de l'environnement du processus ; `build_ai_service` le retrouve en mémoire.
+    claude_token.capture()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

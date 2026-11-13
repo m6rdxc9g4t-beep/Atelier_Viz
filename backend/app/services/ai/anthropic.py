@@ -5,7 +5,7 @@ from typing import Any
 
 from anthropic import APIError, AsyncAnthropic
 
-from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
+from app.schemas.ai import ChatMessage, ClaudeAccess, ProviderName, ProviderStatus
 from app.services.ai.base import AIProviderError, extract_json, schema_for_model
 
 
@@ -20,6 +20,7 @@ class AnthropicProvider:
     """
 
     name: ProviderName = "anthropic"
+    access: ClaudeAccess = "api"
 
     def __init__(
         self,
@@ -39,7 +40,9 @@ class AnthropicProvider:
     async def status(self) -> ProviderStatus:
         """Ne fait aucun appel réseau : seule la présence d'une clé est vérifiée."""
         detail = None if self.configured else "ANTHROPIC_API_KEY absente du fichier .env"
-        return ProviderStatus(name="anthropic", available=self.configured, model=self.model, detail=detail)
+        return ProviderStatus(
+            name="anthropic", available=self.configured, model=self.model, detail=detail, access=self.access
+        )
 
     async def chat(self, messages: list[ChatMessage], system: str | None = None) -> str:
         if self._client is None:

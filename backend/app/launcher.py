@@ -1076,6 +1076,17 @@ def scrub_inherited_env(env: MutableMapping[str, str] | None = None) -> list[str
     return names
 
 
+def drop_claude_token(env: MutableMapping[str, str] | None = None) -> None:
+    """Retire le jeton du forfait Claude (`CLAUDE_OAUTH_TOKEN`) de `env` (défaut : `os.environ`).
+
+    Mise à jour en ligne de commande : aucun serveur ne suit, et git, npm ou pip n'ont pas à en hériter. L'application,
+    elle, le garde en mémoire avant de le retirer (`app/claude_token.py`, appelé par `app/desktop.py`).
+    """
+    env = os.environ if env is None else env
+    for key in [k for k in env if k.upper() == "CLAUDE_OAUTH_TOKEN"]:
+        env.pop(key, None)
+
+
 # --- Préférences (lues sans dépendance) ------------------------------------------------------------
 
 
@@ -1133,6 +1144,7 @@ def main(argv: list[str] | None = None) -> int:
     opts = parser.parse_args(args)
     _safe_console()
     scrub_inherited_env()
+    drop_claude_token()
     updater = Updater(repo=opts.depot.resolve())
     if opts.plan:
         print(" ".join(updater.plan().steps) or "ok")

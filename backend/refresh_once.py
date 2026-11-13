@@ -18,6 +18,9 @@ if __name__ == "__main__":
     from app.launcher import scrub_inherited_env
 
     scrub_inherited_env()
+    from app import claude_token
+
+    claude_token.capture()  # jeton du forfait Claude : la tâche n'appelle pas l'IA, aucun sous-processus n'en hérite
     from app.background import main
 
     sys.exit(main())
