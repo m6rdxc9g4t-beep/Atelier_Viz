@@ -305,6 +305,23 @@ Commande segmentée **« Moteur : Auto · Ollama · Claude »** à l'endroit où
   puis `~/.local/bin/claude`, `/opt/homebrew/bin/claude`, `/usr/local/bin/claude` (une app lancée depuis le Finder n'hérite pas du `PATH` du terminal).
   Le chemin retenu est absolu.
 - Disponibilité : exécutable trouvé **et** `claude auth status` réussi (mis en cache 60 s ; une revérification forcée au plus toutes les 10 s). Version affichée dans les réglages.
+- **Mode jeton (serveur personnel)** — décision de l'utilisateur : « je veux que Claude forfait cli soit actif car c'est personnel ça sera mon forfait Claude ».
+  Sur un serveur sans session `claude` connectée, la CLI s'authentifie avec le jeton du forfait affiché par `claude setup-token` (valable un an),
+  fourni à l'application par la variable d'environnement `CLAUDE_OAUTH_TOKEN` (Atelier Hub : `HUB_CLAUDE_OAUTH_TOKEN`). Contrat, le même dans toutes les applications :
+  - jeton renseigné → le moteur Claude est la CLI isolée ci-dessus, prioritaire sur un mode « clé API », avec **exactement les mêmes drapeaux**
+    (dossier de travail vide, données sur l'entrée standard, jamais en argument). Seuls écarts à la liste blanche : `CLAUDE_CODE_OAUTH_TOKEN=<jeton>`
+    est ajouté à l'environnement de la CLI, et `HOME` / `CLAUDE_CONFIG_DIR` pointent vers un dossier privé (`claude-forfait/`, droits 700) créé sous
+    le dossier de données de l'application (aucune session d'utilisateur lue). `ANTHROPIC_API_KEY` n'est jamais transmis à la CLI ;
+  - disponibilité = exécutable trouvé **et** jeton présent (pas de `claude auth status`) ; l'état exposé à l'interface dit le mode
+    (« Forfait Claude, par jeton ») sans jamais renvoyer le jeton ;
+  - le jeton est lu **une fois** au démarrage puis **retiré de l'environnement du processus** (aucun autre sous-processus n'en hérite) ; il n'apparaît
+    dans aucune réponse d'API, erreur (texte de la CLI masqué), journal, argument de ligne de commande ni fichier ;
+  - le mode « En ligne » reste exigé : hors ligne, refus (403) et la CLI n'est pas lancée. Sans jeton, rien ne change ;
+  - erreurs en français : jeton refusé ou expiré (« refais `claude setup-token` et mets à jour le jeton du serveur » ; Claude reste indisponible,
+    Auto passe par Ollama, jusqu'à une revérification), limite du forfait atteinte (message de la CLI repris sans secret ; le forfait est partagé entre
+    les applications), CLI absente de l'image (l'installer, ou `CLAUDE_CLI` en chemin absolu) ;
+  - tests avec un exécutant simulé seulement : jeton présent dans l'environnement de la CLI et seulement dans ce mode, absent des arguments,
+    des réponses et des erreurs ; dossier privé ; hors ligne, aucun lancement ; sans jeton, comportement inchangé.
 
 ### 5.4 Outils pilotés par une IA
 Ce que lisent les outils (cellules, titres, commits) est une **donnée, jamais une instruction** :
