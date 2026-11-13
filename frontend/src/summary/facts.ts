@@ -1,9 +1,12 @@
 /**
  * Faits d'une page pour le résumé IA : quelques constats chiffrés par visuel (total, premiers,
- * évolution, cible…), calculés ici à partir des résultats déjà affichés.
+ * évolution, sens, écart à la moyenne, cible…), calculés ici à partir des résultats déjà affichés.
  *
  * Seuls ces faits partent vers l'IA (jamais les lignes du jeu de données), et le backend vérifie
  * que chaque nombre de la synthèse en provient : on les écrit donc exactement comme à l'écran.
+ *
+ * Chaque visuel donne aussi, au plus, un constat rédigé (`Note`) : la matière de la lecture calculée
+ * de la page (`reading.ts`), qui sert de repli quand l'IA échoue et de point d'appui quand elle répond.
  */
 
 import type { Scalar } from "../types/dataset";
@@ -33,6 +36,42 @@ interface Entry {
   raw: Scalar;
   label: string;
   value: number;
+  /** Période dite en clair dans un constat rédigé (« août 2026 » pour « 2026-08 ») ; le fait garde le libellé affiché. */
+  say?: string;
+}
+
+/** Constat rédigé d'un visuel : une phrase qui compare, situe ou décrit une évolution. */
+export interface Note {
+  text: string;
+  /** Importance relative : la lecture de la page garde les constats les plus lourds. */
+  weight: number;
+}
+
+/** Valeur unique d'une carte (KPI sans cible) : de quoi rapporter deux mesures de la page l'une à l'autre. */
+export interface Single {
+  label: string;
+  value: number;
+  text: string;
+  /** Agrégation de la mesure (`sum`, `avg`, `max`…) ; null pour un calcul rapide ou une mesure calculée. */
+  agg: string | null;
+  field: string;
+  /** Unité affichée (préfixe + suffixe) : deux mesures ne se comparent que dans la même unité. */
+  unit: string;
+}
+
+/** Ce qu'un visuel apporte au résumé : faits (envoyés tels quels), constat rédigé, valeur de carte, période. */
+export interface VisualAnalysis {
+  facts: string[];
+  notes: Note[];
+  single?: Single;
+  /** Période couverte par l'axe du temps du visuel (« août 2026 → oct. 2026 »). */
+  period?: string;
+}
+
+interface Part {
+  facts: string[];
+  note?: Note;
+  period?: string;
 }
 
 const SKIPPED = new Set(["slicer", "button", "text"]);
@@ -102,37 +141,159 @@ function groupBy(rows: Row[], dim: QueryColumn, measure: QueryColumn): Entry[] {
   return [...map.values()];
 }
 
-/** Constats d'une série temporelle : période, début, fin, évolution, extrêmes, total. */
-function timeFacts(entries: Entry[], label: string, fmt: NumberFormat, additive: boolean): string[] {
+/** Montant avec son signe : « +5 k € », « -1,2 k € » (variation entre deux valeurs). */
+export function signedAmount(v: number, fmt: NumberFormat): string {
+  return `${v > 0 ? "+" : ""}${amount(v, fmt)}`;
+}
+
+/** « 3,8 » dans « 3,8 fois la moyenne ». */
+const times = (ratio: number) => formatNumber(Math.round(ratio * 10) / 10, { decimals: 1 });
+
+const unitOf = (fmt: NumberFormat) => (fmt.fraction ? "%" : `${fmt.prefix ?? ""}|${fmt.suffix ?? ""}`);
+
+const PERIOD_LABEL = /^\d{4}(-(0[1-9]|1[0-2])(-\d{2})?|-?[TQ][1-4]|-?S[12])?$/;
+
+/** Dimension de texte qui est en fait une période (« 2026-08 », « 2026-T3 », « 2026 ») : à lire dans l'ordre du temps. */
+export function isPeriodAxis(entries: Entry[]): boolean {
+  return entries.length > 1 && entries.every((e) => typeof e.raw === "string" && PERIOD_LABEL.test(e.raw));
+}
+
+/** Période d'un axe de texte dite en clair : « 2026-08 » → « août 2026 », « 2026-T3 » → « T3 2026 ». */
+export function spokenPeriod(raw: string): string {
+  const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?|-?([TQ])([1-4])|-?S([12]))?$/.exec(raw);
+  if (!m) return raw;
+  const [, year, month, day, , quarter, half] = m;
+  if (quarter) return `T${quarter} ${year}`;
+  if (half) return `S${half} ${year}`;
+  if (month) return formatDimension(`${year}-${month}-${day ?? "01"}`, "date", day ? null : "month");
+  return raw;
+}
+
+const said = (e: Entry) => e.say ?? e.label;
+
+export type Direction = "hausse" | "baisse" | "stable";
+
+/** Sens du début à la fin : stable sous 2 % de l'ordre de grandeur de la série. */
+export function direction(firstValue: number, lastValue: number, mean: number): Direction {
+  const scale = Math.max(Math.abs(firstValue), Math.abs(lastValue), Math.abs(mean));
+  if (scale === 0 || Math.abs(lastValue - firstValue) / scale < 0.02) return "stable";
+  return lastValue > firstValue ? "hausse" : "baisse";
+}
+
+interface Series {
+  sorted: Entry[];
+  first: Entry;
+  last: Entry;
+  max: Entry;
+  min: Entry;
+  total: number;
+  mean: number;
+  dir: Direction;
+  /** Variation relative du début à la fin ; null quand le départ est nul ou négatif (un % n'aurait pas de sens). */
+  change: number | null;
+}
+
+function seriesOf(entries: Entry[]): Series | null {
   const sorted = [...entries].sort((a, b) => compare(a.raw, b.raw));
   const firstE = sorted[0];
   const lastE = sorted[sorted.length - 1];
-  if (!firstE || !lastE) return [];
-  const out = [`${label} — période : ${firstE.label} → ${lastE.label} (${sorted.length} périodes)`];
-  out.push(`Début : ${firstE.label} — ${amount(firstE.value, fmt)} ; fin : ${lastE.label} — ${amount(lastE.value, fmt)}`);
-  if (firstE.value !== 0 && sorted.length > 1) out.push(`Évolution du début à la fin : ${percent((lastE.value - firstE.value) / Math.abs(firstE.value), true)}`);
-  const max = sorted.reduce((m, e) => (e.value > m.value ? e : m), firstE);
-  const min = sorted.reduce((m, e) => (e.value < m.value ? e : m), firstE);
-  out.push(`Maximum : ${max.label} — ${amount(max.value, fmt)} ; minimum : ${min.label} — ${amount(min.value, fmt)}`);
-  if (additive) out.push(`Total sur la période : ${amount(sorted.reduce((t, e) => t + e.value, 0), fmt)}`);
-  out.push(`Moyenne par période : ${amount(sorted.reduce((t, e) => t + e.value, 0) / sorted.length, fmt)}`);
-  return out;
+  if (!firstE || !lastE) return null;
+  const total = sorted.reduce((t, e) => t + e.value, 0);
+  const mean = total / sorted.length;
+  return {
+    sorted,
+    first: firstE,
+    last: lastE,
+    max: sorted.reduce((m, e) => (e.value > m.value ? e : m), firstE),
+    min: sorted.reduce((m, e) => (e.value < m.value ? e : m), firstE),
+    total,
+    mean,
+    dir: direction(firstE.value, lastE.value, mean),
+    change: sorted.length > 1 && firstE.value > 0 && lastE.value >= 0 ? (lastE.value - firstE.value) / firstE.value : null,
+  };
 }
 
-/** Constats d'un classement : nombre, total, trois premiers avec leur part, dernier. */
-function rankFacts(entries: Entry[], label: string, dimName: string, fmt: NumberFormat, additive: boolean): string[] {
+/** « Titre » entre guillemets, espaces insécables comprises (le guillemet ne reste jamais seul en fin de ligne). */
+export const quoted = (text: string) => `«\u00a0${text}\u00a0»`;
+
+/**
+ * Phrase d'une évolution : « CA » est en hausse : de 382 k (janv. 2026) à 566 k (sept. 2026), soit +48 %.
+ * `dated = false` pour une deuxième mesure du même graphique : les dates viennent d'être dites.
+ */
+function movement(subject: string, s: Series, fmt: NumberFormat, dated = true): string {
+  const from = `${amount(s.first.value, fmt)}${dated ? ` (${said(s.first)})` : ""}`;
+  const to = `${amount(s.last.value, fmt)}${dated ? ` (${said(s.last)})` : ""}`;
+  if (s.dir === "stable") return `${quoted(subject)} reste stable : ${from}, puis ${to}`;
+  if (s.change === null) return `${quoted(subject)} passe de ${from} à ${to}`;
+  return `${quoted(subject)} est en ${s.dir} : de ${from} à ${to}, soit ${percent(s.change, true)}`;
+}
+
+/** Constats d'une série temporelle : période, début, fin, évolution, sens, extrêmes, total, moyenne. */
+function timeFacts(entries: Entry[], label: string, subject: string, fmt: NumberFormat, additive: boolean): Part {
+  const s = seriesOf(entries);
+  if (!s) return { facts: [] };
+  const n = s.sorted.length;
+  const period = `${said(s.first)} → ${said(s.last)}`;
+  const out = [`${label} — période : ${s.first.label} → ${s.last.label} (${n} périodes)`];
+  out.push(`Début : ${s.first.label} — ${amount(s.first.value, fmt)} ; fin : ${s.last.label} — ${amount(s.last.value, fmt)}`);
+  if (n > 1) {
+    out.push(
+      s.change !== null
+        ? `Évolution du début à la fin : ${percent(s.change, true)}`
+        : `Variation du début à la fin : ${signedAmount(s.last.value - s.first.value, fmt)}`,
+    );
+    const ups = s.sorted.filter((e, i) => i > 0 && e.value > (s.sorted[i - 1] as Entry).value).length;
+    const downs = s.sorted.filter((e, i) => i > 0 && e.value < (s.sorted[i - 1] as Entry).value).length;
+    out.push(`Sens du début à la fin : ${s.dir === "stable" ? "stable" : `en ${s.dir}`}${n > 3 ? ` (${ups} hausses et ${downs} baisses d'une période à la suivante)` : ""}`);
+  }
+  out.push(`Maximum : ${s.max.label} — ${amount(s.max.value, fmt)} ; minimum : ${s.min.label} — ${amount(s.min.value, fmt)}`);
+  if (additive) out.push(`Total sur la période : ${amount(s.total, fmt)}`);
+  const vsMean = s.mean > 0 && s.last.value >= 0 && n > 2 ? ` ; la fin est à ${percent((s.last.value - s.mean) / s.mean, true)} de cette moyenne` : "";
+  out.push(`Moyenne par période : ${amount(s.mean, fmt)}${vsMean}`);
+
+  let text = movement(subject, s, fmt);
+  if (n > 2 && s.max !== s.first && s.max !== s.last) text += ` ; plus haut : ${amount(s.max.value, fmt)} (${said(s.max)})`;
+  if (n > 2 && s.min !== s.first && s.min !== s.last) text += ` ; plus bas : ${amount(s.min.value, fmt)} (${said(s.min)})`;
+  return { facts: out, period, note: n > 1 ? { text: `${text}.`, weight: s.dir === "stable" ? 1.5 : 3 } : undefined };
+}
+
+/** Constats d'un classement : nombre, total, trois premiers avec leur part, dernier, concentration, écart à la moyenne. */
+function rankFacts(entries: Entry[], label: string, dimName: string, subject: string, fmt: NumberFormat, additive: boolean): Part {
   const sorted = [...entries].sort((a, b) => b.value - a.value);
-  if (!sorted.length) return [];
+  const top = sorted[0];
+  if (!top) return { facts: [] };
+  const n = sorted.length;
   const total = sorted.reduce((t, e) => t + e.value, 0);
+  const mean = total / n;
   const shares = additive && total > 0 && sorted.every((e) => e.value >= 0);
   const share = (e: Entry) => (shares ? ` (${percent(e.value / total)} du total)` : "");
-  const out = [`${label} par ${dimName} : ${sorted.length} valeur${sorted.length > 1 ? "s" : ""}`];
+  const out = [`${label} par ${dimName} : ${n} valeur${n > 1 ? "s" : ""}`];
   if (additive) out.push(`Total : ${amount(total, fmt)}`);
   sorted.slice(0, 3).forEach((e, i) => out.push(`${ordinal(i)} : ${e.label} — ${amount(e.value, fmt)}${share(e)}`));
-  const last = sorted[sorted.length - 1];
-  if (last && sorted.length > 3) out.push(`Dernier : ${last.label} — ${amount(last.value, fmt)}${share(last)}`);
-  if (!additive && sorted.length > 1) out.push(`Moyenne des ${dimName} : ${amount(total / sorted.length, fmt)}`);
-  return out;
+  const last = sorted[n - 1];
+  if (last && n > 3) out.push(`Dernier : ${last.label} — ${amount(last.value, fmt)}${share(last)}`);
+  const top3 = sorted.slice(0, 3).reduce((t, e) => t + e.value, 0);
+  if (shares && n > 3) out.push(`Les 3 premiers ensemble : ${percent(top3 / total)} du total`);
+  if (!additive && n > 1) out.push(`Moyenne des ${dimName} : ${amount(mean, fmt)}`);
+  // Écart à la moyenne : dit en « fois » quand le premier domine, en % sinon.
+  const ratio = mean > 0 ? top.value / mean : 0;
+  const lead = ratio >= 2 ? `vaut ${times(ratio)} fois cette moyenne` : ratio > 1 ? `est à ${percent(ratio - 1, true)} de cette moyenne` : "";
+  if (additive && n > 2 && lead) out.push(`Moyenne par ${dimName} : ${amount(mean, fmt)} ; le 1er ${lead}`);
+
+  let text: string;
+  if (n === 1) text = `${quoted(subject)} : une seule valeur, ${top.label} (${amount(top.value, fmt)})`;
+  else if (shares) {
+    text = `${top.label} arrive en tête de ${quoted(subject)} avec ${amount(top.value, fmt)}, soit ${percent(top.value / total)} du total`;
+    const second = sorted[1] as Entry;
+    text +=
+      n > 3
+        ? ` ; les 3 premiers (${sorted.slice(0, 3).map((e) => e.label).join(", ")}) en font ${percent(top3 / total)}`
+        : ` ; ${second.label} suit avec ${amount(second.value, fmt)}`; // en valeur : deux parts arrondies à part dépasseraient 100 % (88 % + 13 %)
+  } else {
+    const low = sorted[n - 1] as Entry;
+    text = `${quoted(subject)} : ${top.label} est le plus haut (${amount(top.value, fmt)}), ${low.label} le plus bas (${amount(low.value, fmt)}) ; moyenne : ${amount(mean, fmt)}`;
+  }
+  return { facts: out, note: { text: `${text}.`, weight: n === 1 ? 0.5 : 2 + (shares ? top.value / total : 0) } };
 }
 
 /** Répartition par la 2e dimension (légende) : trois premières valeurs et leur part. */
@@ -147,39 +308,71 @@ function seriesFact(rows: Row[], dim: QueryColumn, measure: QueryColumn, dimName
     .join(", ")}`;
 }
 
-function genericFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): string[] {
+/** Deuxième mesure d'un graphique : son total, son évolution, et son rapport à la première. */
+function secondMeasure(rows: Row[], d0: QueryColumn, chrono: boolean, m1: QueryColumn, m2: QueryColumn, label1: string, label2: string, fmt1: NumberFormat, fmt2: NumberFormat): Part {
+  const out: string[] = [];
+  let note: string | undefined;
+  const additive = isAdditive(m2.key);
+  const total2 = rows.reduce((t, r) => t + Number(r[m2.key] ?? 0), 0);
+  if (additive) out.push(`Total ${label2} : ${amount(total2, fmt2)}`);
+  const s = chrono ? seriesOf(groupBy(rows, d0, m2)) : null;
+  if (s && s.sorted.length > 1) {
+    const evolution = s.change !== null ? ` ; évolution : ${percent(s.change, true)}` : "";
+    out.push(`${label2} — début : ${s.first.label} — ${amount(s.first.value, fmt2)} ; fin : ${s.last.label} — ${amount(s.last.value, fmt2)}${evolution}`);
+    note = movement(label2, s, fmt2, false);
+  }
+  const total1 = rows.reduce((t, r) => t + Number(r[m1.key] ?? 0), 0);
+  if (additive && isAdditive(m1.key) && unitOf(fmt1) === unitOf(fmt2) && total1 > 0 && total2 > 0) {
+    out.push(`${label2} rapporté à ${label1} (totaux) : ${percent(total2 / total1)}`);
+  }
+  return { facts: out, note: note ? { text: note, weight: 0 } : undefined };
+}
+
+function genericFacts(visual: Visual, result: QueryResult, fmt: NumberFormat, title: string): VisualAnalysis {
   const dims = result.columns.filter((c) => c.role === "dimension");
   const meas = result.columns.filter((c) => c.role === "measure");
   const m = meas[0];
-  if (!m || !result.rows.length) return [];
+  if (!m || !result.rows.length) return { facts: [], notes: [] };
   const label = measureLabel(visual, m);
-  if (!dims.length) return meas.slice(0, 4).map((c) => `${measureLabel(visual, c)} : ${amount(Number(result.rows[0]?.[c.key] ?? 0), fmt)}`);
+  if (!dims.length) {
+    return { facts: meas.slice(0, 4).map((c) => `${measureLabel(visual, c)} : ${amount(Number(result.rows[0]?.[c.key] ?? 0), fmt)}`), notes: [] };
+  }
 
   const d0 = dims[0] as QueryColumn;
   const additive = isAdditive(m.key);
   const entries = groupBy(result.rows, d0, m);
-  const out =
-    d0.type === "date"
-      ? timeFacts(entries, label, fmt, additive)
-      : rankFacts(entries, label, dimensionLabel(visual, d0), fmt, additive);
+  const chrono = d0.type === "date" || isPeriodAxis(entries);
+  if (chrono && d0.type !== "date") for (const e of entries) e.say = spokenPeriod(String(e.raw));
+  const m2 = meas[1];
+  // Avec deux mesures, le titre du visuel les nomme toutes les deux : chaque phrase parle alors de sa mesure.
+  const subject = m2 ? label : title;
+  const fmt1 = fmtOf(visual, m.key, fmt);
+  const part = chrono ? timeFacts(entries, label, subject, fmt1, additive) : rankFacts(entries, label, dimensionLabel(visual, d0), subject, fmt1, additive);
+  const out = [...part.facts];
+  let note = part.note;
   const d1 = dims[1];
   if (d1) {
-    const s = seriesFact(result.rows, d1, m, dimensionLabel(visual, d1), fmt);
+    const s = seriesFact(result.rows, d1, m, dimensionLabel(visual, d1), fmt1);
     if (s) out.push(s);
   }
-  const m2 = meas[1];
-  if (m2 && isAdditive(m2.key)) out.push(`Total ${measureLabel(visual, m2)} : ${amount(result.rows.reduce((t, r) => t + Number(r[m2.key] ?? 0), 0), fmt)}`);
+  if (m2) {
+    const second = secondMeasure(result.rows, d0, chrono, m, m2, label, measureLabel(visual, m2), fmt1, fmtOf(visual, m2.key, fmt));
+    out.push(...second.facts);
+    if (note && second.note) note = { ...note, text: `${note.text.replace(/\.$/, "")} ; ${second.note.text}.` };
+  }
   if (result.truncated) out.push("Résultat partiel (limite de lignes atteinte)");
-  return out;
+  return { facts: out, notes: note ? [note] : [], period: part.period };
 }
 
-function kpiFacts(visual: Visual, data: FactsData, fmt: NumberFormat): string[] {
+function kpiFacts(visual: Visual, data: FactsData, fmt: NumberFormat, title: string): VisualAnalysis {
   const valueB = first(visual, "values");
   const targetB = first(visual, "target");
   const row = data.result?.rows[0];
-  if (!valueB || !row) return [];
+  if (!valueB || !row) return { facts: [], notes: [] };
   const value = Number(row[bindingKey(valueB)] ?? 0);
-  const out = [`${bindingLabel(valueB)} : ${amount(value, fmt)}`];
+  const label = bindingLabel(valueB);
+  const out = [`${label} : ${amount(value, fmt)}`];
+  const notes: Note[] = [];
   const fixed = typeof visual.options.target === "number" ? visual.options.target : null;
   const target = targetB ? Number(row[bindingKey(targetB)] ?? 0) : fixed;
   const gap = kpiGap(value, target);
@@ -187,27 +380,41 @@ function kpiFacts(visual: Visual, data: FactsData, fmt: NumberFormat): string[] 
     const higherIsBetter = opt<boolean>(visual, VISUALS[visual.type], "higherIsBetter") !== false;
     const good = higherIsBetter ? gap >= 0 : gap <= 0;
     out.push(`Cible : ${amount(target, fmt)} ; écart : ${percent(gap / 100, true)} (${good ? "favorable" : "défavorable"})`);
+    notes.push({
+      text: `${quoted(title)} : ${amount(value, fmt)} pour une cible de ${amount(target, fmt)}, soit un écart ${good ? "favorable" : "défavorable"} de ${percent(gap / 100, true)}.`,
+      weight: good ? 3.2 : 3.8,
+    });
   }
   if (visual.type === "gauge") {
     const max = typeof visual.options.max === "number" ? visual.options.max : null;
     if (max !== null) out.push(`Plage de la jauge : ${amount(Number(visual.options.min ?? 0), fmt)} à ${amount(max, fmt)}`);
   }
+  let period: string | undefined;
   const trend = data.trend;
   if (trend && trend.rows.length > 1) {
     const dim = trend.columns.find((c) => c.role === "dimension");
     const m = trend.columns.find((c) => c.role === "measure");
-    if (dim && m) out.push(...timeFacts(groupBy(trend.rows, dim, m), "Tendance", fmt, isAdditive(m.key)).slice(1, 3));
+    if (dim && m) {
+      const part = timeFacts(groupBy(trend.rows, dim, m), "Tendance", title, fmt, isAdditive(m.key));
+      out.push(...part.facts.slice(1, 4));
+      period = part.period;
+      if (part.note && !notes.length) notes.push({ ...part.note, weight: part.note.weight - 0.8 });
+    }
   }
-  return out;
+  const single: Single | undefined =
+    target === null && visual.type === "kpi"
+      ? { label, value, text: amount(value, fmt), agg: valueB.show ? null : (valueB.agg ?? null), field: valueB.field, unit: unitOf(fmt) }
+      : undefined;
+  return { facts: out, notes, single, period };
 }
 
-function matrixFacts(visual: Visual, result: QueryResult): string[] {
+function matrixFacts(visual: Visual, result: QueryResult, title: string): VisualAnalysis {
   const rows = role(visual, "rows");
   const values = role(visual, "values");
   const column = first(visual, "columns");
   const m = values[0];
   const r0 = rows[0];
-  if (!m || !r0) return [];
+  if (!m || !r0) return { facts: [], notes: [] };
   const model = buildMatrix(result.rows, rows, column);
   const key = bindingKey(m);
   const entries: Entry[] = model.root.children.map((n) => ({
@@ -217,13 +424,14 @@ function matrixFacts(visual: Visual, result: QueryResult): string[] {
   }));
   const additive = isAdditive(key);
   const mf = numberFormat(visual, m);
-  const out = rankFacts(entries, bindingLabel(m), r0.label || r0.field, mf, additive);
+  const part = rankFacts(entries, bindingLabel(m), r0.label || r0.field, title, mf, additive);
+  const out = [...part.facts];
   const total = model.root.cells.get("__total")?.[key];
   if (total != null && !additive) out.push(`Ensemble : ${amount(Number(total), mf)}`);
-  return out;
+  return { facts: out, notes: part.note ? [part.note] : [] };
 }
 
-function tableFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): string[] {
+function tableFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): VisualAnalysis {
   const dims = result.columns.filter((c) => c.role === "dimension");
   const meas = result.columns.filter((c) => c.role === "measure");
   const out = [`${result.rows.length}${result.truncated ? " (ou plus)" : ""} lignes`];
@@ -235,63 +443,76 @@ function tableFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): str
     const top = [...result.rows].sort((a, b) => Number(b[m.key] ?? 0) - Number(a[m.key] ?? 0)).slice(0, 3);
     top.forEach((r, i) => out.push(`${ordinal(i)} (${measureLabel(visual, m)}) : ${dims.map((d) => dimText(r, d)).join(" · ")} — ${amount(Number(r[m.key] ?? 0), fmtOf(visual, m.key, fmt))}`));
   }
-  return out;
+  return { facts: out, notes: [] };
 }
 
-function scatterFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): string[] {
+function scatterFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): VisualAnalysis {
   const d = first(visual, "details");
   const y = first(visual, "y");
   const x = first(visual, "x");
-  if (!d || !y || !x) return [];
+  if (!d || !y || !x) return { facts: [], notes: [] };
   const rows = result.rows.filter((r) => r[bindingKey(y)] != null);
   const top = [...rows].sort((a, b) => Number(b[bindingKey(y)] ?? 0) - Number(a[bindingKey(y)] ?? 0))[0];
   const out = [`${rows.length} points (un par ${d.field}) ; X = ${bindingLabel(x)}, Y = ${bindingLabel(y)}`];
   if (top) out.push(`Plus haut ${bindingLabel(y)} : ${String(top[bindingKey(d)] ?? "(Vide)")} — ${amount(Number(top[bindingKey(y)] ?? 0), fmt)}`);
-  return out;
+  return { facts: out, notes: [] };
+}
+
+const EMPTY: VisualAnalysis = { facts: [], notes: [] };
+
+/** Tout ce qu'un visuel apporte au résumé : faits chiffrés, constat rédigé, valeur de carte, période. */
+export function analyzeVisual(visual: Visual, data: FactsData): VisualAnalysis {
+  visual = drillView(visual); // faits du niveau d'exploration affiché
+  if (SKIPPED.has(visual.type) || data.error || !data.result) return EMPTY;
+  const fmt = numberFormat(visual);
+  const title = visual.title || defaultTitle(visual);
+  let found: VisualAnalysis;
+  switch (visual.type) {
+    case "kpi":
+    case "gauge":
+      found = kpiFacts(visual, data, fmt, title);
+      break;
+    case "matrix":
+      found = matrixFacts(visual, data.result, title);
+      break;
+    case "table":
+      found = tableFacts(visual, data.result, fmt);
+      break;
+    case "scatter":
+      found = scatterFacts(visual, data.result, fmt);
+      break;
+    case "pointmap":
+      found = { facts: [`${data.result.rows.length} points sur la carte`], notes: [] };
+      break;
+    default:
+      found = genericFacts(visual, data.result, fmt, title);
+  }
+  return { ...found, facts: found.facts.slice(0, MAX_FACTS).map((f) => f.slice(0, 300)) };
 }
 
 /** Constats chiffrés d'un visuel (liste vide si le visuel n'apporte pas de chiffre). */
 export function visualFacts(visual: Visual, data: FactsData): string[] {
-  visual = drillView(visual); // faits du niveau d'exploration affiché
-  if (SKIPPED.has(visual.type) || data.error || !data.result) return [];
-  const fmt = numberFormat(visual);
-  let facts: string[];
-  switch (visual.type) {
-    case "kpi":
-    case "gauge":
-      facts = kpiFacts(visual, data, fmt);
-      break;
-    case "matrix":
-      facts = matrixFacts(visual, data.result);
-      break;
-    case "table":
-      facts = tableFacts(visual, data.result, fmt);
-      break;
-    case "scatter":
-      facts = scatterFacts(visual, data.result, fmt);
-      break;
-    case "pointmap":
-      facts = [`${data.result.rows.length} points sur la carte`];
-      break;
-    default:
-      facts = genericFacts(visual, data.result, fmt);
-  }
-  return facts.slice(0, MAX_FACTS).map((f) => f.slice(0, 300));
+  return analyzeVisual(visual, data).facts;
 }
 
-/** Faits de toute la page, pour la requête de résumé (30 visuels au plus). */
-export function pageFacts(page: Page, dataOf: (visualId: string) => FactsData | undefined): VisualFacts[] {
-  const out: VisualFacts[] = [];
+/** Visuels chiffrés d'une page, chacun avec son analyse (30 au plus ; deux visuels des mêmes données : un seul). */
+export function pageAnalyses(page: Page, dataOf: (visualId: string) => FactsData | undefined): { visual: Visual; title: string; analysis: VisualAnalysis }[] {
+  const out: { visual: Visual; title: string; analysis: VisualAnalysis }[] = [];
   const seen = new Set<string>();
   for (const v of page.visuals) {
     const data = dataOf(v.id);
     if (!data) continue;
-    const facts = visualFacts(v, data);
+    const analysis = analyzeVisual(v, data);
     // Deux visuels des mêmes données (carte et barres du CA par région) : faits envoyés une seule fois.
-    const key = facts.join("\n");
-    if (!facts.length || seen.has(key)) continue;
+    const key = analysis.facts.join("\n");
+    if (!analysis.facts.length || seen.has(key)) continue;
     seen.add(key);
-    out.push({ id: v.id, title: (v.title || defaultTitle(v)).slice(0, 200), type: v.type, facts });
+    out.push({ visual: v, title: (v.title || defaultTitle(v)).slice(0, 200), analysis });
   }
   return out.slice(0, 30);
+}
+
+/** Faits de toute la page, pour la requête de résumé (30 visuels au plus). */
+export function pageFacts(page: Page, dataOf: (visualId: string) => FactsData | undefined): VisualFacts[] {
+  return pageAnalyses(page, dataOf).map(({ visual, title, analysis }) => ({ id: visual.id, title, type: visual.type, facts: analysis.facts }));
 }
