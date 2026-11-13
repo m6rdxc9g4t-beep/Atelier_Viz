@@ -168,3 +168,152 @@ def test_data_block_neutralizes_imitated_tags() -> None:
     assert block.startswith("<donnees>\n") and block.endswith("\n</donnees>")
     assert block.count("</donnees>") == 1 and block.count("<donnees>") == 1
     assert "[/donnees]" in block and "[donnees]" in block
+
+
+# --- Lecture calculée : point d'appui du modèle, et repli quand il échoue ---------------------------------------
+
+READING: dict[str, Any] = {
+    "headline": "Vue d'ensemble, janv. 2026 → sept. 2026 : Somme de ca 4,4 M.",
+    "period": "janv. 2026 → sept. 2026",
+    "points": [
+        {"text": "« CA total » : 4,4 M pour une cible de 4 M, soit un écart favorable de +10,0 %.", "visuals": ["v1"]},
+        {
+            "text": "« CA par mois » est en hausse : de 382 k (janv. 2026) à 566 k (sept. 2026), soit +48 % ; "
+            "plus haut : 640 k (mars 2026).",
+            "visuals": ["v2"],
+        },
+        {"text": "« Marge » représente 31 % de « CA total ».", "visuals": ["v1", "inconnu"]},
+    ],
+}
+
+ANALYTIC = {
+    "headline": "Le chiffre d'affaires dépasse sa cible et progresse nettement depuis janvier.",
+    "points": [
+        {"text": "Avec 4,4 M, le CA dépasse la cible de 4 M de +10,0 %.", "visuels": [1]},
+        {"text": "Le CA mensuel grimpe de 382 k à 566 k, soit +48 %, après un pic à 640 k en mars.", "visuels": [2]},
+    ],
+}
+
+CARDS = {
+    "headline": "Vue d'ensemble des ventes",
+    "points": [
+        {"text": "Somme de ca : 4,4 M", "visuels": [1]},
+        {"text": "Maximum : mars 2026 — 640 k", "visuels": [2]},
+    ],
+}
+
+
+class FailingProvider(ScriptedProvider):
+    """Moteur en panne : chaque appel échoue avec le code donné."""
+
+    def __init__(self, status_code: int = 503) -> None:
+        super().__init__("ollama", [])
+        self.status_code = status_code
+
+    async def chat_json(self, messages, system, schema):  # type: ignore[no-untyped-def]
+        self.calls.append((messages, system, schema))
+        raise AIProviderError(self.name, "Ollama injoignable sur http://localhost:11434", self.status_code)
+
+
+def test_prompt_asks_for_a_reading_and_gives_the_computed_one_as_data() -> None:
+    svc, ollama = service(ANALYTIC)
+    asyncio.run(summarize(svc, req(reading=READING)))
+    messages, system, _schema = ollama.calls[0]
+    assert system is not None
+    # Consignes : une lecture (ce qui ressort, ce qui évolue, ce qui mérite l'attention), pas la liste des cartes.
+    for expected in ("phrase d'ouverture", "ce qui ressort", "ce qui évolue", "ce qui mérite l'attention"):
+        assert expected in system
+    assert "Ne recopie jamais une carte" in system and "Exemple" in system
+    # La lecture calculée et la période sont des données : dans le message, reliées aux numéros des visuels.
+    sent = messages[0].content
+    assert "Période couverte : janv. 2026 → sept. 2026" in sent
+    assert "- [visuel 2] « CA par mois » est en hausse" in sent
+    assert "- [visuel 1] « Marge » représente 31 %" in sent  # un identifiant inconnu n'est pas numéroté
+    assert "382 k" not in system and "CA par mois" not in system
+
+
+def test_analytic_answer_is_accepted_as_is() -> None:
+    svc, ollama = service(ANALYTIC)
+    res = asyncio.run(summarize(svc, req(reading=READING)))
+    assert len(ollama.calls) == 1  # aucune relance
+    assert res.local is False and res.warnings == []
+    assert res.headline == ANALYTIC["headline"]
+    assert [p.visuals for p in res.points] == [["v1"], ["v2"]]
+    assert all(not p.local for p in res.points)
+
+
+def test_reading_numbers_are_facts_too() -> None:
+    """Un chiffre de la lecture calculée (rapport entre deux cartes) est vérifiable ; un chiffre inventé, non."""
+    pool = allowed_numbers(req(reading=READING))
+    assert ungrounded("La marge fait 31 % du CA", pool) == []
+    assert ungrounded("La marge fait 31 % du CA", allowed_numbers(req())) == ["31 %"]
+    assert ungrounded("La marge fait 35 % du CA", pool) == ["35 %"]
+
+
+def test_invented_number_is_dropped_and_replaced_by_a_computed_point() -> None:
+    invented = {
+        "headline": ANALYTIC["headline"],
+        "points": [ANALYTIC["points"][0], {"text": "Les ventes bondissent de 75 % au printemps.", "visuels": [2]}],
+    }
+    svc, ollama = service(invented, invented)
+    res = asyncio.run(summarize(svc, req(reading=READING)))
+    assert len(ollama.calls) == 2  # une relance, qui nomme le chiffre
+    assert "« 75 % »" in ollama.calls[1][0][-1].content
+    assert all("75" not in p.text for p in res.points)
+    assert any("75 %" in w and "non vérifiable" in w for w in res.warnings)
+    # La phrase écartée laisse sa place au constat calculé du visuel dont l'IA ne parle plus.
+    assert [(p.local, p.visuals) for p in res.points] == [(False, ["v1"]), (True, ["v2"])]
+    assert res.points[1].text.startswith("« CA par mois » est en hausse")
+    assert res.local is False
+
+
+def test_copied_cards_are_refused_then_the_computed_reading_takes_over() -> None:
+    svc, ollama = service(CARDS, CARDS)
+    res = asyncio.run(summarize(svc, req(reading=READING)))
+    assert "recopie un chiffre tel quel" in ollama.calls[1][0][-1].content
+    assert res.local is True and res.provider == "ollama"
+    assert res.headline == READING["headline"].replace(" M", " M")
+    assert [p.text[:12] for p in res.points] == ["« CA total »", "« CA par moi", "« Marge » re"]
+    assert all(p.local for p in res.points)
+    assert res.points[2].visuals == ["v1"]  # identifiant inconnu retiré
+    assert "aucune phrase vérifiable" in res.warnings[0] and len(res.warnings) == 3
+
+
+def test_recopied_detects_cards_and_verbatim_facts_only() -> None:
+    from app.services.ai.summary import recopied
+
+    r = req()
+    assert recopied("Recettes : 13 k €", r) and recopied("Opérations : 41.", r)
+    assert recopied("Maximum : mars 2026 — 640 k.", r)  # un fait repris tel quel
+    assert not recopied("Mars 2026 est le meilleur mois avec 640 k.", r)
+    assert not recopied("À retenir : le CA progresse de +48 % entre janvier et septembre.", r)
+
+
+def test_failing_engine_falls_back_to_the_computed_reading() -> None:
+    ollama = FailingProvider()
+    svc = AIService(ollama, ScriptedProvider("anthropic", []), is_online=lambda: False)  # type: ignore[arg-type]
+    res = asyncio.run(summarize(svc, req(reading=READING, max_points=2)))
+    assert res.local is True and res.provider == "ollama" and res.model == ""
+    assert len(res.points) == 2 and all(p.local for p in res.points)
+    assert res.warnings[0].startswith("Ollama n'a pas répondu (Ollama injoignable")
+    assert "sans IA" in res.warnings[0]
+
+
+def test_failing_engine_without_reading_or_refused_engine_stays_an_error() -> None:
+    svc = AIService(FailingProvider(), ScriptedProvider("anthropic", []), is_online=lambda: False)  # type: ignore[arg-type]
+    for request in (req(), req(reading=READING, provider="anthropic")):
+        try:
+            asyncio.run(summarize(svc, request))
+            raise AssertionError("une erreur était attendue")
+        except AIProviderError as exc:
+            # Sans lecture calculée : la panne ; Claude hors ligne : le refus (403), jamais un texte à sa place.
+            assert exc.status_code == (403 if request.provider == "anthropic" else 503)
+
+
+def test_route_returns_the_computed_reading_when_the_engine_fails(client: TestClient, override_ai) -> None:
+    override_ai(AIService(FailingProvider(), ScriptedProvider("anthropic", []), is_online=lambda: False))  # type: ignore[arg-type]
+    res = client.post("/api/ai/summary", json={**BODY, "reading": READING})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["local"] is True and body["points"][0]["local"] is True
+    assert client.post("/api/ai/summary", json={**BODY, "reading": {**READING, "points": []}}).status_code == 422
