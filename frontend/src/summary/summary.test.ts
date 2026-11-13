@@ -23,6 +23,10 @@ const data = (result: QueryResult | null, trend: QueryResult | null = null) => (
 
 const ca = [{ field: "ca", agg: "sum" as const }];
 
+/** Espaces ordinaires à la place des insécables d'Intl et des guillemets : les attentes restent lisibles. */
+const plain = (text: string | undefined) => (text ?? "").replace(/[\u00a0\u202f]/g, " ");
+const expectFact = (facts: string[], text: string) => expect(facts.map(plain)).toContain(text);
+
 describe("formats des faits", () => {
   it("écrit les montants et pourcentages comme à l'écran", () => {
     expect(amount(4_412_345, {})).toBe("4,4 M");
@@ -115,6 +119,66 @@ describe("faits d'un visuel", () => {
     expect(facts).toContain("1er (Somme de ca) : Brest — 9");
   });
 
+  it("table de détail (plusieurs colonnes) : aucune de ses lignes ne part, seulement le nombre de lignes et les totaux", () => {
+    const v = visual("table", { columns: [{ field: "Date" }, { field: "Libellé" }, { field: "Catégorie" }], values: [{ field: "Débit", agg: "sum", label: "Débit" }, { field: "Crédit", agg: "sum", label: "Crédit" }] }, { suffix: " €" });
+    v.title = "Opérations";
+    const row = (date: string, label: string, cat: string, debit: number, credit: number) => ({ Date: date, Libellé: label, Catégorie: cat, "sum(Débit)": debit, "sum(Crédit)": credit });
+    const rows = [
+      row("2026-08-01", "PRLV SEPA SCI DES TANNEURS LOYER ATELIER", "Locaux", 1150, 0),
+      row("2026-08-03", "VIR SEPA MAISON LEBRUN FACTURE 2026-031", "Ventes", 0, 2400),
+      row("2026-08-05", "CB LEROY MERLIN PARIS 11", "Matériel", 320, 0),
+      row("2026-09-01", "PRLV SEPA SCI DES TANNEURS LOYER ATELIER", "Locaux", 1150, 0),
+      row("2026-09-12", "URSSAF COTISATIONS T3", "Charges sociales", 900, 0),
+    ];
+    const a = analyzeVisual(v, data(res([dim("Date", "date"), dim("Libellé"), dim("Catégorie"), mea("sum(Débit)"), mea("sum(Crédit)")], rows)));
+    expect(a.facts.map(plain)).toEqual(["5 lignes", "Total Débit : 3 520 €", "Total Crédit : 2 400 €"]);
+    // Ni libellé d'opération, ni catégorie, ni date, ni montant d'une ligne : rien de ce qui identifie une opération.
+    const sent = [...a.facts, ...a.notes.map((x) => x.text)].join(" | ");
+    for (const leak of ["TANNEURS", "LEBRUN", "LEROY", "URSSAF", "Locaux", "Ventes", "01/08", "2026-08", "1 150", "1150"]) expect(plain(sent)).not.toContain(leak);
+    // Le constat rédigé rapporte les totaux l'un à l'autre : de quoi donner une lecture calculée à la page.
+    expect(plain(a.notes[0]?.text)).toBe("« Opérations » compte 5 lignes ; « Crédit » (2 400 €) y représente 68 % de « Débit » (3 520 €).");
+  });
+
+  it("table à plusieurs colonnes : un classement par la première colonne seulement s'il regroupe vraiment", () => {
+    const v = visual("table", { columns: [{ field: "region" }, { field: "produit" }], values: ca });
+    const row = (region: string, produit: string, value: number) => ({ region, produit, "sum(ca)": value });
+    const grouped = [row("Nord", "A", 4), row("Nord", "B", 2), row("Sud", "A", 3), row("Sud", "B", 1), row("Nord", "C", 5), row("Sud", "C", 2)];
+    const facts = visualFacts(v, data(res([dim("region"), dim("produit"), mea("sum(ca)")], grouped)));
+    expect(facts).toContain("1er par region (Somme de ca) : Nord — 11");
+    expect(facts).toContain("2e par region (Somme de ca) : Sud — 6");
+    expect(facts.join(" ")).not.toMatch(/ [ABC] /); // jamais la deuxième colonne d'une ligne
+    // Une valeur par ligne (ou presque) : la première colonne identifie les lignes, rien n'est classé.
+    const detail = [row("Nord", "A", 4), row("Sud", "B", 2), row("Est", "C", 3), row("Est", "D", 1)];
+    expect(visualFacts(v, data(res([dim("region"), dim("produit"), mea("sum(ca)")], detail)))).toEqual(["4 lignes", "Total Somme de ca : 10"]);
+    // Une moyenne ne se regroupe pas : aucune ligne non plus.
+    const avg = visual("table", { columns: [{ field: "region" }, { field: "produit" }], values: [{ field: "marge", agg: "avg" }] });
+    const avgRows = grouped.map((r) => ({ region: r.region, produit: r.produit, "avg(marge)": r["sum(ca)"] }));
+    expect(visualFacts(avg, data(res([dim("region"), dim("produit"), mea("avg(marge)")], avgRows)))).toEqual(["6 lignes"]);
+  });
+
+  it("table : un constat rédigé, même sans total ni ligne", () => {
+    const one = visual("table", { columns: [{ field: "ville" }], values: ca }, { suffix: " €" });
+    one.title = "Villes";
+    const a = analyzeVisual(one, data(res([dim("ville"), mea("sum(ca)")], [{ ville: "Lyon", "sum(ca)": 500 }, { ville: "Brest", "sum(ca)": 900 }])));
+    expect(plain(a.notes[0]?.text)).toBe("« Villes » compte 2 lignes, pour un total « Somme de ca » de 1 400 €, soit 700 € par ligne en moyenne.");
+    const partial = analyzeVisual(one, data(res([dim("ville"), mea("sum(ca)")], [{ ville: "Lyon", "sum(ca)": 500 }, { ville: "Brest", "sum(ca)": 900 }], true)));
+    expect(plain(partial.notes[0]?.text)).toBe("« Villes » compte plus de 2 lignes, pour un total « Somme de ca » de 1 400 €.");
+    const bare = visual("table", { columns: [{ field: "ville" }] });
+    bare.title = "Liste";
+    expect(plain(analyzeVisual(bare, data(res([dim("ville")], [{ ville: "Lyon" }]))).notes[0]?.text)).toBe("« Liste » compte 1 ligne.");
+  });
+
+  it("nuage et carte à points : un constat rédigé chacun", () => {
+    const s = visual("scatter", { details: [{ field: "magasin" }], x: [{ field: "surface", agg: "sum" }], y: [{ field: "ca", agg: "sum" }] });
+    s.title = "CA et surface";
+    const rows = [{ magasin: "Lyon", "sum(surface)": 300, "sum(ca)": 900 }, { magasin: "Brest", "sum(surface)": 200, "sum(ca)": 400 }];
+    const a = analyzeVisual(s, data(res([dim("magasin"), mea("sum(surface)"), mea("sum(ca)")], rows)));
+    expect(plain(a.notes[0]?.text)).toBe("« CA et surface » compare 2 points (un par magasin) ; Lyon a le plus haut « Somme de ca » (900).");
+    const m = visual("pointmap", { latitude: [{ field: "lat" }], longitude: [{ field: "lon" }] });
+    m.title = "Magasins";
+    expect(plain(analyzeVisual(m, data(res([dim("lat"), dim("lon")], [{ lat: 1, lon: 2 }, { lat: 3, lon: 4 }]))).notes[0]?.text)).toBe("« Magasins » place 2 points sur la carte.");
+  });
+
   it("ignore textes, segments, boutons, erreurs et visuels non chargés", () => {
     expect(visualFacts(visual("text", {}, { text: "Note" }), data(null))).toEqual([]);
     expect(visualFacts(visual("slicer", { field: [{ field: "region" }] }), data(res([dim("region")], [{ region: "Nord" }])))).toEqual([]);
@@ -122,9 +186,6 @@ describe("faits d'un visuel", () => {
   });
 });
 
-/** Espaces ordinaires à la place des insécables d'Intl et des guillemets : les attentes restent lisibles. */
-const plain = (text: string | undefined) => (text ?? "").replace(/[\u00a0\u202f]/g, " ");
-const expectFact = (facts: string[], text: string) => expect(facts.map(plain)).toContain(text);
 
 describe("faits pour une lecture : sens, variation, concentration, rapport entre mesures", () => {
   const eur = { suffix: " €" };

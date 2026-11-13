@@ -431,22 +431,75 @@ function matrixFacts(visual: Visual, result: QueryResult, title: string): Visual
   return { facts: out, notes: part.note ? [part.note] : [] };
 }
 
-function tableFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): VisualAnalysis {
-  const dims = result.columns.filter((c) => c.role === "dimension");
-  const meas = result.columns.filter((c) => c.role === "measure");
-  const out = [`${result.rows.length}${result.truncated ? " (ou plus)" : ""} lignes`];
-  for (const c of meas.slice(0, 3)) {
-    if (isAdditive(c.key)) out.push(`Total ${measureLabel(visual, c)} : ${amount(result.rows.reduce((t, r) => t + Number(r[c.key] ?? 0), 0), fmtOf(visual, c.key, fmt))}`);
-  }
-  const m = meas[0];
-  if (m && dims.length) {
-    const top = [...result.rows].sort((a, b) => Number(b[m.key] ?? 0) - Number(a[m.key] ?? 0)).slice(0, 3);
-    top.forEach((r, i) => out.push(`${ordinal(i)} (${measureLabel(visual, m)}) : ${dims.map((d) => dimText(r, d)).join(" · ")} — ${amount(Number(r[m.key] ?? 0), fmtOf(visual, m.key, fmt))}`));
-  }
-  return { facts: out, notes: [] };
+/** Total d'une mesure additive d'un tableau. */
+interface TableTotal {
+  label: string;
+  value: number;
+  text: string;
+  unit: string;
+  /** Moyenne par ligne, telle qu'affichée. */
+  mean: string;
 }
 
-function scatterFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): VisualAnalysis {
+/**
+ * Constat d'un tableau : son nombre de lignes et ses totaux, rapportés entre eux (jamais une de ses lignes).
+ * Sans lui, une page faite d'un seul tableau n'aurait aucune lecture calculée, donc aucun repli.
+ */
+function tableNote(title: string, count: string, n: number, exact: boolean, totals: TableTotal[]): Note {
+  const head = `${quoted(title)} compte ${count}`;
+  const positive = totals.filter((t) => t.value > 0).sort((a, b) => b.value - a.value);
+  const base = positive[0];
+  const other = positive.find((t) => base && t !== base && t.unit === base.unit && t.value < base.value);
+  if (base && other) {
+    return { text: `${head} ; ${quoted(other.label)} (${other.text}) y représente ${percent(other.value / base.value)} de ${quoted(base.label)} (${base.text}).`, weight: 1.6 };
+  }
+  const total = totals[0];
+  if (total) {
+    const mean = exact && n > 1 && total.value > 0 ? `, soit ${total.mean} par ligne en moyenne` : "";
+    return { text: `${head}, pour un total ${quoted(total.label)} de ${total.text}${mean}.`, weight: 1.2 };
+  }
+  return { text: `${head}.`, weight: 0.4 };
+}
+
+function tableFacts(visual: Visual, result: QueryResult, fmt: NumberFormat, title: string): VisualAnalysis {
+  const dims = result.columns.filter((c) => c.role === "dimension");
+  const meas = result.columns.filter((c) => c.role === "measure");
+  const n = result.rows.length;
+  const count = `${result.truncated ? "plus de " : ""}${formatNumber(n)} ligne${n > 1 ? "s" : ""}`;
+  const out = [`${n}${result.truncated ? " (ou plus)" : ""} lignes`];
+  const totals: TableTotal[] = [];
+  for (const c of meas.slice(0, 3)) {
+    if (!isAdditive(c.key)) continue;
+    const f = fmtOf(visual, c.key, fmt);
+    const value = result.rows.reduce((t, r) => t + Number(r[c.key] ?? 0), 0);
+    const label = measureLabel(visual, c);
+    totals.push({ label, value, text: amount(value, f), unit: unitOf(f), mean: amount(n ? value / n : 0, f) });
+    out.push(`Total ${label} : ${amount(value, f)}`);
+  }
+  const m = meas[0];
+  const d0 = dims[0];
+  if (m && d0) {
+    const f = fmtOf(visual, m.key, fmt);
+    const label = measureLabel(visual, m);
+    if (dims.length === 1) {
+      // Une seule colonne de regroupement : chaque ligne est un agrégat par valeur, comme la barre d'un graphique.
+      const top = [...result.rows].sort((a, b) => Number(b[m.key] ?? 0) - Number(a[m.key] ?? 0)).slice(0, 3);
+      top.forEach((r, i) => out.push(`${ordinal(i)} (${label}) : ${dimText(r, d0)} — ${amount(Number(r[m.key] ?? 0), f)}`));
+    } else if (isAdditive(m.key)) {
+      // Plusieurs colonnes : une ligne du tableau est (presque) une ligne du jeu de données — date, libellé,
+      // catégorie, montant. Elle ne part jamais vers l'IA. Seul un classement par la première colonne est dit,
+      // et seulement s'il regroupe vraiment (deux lignes par valeur en moyenne) : sinon ce serait encore une ligne.
+      const groups = groupBy(result.rows, d0, m).sort((a, b) => b.value - a.value);
+      if (groups.length > 1 && groups.length * 2 <= n) {
+        const by = dimensionLabel(visual, d0);
+        groups.slice(0, 3).forEach((e, i) => out.push(`${ordinal(i)} par ${by} (${label}) : ${e.label} — ${amount(e.value, f)}`));
+      }
+    }
+  }
+  return { facts: out, notes: [tableNote(title, count, n, !result.truncated, totals)] };
+}
+
+function scatterFacts(visual: Visual, result: QueryResult, fmt: NumberFormat, title: string): VisualAnalysis {
   const d = first(visual, "details");
   const y = first(visual, "y");
   const x = first(visual, "x");
@@ -454,8 +507,20 @@ function scatterFacts(visual: Visual, result: QueryResult, fmt: NumberFormat): V
   const rows = result.rows.filter((r) => r[bindingKey(y)] != null);
   const top = [...rows].sort((a, b) => Number(b[bindingKey(y)] ?? 0) - Number(a[bindingKey(y)] ?? 0))[0];
   const out = [`${rows.length} points (un par ${d.field}) ; X = ${bindingLabel(x)}, Y = ${bindingLabel(y)}`];
-  if (top) out.push(`Plus haut ${bindingLabel(y)} : ${String(top[bindingKey(d)] ?? "(Vide)")} — ${amount(Number(top[bindingKey(y)] ?? 0), fmt)}`);
-  return { facts: out, notes: [] };
+  let text = `${quoted(title)} compare ${formatNumber(rows.length)} point${rows.length > 1 ? "s" : ""} (un par ${d.field})`;
+  if (top) {
+    const name = String(top[bindingKey(d)] ?? "(Vide)");
+    const value = amount(Number(top[bindingKey(y)] ?? 0), fmt);
+    out.push(`Plus haut ${bindingLabel(y)} : ${name} — ${value}`);
+    if (rows.length > 1) text += ` ; ${name} a le plus haut ${quoted(bindingLabel(y))} (${value})`;
+  }
+  return { facts: out, notes: [{ text: `${text}.`, weight: 1 }] };
+}
+
+/** Carte à points : le nombre de points placés (leurs coordonnées ne sont pas des chiffres à lire). */
+function pointMapFacts(result: QueryResult, title: string): VisualAnalysis {
+  const n = result.rows.length;
+  return { facts: [`${n} points sur la carte`], notes: [{ text: `${quoted(title)} place ${formatNumber(n)} point${n > 1 ? "s" : ""} sur la carte.`, weight: 0.4 }] };
 }
 
 const EMPTY: VisualAnalysis = { facts: [], notes: [] };
@@ -476,13 +541,13 @@ export function analyzeVisual(visual: Visual, data: FactsData): VisualAnalysis {
       found = matrixFacts(visual, data.result, title);
       break;
     case "table":
-      found = tableFacts(visual, data.result, fmt);
+      found = tableFacts(visual, data.result, fmt, title);
       break;
     case "scatter":
-      found = scatterFacts(visual, data.result, fmt);
+      found = scatterFacts(visual, data.result, fmt, title);
       break;
     case "pointmap":
-      found = { facts: [`${data.result.rows.length} points sur la carte`], notes: [] };
+      found = pointMapFacts(data.result, title);
       break;
     default:
       found = genericFacts(visual, data.result, fmt, title);

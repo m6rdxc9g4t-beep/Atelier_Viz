@@ -113,6 +113,23 @@ describe("lecture calculée d'une page", () => {
     expect(r?.points.map((p) => p.visuals)).toEqual([["postes"]]);
   });
 
+  it("page faite d'un seul tableau : une lecture calculée existe (le repli du résumé), sans aucune ligne du tableau", () => {
+    const table = visual("ops", "table", "Opérations", { columns: [{ field: "Date" }, { field: "Libellé" }, { field: "Catégorie" }], values: [{ field: "Débit", agg: "sum", label: "Débit" }, { field: "Crédit", agg: "sum", label: "Crédit" }] }, { suffix: " €" });
+    const page: Page = { id: "t", name: "Opérations", visuals: [table], filters: [] };
+    const rows = res([dim("Date", "date"), dim("Libellé"), dim("Catégorie"), mea("sum(Débit)"), mea("sum(Crédit)")], [
+      { Date: "2026-08-01", Libellé: "PRLV SEPA SCI DES TANNEURS LOYER ATELIER", Catégorie: "Locaux", "sum(Débit)": 1150, "sum(Crédit)": 0 },
+      { Date: "2026-08-03", Libellé: "VIR SEPA MAISON LEBRUN", Catégorie: "Ventes", "sum(Débit)": 0, "sum(Crédit)": 2400 },
+      { Date: "2026-08-05", Libellé: "CB LEROY MERLIN", Catégorie: "Matériel", "sum(Débit)": 320, "sum(Crédit)": 0 },
+    ]);
+    const brief = pageBrief(page, () => ({ result: rows, error: null, trend: null }));
+    expect(brief.reading).not.toBeNull();
+    expect(plain(brief.reading?.headline)).toBe("Opérations.");
+    expect(brief.reading?.points.map((p) => plain(p.text))).toEqual(["« Opérations » compte 3 lignes ; « Débit » (1 470 €) y représente 61 % de « Crédit » (2 400 €)."]);
+    expect(brief.reading?.points[0]?.visuals).toEqual(["ops"]);
+    const sent = JSON.stringify(brief);
+    for (const leak of ["TANNEURS", "LEBRUN", "LEROY", "Locaux", "Matériel", "1 150", "1150"]) expect(plain(sent)).not.toContain(leak);
+  });
+
   it("rien à comparer : pas de lecture (le résumé garde alors son comportement sans repli)", () => {
     const page: Page = { id: "o", name: "Compteur", visuals: [cards[3] as Visual], filters: [] };
     expect(pageBrief(page, dataOf).reading).toBeNull();
