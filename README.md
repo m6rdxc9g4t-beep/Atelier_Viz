@@ -144,6 +144,32 @@ python scripts/standalone/build.py --self-test   # dans un venv Python 3.11+, su
 5. Là où l'on utilise l'IA : **Moteur Auto · Ollama · Claude** et le modèle (Claude : Sonnet, Opus ou Haiku ;
    Ollama : un modèle installé), mémorisés. « Auto » prend Claude en ligne quand il est disponible, sinon Ollama.
 
+#### Sur un serveur : le jeton du forfait (`CLAUDE_OAUTH_TOKEN`)
+
+Sur un serveur (VPS, conteneur), personne n'a fait `claude auth login` : il n'y a pas de session à lire. Claude
+passe alors par la même CLI isolée, authentifiée par le **jeton de votre forfait** — usage personnel : c'est votre
+abonnement Pro ou Max qui sert, pas une clé API.
+
+1. Sur votre ordinateur, Claude Code connecté à votre compte : `claude setup-token`. Il affiche un jeton
+   `sk-ant-oat01-…` valable un an.
+2. Sur le serveur, donnez-le au processus d'Atelier Viz par la **variable d'environnement** `CLAUDE_OAUTH_TOKEN`
+   (`environment:` du service, jamais `backend/.env` : il n'y est pas lu), puis redémarrez. La CLI Claude Code doit
+   être installée sur le serveur (dans l'image) ; si elle n'est pas dans le `PATH`, `CLAUDE_CLI=/chemin/absolu/claude`.
+3. Passez **En ligne** : le voyant « Claude » s'allume, les Réglages disent « Forfait Claude, par jeton ».
+
+| Règle | Détail |
+|---|---|
+| Priorité | Jeton renseigné → Claude = la CLI par jeton, **quel que soit `CLAUDE_MODE`**, même si `ANTHROPIC_API_KEY` est renseignée (la clé n'est alors pas utilisée, et jamais transmise à la CLI). Sans jeton, rien ne change. |
+| Isolation | Exactement les mêmes options que sur un ordinateur (aucun outil, dossier de travail vide, données sur l'entrée standard). Seules différences : `CLAUDE_CODE_OAUTH_TOKEN` dans l'environnement de la CLI, et `HOME` / `CLAUDE_CONFIG_DIR` vers un dossier privé, `<DATA_DIR>/claude-forfait/` (créé au besoin, droits 700). |
+| Le jeton | Lu une fois au démarrage puis retiré de l'environnement du processus : aucun autre sous-processus n'en hérite. Jamais dans une réponse, une erreur, un journal, un argument de ligne de commande ni un fichier. |
+| Disponibilité | CLI trouvée + jeton présent (pas de `claude auth status`). Hors ligne, Claude est refusé (403) et la CLI n'est pas lancée. |
+| Jeton refusé ou expiré | « refaites `claude setup-token` et mettez à jour le jeton du serveur » ; Claude s'éteint (« Auto » passe par Ollama) jusqu'à « Revérifier » ou au redémarrage avec le nouveau jeton. |
+| Limites | Celles de votre forfait, **partagées entre toutes les applications de la suite** qui utilisent ce jeton (et avec votre propre usage de Claude). Limite atteinte : le message de Claude Code est repris, réessayez plus tard ou choisissez Ollama. |
+
+Le serveur garde ce que tout processus garde de son lancement : la variable reste visible de l'administrateur de la
+machine (`docker inspect`, `/proc/<pid>/environ`). Ne partagez pas l'accès au serveur ; au moindre doute, remplacez
+le jeton.
+
 Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages, connexions, planifications
 `schedules.json`, alertes `alerts.json`, dépôt GitHub `github.json`) : sauvegardez ce dossier.
 

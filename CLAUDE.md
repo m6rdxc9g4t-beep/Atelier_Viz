@@ -23,7 +23,7 @@ cartes hors ligne, boutons d'automatisation, assistant IA (Ollama local ; Claude
 | Moteur | DuckDB (fichier `backend/data/atelier.duckdb`) : une table `ds_<id>` par jeu + `__datasets` (profils) |
 | Import | pandas + openpyxl (CSV FR/EN, XLSX, JSON) |
 | Rapports | Fichiers JSON `backend/data/reports/<id>.json` (écriture atomique) |
-| IA | `AIService` → Ollama / Claude (`ClaudeCliProvider` via `claude -p`, ou `AnthropicProvider` selon `CLAUDE_MODE`) |
+| IA | `AIService` → Ollama / Claude (`ClaudeCliProvider` via `claude -p`, ou `AnthropicProvider` selon `CLAUDE_MODE` ; jeton du forfait → toujours la CLI) |
 
 ## Arborescence (repères)
 ```
@@ -168,6 +168,7 @@ samples/                      # ventes_2026.csv, magasins.csv (avec coordonnées
   - **Aucune donnée en argument** : le prompt système ne contient que des consignes ; schéma, lignes, titres, faits vont dans les messages (entrée standard), en `data_block` (`<donnees>…</donnees>`) avec `DATA_RULE` dans le prompt système. Énumération tirée des données dans un schéma JSON : marque `DATA_ENUM` (retirée de `--json-schema`).
   - Sous-processus par `run_bounded` (sortie ≤ 4 Mo, délai puis SIGTERM/SIGKILL du groupe) ; tests : `runner` simulé, jamais la vraie CLI.
   - Cache : état 60 s, CLI absente recherchée de nouveau au plus toutes les 60 s, `invalidate` (`?refresh=true`) au plus toutes les 10 s.
+  - **Jeton du forfait** (décision de l'utilisateur : « je veux que Claude forfait cli soit actif car c'est personnel ça sera mon forfait Claude » ; README) : `CLAUDE_OAUTH_TOKEN` renseigné → Claude = la CLI isolée, mêmes drapeaux, quel que soit `CLAUDE_MODE` et prioritaire sur la clé API (`build_claude_provider`). Seul écart à la liste blanche de §5.3 : `CLAUDE_CODE_OAUTH_TOKEN` dans l'environnement de la CLI (pour `-p` seulement), `HOME` / `CLAUDE_CONFIG_DIR` vers `<DATA_DIR>/claude-forfait/`. Limite : le jeton est lu une fois (`app/claude_token.py`, bibliothèque standard, `capture` appelé avant tout sous-processus — `create_app`, `desktop.run`, `refresh_once`), retiré de l'environnement, jamais dans `Settings`, `.env`, une réponse, une erreur (`scrub`), un journal, un argument ni un fichier ; disponibilité = exécutable + jeton, sans `claude auth status` ; hors ligne rien n'est lancé ; sans jeton, rien ne change ; jamais de repli silencieux sur la clé API. `ProviderStatus.access` (`cli` / `token` / `api`) dit le mode à l'interface. Tests : `test_claude_token.py` (`conftest` retire le jeton de la machine).
 - Seuls le **schéma** et **5 lignes** partent vers l'IA, et seulement si l'utilisateur coche « Joindre le schéma ».
 - Création de visuels : `app/services/ai/builder.py` (schéma contraint → `repair` → une relance max). Le catalogue vient du registre frontend (`visuals/catalog.ts`) : ne pas le dupliquer côté backend. Tout visuel qui arrive au Studio est passé par `repair`.
 - Tout fournisseur implémente `chat` et `chat_json` (sortie structurée).
