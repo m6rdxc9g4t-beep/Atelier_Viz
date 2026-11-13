@@ -9,7 +9,8 @@
    ni une durée. Un chiffre introuvable, ou un point qui recopie un fait tel quel, déclenche une relance avec la
    liste des écarts ; ce qui reste est écarté.
 4. Repli : un point écarté est remplacé par un constat de la lecture calculée ; si le modèle échoue ou ne donne
-   rien d'exploitable, toute la synthèse vient de cette lecture (`local`).
+   rien d'exploitable, toute la synthèse vient de cette lecture (`local`). Sans lecture calculée (page où rien ne
+   se compare), des points recopiés mais exacts sont gardés plutôt que de rendre une erreur.
 """
 
 import json
@@ -369,26 +370,37 @@ async def summarize(service: AIService, req: SummaryRequest) -> SummaryResponse:
 
     warnings: list[str] = []
     points: list[SummaryPoint] = []
+    copies: list[SummaryPoint] = []
     for p in draft.points:
         if bad := ungrounded(p.text, pool):
             warnings.append(f"Point écarté (chiffre non vérifiable : {', '.join(bad)}) : {p.text}")
         elif recopied(p.text, req):
-            warnings.append(f"Point écarté (simple recopie d'un chiffre de la page) : {p.text}")
+            copies.append(p)
         else:
             points.append(p)
     label = PROVIDER_LABELS.get(provider.name, provider.name)
     if not points:
+        recopy = [f"Point écarté (simple recopie d'un chiffre de la page) : {p.text}" for p in copies]
         reason = (
-            f"{label} n'a donné aucune phrase vérifiable ({len(warnings)} écartée(s)) : "
+            f"{label} n'a donné aucune phrase vérifiable ({len(warnings) + len(copies)} écartée(s)) : "
             "lecture calculée sur cette machine, sans IA."
         )
         fallback = local_summary(req, provider.name, provider.model, reason)
-        if fallback is None:
+        if fallback is not None:
+            fallback.warnings.extend(warnings + recopy)
+            return fallback
+        if not copies:
             raise AIProviderError(
                 provider.name, "L'IA n'a produit aucun point vérifiable à partir des chiffres de la page.", 422
             )
-        fallback.warnings.extend(warnings)
-        return fallback
+        # Aucune lecture calculée pour prendre la place (page sans rien à comparer) : des chiffres recopiés mais
+        # exacts valent mieux qu'une erreur. Seuls les chiffres invérifiables restent écartés.
+        points = copies
+        warnings.insert(
+            0, "Rien à comparer sur cette page : ses chiffres sont repris tels quels, sans phrase qui les relie."
+        )
+    else:
+        warnings.extend(f"Point écarté (simple recopie d'un chiffre de la page) : {p.text}" for p in copies)
     # Chaque phrase écartée laisse sa place à un constat calculé, sur un visuel dont l'IA n'a pas déjà parlé.
     missing = min(len(warnings), req.max_points - len(points))
     points.extend(local_points(req, missing, {i for p in points for i in p.visuals}))

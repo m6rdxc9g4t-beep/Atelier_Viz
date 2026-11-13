@@ -403,3 +403,77 @@ def test_summarize_drops_the_three_unverified_sentences() -> None:
     assert len(ollama.calls) == 2
     assert [p.text for p in res.points if not p.local] == ["Les dépenses pèsent 70\u00a0% des recettes."]
     assert len([w for w in res.warnings if "non vérifiable" in w]) == 3
+
+
+# --- Page sans lecture calculée : des chiffres recopiés mais exacts valent mieux qu'une erreur -------------------
+
+
+def test_copied_points_are_kept_when_no_computed_reading_can_replace_them() -> None:
+    """Page d'une seule carte (rien à comparer, donc pas de lecture calculée) et modèle qui recopie ses faits."""
+    svc, ollama = service(CARDS, CARDS)
+    res = asyncio.run(summarize(svc, req()))
+    assert len(ollama.calls) == 2  # la relance a bien demandé mieux
+    assert res.local is False and [p.text for p in res.points] == [
+        "Somme de ca : 4,4\u00a0M",
+        "Maximum : mars 2026 — 640\u00a0k",
+    ]
+    assert res.warnings == [
+        "Rien à comparer sur cette page : ses chiffres sont repris tels quels, sans phrase qui les relie."
+    ]
+
+
+def test_copied_points_never_rescue_an_invented_number() -> None:
+    mixed = {"headline": "Vue", "points": [{"text": "Somme de ca : 4,4 M"}, {"text": "Marge : 31 %"}]}
+    svc, _ = service(mixed, mixed)
+    res = asyncio.run(summarize(svc, req()))
+    assert [p.text for p in res.points] == ["Somme de ca : 4,4\u00a0M"]
+    assert any("31\u00a0%" in w and "non vérifiable" in w for w in res.warnings)
+    # Avec une vraie phrase à côté, la recopie reste écartée.
+    both = {"headline": "Vue", "points": [GOOD["points"][1], {"text": "Somme de ca : 4,4 M"}]}
+    svc, _ = service(both, both)
+    res = asyncio.run(summarize(svc, req()))
+    assert len(res.points) == 1 and res.points[0].text.startswith("Mars 2026")
+    assert any("simple recopie" in w for w in res.warnings)
+
+
+def test_route_summarizes_a_single_table_page_whose_facts_are_copied(client: TestClient, override_ai) -> None:
+    """Page « Opérations » (un tableau) : le modèle recopie les faits, la lecture calculée du tableau prend la place."""
+    body = {
+        "report": "Exemple — Studio Garance",
+        "page": "Opérations",
+        "visuals": [
+            {
+                "id": "t",
+                "title": "Opérations",
+                "type": "table",
+                "facts": ["41 lignes", "Total Débit : 9,1 k €", "Total Crédit : 13 k €"],
+            }
+        ],
+    }
+    copied = {
+        "headline": "Opérations",
+        "points": [{"text": "Total Débit : 9,1 k €", "visuels": [1]}, {"text": "41 lignes"}],
+    }
+    # Sans lecture calculée (ancien frontend) : plus de 422, les chiffres exacts sont repris.
+    svc, _ = service(copied, copied)
+    override_ai(svc)
+    res = client.post("/api/ai/summary", json=body)
+    assert res.status_code == 200, res.text
+    assert [p["text"] for p in res.json()["points"]] == ["Total Débit : 9,1\u00a0k €", "41 lignes"]
+    assert res.json()["local"] is False and "repris tels quels" in res.json()["warnings"][0]
+    # Avec la lecture calculée du tableau : c'est elle qui s'affiche.
+    reading = {
+        "headline": "Opérations.",
+        "points": [
+            {
+                "text": "« Opérations » compte 41 lignes ; « Débit » (9,1 k €) y représente 70 % "
+                "de « Crédit » (13 k €).",
+                "visuals": ["t"],
+            }
+        ],
+    }
+    svc, _ = service(copied, copied)
+    override_ai(svc)
+    res = client.post("/api/ai/summary", json={**body, "reading": reading})
+    assert res.status_code == 200, res.text
+    assert res.json()["local"] is True and res.json()["points"][0]["text"].startswith("« Opérations » compte 41 lignes")
