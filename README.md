@@ -212,6 +212,13 @@ pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (
                                                # snowflake-connector-python, google-cloud-bigquery
 ```
 
+**Sur un serveur** (image Docker, VPS) : installer `requirements-connectors.txt` en entier dans l'image, après
+`requirements.txt`. Des roues binaires existent pour Linux x86_64 et arm64 (Python 3.12 et 3.13) : aucun paquet
+système à ajouter (FreeTDS et libpq sont dans les roues). Tant qu'un pilote manque, la fenêtre le dit (« Pilote absent
+sur le serveur d'Atelier Viz ») sans demander de lancer `pip` sur son ordinateur. Sur un serveur toujours,
+« Fichier synchronisé », SQLite et Atelier Tab lisent un dossier **du serveur** (la fenêtre l'explique) : un fichier de
+son poste se dépose dans Données, un fichier OneDrive ou SharePoint se lit par « SharePoint Online » ou « Fichier web (URL) ».
+
 | Source | À savoir |
 |---|---|
 | SQL Server / Azure SQL | Serveur `sql01.entreprise.local` ou instance `serveur\INSTANCE` ; compte SQL ou Windows `DOMAINE\utilisateur` ; cocher « chiffrement » pour Azure SQL. Sur Mac, pymssql s'installe sur macOS 14 ou plus récent. |
@@ -229,13 +236,20 @@ pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (
 
 ### Activer SharePoint Online (une fois, par l'administrateur Microsoft 365)
 
-1. [portal.azure.com](https://portal.azure.com) → **Microsoft Entra ID → Inscriptions d'applications → Nouvelle inscription** : « Atelier Viz », comptes de cet annuaire uniquement.
-2. **Authentification → Paramètres avancés → Autoriser les flux de clients publics : Oui.**
-3. **Autorisations d'API → Microsoft Graph → Autorisations déléguées** : `Sites.Read.All`, `Files.Read.All` (+ `User.Read`, `offline_access`) ; accorder le consentement administrateur si l'entreprise l'exige.
-4. Copier l'**ID d'application (client)** dans `backend/.env` : `SHAREPOINT_CLIENT_ID=…` et `SHAREPOINT_TENANT=entreprise.fr`, puis relancer `uvicorn`.
-5. Passer en **En ligne**, créer une connexion SharePoint, **Se connecter à Microsoft 365** : saisir le code affiché sur microsoft.com/devicelogin.
+Tout se fait dans la fenêtre : **Se connecter à une source → SharePoint Online → Application Entra ID** affiche ces
+étapes et enregistre les deux identifiants (aucun secret : une application « client public » n'en a pas).
 
-Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichier synchronisé** (bouton « Synchroniser » ou « Ajouter un raccourci à Mes fichiers » dans SharePoint).
+1. [entra.microsoft.com](https://entra.microsoft.com) → **Applications → Inscriptions d'applications → Nouvelle inscription** : « Atelier Viz », « Comptes dans cet annuaire d'organisation uniquement » (locataire unique), URI de redirection vide.
+2. **Authentification → Paramètres avancés → Autoriser les flux de clients publics : Oui** (connexion par code d'appareil, sans secret client).
+3. **API autorisées → Ajouter une autorisation → Microsoft Graph → Autorisations déléguées** : `Sites.Read.All`, `Files.Read.All`, `User.Read`, `offline_access` ; accorder le consentement d'administrateur si l'entreprise l'exige.
+4. Page **Vue d'ensemble** : recopier l'**ID d'application (client)** et l'**ID de l'annuaire (locataire)** dans la fenêtre, puis « Enregistrer l'application » (rangés dans `data/sharepoint.json` ; ils servent à toutes les connexions SharePoint).
+5. Passer en **En ligne**, enregistrer la connexion SharePoint, **Se connecter à Microsoft 365** : saisir le code affiché sur microsoft.com/devicelogin.
+
+`SHAREPOINT_CLIENT_ID` et `SHAREPOINT_TENANT` (dans `backend/.env` ou l'environnement du serveur) restent possibles :
+l'application saisie dans la fenêtre les remplace, et une connexion peut avoir la sienne (« Autre application pour
+cette connexion seulement »). Changer d'application déconnecte les connexions qui s'en servaient.
+
+Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichier synchronisé** (bouton « Synchroniser » ou « Ajouter un raccourci à Mes fichiers » dans SharePoint) sur son ordinateur, ou via **Fichier web (URL)** avec un lien de partage.
 
 ## Dans le Studio
 
