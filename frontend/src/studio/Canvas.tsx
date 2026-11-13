@@ -10,7 +10,7 @@ import { DEFAULT_PAGE, GAP } from "./grid";
 import { type Guides, RESIZE_DIRS, type ResizeDir, moveRect, resizeCursor, resizeRect } from "./snap";
 import { useStudio } from "./store";
 import { VisualContainer } from "./VisualContainer";
-import { ZOOM_MAX, ZOOM_MIN, ZOOM_SLOT_ID, type ZoomChoice, resolveZoom, stepZoom, wheelZoom } from "./zoom";
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_SLOT_ID, type ZoomChoice, recallZoom, rememberZoom, resolveZoom, stepZoom, wheelZoom } from "./zoom";
 
 /** Distance d'accroche aux repères, en pixels d'écran. */
 const SNAP_SCREEN_PX = 6;
@@ -44,8 +44,13 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(0);
   const [availableH, setAvailableH] = useState(0);
-  // « Ajusté » tant que l'utilisateur n'a pas choisi un zoom : la page suit la place (volets, fenêtre).
-  const [zoomChoice, setZoomChoice] = useState<ZoomChoice>("fit");
+  // « Ajusté » tant que l'utilisateur n'a pas choisi un zoom : la page suit la place (volets, fenêtre). Son choix
+  // est retenu (`rememberZoom`) : il revient après « Présenter » et à la réouverture du rapport.
+  const [zoomChoice, setChoice] = useState<ZoomChoice>(() => (fitPage ? "fit" : recallZoom(report.id)));
+  const setZoomChoice = (choice: ZoomChoice) => {
+    setChoice(choice);
+    rememberZoom(report.id, choice);
+  };
   const [zoomSlot, setZoomSlot] = useState<HTMLElement | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);

@@ -4,7 +4,7 @@ import type { Page, Report, Visual } from "../types/report";
 import { clampToPage, fitHeight, gridRect, migratePage } from "./grid";
 import { moveRect, resizeRect } from "./snap";
 import { useStudio } from "./store";
-import { FIT_MIN, fitZoom, resolveZoom, stepZoom, wheelZoom, widthZoom } from "./zoom";
+import { FIT_MIN, ZOOM_STORAGE_KEY, fitZoom, forgetZoom, recallZoom, rememberZoom, resolveZoom, stepZoom, wheelZoom, widthZoom } from "./zoom";
 
 const PAGE = { width: 1280, height: 720 };
 
@@ -227,6 +227,33 @@ describe("zoom ajusté à la place disponible", () => {
     expect(widthZoom({ width: 1280, height: 1605 }, a, 15)).toBeCloseTo((892 - 15) / 1280, 2);
     expect(widthZoom({ width: 1280, height: 400 }, a, 15)).toBeCloseTo(892 / 1280, 2);
     expect(widthZoom({ width: 1280, height: 1605 }, a)).toBeCloseTo(892 / 1280, 2); // barres superposées (macOS, téléphone)
+  });
+
+  it("le choix de zoom est retenu : la façon d'ajuster d'une visite à l'autre, un zoom fixe pour le rapport ouvert", () => {
+    const kept = new Map<string, string>();
+    const storage = { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v) };
+    forgetZoom();
+    expect(recallZoom("r1", storage)).toBe("fit");
+    rememberZoom("r1", "width", storage);
+    expect(kept.get(ZOOM_STORAGE_KEY)).toBe("width");
+    forgetZoom(); // nouvelle visite : la session est vide, le stockage reste
+    expect(recallZoom("r1", storage)).toBe("width");
+    expect(recallZoom("r2", storage)).toBe("width");
+    // Un zoom fixe : pour ce rapport et cette session seulement, jamais écrit.
+    rememberZoom("r1", 1.5, storage);
+    expect(recallZoom("r1", storage)).toBe(1.5);
+    expect(recallZoom("r2", storage)).toBe("width");
+    expect(kept.get(ZOOM_STORAGE_KEY)).toBe("width");
+    rememberZoom("r1", "fit", storage);
+    expect(recallZoom("r2", storage)).toBe("fit");
+    // Stockage indisponible ou valeur inconnue : « Ajuster ».
+    forgetZoom();
+    const broken = { getItem: () => { throw new Error("refusé"); }, setItem: () => { throw new Error("refusé"); } };
+    expect(recallZoom("r3", broken)).toBe("fit");
+    expect(() => rememberZoom("r3", "width", broken)).not.toThrow();
+    expect(recallZoom("r3", broken)).toBe("width"); // gardé pour la session
+    forgetZoom();
+    expect(recallZoom("r4", { getItem: () => "150" })).toBe("fit");
   });
 
   it("un zoom choisi à la main ne suit plus la place ; « Ajuster » y revient", () => {

@@ -77,6 +77,45 @@ export function resolveZoom(choice: ZoomChoice, page: Size, area: Size, scrollba
   return choice;
 }
 
+/** Clé du choix d'ajustement retenu d'une visite à l'autre (préférence de cet appareil, comme le thème). */
+export const ZOOM_STORAGE_KEY = "atelier.viz.zoom";
+
+/** Zoom fixe choisi pour un rapport : gardé le temps de la session (retour de « Présenter », rapport rouvert). */
+const sessionZoom = new Map<string, ZoomChoice>();
+
+/**
+ * Choix de zoom à l'ouverture du Studio : celui de ce rapport pendant la session, sinon la façon d'ajuster
+ * retenue (« Ajuster » ou « Ajuster à la largeur »), sinon « Ajuster ».
+ */
+export function recallZoom(reportId: string, storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): ZoomChoice {
+  const kept = sessionZoom.get(reportId);
+  if (kept !== undefined) return kept;
+  try {
+    return storage?.getItem(ZOOM_STORAGE_KEY) === "width" ? "width" : "fit";
+  } catch {
+    return "fit";
+  }
+}
+
+/**
+ * Retient un choix de zoom. La façon d'ajuster est gardée d'une visite à l'autre, pour tous les rapports ; un
+ * zoom fixe (150 %) ne vaut que pour ce rapport et cette session : il ne s'impose pas au rapport suivant.
+ */
+export function rememberZoom(reportId: string, choice: ZoomChoice, storage: Pick<Storage, "setItem"> | undefined = globalThis.localStorage): void {
+  sessionZoom.set(reportId, choice);
+  if (typeof choice === "number") return;
+  try {
+    storage?.setItem(ZOOM_STORAGE_KEY, choice);
+  } catch {
+    // stockage indisponible (navigation privée) : le choix vaut pour la session
+  }
+}
+
+/** Oublie les zooms de la session (tests). */
+export function forgetZoom(): void {
+  sessionZoom.clear();
+}
+
 /** Palier suivant (`dir` = 1) ou précédent (−1) à partir du zoom affiché ; `null` au bout de l'échelle. */
 export function stepZoom(zoom: number, dir: 1 | -1): number | null {
   const next = dir > 0 ? ZOOM_STEPS.find((z) => z > zoom + 0.001) : [...ZOOM_STEPS].reverse().find((z) => z < zoom - 0.001);

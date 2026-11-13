@@ -7,6 +7,7 @@ import type { Page, Report } from "../types/report";
 import { Canvas } from "./Canvas";
 import { PageTabs } from "./PageTabs";
 import { useStudio } from "./store";
+import { ZOOM_STORAGE_KEY, forgetZoom } from "./zoom";
 
 vi.mock("./VisualContainer", () => ({ VisualContainer: () => <div data-testid="visuel" /> }));
 
@@ -34,7 +35,9 @@ describe("zoom du canvas : ajusté à la place disponible", () => {
     place = { width: 1452, height: 602 };
     scrollbar = 0;
     observers = [];
+    forgetZoom();
     forgetScrollbarSize();
+    localStorage.removeItem(ZOOM_STORAGE_KEY);
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -61,10 +64,10 @@ describe("zoom du canvas : ajusté à la place disponible", () => {
     useStudio.setState({ mode: "edit", report: null });
   });
 
-  function open(shown: Page = page) {
+  function open(shown: Page = page, of: Report = report) {
     return render(
       <div>
-        <Canvas page={shown} report={report} />
+        <Canvas page={shown} report={of} />
         <PageTabs />
       </div>,
     );
@@ -137,6 +140,30 @@ describe("zoom du canvas : ajusté à la place disponible", () => {
     for (let i = 0; i < 5; i++) resize(940, 602);
     expect(frame().style.width).toBe(width);
     expect(zoomShown()).toBe("69 %");
+  });
+
+  it("le choix « Ajuster à la largeur » revient à la réouverture du rapport et après « Présenter »", async () => {
+    const first = open();
+    await userEvent.click(screen.getByRole("button", { name: "Ajuster à la largeur" }));
+    expect(zoomShown()).toBe("110 %");
+    first.unmount(); // « Présenter » ou retour à l'accueil : le canvas est démonté
+    open();
+    expect(screen.getByRole("button", { name: "Ajuster à la largeur" })).toHaveAttribute("aria-pressed", "true");
+    expect(zoomShown()).toBe("110 %");
+    expect(localStorage.getItem(ZOOM_STORAGE_KEY)).toBe("width");
+  });
+
+  it("un zoom fixe revient pour ce rapport, sans s'imposer à un autre", async () => {
+    const first = open();
+    await userEvent.click(screen.getByRole("button", { name: "Zoom avant" }));
+    expect(zoomShown()).toBe("100 %");
+    first.unmount();
+    const again = open();
+    expect(zoomShown()).toBe("100 %");
+    again.unmount();
+    open(page, { ...report, id: "r2" });
+    expect(zoomShown()).toBe("77 %");
+    expect(screen.getByRole("button", { name: /Ajuster$/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("sans barre des pages (canvas seul), le contrôle flotte et la page lui laisse sa place", () => {
