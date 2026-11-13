@@ -2,7 +2,7 @@ import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { NARROW_QUERY } from "../lib/viewport";
+import { NARROW_QUERY, forgetScrollbarSize } from "../lib/viewport";
 import type { Page, Report } from "../types/report";
 import { Canvas } from "./Canvas";
 import { PageTabs } from "./PageTabs";
@@ -13,8 +13,12 @@ vi.mock("./VisualContainer", () => ({ VisualContainer: () => <div data-testid="v
 const page: Page = { id: "p1", name: "Page 1", size: { width: 1280, height: 720 }, filters: [], visuals: [] };
 const report = { id: "r1", name: "Rapport", dataset_id: null, theme: {}, pages: [page] } as unknown as Report;
 
-/** Place de la zone de défilement du canvas (jsdom ne met rien en page) et observateur de taille déclenchable. */
+/**
+ * Boîte de la zone de défilement du canvas (jsdom ne met rien en page), épaisseur d'une barre de défilement
+ * classique (0 : barres superposées) et observateur de taille déclenchable.
+ */
 let place = { width: 1452, height: 602 };
+let scrollbar = 0;
 let observers: (() => void)[] = [];
 
 function resize(width: number, height: number) {
@@ -28,7 +32,9 @@ const zoomShown = () => within(screen.getByRole("group", { name: "Zoom" })).getB
 describe("zoom du canvas : ajusté à la place disponible", () => {
   beforeEach(() => {
     place = { width: 1452, height: 602 };
+    scrollbar = 0;
     observers = [];
+    forgetScrollbarSize();
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -42,7 +48,10 @@ describe("zoom du canvas : ajusté à la place disponible", () => {
         unobserve() {}
       },
     );
-    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(() => place.width);
+    // La boîte (`offsetWidth`) ne dépend pas des barres ; la place utile (`clientWidth`) en perd l'épaisseur.
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(() => place.width);
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => place.height);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(() => place.width - scrollbar);
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(() => place.height);
     useStudio.setState({ mode: "view", report, pageId: "p1", selectedId: null });
   });
@@ -52,10 +61,10 @@ describe("zoom du canvas : ajusté à la place disponible", () => {
     useStudio.setState({ mode: "edit", report: null });
   });
 
-  function open() {
+  function open(shown: Page = page) {
     return render(
       <div>
-        <Canvas page={page} report={report} />
+        <Canvas page={shown} report={report} />
         <PageTabs />
       </div>,
     );
@@ -113,6 +122,21 @@ describe("zoom du canvas : ajusté à la place disponible", () => {
     expect(screen.getByRole("button", { name: "Ajuster à la largeur" })).toHaveAttribute("aria-pressed", "true");
     resize(940, 602);
     expect(zoomShown()).toBe("70 %");
+  });
+
+  it("barres de défilement de Windows (15 px) : la place se mesure sur la boîte, la page longue ne clignote pas", () => {
+    // Page de 1280 × 1605, volets d'édition ouverts : au seuil où la page clignotait entre 35 % et 70 %.
+    scrollbar = 15;
+    place = { width: 940, height: 602 };
+    open({ ...page, size: { width: 1280, height: 1605 } });
+    // À la largeur, barre verticale déjà retirée : (940 − 48 − 15) / 1280.
+    expect(zoomShown()).toBe("69 %");
+    expect(parseFloat(frame().style.width)).toBeLessThanOrEqual(940 - 48 - 15);
+    // La barre apparaît, l'observateur de taille se déclenche : la boîte n'a pas changé, le zoom non plus.
+    const width = frame().style.width;
+    for (let i = 0; i < 5; i++) resize(940, 602);
+    expect(frame().style.width).toBe(width);
+    expect(zoomShown()).toBe("69 %");
   });
 
   it("sans barre des pages (canvas seul), le contrôle flotte et la page lui laisse sa place", () => {

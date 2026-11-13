@@ -3,7 +3,7 @@ import { Minus, MoveHorizontal, Plus, Scan } from "lucide-react";
 import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { useNarrowScreen } from "../lib/viewport";
+import { scrollbarSize, useNarrowScreen } from "../lib/viewport";
 import type { Layout, Page, Report } from "../types/report";
 import { fitScale } from "./extraction";
 import { DEFAULT_PAGE, GAP } from "./grid";
@@ -52,10 +52,10 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
   dragRef.current = drag;
 
   const size = page.size ?? DEFAULT_PAGE;
-  // Place utile : la zone de défilement moins ses marges (et moins le contrôle de zoom quand il flotte dessus).
+  // Place : la boîte de la zone de défilement moins ses marges (et moins le contrôle de zoom quand il flotte dessus).
   const floating = !fitPage && !zoomSlot;
   const area = { width: available - 2 * PADDING, height: availableH - 2 * PADDING - (floating ? ZOOM_CLEARANCE : 0) };
-  const zoom = fitPage ? fitScale(size, { width: available, height: availableH }, PADDING) : available > 0 ? resolveZoom(zoomChoice, size, area) : 1;
+  const zoom = fitPage ? fitScale(size, { width: available, height: availableH }, PADDING) : available > 0 ? resolveZoom(zoomChoice, size, area, scrollbarSize()) : 1;
 
   // Le contrôle de zoom se range dans la barre des pages quand elle existe (sinon il flotte en bas à droite).
   // Téléphone : il reste flottant — dans la barre, il ne laisserait presque rien aux onglets des pages, et la
@@ -66,12 +66,15 @@ export function Canvas({ page, report, fitPage = false }: { page: Page; report: 
   }, [fitPage, narrow]);
 
   // Place disponible : remesurée quand un volet s'ouvre ou se replie et quand la fenêtre change de taille.
+  // On mesure la boîte de la zone (`offsetWidth`), barres de défilement comprises, jamais `clientWidth` : celle-ci
+  // perd 15 px dès qu'une barre apparaît, et l'ajustement — qui décide de cette barre — basculerait sans fin
+  // entre « page entière » et « à la largeur » (Chrome sous Windows). `zoom.ts` retire la barre quand il le faut.
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const measure = () => {
-      setAvailable(el.clientWidth);
-      setAvailableH(el.clientHeight);
+      setAvailable(el.offsetWidth);
+      setAvailableH(el.offsetHeight);
     };
     const ro = new ResizeObserver(measure);
     ro.observe(el);

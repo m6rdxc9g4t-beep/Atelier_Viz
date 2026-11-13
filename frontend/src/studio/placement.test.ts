@@ -174,6 +174,61 @@ describe("zoom ajusté à la place disponible", () => {
     expect(longer.height * fitZoom(longer, a)).toBeLessThanOrEqual(a.height);
   });
 
+  it("page longue : elle ne rétrécit pas sous les trois quarts de sa taille à la largeur", () => {
+    // Écran de 1500 × 730 en édition (volets ouverts) : 892 px de large pour la page, 70 % à la largeur.
+    const a = area(940, 602);
+    // Avant : une page de 1100 px s'ouvrait à 50 %, une de 1590 px à 35 % (texte de 4,5 px), puis 1620 px sautait à 69 %.
+    for (const height of [1100, 1300, 1590, 1620, 2400]) {
+      const page = { width: 1280, height };
+      expect(fitZoom(page, a), `${height}`).toBe(widthZoom(page, a));
+      expect(fitZoom(page, a), `${height}`).toBeGreaterThan(0.69);
+    }
+    // Un peu allongée (1000 px) : la montrer entière ne lui coûte qu'un cinquième, elle reste entière.
+    const longer = { width: 1280, height: 1000 };
+    expect(longer.height * fitZoom(longer, a)).toBeLessThanOrEqual(a.height);
+    expect(fitZoom(longer, a)).toBeGreaterThan(0.55);
+  });
+
+  it("page d'un écran (16:9, 4:3, A4 paysage) : entière même dans une fenêtre large et basse", () => {
+    // Portable de 1366 × 768 en lecture : la place est 2,4 fois plus large que haute.
+    const a = area(1086, 500);
+    for (const page of [PAGE, { width: 960, height: 720 }, { width: 1123, height: 794 }]) {
+      const z = fitZoom(page, a);
+      expect(page.height * z, `${page.width} × ${page.height}`).toBeLessThanOrEqual(a.height);
+      expect(z).toBeLessThan(widthZoom(page, a));
+    }
+  });
+
+  it("barres de défilement de 15 à 17 px (Chrome sous Windows) : leur apparition ne change jamais le choix", () => {
+    // Avant : la place était mesurée sans la barre ; au seuil des pages longues, la barre verticale retirait 15 px,
+    // la page repassait « entière », la barre disparaissait, et la page clignotait entre 35 % et 70 % sans fin.
+    for (const scrollbar of [15, 16, 17]) {
+      for (const [w, h] of [[940, 602], [1132, 602], [1452, 602], [1318, 522], [806, 522]] as const) {
+        const a = area(w, h);
+        for (let height = 700; height <= 2400; height += 1) {
+          const page = { width: 1280, height };
+          const z = fitZoom(page, a, scrollbar);
+          const label = `${w} × ${h}, page de ${height}, barre de ${scrollbar}`;
+          if (page.height * z > a.height) {
+            // À la largeur : la barre verticale est là. La page tient dans ce qu'elle laisse (pas de barre
+            // horizontale), et remesurer la place sans la barre redonne le même zoom : rien ne bascule.
+            const narrowed = { width: a.width - scrollbar, height: a.height };
+            expect(page.width * z, label).toBeLessThanOrEqual(narrowed.width);
+            expect(fitZoom(page, narrowed), label).toBe(z);
+          } else {
+            // Entière : aucune barre, donc rien à retirer.
+            expect(page.width * z, label).toBeLessThanOrEqual(a.width);
+          }
+        }
+      }
+    }
+    // « Ajuster à la largeur » réserve la barre de la même façon, et seulement si la page dépasse en hauteur.
+    const a = area(940, 602);
+    expect(widthZoom({ width: 1280, height: 1605 }, a, 15)).toBeCloseTo((892 - 15) / 1280, 2);
+    expect(widthZoom({ width: 1280, height: 400 }, a, 15)).toBeCloseTo(892 / 1280, 2);
+    expect(widthZoom({ width: 1280, height: 1605 }, a)).toBeCloseTo(892 / 1280, 2); // barres superposées (macOS, téléphone)
+  });
+
   it("un zoom choisi à la main ne suit plus la place ; « Ajuster » y revient", () => {
     expect(resolveZoom(0.75, PAGE, area(1452, 602))).toBe(0.75);
     expect(resolveZoom(0.75, PAGE, area(940, 602))).toBe(0.75);
