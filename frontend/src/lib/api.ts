@@ -15,6 +15,8 @@ import type {
   ImportRequest,
   PreviewRequest,
   PreviewResult,
+  SharePointApp,
+  SharePointAppInput,
   TableList,
   TestResult,
 } from "../types/connection";
@@ -174,6 +176,9 @@ export const api = {
     login: (id: string) => request<DeviceCodeStart>(`/connections/${id}/login`, { method: "POST" }),
     poll: (id: string) => request<AuthStatus>(`/connections/${id}/login/poll`, { method: "POST" }),
     logout: (id: string) => request<Connection>(`/connections/${id}/logout`, { method: "POST" }),
+    /** SharePoint : application Entra ID par défaut (identifiant d'application et locataire, jamais de secret). */
+    sharepointApp: () => request<SharePointApp>("/connections/sharepoint-app"),
+    setSharepointApp: (body: SharePointAppInput) => request<SharePointApp>("/connections/sharepoint-app", { method: "PUT", body: JSON.stringify(body) }),
   },
 
   refresh: {

@@ -14,6 +14,31 @@ from pydantic import BaseModel, Field, SecretStr, model_validator
 
 from app.core.network import is_loopback_host, loopback_refusal
 
+ENTRA_GUID = re.compile(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}")
+# Locataire Microsoft 365 : identifiant (GUID), domaine (contoso.fr, contoso.onmicrosoft.com) ou « organizations ».
+ENTRA_TENANT = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9.-]{0,198}[A-Za-z0-9])?")
+
+
+def check_entra_client_id(value: str) -> str:
+    """Identifiant d'application Entra ID : un GUID (« ID d'application (client) » de la page Vue d'ensemble)."""
+    if not ENTRA_GUID.fullmatch(value):
+        raise ValueError(
+            "Identifiant d'application attendu : 36 caractères, comme 00000000-0000-0000-0000-000000000000 "
+            "(« ID d'application (client) » dans Entra)."
+        )
+    return value.lower()
+
+
+def check_entra_tenant(value: str) -> str:
+    """Locataire Microsoft 365 : « ID de l'annuaire (locataire) » ou domaine de l'entreprise."""
+    if not ENTRA_TENANT.fullmatch(value):
+        raise ValueError(
+            "Locataire attendu : l'« ID de l'annuaire (locataire) » d'Entra ou le domaine de l'entreprise "
+            "(contoso.fr), sans adresse ni espace."
+        )
+    return value
+
+
 ConnectorKind = Literal[
     "sqlserver",
     "postgres",
@@ -62,7 +87,9 @@ class ConnectionFields(BaseModel):
         default=None, max_length=200, description="Locataire Microsoft 365 (domaine ou identifiant)."
     )
     client_id: str | None = Field(
-        default=None, max_length=100, description="Application Entra ID (sinon SHAREPOINT_CLIENT_ID)."
+        default=None,
+        max_length=100,
+        description="Application Entra ID propre à la connexion (sinon celle de l'interface ou de l'environnement).",
     )
     # Snowflake : entrepôt de calcul et rôle (de préférence un rôle en lecture seule).
     warehouse: str | None = Field(default=None, max_length=255, description="Snowflake : entrepôt (warehouse).")
@@ -104,6 +131,17 @@ class ConnectionInput(ConnectionFields):
     """Création ou modification. `password` absent à la modification = mot de passe inchangé."""
 
     password: SecretStr | None = Field(default=None, description="Jamais renvoyé ; stocké dans le trousseau système.")
+
+    @model_validator(mode="after")
+    def _entra_identifiers(self) -> "ConnectionInput":
+        # Contrôle de forme à la saisie seulement (les connexions déjà enregistrées restent lisibles) :
+        # le locataire entre dans l'adresse de connexion Microsoft, l'identifiant d'application est un GUID.
+        if self.kind == "sharepoint":
+            if self.tenant and self.tenant.strip():
+                check_entra_tenant(self.tenant.strip())
+            if self.client_id and self.client_id.strip():
+                check_entra_client_id(self.client_id.strip())
+        return self
 
     @model_validator(mode="after")
     def _local_projets(self) -> "ConnectionInput":
@@ -215,6 +253,36 @@ class ConnectorInfo(BaseModel):
     configured: bool = Field(default=True, description="SharePoint : application Entra ID renseignée.")
     default_location: str | None = Field(
         default=None, description="Atelier Tab : dossier par défaut ; Atelier Projets : adresse par défaut."
+    )
+
+
+class SharePointAppInput(BaseModel):
+    """Application Entra ID de SharePoint, renseignée depuis l'interface. Identifiant vide = réglage effacé.
+
+    Une application « client public » n'a pas de secret : rien de confidentiel n'est saisi ni enregistré ici.
+    """
+
+    client_id: str | None = Field(default=None, max_length=100)
+    tenant: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _clean(self) -> "SharePointAppInput":
+        client_id = (self.client_id or "").strip()
+        tenant = (self.tenant or "").strip()
+        self.client_id = check_entra_client_id(client_id) if client_id else None
+        self.tenant = check_entra_tenant(tenant) if tenant else None
+        if self.tenant and not self.client_id:
+            raise ValueError("Renseignez aussi l'identifiant d'application (le locataire seul ne suffit pas).")
+        return self
+
+
+class SharePointApp(BaseModel):
+    """Application Entra ID utilisée par défaut par les connexions SharePoint (jamais de secret)."""
+
+    client_id: str | None = None
+    tenant: str | None = None
+    source: Literal["interface", "environment", "none"] = Field(
+        default="none", description="D'où vient le réglage : l'interface, SHAREPOINT_CLIENT_ID, ou nulle part."
     )
 
 

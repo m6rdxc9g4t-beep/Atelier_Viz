@@ -22,10 +22,12 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import Settings
 from app.schemas.connection import ConnectionFields, TableRef
 from app.services.connectors import sql
 from app.services.connectors.base import ConnectorError, check_server, rows_to_frame, server_hostname
 from app.services.connectors.sharepoint import parse_list_url, share_id
+from main import create_app
 
 
 @pytest.fixture
@@ -575,6 +577,107 @@ def test_sharepoint_needs_an_application(client: TestClient) -> None:
     c = make(client, name="SP", kind="sharepoint")
     r = client.post(f"/api/connections/{c['id']}/login")
     assert r.status_code == 412 and "SHAREPOINT_CLIENT_ID" in r.json()["detail"]
+
+
+APP_ID = "11111111-2222-3333-4444-555555555555"
+TENANT_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+
+def test_sharepoint_app_is_set_from_the_interface(client: TestClient, settings: Settings) -> None:
+    """Identifiant d'application et locataire saisis dans la fenêtre : plus besoin de SHAREPOINT_CLIENT_ID."""
+    seen: list[str] = []
+
+    def spy(request: httpx.Request) -> httpx.Response:
+        seen.append(f"{request.url.path}?{request.content.decode()}")
+        return graph(request)
+
+    client.app.state.connections.http_factory = lambda: httpx.Client(transport=httpx.MockTransport(spy))  # type: ignore[attr-defined]
+    assert client.get("/api/connections/sharepoint-app").json() == {"client_id": None, "tenant": None, "source": "none"}
+
+    saved = client.put(
+        "/api/connections/sharepoint-app", json={"client_id": f" {APP_ID.upper()} ", "tenant": TENANT_ID}
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json() == {"client_id": APP_ID, "tenant": TENANT_ID, "source": "interface"}
+    assert client.get("/api/connections/sharepoint-app").json() == saved.json()
+    infos = {c["kind"]: c for c in client.get("/api/connections/connectors").json()}
+    assert infos["sharepoint"]["configured"] is True
+    # Fichier à part, sans secret ; rien n'est ajouté aux connexions.
+    assert json.loads((settings.data_dir / "sharepoint.json").read_text()) == {"client_id": APP_ID, "tenant": TENANT_ID}
+    assert not (settings.data_dir / "secrets.json").exists()
+
+    # Une connexion sans réglage propre se connecte avec cette application, sur ce locataire.
+    client.put("/api/settings", json={"online_mode": True})
+    c = make(client, name="SP", kind="sharepoint")
+    assert client.post(f"/api/connections/{c['id']}/login").json()["user_code"] == "ABCD-1234"
+    assert seen[-1].startswith(f"/{TENANT_ID}/oauth2/v2.0/devicecode?client_id={APP_ID}")
+    assert client.post(f"/api/connections/{c['id']}/login/poll").json()["status"] == "signed_in"
+
+    # Une connexion qui a sa propre application la garde, et reste connectée quand celle par défaut change.
+    own = make(
+        client, name="Autre", kind="sharepoint", client_id="00000000-0000-0000-0000-000000000001", tenant="contoso.fr"
+    )
+    client.post(f"/api/connections/{own['id']}/login")
+    assert seen[-1].startswith("/contoso.fr/oauth2/v2.0/devicecode?client_id=00000000-0000-0000-0000-000000000001")
+    client.post(f"/api/connections/{own['id']}/login/poll")
+
+    # Autre application par défaut : le jeton de la première connexion ne vaut plus rien, elle est déconnectée.
+    other = "99999999-2222-3333-4444-555555555555"
+    assert (
+        client.put("/api/connections/sharepoint-app", json={"client_id": other, "tenant": TENANT_ID}).status_code == 200
+    )
+    by_name = {x["name"]: x for x in client.get("/api/connections").json()}
+    assert by_name["SP"]["signed_in"] is False and by_name["Autre"]["signed_in"] is True
+
+    # Identifiant vide : réglage effacé, retour à « à renseigner ».
+    cleared = client.put("/api/connections/sharepoint-app", json={"client_id": "", "tenant": ""})
+    assert cleared.json() == {"client_id": None, "tenant": None, "source": "none"}
+    assert not (settings.data_dir / "sharepoint.json").exists()
+    r = client.post(f"/api/connections/{c['id']}/login")
+    assert r.status_code == 412 and "Application Entra ID" in r.json()["detail"]
+
+
+def test_sharepoint_app_refuses_malformed_identifiers(client: TestClient) -> None:
+    def refused(body: dict[str, Any]) -> str:
+        r = client.put("/api/connections/sharepoint-app", json=body)
+        assert r.status_code == 422, r.text
+        return json.dumps(r.json(), ensure_ascii=False)
+
+    assert "36 caractères" in refused({"client_id": "mon-application", "tenant": "contoso.fr"})
+    # Le locataire entre dans l'adresse de connexion Microsoft : ni chemin, ni espace, ni adresse complète.
+    for tenant in ("contoso.fr/../common", "https://login.microsoftonline.com/x", "contoso fr", "a?b"):
+        assert "Locataire attendu" in refused({"client_id": APP_ID, "tenant": tenant})
+    assert "identifiant d'application" in refused({"tenant": "contoso.fr"})
+    assert client.get("/api/connections/sharepoint-app").json()["source"] == "none"
+    # Même contrôle à la saisie d'une connexion ; « sharepoint-app » n'est jamais pris pour une connexion.
+    bad = {"name": "SP", "kind": "sharepoint", "tenant": "contoso.fr/x"}
+    assert client.post("/api/connections", json=bad).status_code == 422
+    assert (
+        client.post("/api/connections", json={"name": "SP", "kind": "sharepoint", "client_id": "abc"}).status_code
+        == 422
+    )
+    assert client.delete("/api/connections/sharepoint-app").status_code == 404
+    assert client.get("/api/connections").json() == []
+
+
+def test_sharepoint_app_from_the_environment_until_the_interface_sets_one(settings: Settings) -> None:
+    env = settings.model_copy(update={"sharepoint_client_id": APP_ID, "sharepoint_tenant": "contoso.fr"})
+    with TestClient(create_app(env)) as client:
+        assert client.get("/api/connections/sharepoint-app").json() == {
+            "client_id": APP_ID,
+            "tenant": "contoso.fr",
+            "source": "environment",
+        }
+        other = "99999999-2222-3333-4444-555555555555"
+        client.put("/api/connections/sharepoint-app", json={"client_id": other})
+        assert client.get("/api/connections/sharepoint-app").json() == {
+            "client_id": other,
+            "tenant": None,
+            "source": "interface",
+        }
+        # Effacer le réglage de l'interface rend la main à l'environnement.
+        client.put("/api/connections/sharepoint-app", json={})
+        assert client.get("/api/connections/sharepoint-app").json()["source"] == "environment"
 
 
 def test_sharepoint_urls() -> None:

@@ -113,6 +113,17 @@ export interface ConnectorInfo {
   default_location: string | null;
 }
 
+/** SharePoint : application Entra ID saisie dans l'interface (identifiant vide = réglage effacé). Aucun secret. */
+export interface SharePointAppInput {
+  client_id: string | null;
+  tenant: string | null;
+}
+
+/** SharePoint : application Entra ID utilisée par défaut, et d'où elle vient. */
+export interface SharePointApp extends SharePointAppInput {
+  source: "interface" | "environment" | "none";
+}
+
 export interface DeviceCodeStart {
   user_code: string;
   verification_uri: string;
