@@ -30,7 +30,8 @@ class AIService:
     - mode hors ligne : Claude est désactivé (403 s'il est demandé), tout passe par Ollama (local) ;
     - choix explicite (`ollama` / `anthropic`) : respecté tel quel ;
     - `auto` : Claude si l'application est en ligne **et** Claude disponible (CLI trouvée et connectée,
-      état mis en cache 60 s ; clé présente en mode API), sinon Ollama ;
+      état mis en cache 60 s ; CLI trouvée et jeton non refusé en mode jeton ; clé présente en mode API),
+      sinon Ollama ;
     - repli Ollama → Claude uniquement si en ligne et `allow_cloud_fallback`.
 
     Args:
@@ -124,6 +125,7 @@ class AIService:
                 detail="Désactivé : mode hors ligne",
                 models=list(getattr(self.anthropic, "models", [])),
                 executable=getattr(self.anthropic, "executable", None),
+                access=getattr(self.anthropic, "access", None),
             )
             return ProvidersResponse(providers=[ollama, claude])
         statuses = await asyncio.gather(self.ollama.status(), self.anthropic.status())

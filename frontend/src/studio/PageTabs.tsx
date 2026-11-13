@@ -3,8 +3,12 @@ import { Copy, CornerDownRight, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { useStudio } from "./store";
+import { ZOOM_SLOT_ID } from "./zoom";
 
-/** Onglets de pages (bas de l'écran, comme Power BI) : double-clic pour renommer. */
+/**
+ * Barre du bas (comme Power BI) : onglets de pages (double-clic pour renommer) et, à droite, le contrôle de zoom
+ * du canvas — rangé ici, il ne recouvre jamais le bas de la page et ne lui prend aucune hauteur.
+ */
 export function PageTabs() {
   const report = useStudio((s) => s.report);
   const pageId = useStudio((s) => s.pageId);
@@ -16,73 +20,76 @@ export function PageTabs() {
   const editing = mode === "edit";
 
   return (
-    <nav className="flex h-10 shrink-0 items-center gap-1 overflow-x-auto border-t border-line bg-bg px-2" aria-label="Pages du rapport">
-      {report.pages.map((p) =>
-        renaming === p.id ? (
-          <input
-            key={p.id}
-            autoFocus
-            defaultValue={p.name}
-            aria-label="Nom de la page"
-            onBlur={(e) => {
-              s().renamePage(p.id, e.target.value);
-              setRenaming(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") setRenaming(null);
-            }}
-            className="h-7 w-32 rounded-md border border-border bg-field px-2 text-xs"
-          />
-        ) : (
-          <div key={p.id} className="group flex shrink-0 items-center">
-            <button
-              type="button"
-              aria-current={p.id === pageId ? "page" : undefined}
-              onClick={() => s().setPage(p.id)}
-              onDoubleClick={() => editing && setRenaming(p.id)}
-              title={`${p.drillthrough ? `Page d'extraction (${p.drillthrough.fields.join(", ")}) — ` : ""}${editing ? "Double-cliquez pour renommer" : p.name}`}
-              className={clsx(
-                "flex h-7 items-center gap-1 rounded-md px-2.5 text-xs",
-                p.id === pageId ? "atelier-nav-active font-medium" : "text-muted hover:bg-surface-2 hover:text-fg",
+    <div className="flex h-10 shrink-0 items-center border-t border-line bg-bg">
+      <nav className="flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto px-2" aria-label="Pages du rapport">
+        {report.pages.map((p) =>
+          renaming === p.id ? (
+            <input
+              key={p.id}
+              autoFocus
+              defaultValue={p.name}
+              aria-label="Nom de la page"
+              onBlur={(e) => {
+                s().renamePage(p.id, e.target.value);
+                setRenaming(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") setRenaming(null);
+              }}
+              className="h-7 w-32 rounded-md border border-border bg-field px-2 text-xs"
+            />
+          ) : (
+            <div key={p.id} className="group flex shrink-0 items-center">
+              <button
+                type="button"
+                aria-current={p.id === pageId ? "page" : undefined}
+                onClick={() => s().setPage(p.id)}
+                onDoubleClick={() => editing && setRenaming(p.id)}
+                title={`${p.drillthrough ? `Page d'extraction (${p.drillthrough.fields.join(", ")}) — ` : ""}${editing ? "Double-cliquez pour renommer" : p.name}`}
+                className={clsx(
+                  "flex h-7 items-center gap-1 rounded-md px-2.5 text-xs",
+                  p.id === pageId ? "atelier-nav-active font-medium" : "text-muted hover:bg-surface-2 hover:text-fg",
+                )}
+              >
+                {p.drillthrough && <CornerDownRight className="size-3 text-muted" aria-label="Page d'extraction" />}
+                {p.name}
+              </button>
+              {editing && p.id === pageId && (
+                <span className="flex items-center">
+                  <button type="button" onClick={() => s().duplicatePage(p.id)} aria-label="Dupliquer la page" className="rounded p-1 text-muted hover:text-fg">
+                    <Copy className="size-3" aria-hidden />
+                  </button>
+                  {report.pages.length > 1 &&
+                    (confirmDelete === p.id ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          s().removePage(p.id);
+                          setConfirmDelete(null);
+                        }}
+                        onBlur={() => setConfirmDelete(null)}
+                        className="rounded px-1.5 py-0.5 text-[11px] font-medium text-negative hover:bg-negative/10"
+                      >
+                        Supprimer ?
+                      </button>
+                    ) : (
+                      <button type="button" onClick={() => setConfirmDelete(p.id)} aria-label="Supprimer la page" className="rounded p-1 text-muted hover:text-negative">
+                        <Trash2 className="size-3" aria-hidden />
+                      </button>
+                    ))}
+                </span>
               )}
-            >
-              {p.drillthrough && <CornerDownRight className="size-3 text-muted" aria-label="Page d'extraction" />}
-              {p.name}
-            </button>
-            {editing && p.id === pageId && (
-              <span className="flex items-center">
-                <button type="button" onClick={() => s().duplicatePage(p.id)} aria-label="Dupliquer la page" className="rounded p-1 text-muted hover:text-fg">
-                  <Copy className="size-3" aria-hidden />
-                </button>
-                {report.pages.length > 1 &&
-                  (confirmDelete === p.id ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        s().removePage(p.id);
-                        setConfirmDelete(null);
-                      }}
-                      onBlur={() => setConfirmDelete(null)}
-                      className="rounded px-1.5 py-0.5 text-[11px] font-medium text-negative hover:bg-negative/10"
-                    >
-                      Supprimer ?
-                    </button>
-                  ) : (
-                    <button type="button" onClick={() => setConfirmDelete(p.id)} aria-label="Supprimer la page" className="rounded p-1 text-muted hover:text-negative">
-                      <Trash2 className="size-3" aria-hidden />
-                    </button>
-                  ))}
-              </span>
-            )}
-          </div>
-        ),
-      )}
-      {editing && (
-        <button type="button" onClick={() => s().addPage()} aria-label="Ajouter une page" className="ml-1 rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg">
-          <Plus className="size-3.5" aria-hidden />
-        </button>
-      )}
-    </nav>
+            </div>
+          ),
+        )}
+        {editing && (
+          <button type="button" onClick={() => s().addPage()} aria-label="Ajouter une page" className="ml-1 rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg">
+            <Plus className="size-3.5" aria-hidden />
+          </button>
+        )}
+      </nav>
+      <div id={ZOOM_SLOT_ID} className="flex shrink-0 items-center border-l border-line px-1.5 empty:hidden" />
+    </div>
   );
 }

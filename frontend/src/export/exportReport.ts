@@ -22,8 +22,7 @@ import { migratePage } from "../studio/grid";
 import { type Band, type FitMode, REF_WIDTH, SLIDE, SLIDE_MARGIN, TITLE_BAND, contentArea, placeBand, splitPage } from "./layout";
 import { fileNameFor, formatDate, slideNotes } from "./notes";
 import { api } from "../lib/api";
-import { pageFacts } from "../summary/facts";
-import { summaryNotes, summaryRequest } from "../summary/pageSummary";
+import { activeFilters, pageBrief, summaryNotes, summaryRequest } from "../summary/pageSummary";
 import type { ProviderChoice } from "../types/ai";
 import { addItems } from "./writer";
 
@@ -163,7 +162,9 @@ export async function exportReport(input: ExportInput): Promise<ExportResult> {
   // 2 bis. Synthèses IA des pages (une page à la fois ; on s'arrête au premier échec).
   const summaries = new Map<string, string[]>();
   if (options.aiNotes) {
-    const withFacts = pages.map((page) => ({ page, facts: pageFacts(page, (id) => data.get(id)) })).filter((p) => p.facts.length);
+    const withFacts = pages
+      .map((page) => ({ page, facts: pageBrief(page, (id) => data.get(id), activeFilters(page, selectionFor(page), profiles)) }))
+      .filter((p) => p.facts.visuals.length);
     onProgress?.({ step: "summary", done: 0, total: withFacts.length });
     for (const [i, { page, facts }] of withFacts.entries()) {
       abortIfNeeded(signal);

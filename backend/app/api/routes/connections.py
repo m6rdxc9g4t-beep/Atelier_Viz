@@ -15,6 +15,8 @@ from app.schemas.connection import (
     ImportRequest,
     PreviewRequest,
     PreviewResult,
+    SharePointApp,
+    SharePointAppInput,
     TableList,
     TestResult,
 )
@@ -27,6 +29,19 @@ router = APIRouter(prefix="/connections", tags=["connections"])
 async def list_connectors(service: ConnectionsDep) -> list[ConnectorInfo]:
     """Types de sources disponibles et état de leur pilote."""
     return await asyncio.to_thread(service.connectors)
+
+
+@router.get("/sharepoint-app", response_model=SharePointApp)
+async def sharepoint_app(service: ConnectionsDep) -> SharePointApp:
+    """SharePoint : application Entra ID utilisée par défaut (identifiant d'application et locataire, aucun secret)."""
+    return await asyncio.to_thread(service.sharepoint_app)
+
+
+# Déclarée avant « PUT /{connection_id} » : « sharepoint-app » n'est pas l'identifiant d'une connexion.
+@router.put("/sharepoint-app", response_model=SharePointApp)
+async def set_sharepoint_app(body: SharePointAppInput, service: ConnectionsDep) -> SharePointApp:
+    """SharePoint : enregistre l'application Entra ID saisie dans l'interface (identifiant vide : réglage effacé)."""
+    return await asyncio.to_thread(service.set_sharepoint_app, body)
 
 
 @router.get("", response_model=list[Connection])

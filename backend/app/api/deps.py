@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
+from app import claude_token
 from app.core.config import Settings
 from app.services.ai import AIService, AnthropicProvider, ClaudeCliProvider, OllamaProvider
 from app.services.ai.service import ClaudeProvider
@@ -23,18 +24,25 @@ from app.services.reports import ReportRepository
 
 
 def build_claude_provider(
-    settings: Settings, preferences: Callable[[], Preferences] | None = None
+    settings: Settings,
+    preferences: Callable[[], Preferences] | None = None,
+    token: claude_token.Token | None = None,
 ) -> ClaudeProvider:
-    """CLI Claude Code (abonnement) ou API Anthropic (clé Console), selon `CLAUDE_MODE`.
+    """CLI Claude Code (abonnement) ou API Anthropic (clé Console), selon `CLAUDE_MODE` — ou le jeton du forfait.
 
+    Avec un jeton (`CLAUDE_OAUTH_TOKEN`, lu une fois par `claude_token.capture`), Claude est la CLI isolée
+    authentifiée par ce jeton, **quel que soit `CLAUDE_MODE`** et même si une clé API est renseignée : c'est le
+    forfait de l'utilisateur qui sert, jamais la facturation à l'usage. Son dossier privé est sous `DATA_DIR`.
     En mode CLI, le modèle (Sonnet / Opus / Haiku) est celui choisi par l'utilisateur (`preferences`).
     """
-    if settings.claude_mode == "cli":
+    if token is not None or settings.claude_mode == "cli":
         return ClaudeCliProvider(
             executable=settings.claude_cli_path,
             model=settings.claude_cli_model,
             timeout=settings.claude_cli_timeout_seconds,
             model_choice=(lambda: preferences().claude_model) if preferences else None,
+            token=token,
+            private_home=claude_token.private_home(settings.data_dir) if token is not None else None,
         )
     api_key = settings.anthropic_api_key.get_secret_value() if settings.anthropic_configured else None
     return AnthropicProvider(
@@ -49,7 +57,11 @@ def build_ai_service(
     is_online: Callable[[], bool] = lambda: True,
     preferences: Callable[[], Preferences] | None = None,
 ) -> AIService:
-    """Construit l'`AIService` à partir de la configuration (et des modèles choisis dans `preferences`)."""
+    """Construit l'`AIService` à partir de la configuration (et des modèles choisis dans `preferences`).
+
+    Le jeton du forfait Claude est lu ici, une fois, puis retiré de l'environnement du processus.
+    """
+    token = claude_token.capture()
     return AIService(
         ollama=OllamaProvider(
             base_url=settings.ollama_base_url,
@@ -57,7 +69,7 @@ def build_ai_service(
             timeout=settings.ollama_timeout_seconds,
             model_choice=(lambda: preferences().ollama_model) if preferences else None,
         ),
-        anthropic=build_claude_provider(settings, preferences),
+        anthropic=build_claude_provider(settings, preferences, token),
         allow_cloud_fallback=settings.ai_allow_cloud_fallback,
         is_online=is_online,
     )

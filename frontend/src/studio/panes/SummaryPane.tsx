@@ -1,9 +1,9 @@
-import { BadgeCheck, ClipboardCopy, FileText, Loader2, RotateCcw, ScrollText, X } from "lucide-react";
+import { BadgeCheck, Calculator, ClipboardCopy, FileText, Loader2, RotateCcw, ScrollText, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "../../lib/api";
-import { loadPageFacts, summaryRequest, summaryText } from "../../summary/pageSummary";
-import type { SummaryResponse, VisualFacts } from "../../types/summary";
+import { type PageBrief, loadPageBrief, summaryRequest, summaryText } from "../../summary/pageSummary";
+import type { SummaryResponse } from "../../types/summary";
 import { useStudioData } from "../context";
 import { useStudio } from "../store";
 import { EnginePicker, useEngine } from "../../components/ai/EnginePicker";
@@ -24,7 +24,7 @@ export function SummaryPane() {
   const { profiles } = useStudioData();
   const engine = useEngine();
   const [points, setPoints] = useState(4);
-  const [facts, setFacts] = useState<VisualFacts[] | null>(null);
+  const [brief, setBrief] = useState<PageBrief | null>(null);
   const [pending, setPending] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -33,14 +33,14 @@ export function SummaryPane() {
   const abort = useRef<AbortController | null>(null);
   const page = report?.pages.find((p) => p.id === pageId);
 
-  // Faits recalculés quand la page, ses filtres ou la sélection changent (aucun appel à l'IA).
+  // Faits et lecture calculée, refaits quand la page, ses filtres ou la sélection changent (aucun appel à l'IA).
   useEffect(() => {
     if (!page) return;
     let alive = true;
-    setFacts(null);
-    loadPageFacts(page, selection, profiles)
-      .then((f) => alive && setFacts(f))
-      .catch(() => alive && setFacts([]));
+    setBrief(null);
+    loadPageBrief(page, selection, profiles)
+      .then((b) => alive && setBrief(b))
+      .catch(() => alive && setBrief({ visuals: [], reading: null }));
     return () => {
       alive = false;
     };
@@ -59,18 +59,20 @@ export function SummaryPane() {
   }, [pending]);
 
   if (!report || !page) return null;
-  const count = facts?.reduce((t, v) => t + v.facts.length, 0) ?? 0;
+  const facts = brief?.visuals ?? null;
+  const reading = brief?.reading ?? null;
+  const count = (facts?.reduce((t, v) => t + v.facts.length, 0) ?? 0) + (reading?.points.length ?? 0);
   const titleOf = (id: string) => facts?.find((v) => v.id === id)?.title ?? "visuel";
 
   const run = async () => {
-    if (!facts?.length || pending) return;
+    if (!brief?.visuals.length || pending) return;
     setPending(true);
     setElapsed(0);
     setError(null);
     setResult(null);
     abort.current = new AbortController();
     try {
-      setResult(await api.summarizePage(summaryRequest(report.name, page, selection, profiles, facts, engine.provider, points), abort.current.signal));
+      setResult(await api.summarizePage(summaryRequest(report.name, page, selection, profiles, brief, engine.provider, points), abort.current.signal));
     } catch (err) {
       if ((err as Error).name !== "AbortError") setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -92,8 +94,8 @@ export function SummaryPane() {
 
   const insert = () => {
     if (!result) return;
-    // Hauteur (px) : une ligne de 20 px par point (+ titre), et une ligne de marge pour les retours à la ligne.
-    const height = (2 + result.points.length) * 20 + 32;
+    // Hauteur (px) : une ligne de 20 px par point (+ ouverture), et deux lignes de marge pour les retours à la ligne.
+    const height = (3 + result.points.length) * 20 + 32;
     const id = useStudio.getState().insertTextAtTop(summaryText(result), height);
     useStudio.getState().notify("Synthèse insérée en haut de la page (Ctrl+Z pour annuler).");
     if (id) setTimeout(() => focusVisual(id), 50);
@@ -107,13 +109,23 @@ export function SummaryPane() {
           note={
             facts === null
               ? "Calcul des chiffres de la page…"
-              : `Seuls ${count} chiffres agrégés de ${facts.length} visuel${facts.length > 1 ? "s" : ""} sont envoyés, aucune ligne de données.`
+              : `Seuls ${count} constats chiffrés de ${facts.length} visuel${facts.length > 1 ? "s" : ""} sont envoyés, aucune ligne de données.`
           }
         />
         {facts && facts.length > 0 && (
           <details className="mt-2 text-[11px] text-muted">
             <summary className="cursor-pointer hover:text-fg">Voir les chiffres envoyés</summary>
             <ul className="mt-1.5 space-y-1.5">
+              {reading && (
+                <li>
+                  <p className="font-medium text-fg">Lecture calculée de la page</p>
+                  <ul className="list-disc pl-4">
+                    {reading.points.map((p) => (
+                      <li key={p.text}>{p.text}</li>
+                    ))}
+                  </ul>
+                </li>
+              )}
               {facts.map((v) => (
                 <li key={v.id}>
                   <p className="font-medium text-fg">{v.title}</p>
@@ -166,9 +178,14 @@ export function SummaryPane() {
       </Section>
 
       {result && (
-        <Section title={`Synthèse · ${result.provider === "anthropic" ? "Claude" : "Ollama"}`}>
+        <Section title={result.local ? "Synthèse · calculée sans IA" : `Synthèse · ${result.provider === "anthropic" ? "Claude" : "Ollama"}`}>
+          {result.local && result.warnings[0] && (
+            <p role="status" className="mb-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-warn">
+              <Calculator className="mt-0.5 size-3 shrink-0" aria-hidden /> {result.warnings[0]}
+            </p>
+          )}
           <article aria-label="Synthèse de la page" className="space-y-2">
-            <p className="text-sm font-semibold leading-snug">{result.headline}</p>
+            <p className="text-[13px] font-medium leading-snug">{result.headline}</p>
             <ul className="space-y-2">
               {result.points.map((p) => (
                 <li key={p.text} className="text-xs leading-relaxed">
@@ -178,8 +195,8 @@ export function SummaryPane() {
                     </span>
                     <span>{p.text}</span>
                   </p>
-                  {p.visuals.length > 0 && (
-                    <span className="mt-1 flex flex-wrap gap-1 pl-3">
+                  {(p.visuals.length > 0 || (p.local && !result.local)) && (
+                    <span className="mt-1 flex flex-wrap items-center gap-1 pl-3">
                       {p.visuals.map((id) => (
                         <button
                           key={id}
@@ -191,6 +208,11 @@ export function SummaryPane() {
                           {titleOf(id)}
                         </button>
                       ))}
+                      {p.local && !result.local && (
+                        <span className="text-[10px] text-faint" title="Constat calculé sur cette machine, à la place d'une phrase écartée">
+                          calculé sans IA
+                        </span>
+                      )}
                     </span>
                   )}
                 </li>
@@ -199,13 +221,15 @@ export function SummaryPane() {
           </article>
           <p className="mt-3 flex items-start gap-1.5 text-[10px] text-muted">
             <BadgeCheck className="mt-px size-3 shrink-0 text-positive" aria-hidden />
-            Chaque chiffre a été comparé aux chiffres de la page ; les phrases qui en citent d'autres sont écartées.
+            {result.local
+              ? "Lecture calculée sur cette machine à partir des chiffres de la page : aucune phrase ne vient d'une IA."
+              : "Chaque chiffre a été comparé aux chiffres de la page ; les phrases qui en citent d'autres, ou qui recopient une carte, sont écartées."}
           </p>
-          {result.warnings.length > 0 && (
+          {result.warnings.length > (result.local ? 1 : 0) && (
             <details className="mt-2 text-[10px] text-muted">
-              <summary className="cursor-pointer">{result.warnings.length} élément(s) écarté(s)</summary>
+              <summary className="cursor-pointer">{result.local ? "Détail" : `${result.warnings.length} élément(s) écarté(s)`}</summary>
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                {result.warnings.map((w) => (
+                {(result.local ? result.warnings.slice(1) : result.warnings).map((w) => (
                   <li key={w}>{w}</li>
                 ))}
               </ul>

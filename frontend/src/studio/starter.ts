@@ -12,7 +12,7 @@
 import type { ColumnProfile, DatasetProfile } from "../types/dataset";
 import type { Filter } from "../types/query";
 import type { FieldBinding, Layout, Page, Visual, VisualOptions, VisualType } from "../types/report";
-import { navigatorWidth, rangeSlicerMinHeight, textWidth } from "../visuals/fit";
+import { barsMinHeight, kpiMinHeight, navigatorWidth, rangeSlicerMinHeight, tableMinHeight, textWidth } from "../visuals/fit";
 import { normalize } from "../visuals/maps/geo";
 import { uid } from "./uid";
 
@@ -230,6 +230,31 @@ const NAV_TAB_MIN = 96;
 // Rangée des KPI : assez haute pour un titre, la valeur et une mini-tendance (`kpiMinHeight`).
 const ROWS = { kpi: { y: 60, h: 116 }, mid: { y: 188, h: 254 }, low: { y: 454, h: 258 }, full: { y: 188, h: 524 } };
 
+/** Hauteur minimale gardée à un graphique quand un tableau voisin prend la place de ses lignes. */
+const CHART_MIN = 240;
+/** Hauteur sous laquelle la rangée des KPI ne descend pas quand elle cède de la place (valeur à l'aise sous le titre). */
+const KPI_COMPACT = kpiMinHeight(false) + 8;
+
+/**
+ * Page d'une liste : hauteurs des trois rangées (KPI, graphiques, tableau). Quand la liste est courte, le
+ * tableau du bas prend la hauteur de toutes ses lignes et de son total — rien à faire défiler — en reprenant
+ * de la place aux KPI (sans mini-tendance sur ces pages) puis aux graphiques, sans les réduire sous leur
+ * contenu. Une liste trop longue pour tenir garde les rangées habituelles : son tableau défile de toute façon.
+ */
+function listRows(tableRows: number, bars: number): { kpi: { y: number; h: number }; mid: { y: number; h: number }; low: { y: number; h: number } } {
+  const extra = tableMinHeight(tableRows, true) - ROWS.low.h;
+  const fromKpi = ROWS.kpi.h - KPI_COMPACT;
+  const fromMid = Math.max(0, ROWS.mid.h - Math.max(barsMinHeight(bars), 210));
+  if (extra <= 0 || extra > fromKpi + fromMid) return ROWS;
+  const k = Math.min(extra, fromKpi);
+  const m = extra - k;
+  return {
+    kpi: { y: ROWS.kpi.y, h: ROWS.kpi.h - k },
+    mid: { y: ROWS.mid.y - k, h: ROWS.mid.h - m },
+    low: { y: ROWS.low.y - k - m, h: ROWS.low.h + k + m },
+  };
+}
+
 /** Découpe la largeur de contenu en colonnes (fractions de 12). */
 function cols(y: number, h: number, spans: number[]): Layout[] {
   const total = spans.reduce((s, n) => s + n, 0);
@@ -313,8 +338,8 @@ function finish(sections: Section[], title: string): Page[] {
 
 // ─── Recettes par nature de jeu ─────────────────────────────────────────────────────────────────────────
 
-function kpis(a: Analysis, items: { m: FieldBinding; col?: ColumnProfile; title: string; trend?: boolean; extra?: VisualOptions }[]): Visual[] {
-  const rects = cols(ROWS.kpi.y, ROWS.kpi.h, items.map(() => 1));
+function kpis(a: Analysis, items: { m: FieldBinding; col?: ColumnProfile; title: string; trend?: boolean; extra?: VisualOptions }[], row = ROWS.kpi): Visual[] {
+  const rects = cols(row.y, row.h, items.map(() => 1));
   const axis = a.date ? dim(a.date, "month") : null;
   return items.map((k, i) =>
     visual(
@@ -378,10 +403,13 @@ function flowSections(a: Analysis): Section[] {
     const period = a.period ? dim(a.period) : a.date ? dim(a.date, "month") : null;
     const only = debit ? positiveOnly(debit) : [];
     if (m1) {
-      const half = Math.round((m1.h - GAP) / 2);
-      page.push(visual("matrix", id, { ...m1, h: half }, { rows: [dim(cat)], ...(period ? { columns: [period] } : {}), values: [spend] }, { compact: true, suffix: " €", conditional: { [`sum(${spend.field})`]: { scale: "sequential" } } }, `Dépenses par ${lower(cat.name)} et par mois`, only));
+      // La matrice prend la hauteur de ses catégories et de son total (aucune ligne à moitié cachée) tant
+      // qu'il reste un graphique lisible dessous ; sans graphique, toute la colonne.
+      const even = Math.round((m1.h - GAP) / 2);
+      const matrixH = period ? Math.min(Math.max(tableMinHeight(cat.distinct, true), 180), Math.max(even, m1.h - GAP - CHART_MIN)) : m1.h;
+      page.push(visual("matrix", id, { ...m1, h: matrixH }, { rows: [dim(cat)], ...(period ? { columns: [period] } : {}), values: [spend] }, { compact: true, suffix: " €", conditional: { [`sum(${spend.field})`]: { scale: "sequential" } } }, `Dépenses par ${lower(cat.name)} et par mois`, only));
       if (period) {
-        page.push(visual("column", id, { ...m1, y: m1.y + half + GAP, h: m1.h - half - GAP }, { category: [period], series: [dim(cat)], values: [spend] }, { stacked: true, compact: true, suffix: " €", legend: true }, "Composition des dépenses par mois", only));
+        page.push(visual("column", id, { ...m1, y: m1.y + matrixH + GAP, h: m1.h - matrixH - GAP }, { category: [period], series: [dim(cat)], values: [spend] }, { stacked: true, compact: true, suffix: " €", legend: true }, "Composition des dépenses par mois", only));
       }
     }
     if (m2) {
@@ -493,11 +521,13 @@ function listSections(a: Analysis): Section[] {
   if (second) k.push({ m: natural(second), col: second, title: kpiTitle(second) });
   if (k.length < 4 && main) k.push({ m: measure(main, "avg", `${main.name} (moyenne)`), col: main, title: `${main.name} (moyenne)` });
   if (k.length < 4 && main) k.push({ m: measure(main, "max", `${main.name} (maximum)`), col: main, title: `${main.name} (maximum)` });
-  visuals.push(...kpis(a, k.slice(0, 4)));
+  // Liste courte : le tableau du bas montre toutes ses lignes (voir `listRows`).
+  const rows = listRows(a.ds.rows, by ? Math.min(by.distinct, 12) : 1);
+  visuals.push(...kpis(a, k.slice(0, 4), rows.kpi));
 
   const compare = a.shares.length >= 2 && by;
-  const [mid1, right] = cols(ROWS.mid.y, ROWS.mid.h, [7, 5]);
-  const [low1, low2] = cols(ROWS.low.y, ROWS.low.h, a.percent || compare || (a.lat && a.lon) ? [5, 7] : [12]);
+  const [mid1, right] = cols(rows.mid.y, rows.mid.h, [7, 5]);
+  const [low1, low2] = cols(rows.low.y, rows.low.h, a.percent || compare || (a.lat && a.lon) ? [5, 7] : [12]);
   // Allocation : la comparaison des parts prend la grande place, le classement des valeurs passe dessous.
   const left = compare ? low1 : mid1;
   if (compare && mid1) {

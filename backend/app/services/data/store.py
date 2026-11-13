@@ -147,7 +147,15 @@ class DatasetStore:
             except Exception as exc:  # noqa: BLE001 — un observateur en échec n'annule pas l'opération
                 logger.warning("Observateur des jeux de données en échec : %s", exc)
 
-    def add(self, name: str, fmt: SourceFormat, df: pd.DataFrame, origin: AnyOrigin | None = None) -> StoredDataset:
+    def add(
+        self,
+        name: str,
+        fmt: SourceFormat,
+        df: pd.DataFrame,
+        origin: AnyOrigin | None = None,
+        sheet: str | None = None,
+    ) -> StoredDataset:
+        """Enregistre un nouveau jeu (`sheet` : feuille du classeur d'où il vient, pour un import par fichier)."""
         dataset_id = uuid.uuid4().hex[:12]
         name = self._unique_name(name)
         profile = DatasetProfile(
@@ -160,6 +168,7 @@ class DatasetStore:
             columns=build_profile(df),
             sample=records(df, limit=SAMPLE_ROWS),
             origin=origin,
+            sheet=sheet,
         )
         self.db.write_dataframe(f"ds_{dataset_id}", df)
         self.db.execute(
@@ -179,8 +188,8 @@ class DatasetStore:
         return StoredDataset(dataset_id, DatasetProfile.model_validate(json.loads(rows[0][0])))
 
     def list(self) -> list[StoredDataset]:
-        """Du plus récent au plus ancien."""
-        _, rows = self.db.execute("SELECT id, profile FROM __datasets ORDER BY created_at DESC")
+        """Du plus récent au plus ancien (à la même date — horloge peu fine de Windows —, le dernier créé d'abord)."""
+        _, rows = self.db.execute("SELECT id, profile FROM __datasets ORDER BY created_at DESC, rowid DESC")
         return [StoredDataset(r[0], DatasetProfile.model_validate(json.loads(r[1]))) for r in rows]
 
     def rows(self, dataset: StoredDataset, offset: int, limit: int) -> DatasetRows:

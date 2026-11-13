@@ -283,6 +283,11 @@ class DatasetSummary(BaseModel):
         default=None,
         description="Connexion d'origine (jeu actualisable), ou clé de la table reçue d'un workflow (`atelier-table`).",
     )
+    sheet: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Feuille du classeur d'où vient un jeu importé par fichier : relue au remplacement des données.",
+    )
 
 
 class DatasetProfile(DatasetSummary):
@@ -294,6 +299,37 @@ class DatasetProfile(DatasetSummary):
     steps: list[PrepStep] = Field(
         default_factory=list, description="Étapes de préparation, rejouées sur la source à chaque actualisation."
     )
+
+
+class WorkbookSheet(BaseModel):
+    """Feuille d'un classeur Excel, avant import : ce qu'elle contient, ou pourquoi elle sera laissée."""
+
+    name: str
+    dataset_name: str = Field(description="Nom du jeu créé par l'import de cette feuille (« Classeur — Feuille »).")
+    rows: int = Field(default=0, ge=0)
+    columns: list[str] = Field(default_factory=list, description="Noms des colonnes reconnues.")
+    error: str | None = Field(default=None, description="Feuille vide ou illisible : elle ne peut pas être importée.")
+
+
+class WorkbookSheets(BaseModel):
+    """Feuilles d'un classeur envoyé pour examen (rien n'est enregistré)."""
+
+    filename: str
+    sheets: list[WorkbookSheet]
+
+
+class SkippedSheet(BaseModel):
+    """Feuille demandée qui n'a pas été importée, et pourquoi."""
+
+    name: str
+    reason: str
+
+
+class WorkbookImport(BaseModel):
+    """Résultat de l'import d'un classeur : un jeu par feuille lue, les feuilles laissées à part."""
+
+    datasets: list[DatasetProfile]
+    skipped: list[SkippedSheet] = Field(default_factory=list)
 
 
 class DatasetRows(BaseModel):

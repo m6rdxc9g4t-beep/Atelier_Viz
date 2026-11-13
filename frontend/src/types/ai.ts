@@ -5,6 +5,8 @@ export type ProviderChoice = "auto" | ProviderName;
 export type TaskComplexity = "simple" | "complex";
 /** Modèles Claude proposés (alias de la CLI, docs/SUITE.md §5.2). */
 export type ClaudeModel = "sonnet" | "opus" | "haiku";
+/** Accès à Claude : session `claude` de l'utilisateur, jeton du forfait (`CLAUDE_OAUTH_TOKEN`) ou clé API. */
+export type ClaudeAccess = "cli" | "token" | "api";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -38,6 +40,8 @@ export interface ProviderStatus {
   version?: string | null;
   /** Chemin de l'exécutable `claude` trouvé. */
   executable?: string | null;
+  /** Claude seulement : par où il répond. En mode `token`, le jeton lui-même n'est jamais renvoyé. */
+  access?: ClaudeAccess | null;
 }
 
 export interface ProvidersResponse {

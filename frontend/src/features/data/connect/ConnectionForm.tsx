@@ -1,10 +1,11 @@
-import { CheckCircle2, Loader2, ShieldCheck, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, Server as ServerIcon, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { api } from "../../../lib/api";
 import type { Connection, ConnectionInput, ConnectorInfo, TestResult } from "../../../types/connection";
 import { SERVER_KINDS } from "../../../types/connection";
-import { ATELIER_PROJETS_DEFAULT_URL, KIND_META, missingField, toInput } from "./meta";
+import { EntraAppPanel, useEntraApp } from "./EntraAppPanel";
+import { ATELIER_PROJETS_DEFAULT_URL, KIND_META, isRemoteHost, missingField, toInput } from "./meta";
 
 const input = "w-full rounded-md border border-border bg-field px-2.5 py-1.5 text-sm text-fg placeholder:text-muted/70 focus:outline-none focus:ring-1 focus:ring-focus";
 
@@ -17,10 +18,14 @@ interface Props {
   onSaved: (c: Connection) => void;
   onCancel: () => void;
   onDeleted: (id: string) => void;
+  /** L'état d'un connecteur a changé (application Entra ID renseignée) : la liste des sources est à relire. */
+  onConnectorsChanged?: () => void;
+  /** Atelier Viz tourne sur un serveur : « cette machine » est le serveur, pas l'ordinateur devant soi. */
+  remote?: boolean;
 }
 
 /** Paramètres d'une connexion : serveur et identifiants, fichier, ou application Microsoft 365. */
-export function ConnectionForm({ info, value, onChange, editing, onSaved, onCancel, onDeleted }: Props) {
+export function ConnectionForm({ info, value, onChange, editing, onSaved, onCancel, onDeleted, onConnectorsChanged, remote = isRemoteHost(window.location.hostname) }: Props) {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);
@@ -29,6 +34,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
   const kind = value.kind;
   const meta = KIND_META[kind];
   const server = SERVER_KINDS.includes(kind);
+  const entra = useEntraApp(kind === "sharepoint", onConnectorsChanged);
   const set = (patch: Partial<ConnectionInput>) => {
     onChange({ ...value, ...patch });
     setResult(null);
@@ -56,6 +62,8 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
     setSaving(true);
     setError(null);
     try {
+      // Application Entra ID saisie mais pas encore enregistrée : elle part avec la connexion (refusée = on s'arrête).
+      if (kind === "sharepoint" && entra.dirty && !(await entra.save())) return;
       const body = toInput(value, !!editing);
       onSaved(editing ? await api.connections.update(editing.id, body) : await api.connections.create(body));
     } catch (e) {
@@ -134,16 +142,25 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
         )}
 
         {(kind === "sqlite" || kind === "file") && (
-          <Field
-            label="Chemin du fichier sur cette machine"
-            hint={
-              kind === "file"
-                ? "CSV, Excel ou JSON. Un dossier OneDrive, SharePoint ou Teams synchronisé fonctionne hors ligne : l'actualisation relit la dernière version synchronisée."
-                : "Fichier .db, .sqlite ou .sqlite3, ouvert en lecture seule."
-            }
-          >
-            <input className={`${input} font-mono text-xs`} value={value.path ?? ""} onChange={(e) => set({ path: e.target.value })} placeholder={meta.pathPlaceholder} spellCheck={false} />
-          </Field>
+          <>
+            {remote && <ServerNotice kind={kind} />}
+            <Field
+              label={remote ? "Chemin du fichier sur le serveur d'Atelier Viz" : "Chemin du fichier sur cette machine"}
+              hint={
+                kind === "file"
+                  ? "CSV, Excel ou JSON. Un dossier OneDrive, SharePoint ou Teams synchronisé fonctionne hors ligne : l'actualisation relit la dernière version synchronisée."
+                  : "Fichier .db, .sqlite ou .sqlite3, ouvert en lecture seule."
+              }
+            >
+              <input
+                className={`${input} font-mono text-xs`}
+                value={value.path ?? ""}
+                onChange={(e) => set({ path: e.target.value })}
+                placeholder={remote ? (kind === "file" ? "/data/partage/objectifs.xlsx" : "/data/partage/boutique.db") : meta.pathPlaceholder}
+                spellCheck={false}
+              />
+            </Field>
+          </>
         )}
 
         {kind === "snowflake" && (
@@ -240,6 +257,7 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
               L'application de bureau Atelier Tab publie chaque table à son enregistrement (instantané DataFlow). Atelier Viz lit ce dossier : rien ne passe par le réseau,
               et « Actualiser » relit la dernière version publiée.
             </p>
+            {remote && <ServerNotice kind={kind} />}
             <Field label="Dossier des tables publiées" hint={`Vide : dossier par défaut (${info?.default_location ?? meta.pathPlaceholder ?? ""}).`}>
               <input className={`${input} font-mono text-xs`} value={value.path ?? ""} onChange={(e) => set({ path: e.target.value })} placeholder={info?.default_location ?? meta.pathPlaceholder} spellCheck={false} />
             </Field>
@@ -270,25 +288,34 @@ export function ConnectionForm({ info, value, onChange, editing, onSaved, onCanc
               Lecture de fichiers et de listes SharePoint avec votre compte Microsoft 365 (mode « En ligne » requis). Vous vous connecterez avec un code, sans donner votre
               mot de passe à l'application.
             </p>
-            <Field label="Locataire Microsoft 365" hint="Domaine de l'entreprise (contoso.fr) ; vide = tout compte professionnel">
-              <input className={input} value={value.tenant ?? ""} onChange={(e) => set({ tenant: e.target.value })} placeholder="contoso.fr" spellCheck={false} />
-            </Field>
-            <Field
-              label="Identifiant d'application (Entra ID)"
-              hint={
-                info?.configured
-                  ? "Facultatif : l'application configurée dans backend/.env (SHAREPOINT_CLIENT_ID) est utilisée par défaut."
-                  : "Requis : application Entra ID de votre entreprise (voir README, « Connecteurs »), ou SHAREPOINT_CLIENT_ID dans backend/.env."
-              }
-            >
-              <input className={`${input} font-mono text-xs`} value={value.client_id ?? ""} onChange={(e) => set({ client_id: e.target.value })} placeholder="00000000-0000-0000-0000-000000000000" spellCheck={false} />
-            </Field>
+            <EntraAppPanel state={entra} />
+            <details open={!!(value.client_id?.trim() || value.tenant?.trim())} className="text-xs">
+              <summary className="cursor-pointer text-muted hover:text-fg">Autre application pour cette connexion seulement (facultatif)</summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label="ID d'application de cette connexion" hint="Vide : l'application ci-dessus">
+                  <input className={`${input} font-mono text-xs`} value={value.client_id ?? ""} onChange={(e) => set({ client_id: e.target.value })} placeholder="00000000-0000-0000-0000-000000000000" spellCheck={false} />
+                </Field>
+                <Field label="Locataire de cette connexion" hint="ID de l'annuaire ou domaine (contoso.fr) ; vide : celui ci-dessus">
+                  <input className={`${input} font-mono text-xs`} value={value.tenant ?? ""} onChange={(e) => set({ tenant: e.target.value })} placeholder="contoso.fr" spellCheck={false} />
+                </Field>
+              </div>
+            </details>
           </>
         )}
 
         {info && !info.driver_installed && (
           <p role="alert" className="rounded-md border border-negative/40 px-3 py-2 text-xs text-negative">
-            Pilote {info.label} absent. Dans le dossier <code>backend</code>, lancez <code className="rounded bg-surface-2 px-1">{info.install_hint}</code> puis redémarrez le serveur.
+            {remote ? (
+              <>
+                Pilote {info.label} absent sur le serveur d'Atelier Viz : il s'installe avec l'application (fichier <code>requirements-connectors.txt</code>), par la personne
+                qui administre le serveur. Rien n'est à installer sur cet ordinateur.
+              </>
+            ) : (
+              <>
+                Pilote {info.label} absent. Dans le dossier <code>backend</code>, lancez <code className="rounded bg-surface-2 px-1">{info.install_hint}</code> puis redémarrez le
+                serveur.
+              </>
+            )}
           </p>
         )}
         {error && (
@@ -356,6 +383,23 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       </label>
       {hint && <p className="text-[11px] text-muted">{hint}</p>}
     </div>
+  );
+}
+
+/** Atelier Viz sur un serveur : dire quelle machine lit le fichier ou le dossier, et quoi faire d'un fichier de son poste. */
+function ServerNotice({ kind }: { kind: "file" | "sqlite" | "atelier_tab" }) {
+  return (
+    <p role="note" className="flex items-start gap-1.5 rounded-md border border-line bg-surface-2 px-3 py-2 text-xs text-muted">
+      <ServerIcon className="mt-px size-3.5 shrink-0" aria-hidden />
+      <span>
+        <span className="font-medium text-fg">Atelier Viz tourne ici sur un serveur.</span>{" "}
+        {kind === "atelier_tab"
+          ? "Ce dossier est celui du serveur : il reçoit les tables publiées par l'Atelier Tab du même serveur, pas celles de l'application de bureau de cet ordinateur."
+          : "Ce chemin désigne un fichier du serveur qui fait tourner Atelier Viz (un dossier monté ou synchronisé là-bas), pas un fichier de cet ordinateur."}
+        {kind === "file" && " Pour un fichier de votre poste, déposez-le dans Données ; pour un fichier OneDrive ou SharePoint, utilisez « SharePoint Online » ou « Fichier web (URL) »."}
+        {kind === "sqlite" && " Une base de votre poste doit d'abord être copiée sur le serveur."}
+      </span>
+    </p>
   );
 }
 

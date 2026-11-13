@@ -180,11 +180,13 @@ def test_bigquery_service_account_cost_cap_and_tables(client: TestClient, monkey
     assert res["ok"] is False and "Clé de compte de service invalide" in res["message"]
 
 
-def test_bigquery_project_validation_and_missing_driver(client: TestClient) -> None:
+def test_bigquery_project_validation_and_missing_driver(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     assert (
         client.post("/api/connections", json={"name": "B", "kind": "bigquery", "database": "Pas Valide"}).status_code
         == 422
     )
+    # Pilotes absents, qu'ils soient installés ou non sur la machine qui lance les tests.
+    monkeypatch.setattr(type(DIALECTS["bigquery"]), "driver_installed", lambda self: False)
     infos = {i["kind"]: i for i in client.get("/api/connections/connectors").json()}
     assert infos["bigquery"]["install_hint"] == "pip install google-cloud-bigquery"
     assert infos["snowflake"]["install_hint"] == "pip install snowflake-connector-python"

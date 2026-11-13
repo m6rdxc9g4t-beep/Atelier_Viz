@@ -17,6 +17,18 @@ describe("ProviderBadges", () => {
     expect(screen.getByText("Claude")).toHaveAttribute("title", "Clé absente");
   });
 
+  it("jeton du forfait : Claude est disponible et l'info-bulle dit le mode, jamais le jeton", () => {
+    const byToken: ProviderStatus[] = [
+      providers[0]!,
+      { name: "anthropic", available: true, model: "sonnet (CLI)", detail: "Forfait Claude, par jeton", models: ["sonnet", "opus", "haiku"], access: "token" },
+    ];
+    const { container } = render(<ProviderBadges providers={byToken} loading={false} error={null} onRefresh={() => {}} />);
+    expect(screen.getByText("Claude")).toHaveTextContent("disponible");
+    expect(screen.getByText("Claude")).not.toHaveTextContent("indisponible");
+    expect(screen.getByText("Claude")).toHaveAttribute("title", "Forfait Claude, par jeton");
+    expect(container.innerHTML).not.toMatch(/sk-ant-/);
+  });
+
   it("signale une API hors ligne et permet de revérifier", async () => {
     const onRefresh = vi.fn();
     render(<ProviderBadges providers={[]} loading={false} error="Backend injoignable" onRefresh={onRefresh} />);

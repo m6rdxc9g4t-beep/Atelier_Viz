@@ -4,7 +4,8 @@ import { api, ApiError } from "../lib/api";
 import { onExamplesChange } from "../lib/exemples";
 import { datasetChanged, forgetProfile, refreshDataset, replaceDatasetData } from "./useDatasetProfiles";
 import { onDatasetRefreshed } from "./useDataVersions";
-import type { DatasetProfile, DatasetSummary, ModelIssue } from "../types/dataset";
+import { isWorkbook, needsSheetChoice, skippedMessage } from "../lib/workbook";
+import type { DatasetProfile, DatasetSummary, ModelIssue, WorkbookSheet } from "../types/dataset";
 
 export interface DatasetsState {
   datasets: DatasetSummary[];
@@ -13,7 +14,20 @@ export interface DatasetsState {
   uploading: boolean;
   error: string | null;
   select: (id: string) => void;
+  /**
+   * Importe un fichier. Un classeur Excel à plusieurs feuilles n'est pas importé tout de suite : ses feuilles
+   * attendent dans `pendingWorkbook` le choix de l'utilisateur (`importSheets`).
+   */
   upload: (file: File) => Promise<void>;
+  /** Classeur à plusieurs feuilles en attente du choix des feuilles à importer. */
+  pendingWorkbook: PendingWorkbook | null;
+  /** Importe les feuilles choisies du classeur en attente : un jeu par feuille. */
+  importSheets: (sheets: string[]) => Promise<void>;
+  /** Renonce à l'import du classeur en attente (rien n'a été importé). */
+  cancelWorkbook: () => void;
+  /** Feuilles laissées de côté par le dernier import d'un classeur (vides, illisibles) : information, pas une erreur. */
+  notice: string | null;
+  clearNotice: () => void;
   /** Importe les jeux d'exemple du dépôt (samples/). */
   loadSamples: () => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -38,6 +52,14 @@ export interface DatasetsState {
   /** Augmente à chaque remplacement de données réussi : l'aperçu se recharge même à nombre de lignes égal. */
   revision: number;
   clearError: () => void;
+}
+
+/** Classeur à plusieurs feuilles déposé : ses feuilles, examinées par le serveur, à cocher avant l'import. */
+export interface PendingWorkbook {
+  file: File;
+  sheets: WorkbookSheet[];
+  /** Erreur du dernier essai d'import (le dialogue reste ouvert). */
+  error: string | null;
 }
 
 /** Fichier de remplacement auquel il manque des colonnes du jeu : à confirmer avant de l'envoyer de nouveau. */
@@ -74,6 +96,8 @@ export function useDatasets(): DatasetsState {
   const [replacing, setReplacing] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [pendingReplace, setPendingReplace] = useState<PendingReplace | null>(null);
+  const [pendingWorkbook, setPendingWorkbook] = useState<PendingWorkbook | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const select = useCallback((id: string) => {
     setLoading(true);
@@ -140,7 +164,16 @@ export function useDatasets(): DatasetsState {
   const upload = useCallback(async (file: File) => {
     setUploading(true);
     setError(null);
+    setNotice(null);
     try {
+      // Classeur Excel : s'il a plusieurs feuilles, l'utilisateur choisit lesquelles importer (toutes cochées).
+      if (isWorkbook(file.name)) {
+        const { sheets } = await api.datasets.sheets(file);
+        if (needsSheetChoice(sheets)) {
+          setPendingWorkbook({ file, sheets, error: null });
+          return;
+        }
+      }
       const profile = await api.datasets.upload(file);
       setDatasets((list) => [profile, ...list]);
       setSelected(profile);
@@ -150,6 +183,30 @@ export function useDatasets(): DatasetsState {
       setUploading(false);
     }
   }, []);
+
+  const importSheets = useCallback(
+    async (sheets: string[]) => {
+      const pending = pendingWorkbook;
+      if (!pending || sheets.length === 0) return;
+      setUploading(true);
+      setPendingWorkbook({ ...pending, error: null });
+      try {
+        const res = await api.datasets.importWorkbook(pending.file, sheets);
+        // Les jeux apparaissent dans l'ordre des feuilles ; le premier est affiché.
+        setDatasets((list) => [...res.datasets, ...list]);
+        const first = res.datasets[0];
+        if (first) setSelected(first);
+        setNotice(skippedMessage(res.datasets.length, res.skipped));
+        setPendingWorkbook(null);
+      } catch (err) {
+        // Le dialogue reste ouvert : l'erreur s'y affiche, le choix des feuilles est gardé.
+        setPendingWorkbook({ ...pending, error: message(err) });
+      } finally {
+        setUploading(false);
+      }
+    },
+    [pendingWorkbook],
+  );
 
   const loadSamples = useCallback(async () => {
     setUploading(true);
@@ -248,6 +305,11 @@ export function useDatasets(): DatasetsState {
     error,
     select,
     upload,
+    pendingWorkbook,
+    importSheets,
+    cancelWorkbook: () => setPendingWorkbook(null),
+    notice,
+    clearNotice: () => setNotice(null),
     loadSamples,
     remove,
     clearError: () => setError(null),

@@ -106,6 +106,9 @@ function expectPinnedTotal(container: HTMLElement) {
   expect(semantic[0]?.tagName).toBe("TH");
   expect(semantic[0]?.getAttribute("scope")).toBe("row");
   for (const cell of semantic) expect(cell.firstElementChild?.className).toMatch(/\bh-px\b.*\boverflow-hidden\b/);
+  // La cellule coupe le pixel de cette ligne : il ne dépasse pas du tableau, la zone ne défile pas de 1 px
+  // (sous Windows, une barre de défilement apparaissait sur un tableau qui tient en entier).
+  for (const cell of semantic) expect(cell.className).toMatch(/\boverflow-hidden\b/);
   expect(foot.getAttribute("aria-hidden")).toBe("true");
   expect(table.closest("[aria-hidden]")).toBeNull();
   return { table, foot, shown };

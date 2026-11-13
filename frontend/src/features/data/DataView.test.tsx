@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { useDatasets, type DatasetsState } from "../../hooks/useDatasets";
 import { announceExamplesChange } from "../../lib/exemples";
 import { formatValue } from "../../lib/format";
-import type { DatasetProfile } from "../../types/dataset";
+import type { DatasetProfile, WorkbookSheet } from "../../types/dataset";
 import { DataView } from "./DataView";
 
 const profile: DatasetProfile = {
@@ -30,6 +30,11 @@ function state(overrides: Partial<DatasetsState> = {}): DatasetsState {
     error: null,
     select: vi.fn(),
     upload: vi.fn(),
+    pendingWorkbook: null,
+    importSheets: vi.fn(),
+    cancelWorkbook: vi.fn(),
+    notice: null,
+    clearNotice: vi.fn(),
     loadSamples: vi.fn(),
     remove: vi.fn(),
     added: vi.fn(),
@@ -205,5 +210,121 @@ describe("DataView — exemples de la suite", () => {
     expect(await screen.findByRole("heading", { name: "ventes.csv" })).toBeInTheDocument();
     expect(within(tabs).getByRole("tab", { name: /ventes\.csv/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByText(/introuvable/)).toBeNull();
+  });
+});
+
+describe("DataView — classeur à plusieurs feuilles", () => {
+  const sheet = (name: string, rows: number, columns: string[], error: string | null = null): WorkbookSheet => ({ name, dataset_name: `Budget 2026 — ${name}`, rows, columns, error });
+  const sheets = [sheet("Ventes", 3, ["Mois", "Région", "Montant"]), sheet("Notes", 0, [], "Feuille vide : aucune donnée à importer."), sheet("Objectifs été", 2, ["Région", "Objectif"])];
+  const file = new File(["x"], "Budget 2026.xlsx");
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  const imported = (name: string, id: string): DatasetProfile => ({ ...profile, id, name: `Budget 2026 — ${name}`, format: "xlsx", sheet: name });
+
+  it("liste toutes les feuilles, cochées par défaut ; la feuille vide est signalée sans case à cocher", async () => {
+    const importSheets = vi.fn();
+    render(<DataView state={state({ pendingWorkbook: { file, sheets, error: null }, importSheets })} />);
+    const dialog = screen.getByRole("dialog", { name: "Feuilles à importer" });
+    expect(dialog).toHaveTextContent("Budget 2026.xlsx · 3 feuilles, un jeu de données par feuille");
+    const boxes = within(dialog).getAllByRole("checkbox");
+    expect(boxes).toHaveLength(2);
+    for (const box of boxes) expect(box).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: /Ventes/ })).toBeInTheDocument();
+    expect(within(dialog).getByText("3 lignes · 3 colonnes — Mois, Région, Montant")).toBeInTheDocument();
+    expect(within(dialog).getByText("Jeu « Budget 2026 — Objectifs été »")).toBeInTheDocument();
+    expect(within(dialog).getByText("Laissée de côté — Feuille vide : aucune donnée à importer.")).toBeInTheDocument();
+    expect(within(dialog).getByText("2 sur 2 feuilles cochées")).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Importer 2 feuilles" }));
+    expect(importSheets).toHaveBeenCalledWith(["Ventes", "Objectifs été"]);
+  });
+
+  it("décocher une feuille l'écarte de l'import ; sans feuille cochée, rien ne part", async () => {
+    const importSheets = vi.fn();
+    const cancelWorkbook = vi.fn();
+    render(<DataView state={state({ pendingWorkbook: { file, sheets, error: null }, importSheets, cancelWorkbook })} />);
+    const dialog = screen.getByRole("dialog", { name: "Feuilles à importer" });
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: /Ventes/ }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Importer 1 feuille" }));
+    expect(importSheets).toHaveBeenCalledWith(["Objectifs été"]);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Tout cocher" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Tout décocher" }));
+    expect(within(dialog).getByRole("button", { name: "Aucune feuille cochée" })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Annuler" }));
+    expect(cancelWorkbook).toHaveBeenCalledOnce();
+  });
+
+  it("une erreur d'import se dit dans le dialogue, qui reste ouvert ; pendant l'envoi les boutons attendent", () => {
+    const { rerender } = render(<DataView state={state({ pendingWorkbook: { file, sheets, error: "Serveur local injoignable." } })} />);
+    expect(within(screen.getByRole("dialog")).getByRole("alert")).toHaveTextContent("Serveur local injoignable.");
+    rerender(<DataView state={state({ pendingWorkbook: { file, sheets, error: null }, uploading: true })} />);
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Importer 2 feuilles" })).toBeDisabled();
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Annuler" })).toBeDisabled();
+  });
+
+  it("les feuilles laissées de côté sont annoncées après l'import, sans être une erreur", async () => {
+    const clearNotice = vi.fn();
+    render(<DataView state={state({ notice: "2 feuilles importées. Laissée : « Notes » (Feuille vide : aucune donnée à importer).", clearNotice })} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Laissée : « Notes »");
+    expect(screen.queryByRole("alert")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Fermer le message" }));
+    expect(clearNotice).toHaveBeenCalledOnce();
+  });
+
+  /** L'écran branché sur le vrai état des jeux : dépôt du fichier → examen → choix → import. */
+  function Screen() {
+    return <DataView state={useDatasets()} />;
+  }
+
+  function server(listed: WorkbookSheet[]) {
+    const calls: { url: string; sheets: string[] }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        const form = init?.body instanceof FormData ? init.body : null;
+        if (method === "POST") calls.push({ url: url.replace(/^.*\/api/, ""), sheets: form ? form.getAll("sheets").map(String) : [] });
+        if (method === "POST" && url.endsWith("/datasets/sheets")) return json({ filename: "Budget 2026.xlsx", sheets: listed });
+        if (method === "POST" && url.endsWith("/datasets/workbook")) {
+          const wanted = form ? form.getAll("sheets").map(String) : [];
+          return json({ datasets: wanted.map((n, i) => imported(n, `w${i}`)), skipped: [] }, 201);
+        }
+        if (method === "POST" && url.endsWith("/datasets")) return json({ ...profile, id: "seul", name: "Budget 2026.xlsx", format: "xlsx" }, 201);
+        if (url.endsWith("/datasets")) return json([]);
+        return json({ columns: [], rows: [], total: 0, offset: 0, limit: 100 });
+      }),
+    );
+    return calls;
+  }
+
+  it("déposer un classeur à plusieurs feuilles ouvre le choix, puis importe un jeu par feuille cochée", async () => {
+    const calls = server(sheets);
+    render(<Screen />);
+    await userEvent.upload(await screen.findByLabelText("Choisir un fichier de données"), file);
+    const dialog = await screen.findByRole("dialog", { name: "Feuilles à importer" });
+    // Rien n'est importé avant le choix.
+    expect(calls.map((c) => c.url)).toEqual(["/datasets/sheets"]);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Importer 2 feuilles" }));
+    const tabs = await screen.findByRole("tablist", { name: "Jeux de données" });
+    expect(within(tabs).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Budget 2026 — Ventes", "Budget 2026 — Objectifs été"]);
+    expect(within(tabs).getByRole("tab", { name: "Budget 2026 — Ventes" })).toHaveAttribute("aria-selected", "true");
+    expect(calls[1]).toEqual({ url: "/datasets/workbook", sheets: ["Ventes", "Objectifs été"] });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("un classeur à une seule feuille s'importe comme avant, sans choix", async () => {
+    const calls = server([sheets[0]!]);
+    render(<Screen />);
+    await userEvent.upload(await screen.findByLabelText("Choisir un fichier de données"), file);
+    expect(await screen.findByRole("heading", { name: "Budget 2026.xlsx" })).toBeInTheDocument();
+    expect(calls.map((c) => c.url)).toEqual(["/datasets/sheets", "/datasets"]);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("un CSV n'a pas de feuilles : il part directement à l'import", async () => {
+    const calls = server(sheets);
+    render(<Screen />);
+    await userEvent.upload(await screen.findByLabelText("Choisir un fichier de données"), new File(["a;b"], "ventes.csv"));
+    await screen.findByRole("tablist", { name: "Jeux de données" });
+    expect(calls.map((c) => c.url)).toEqual(["/datasets"]);
   });
 });

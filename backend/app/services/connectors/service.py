@@ -36,6 +36,8 @@ from app.schemas.connection import (
     ImportRequest,
     PreviewRequest,
     PreviewResult,
+    SharePointApp,
+    SharePointAppInput,
     SourceSpec,
     TableList,
     TableRef,
@@ -176,6 +178,71 @@ class ConnectionService:
     def _key(connection_id: str, what: str) -> str:
         return f"connection:{connection_id}:{what}"
 
+    # --- Application Entra ID de SharePoint ---------------------------------------------------
+
+    @property
+    def _app_path(self) -> Path:
+        """`data/sharepoint.json`, à côté de `connections.json` : identifiant d'application et locataire."""
+        return self.path.with_name("sharepoint.json")
+
+    def _stored_app(self) -> SharePointAppInput | None:
+        try:
+            raw = json.loads(self._app_path.read_text(encoding="utf-8"))
+            app = SharePointAppInput.model_validate(raw)
+        except (FileNotFoundError, json.JSONDecodeError, ValueError):
+            return None
+        return app if app.client_id else None
+
+    def sharepoint_app(self) -> SharePointApp:
+        """Application par défaut des connexions SharePoint : celle de l'interface, sinon `SHAREPOINT_CLIENT_ID`."""
+        stored = self._stored_app()
+        if stored:
+            return SharePointApp(client_id=stored.client_id, tenant=stored.tenant, source="interface")
+        client_id = (self.settings.sharepoint_client_id or "").strip()
+        if client_id:
+            tenant = (self.settings.sharepoint_tenant or "").strip()
+            return SharePointApp(
+                client_id=client_id, tenant=None if tenant in {"", "organizations"} else tenant, source="environment"
+            )
+        return SharePointApp()
+
+    def set_sharepoint_app(self, data: SharePointAppInput) -> SharePointApp:
+        """Enregistre (ou efface) l'application renseignée depuis l'interface.
+
+        Un jeton Microsoft appartient à l'application qui l'a obtenu : si l'application ou le locataire par défaut
+        changent, les connexions qui s'en servaient sont déconnectées (leur propre réglage, s'il existe, les garde).
+        """
+        with self._lock:
+            before = self.sharepoint_app()
+            if data.client_id:
+                self._app_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp = self._app_path.with_suffix(".tmp")
+                tmp.write_text(json.dumps(data.model_dump(), ensure_ascii=False, indent=2), encoding="utf-8")
+                os.replace(tmp, self._app_path)
+            else:
+                self._app_path.unlink(missing_ok=True)
+            after = self.sharepoint_app()
+            affected = [
+                c
+                for c in self._read()
+                if c.kind == "sharepoint"
+                and (
+                    (not c.client_id and before.client_id != after.client_id)
+                    or (not c.tenant and before.tenant != after.tenant)
+                )
+            ]
+        for c in affected:
+            self.secrets.delete(self._key(c.id, "msgraph"))
+            self._pending.pop(c.id, None)
+        return after
+
+    def _entra(self, cfg: ConnectionFields) -> tuple[str, str]:
+        """Identifiant d'application et locataire d'une connexion SharePoint : les siens, sinon ceux par défaut."""
+        app = self.sharepoint_app()
+        client_id = (cfg.client_id or "").strip() or app.client_id or ""
+        tenant = (cfg.tenant or "").strip() or app.tenant or self.settings.sharepoint_tenant
+        return client_id, tenant
+
     # --- Types de sources -------------------------------------------------------------------
 
     def connectors(self) -> list[ConnectorInfo]:
@@ -218,7 +285,7 @@ class ConnectionService:
                 description="Fichier d'une bibliothèque ou liste SharePoint, via votre compte Microsoft 365",
                 driver_installed=True,
                 needs_online=True,
-                configured=bool(self.settings.sharepoint_client_id),
+                configured=bool(self.sharepoint_app().client_id),
             )
         )
         infos.append(
@@ -325,7 +392,7 @@ class ConnectionService:
             return None
 
     def _sharepoint(self, cfg: Connection, http: httpx.Client) -> SharePointClient:
-        client_id = cfg.client_id or self.settings.sharepoint_client_id
+        client_id, tenant = self._entra(cfg)
         key = self._key(cfg.id, "msgraph")
 
         def save(raw: str | None) -> None:
@@ -335,8 +402,8 @@ class ConnectionService:
                 self.secrets.set(key, raw)
 
         return SharePointClient(
-            tenant=cfg.tenant or self.settings.sharepoint_tenant,
-            client_id=client_id or "",
+            tenant=tenant,
+            client_id=client_id,
             load_tokens=lambda: self.secrets.get(key),
             save_tokens=save,
             http=http,
@@ -347,10 +414,11 @@ class ConnectionService:
     def _sharepoint_ready(self, cfg: Connection) -> Iterator[SharePointClient]:
         """Client Graph prêt (mode en ligne, application configurée), fermé à la sortie."""
         self._guard(cfg)
-        if not (cfg.client_id or self.settings.sharepoint_client_id):
+        if not self._entra(cfg)[0]:
             raise ConnectorError(
-                "SharePoint n'est pas configuré : renseignez l'identifiant d'application Entra ID "
-                "(SHAREPOINT_CLIENT_ID dans backend/.env, ou dans la connexion). Voir README, « Connecteurs ».",
+                "SharePoint n'est pas configuré : renseignez l'application Entra ID (identifiant d'application et "
+                "locataire) dans la connexion — « Modifier », « Application Entra ID » —, ou SHAREPOINT_CLIENT_ID "
+                "dans l'environnement du serveur.",
                 412,
             )
         with self.http_factory() as http:

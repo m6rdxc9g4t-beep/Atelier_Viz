@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 from urllib.parse import urlsplit
 
-from app import launcher
+from app import claude_token, launcher
 from app.suite_apps import open_macos_app, open_suite_app
 
 __all__ = ["open_macos_app", "open_suite_app"]  # réexportés (anciens appels)
@@ -844,6 +844,9 @@ def run(
         help="faire la mise à jour depuis le dépôt puis s'arrêter (code de sortie), sans fenêtre",
     )
     ensure_log_streams()
+    # Jeton du forfait Claude : lu et retiré de l'environnement avant tout sous-processus (git, npm, pip de la mise
+    # à jour, autre application ouverte) ; le serveur le retrouve en mémoire (app/claude_token.py).
+    claude_token.capture()
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s : %(message)s")
     if auto_update:

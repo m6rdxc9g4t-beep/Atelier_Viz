@@ -31,6 +31,14 @@ Disponibilité = exécutable trouvé et `claude auth status` réussi, mise en ca
 revérification forcée au plus toutes les 10 s. Une CLI introuvable est recherchée de nouveau au plus toutes les
 60 s (installée après le lancement).
 
+Mode jeton (décision de l'utilisateur : « je veux que Claude forfait cli soit actif car c'est personnel ça sera
+mon forfait Claude ») : sur un serveur sans session `claude`, la même CLI, avec exactement les mêmes drapeaux,
+s'authentifie par le jeton de `claude setup-token` (`CLAUDE_OAUTH_TOKEN`, lu une fois : `app/claude_token.py`).
+Seuls écarts à la liste blanche : `CLAUDE_CODE_OAUTH_TOKEN` est ajouté à l'environnement de la CLI — pour `-p`
+seulement, pas pour `--version` —, et `HOME` / `CLAUDE_CONFIG_DIR` pointent vers un dossier privé sous le dossier
+de données (`claude-forfait/`, pas de session d'utilisateur à lire). Disponibilité : exécutable + jeton, sans
+`claude auth status`. Un jeton refusé éteint Claude jusqu'à « Revérifier » (« Auto » passe par Ollama).
+
 Le sous-processus est lancé dans un thread plutôt qu'avec `asyncio.create_subprocess_exec` :
 sous Windows, `uvicorn --reload` utilise une boucle d'événements qui ne gère pas les sous-processus asynchrones.
 """
@@ -52,7 +60,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Any
 
-from app.schemas.ai import ChatMessage, ProviderName, ProviderStatus
+from app.claude_token import CLI_TOKEN_ENV, TOKEN_ENV, Token, ensure_private_home, scrub
+from app.schemas.ai import ChatMessage, ClaudeAccess, ProviderName, ProviderStatus
 from app.services.ai.base import AIProviderError, extract_json, schema_for_model
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
@@ -106,6 +115,33 @@ WINDOWS_ENV_ALLOWED = frozenset(
     }
 )
 """Windows (docs/SUITE.md §9.6) : liste de §5.3 plus ces variables (noms sans tenir compte de la casse), `Path`."""
+
+TOKEN_READY = "Forfait Claude, par jeton"
+"""État affiché en mode jeton (jamais le jeton lui-même)."""
+TOKEN_NO_CLI = (
+    f"Le jeton du forfait Claude est fourni ({TOKEN_ENV}), mais le programme « claude » (Claude Code) est absent "
+    "de ce serveur : installez-le dans l'image, ou indiquez son chemin absolu (CLAUDE_CLI)."
+)
+TOKEN_REFUSED = (
+    "Le jeton du forfait Claude est refusé ou expiré : refaites « claude setup-token » sur votre ordinateur et "
+    f"mettez à jour le jeton du serveur ({TOKEN_ENV}), puis redémarrez Atelier Viz."
+)
+_TOKEN_AUTH_WORDS = (
+    "login",
+    "log in",
+    "authenticat",
+    "not logged",
+    "oauth",
+    "bearer",
+    "expired",
+    "unauthorized",
+    "invalid api key",
+)
+"""Mots d'un refus d'authentification de la CLI (jeton invalide, révoqué ou expiré)."""
+_STATUS_401 = re.compile(r"(?:error|status|code|http)[^\w\n]{0,3}401(?!\d)")
+"""Statut 401 annoncé comme tel (« API Error: 401 ») : jamais les chiffres « 401 » d'un nombre de la réponse."""
+_LIMIT_WORDS = ("limit", "quota", "overloaded")
+"""Mots d'une limite d'utilisation du forfait ou d'un service saturé."""
 
 
 def _is_node_bin(folder: str) -> bool:
@@ -384,6 +420,8 @@ class ClaudeCliProvider:
         finder: recherche de l'exécutable (tests) ; par défaut `find_claude_cli(executable)`.
         clock: horloge du cache d'état (tests).
         max_output: taille maximale lue sur les sorties de la CLI, en octets.
+        token: jeton du forfait (mode jeton) : transmis à la CLI seule, jamais affiché ; None = session `claude`.
+        private_home: dossier privé de la CLI en mode jeton (`HOME`, et `.claude` pour `CLAUDE_CONFIG_DIR`).
     """
 
     name: ProviderName = "anthropic"
@@ -398,7 +436,14 @@ class ClaudeCliProvider:
         finder: Callable[[], str | None] | None = None,
         clock: Callable[[], float] = time.monotonic,
         max_output: int = MAX_OUTPUT_BYTES,
+        token: Token | None = None,
+        private_home: Path | None = None,
     ) -> None:
+        if token is not None and private_home is None:
+            raise ValueError("Mode jeton : un dossier privé est requis (HOME de la CLI).")
+        self._token = token
+        self._private_home = private_home
+        self._refused = False
         self.default_model = model
         self.timeout = timeout
         self.max_output = max_output
@@ -418,6 +463,11 @@ class ClaudeCliProvider:
         """Modèle utilisé pour le prochain appel : choix de l'utilisateur, sinon la configuration."""
         chosen = self._model_choice() if self._model_choice else None
         return chosen or self.default_model
+
+    @property
+    def access(self) -> ClaudeAccess:
+        """Accès à Claude : `token` (forfait, par jeton) ou `cli` (session `claude` de l'utilisateur)."""
+        return "token" if self._token is not None else "cli"
 
     @property
     def configured(self) -> bool:
@@ -461,10 +511,17 @@ class ClaudeCliProvider:
             return False
         self._forced_at = now
         self._auth = None
+        self._refused = False  # mode jeton : nouvel essai du jeton à la prochaine demande
         self._found_at = float("-inf")  # CLI absente : nouvelle recherche à la prochaine vérification
         return True
 
     async def _check(self, now: float) -> _AuthState:
+        if self._token is not None:
+            # Mode jeton : disponible = exécutable + jeton. Pas de `claude auth status` : il lirait une session
+            # d'utilisateur qui n'existe pas ici ; un jeton refusé se voit à la première réponse (`_refused`).
+            if self._locate(force=True) is None:
+                return _AuthState(False, TOKEN_NO_CLI, None, now)
+            return _AuthState(True, TOKEN_READY, await self._version(), now)
         if self._locate(force=True) is None:  # installée depuis le lancement ?
             return _AuthState(
                 False, "CLI `claude` introuvable : installez Claude Code puis `claude auth login`", None, now
@@ -522,7 +579,8 @@ class ClaudeCliProvider:
         données, passe par l'entrée standard.
         """
         if self._locate(force=True) is None:
-            raise AIProviderError("anthropic", "CLI `claude` introuvable sur cette machine.", 400)
+            detail = TOKEN_NO_CLI if self._token is not None else "CLI `claude` introuvable sur cette machine."
+            raise AIProviderError("anthropic", detail, 400)
 
         args = [
             "-p",
@@ -542,22 +600,75 @@ class ClaudeCliProvider:
             system or DEFAULT_SYSTEM_PROMPT,
             *extra,
         ]
-        proc = await self._run(args, stdin=format_conversation(messages), timeout=self.timeout)
+        proc = await self._run(args, stdin=format_conversation(messages), timeout=self.timeout, auth=True)
         payload = parse_result(proc.stdout)
         if payload is None:
-            detail = (proc.stderr or proc.stdout or "").strip()[:300]
+            raw = (proc.stderr or proc.stdout or "").strip()
+            if self._token is not None:
+                # Masqué AVANT d'être coupé : un jeton à cheval sur la coupe resterait en partie lisible.
+                raw = scrub(raw, self._token)
+                if failure := self._token_failure(raw):
+                    raise failure
+            detail = raw[:300]
             if "unknown option" in detail:
                 detail += " — mettez la CLI à jour : `claude update`"
             raise AIProviderError("anthropic", f"Réponse illisible de la CLI Claude : {detail}")
         if payload.get("is_error") or proc.returncode != 0:
-            raise AIProviderError("anthropic", f"Claude (CLI) : {payload.get('result') or 'erreur inconnue'}")
+            result = str(payload.get("result") or "") or "erreur inconnue"
+            if self._token is not None:
+                result = scrub(result, self._token)
+                if failure := self._token_failure(result):
+                    raise failure
+            raise AIProviderError("anthropic", f"Claude (CLI) : {result}")
+        self._refused = False
         return payload
+
+    def _token_failure(self, detail: str) -> AIProviderError | None:
+        """Mode jeton : erreur dite en français pour un jeton refusé ou une limite du forfait ; None sinon.
+
+        `detail` est déjà sans jeton (`scrub`). La limite d'abord : son message peut porter un mot ou un nombre
+        qui ressemble à un refus (« /login » pour changer de compte, heure de remise à zéro) ; conseiller de
+        refaire le jeton serait alors faux.
+        """
+        lowered = detail.lower()
+        if any(word in lowered for word in _LIMIT_WORDS):
+            return AIProviderError(
+                "anthropic",
+                f"Limite du forfait Claude atteinte (ou service saturé) — Claude Code répond : « {detail[:200]} ». "
+                "Le forfait est partagé entre les applications de la suite : réessayez plus tard, ou choisissez "
+                "Ollama en attendant.",
+                429,
+            )
+        if any(word in lowered for word in _TOKEN_AUTH_WORDS) or _STATUS_401.search(lowered):
+            self._refused = True  # Claude s'éteint (« Auto » passe par Ollama) jusqu'à « Revérifier »
+            # 503, pas 401 : c'est Claude qui refuse le jeton du serveur, pas l'application qui refuse l'utilisateur.
+            return AIProviderError("anthropic", TOKEN_REFUSED, 503)
+        return None
 
     async def aclose(self) -> None:
         return None
 
-    async def _run(self, args: Sequence[str], *, stdin: str | None, timeout: float) -> subprocess.CompletedProcess[str]:
-        """Exécute la CLI dans un dossier vide, avec l'environnement en liste blanche et une sortie bornée."""
+    def _environment(self, executable: str, auth: bool) -> dict[str, str]:
+        """Environnement de la CLI : la liste blanche ; en mode jeton, un dossier privé à la place de celui de
+        l'utilisateur et, pour une demande (`auth`), le jeton — seuls écarts à docs/SUITE.md §5.3."""
+        env = cli_environment(executable)
+        if self._token is None or self._private_home is None:
+            return env
+        config = ensure_private_home(self._private_home)
+        env = {k: v for k, v in env.items() if k.upper() not in {"HOME", "CLAUDE_CONFIG_DIR"}}
+        env["HOME"] = str(self._private_home)
+        env["CLAUDE_CONFIG_DIR"] = str(config)
+        if auth:
+            env[CLI_TOKEN_ENV] = self._token.reveal()
+        return env
+
+    async def _run(
+        self, args: Sequence[str], *, stdin: str | None, timeout: float, auth: bool = False
+    ) -> subprocess.CompletedProcess[str]:
+        """Exécute la CLI dans un dossier vide, avec l'environnement en liste blanche et une sortie bornée.
+
+        `auth` : la commande a besoin du compte (une demande `-p`) ; en mode jeton, elle seule reçoit le jeton.
+        """
         path = str(self._path)
         command = cli_command(path)
         if command is None:  # .cmd de npm qui ne se résout pas : jamais lancé par cmd.exe (§9.6)
@@ -570,7 +681,7 @@ class ClaudeCliProvider:
                     input=stdin,
                     timeout=timeout,
                     cwd=cwd,
-                    env=cli_environment(command[0]),
+                    env=self._environment(command[0], auth),
                     max_output=self.max_output,
                 )
             except subprocess.TimeoutExpired as exc:
@@ -583,6 +694,8 @@ class ClaudeCliProvider:
                 raise AIProviderError("anthropic", f"Impossible de lancer la CLI Claude : {exc}") from exc
 
     def _status(self, available: bool, detail: str | None, version: str | None = None) -> ProviderStatus:
+        if self._refused:  # mode jeton : refusé à la dernière demande
+            available, detail = False, TOKEN_REFUSED
         return ProviderStatus(
             name="anthropic",
             available=available,
@@ -591,6 +704,7 @@ class ClaudeCliProvider:
             models=list(CLAUDE_MODELS),
             version=version,
             executable=self._path,
+            access=self.access,
         )
 
 

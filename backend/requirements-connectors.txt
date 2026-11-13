@@ -1,7 +1,11 @@
 # Pilotes des connecteurs de bases de données (facultatifs : n'installez que ceux dont vous avez besoin).
-# SQLite, les fichiers synchronisés et SharePoint n'ont besoin de rien de plus.
-pymssql>=2.3        # SQL Server / Azure SQL (macOS 14+, Windows, Linux)
-psycopg[binary]>=3.2  # PostgreSQL
-pymysql>=1.1        # MySQL / MariaDB
-snowflake-connector-python>=3.12  # Snowflake (mode « En ligne »)
-google-cloud-bigquery>=3.25       # BigQuery (mode « En ligne », compte de service)
+# SQLite, les fichiers synchronisés, les fichiers web et SharePoint n'ont besoin de rien de plus.
+# Sur un serveur (image Docker) : installer ce fichier en entier, après requirements.txt — des roues binaires
+# existent pour Linux x86_64 et arm64 (aucun paquet système : FreeTDS et libpq sont dans les roues).
+# Bornes hautes comme dans requirements.txt : la prochaine version majeure n'est jamais installée sans être
+# validée par les tests (tests/test_connections_drivers.py essaie chaque pilote présent).
+pymssql>=2.3,<3        # SQL Server / Azure SQL (macOS 14+, Windows, Linux)
+psycopg[binary]>=3.2,<4  # PostgreSQL
+pymysql>=1.1,<2        # MySQL / MariaDB
+snowflake-connector-python>=3.12,<6  # Snowflake (mode « En ligne ») ; essayé en 5.2
+google-cloud-bigquery>=3.25,<4       # BigQuery (mode « En ligne », compte de service)

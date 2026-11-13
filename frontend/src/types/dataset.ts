@@ -103,6 +103,8 @@ export interface DatasetSummary {
   created_at: string;
   /** Connexion d'origine (jeu actualisable), ou table reçue d'un workflow. */
   origin?: AnyOrigin | null;
+  /** Feuille du classeur d'où vient un jeu importé par fichier : relue au remplacement des données. */
+  sheet?: string | null;
 }
 
 export interface DatasetProfile extends DatasetSummary {
@@ -188,6 +190,35 @@ export interface PrepPreview {
   raw_rows: number;
   columns: ColumnProfile[];
   sample: Row[];
+}
+
+/** Feuille d'un classeur Excel, avant import : ce qu'elle contient, ou pourquoi elle sera laissée. */
+export interface WorkbookSheet {
+  name: string;
+  /** Nom du jeu créé par l'import de cette feuille (« Classeur — Feuille »). */
+  dataset_name: string;
+  rows: number;
+  columns: string[];
+  /** Feuille vide ou illisible : elle ne peut pas être importée. */
+  error: string | null;
+}
+
+/** Feuilles d'un classeur envoyé pour examen (rien n'est enregistré). */
+export interface WorkbookSheets {
+  filename: string;
+  sheets: WorkbookSheet[];
+}
+
+/** Feuille demandée qui n'a pas été importée, et pourquoi. */
+export interface SkippedSheet {
+  name: string;
+  reason: string;
+}
+
+/** Résultat de l'import d'un classeur : un jeu par feuille lue, les feuilles laissées à part. */
+export interface WorkbookImport {
+  datasets: DatasetProfile[];
+  skipped: SkippedSheet[];
 }
 
 export interface DatasetRows {

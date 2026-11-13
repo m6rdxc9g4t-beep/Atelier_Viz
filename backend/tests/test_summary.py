@@ -62,7 +62,7 @@ def test_numbers_read_french_formats() -> None:
 
 def test_grounding_accepts_rounding_counts_years_and_rejects_invented_numbers() -> None:
     pool = allowed_numbers(req())
-    assert ungrounded("Environ 4,4 millions, soit 4 412 000 ; 3 mois en 2026 ; hausse de 48 %", pool) == []
+    assert ungrounded("Environ 4,4 millions, soit 4 412 000 ; les 3 premiers en 2026 ; hausse de 48 %", pool) == []
     assert ungrounded("Une marge de 12 % et 7,5 M de commandes", pool) == ["12 %", "7,5 M"]
     # Un pourcentage ne valide pas un montant de même valeur.
     assert ungrounded("48 k", pool) == ["48 k"]
@@ -168,3 +168,313 @@ def test_data_block_neutralizes_imitated_tags() -> None:
     assert block.startswith("<donnees>\n") and block.endswith("\n</donnees>")
     assert block.count("</donnees>") == 1 and block.count("<donnees>") == 1
     assert "[/donnees]" in block and "[donnees]" in block
+
+
+# --- Lecture calculée : point d'appui du modèle, et repli quand il échoue ---------------------------------------
+
+READING: dict[str, Any] = {
+    "headline": "Vue d'ensemble, janv. 2026 → sept. 2026 : Somme de ca 4,4 M.",
+    "period": "janv. 2026 → sept. 2026",
+    "points": [
+        {"text": "« CA total » : 4,4 M pour une cible de 4 M, soit un écart favorable de +10,0 %.", "visuals": ["v1"]},
+        {
+            "text": "« CA par mois » est en hausse : de 382 k (janv. 2026) à 566 k (sept. 2026), soit +48 % ; "
+            "plus haut : 640 k (mars 2026).",
+            "visuals": ["v2"],
+        },
+        {"text": "« Marge » représente 31 % de « CA total ».", "visuals": ["v1", "inconnu"]},
+    ],
+}
+
+ANALYTIC = {
+    "headline": "Le chiffre d'affaires dépasse sa cible et progresse nettement depuis janvier.",
+    "points": [
+        {"text": "Avec 4,4 M, le CA dépasse la cible de 4 M de +10,0 %.", "visuels": [1]},
+        {"text": "Le CA mensuel grimpe de 382 k à 566 k, soit +48 %, après un pic à 640 k en mars.", "visuels": [2]},
+    ],
+}
+
+CARDS = {
+    "headline": "Vue d'ensemble des ventes",
+    "points": [
+        {"text": "Somme de ca : 4,4 M", "visuels": [1]},
+        {"text": "Maximum : mars 2026 — 640 k", "visuels": [2]},
+    ],
+}
+
+
+class FailingProvider(ScriptedProvider):
+    """Moteur en panne : chaque appel échoue avec le code donné."""
+
+    def __init__(self, status_code: int = 503) -> None:
+        super().__init__("ollama", [])
+        self.status_code = status_code
+
+    async def chat_json(self, messages, system, schema):  # type: ignore[no-untyped-def]
+        self.calls.append((messages, system, schema))
+        raise AIProviderError(self.name, "Ollama injoignable sur http://localhost:11434", self.status_code)
+
+
+def test_prompt_asks_for_a_reading_and_gives_the_computed_one_as_data() -> None:
+    svc, ollama = service(ANALYTIC)
+    asyncio.run(summarize(svc, req(reading=READING)))
+    messages, system, _schema = ollama.calls[0]
+    assert system is not None
+    # Consignes : une lecture (ce qui ressort, ce qui évolue, ce qui mérite l'attention), pas la liste des cartes.
+    for expected in ("phrase d'ouverture", "ce qui ressort", "ce qui évolue", "ce qui mérite l'attention"):
+        assert expected in system
+    assert "Ne recopie jamais une carte" in system and "Exemple" in system
+    # La lecture calculée et la période sont des données : dans le message, reliées aux numéros des visuels.
+    sent = messages[0].content
+    assert "Période couverte : janv. 2026 → sept. 2026" in sent
+    assert "- [visuel 2] « CA par mois » est en hausse" in sent
+    assert "- [visuel 1] « Marge » représente 31 %" in sent  # un identifiant inconnu n'est pas numéroté
+    assert "382 k" not in system and "CA par mois" not in system
+
+
+def test_analytic_answer_is_accepted_as_is() -> None:
+    svc, ollama = service(ANALYTIC)
+    res = asyncio.run(summarize(svc, req(reading=READING)))
+    assert len(ollama.calls) == 1  # aucune relance
+    assert res.local is False and res.warnings == []
+    assert res.headline == ANALYTIC["headline"]
+    assert [p.visuals for p in res.points] == [["v1"], ["v2"]]
+    assert all(not p.local for p in res.points)
+
+
+def test_reading_numbers_are_facts_too() -> None:
+    """Un chiffre de la lecture calculée (rapport entre deux cartes) est vérifiable ; un chiffre inventé, non."""
+    pool = allowed_numbers(req(reading=READING))
+    assert ungrounded("La marge fait 31 % du CA", pool) == []
+    assert ungrounded("La marge fait 31 % du CA", allowed_numbers(req())) == ["31 %"]
+    assert ungrounded("La marge fait 35 % du CA", pool) == ["35 %"]
+
+
+def test_invented_number_is_dropped_and_replaced_by_a_computed_point() -> None:
+    invented = {
+        "headline": ANALYTIC["headline"],
+        "points": [ANALYTIC["points"][0], {"text": "Les ventes bondissent de 75 % au printemps.", "visuels": [2]}],
+    }
+    svc, ollama = service(invented, invented)
+    res = asyncio.run(summarize(svc, req(reading=READING)))
+    assert len(ollama.calls) == 2  # une relance, qui nomme le chiffre
+    assert "« 75 % »" in ollama.calls[1][0][-1].content
+    assert all("75" not in p.text for p in res.points)
+    assert any("75 %" in w and "non vérifiable" in w for w in res.warnings)
+    # La phrase écartée laisse sa place au constat calculé du visuel dont l'IA ne parle plus.
+    assert [(p.local, p.visuals) for p in res.points] == [(False, ["v1"]), (True, ["v2"])]
+    assert res.points[1].text.startswith("« CA par mois » est en hausse")
+    assert res.local is False
+
+
+def test_copied_cards_are_refused_then_the_computed_reading_takes_over() -> None:
+    svc, ollama = service(CARDS, CARDS)
+    res = asyncio.run(summarize(svc, req(reading=READING)))
+    assert "recopie un chiffre tel quel" in ollama.calls[1][0][-1].content
+    assert res.local is True and res.provider == "ollama"
+    assert res.headline == READING["headline"].replace(" M", " M")
+    assert [p.text[:12] for p in res.points] == ["« CA total »", "« CA par moi", "« Marge » re"]
+    assert all(p.local for p in res.points)
+    assert res.points[2].visuals == ["v1"]  # identifiant inconnu retiré
+    assert "aucune phrase vérifiable" in res.warnings[0] and len(res.warnings) == 3
+
+
+def test_recopied_detects_cards_and_verbatim_facts_only() -> None:
+    from app.services.ai.summary import recopied
+
+    r = req()
+    assert recopied("Recettes : 13 k €", r) and recopied("Opérations : 41.", r)
+    assert recopied("Maximum : mars 2026 — 640 k.", r)  # un fait repris tel quel
+    assert not recopied("Mars 2026 est le meilleur mois avec 640 k.", r)
+    assert not recopied("À retenir : le CA progresse de +48 % entre janvier et septembre.", r)
+
+
+def test_failing_engine_falls_back_to_the_computed_reading() -> None:
+    ollama = FailingProvider()
+    svc = AIService(ollama, ScriptedProvider("anthropic", []), is_online=lambda: False)  # type: ignore[arg-type]
+    res = asyncio.run(summarize(svc, req(reading=READING, max_points=2)))
+    assert res.local is True and res.provider == "ollama" and res.model == ""
+    assert len(res.points) == 2 and all(p.local for p in res.points)
+    assert res.warnings[0].startswith("Ollama n'a pas répondu (Ollama injoignable")
+    assert "sans IA" in res.warnings[0]
+
+
+def test_failing_engine_without_reading_or_refused_engine_stays_an_error() -> None:
+    svc = AIService(FailingProvider(), ScriptedProvider("anthropic", []), is_online=lambda: False)  # type: ignore[arg-type]
+    for request in (req(), req(reading=READING, provider="anthropic")):
+        try:
+            asyncio.run(summarize(svc, request))
+            raise AssertionError("une erreur était attendue")
+        except AIProviderError as exc:
+            # Sans lecture calculée : la panne ; Claude hors ligne : le refus (403), jamais un texte à sa place.
+            assert exc.status_code == (403 if request.provider == "anthropic" else 503)
+
+
+def test_route_returns_the_computed_reading_when_the_engine_fails(client: TestClient, override_ai) -> None:
+    override_ai(AIService(FailingProvider(), ScriptedProvider("anthropic", []), is_online=lambda: False))  # type: ignore[arg-type]
+    res = client.post("/api/ai/summary", json={**BODY, "reading": READING})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["local"] is True and body["points"][0]["local"] is True
+    assert client.post("/api/ai/summary", json={**BODY, "reading": {**READING, "points": []}}).status_code == 422
+
+
+# --- Vérification resserrée : montants pris pour des années, signe, multiplications et durées -------------------
+
+TREASURY: dict[str, Any] = {
+    "report": "Exemple — Studio Garance",
+    "page": "Trésorerie",
+    "filters": [],
+    "visuals": [
+        {"id": "rec", "title": "Recettes", "type": "kpi", "facts": ["Recettes : 13 k €"]},
+        {"id": "dep", "title": "Dépenses", "type": "kpi", "facts": ["Dépenses : 9,1 k €"]},
+        {
+            "id": "cumul",
+            "title": "Solde cumulé",
+            "type": "area",
+            "facts": [
+                "Solde cumulé — période : sem. 27/07 → sem. 26/10 (14 périodes)",
+                "Début : sem. 27/07 — -1,2 k € ; fin : sem. 26/10 — 3,9 k €",
+                "Variation du début à la fin : +5 k €",
+            ],
+        },
+    ],
+}
+
+
+def treasury(**kw: Any) -> SummaryRequest:
+    return SummaryRequest.model_validate({**TREASURY, **kw})
+
+
+def test_an_amount_is_never_taken_for_a_year() -> None:
+    """« 2 050 € » et « 1 950 € » ne sont pas des années : séparateur de milliers ou devise, donc à vérifier."""
+    pool = allowed_numbers(treasury())
+    assert ungrounded("Le loyer atteint 2 050 € en 2026, soit 1 950 € de plus.", pool) == ["2 050", "1 950"]
+    assert ungrounded("Le loyer atteint 2050 € puis 1950 euros.", pool) == ["2050", "1950"]
+    assert ungrounded("Le loyer atteint 2\u202f050\u00a0€.", pool) == ["2\u202f050"]
+    # Une année reste libre : 4 chiffres, sans séparateur ni devise.
+    assert ungrounded("En 2026, les recettes atteignent 13 k €, contre 2025.", pool) == []
+
+
+def test_the_sign_of_a_negative_fact_is_checked() -> None:
+    pool = allowed_numbers(treasury())
+    # Le fait dit « -1,2 k € » : le citer sans signe ni mot de baisse le rend positif.
+    assert ungrounded("Le solde cumulé part de 1,2 k € fin juillet et atteint 3,9 k € fin octobre.", pool) == ["1,2 k"]
+    assert ungrounded("Le solde cumulé part de +1,2 k € fin juillet.", pool) == ["+1,2 k"]
+    assert ungrounded("Le solde cumulé part de -1,2 k € fin juillet et atteint 3,9 k €.", pool) == []
+    assert ungrounded("Le solde cumulé part de −1,2 k € fin juillet.", pool) == []
+    assert ungrounded("Le solde part d'un déficit de 1,2 k € et finit à 3,9 k €.", pool) == []
+    assert ungrounded("Le solde commence sous zéro, à 1,2 k € de retrait.", pool) == []
+    # Un fait positif ne se cite pas avec un signe moins ; son « + » peut manquer.
+    assert ungrounded("Le solde finit à -3,9 k €.", pool) == ["-3,9 k"]
+    assert ungrounded("Le solde gagne 5 k € sur la période.", pool) == []
+    # Tiret d'une date ou d'une période : pas un signe.
+    assert [n.sign for n in numbers("2026-08 → 2026-10")] == ["", "", "", ""]
+
+
+def test_small_integers_are_free_only_as_counts() -> None:
+    pool = allowed_numbers(treasury())
+    assert ungrounded("Les dépenses ont été multipliées par 9 en 3 mois.", pool) == ["9", "3"]
+    assert ungrounded("Les recettes valent 2 fois les dépenses, soit x 2.", pool) == ["2", "2"]
+    assert ungrounded("Les dépenses gagnent 9 € en 2 semaines.", pool) == ["9", "2"]
+    # Dénombrements : toujours libres. Une durée donnée par les faits (« 14 périodes ») est vérifiée comme un chiffre.
+    assert ungrounded("Les 3 cartes et les 2 graphiques de la page couvrent 14 semaines.", pool) == []
+    assert ungrounded("Le solde progresse sur 12 semaines.", pool) == ["12"]
+
+
+def test_summarize_drops_the_three_unverified_sentences() -> None:
+    """Les trois phrases de la relecture : montant « année », signe perdu, multiplication inventée."""
+    reading = {
+        "headline": "Trésorerie : Recettes 13 k €, Dépenses 9,1 k €.",
+        "points": [
+            {"text": "« Dépenses » (9,1 k €) représente 70 % de « Recettes » (13 k €).", "visuals": ["dep", "rec"]}
+        ],
+    }
+    wrong = {
+        "headline": "Les recettes dépassent les dépenses.",
+        "points": [
+            {"text": "Le loyer atteint 2 050 € en 2026, soit 1 950 € de plus.", "visuels": [2]},
+            {"text": "Le solde cumulé part de 1,2 k € fin juillet.", "visuels": [3]},
+            {"text": "Les dépenses ont été multipliées par 9 en 3 mois.", "visuels": [2]},
+            {"text": "Les dépenses pèsent 70 % des recettes.", "visuels": [1, 2]},
+        ],
+    }
+    svc, ollama = service(wrong, wrong)
+    res = asyncio.run(summarize(svc, treasury(reading=reading)))
+    assert len(ollama.calls) == 2
+    assert [p.text for p in res.points if not p.local] == ["Les dépenses pèsent 70\u00a0% des recettes."]
+    assert len([w for w in res.warnings if "non vérifiable" in w]) == 3
+
+
+# --- Page sans lecture calculée : des chiffres recopiés mais exacts valent mieux qu'une erreur -------------------
+
+
+def test_copied_points_are_kept_when_no_computed_reading_can_replace_them() -> None:
+    """Page d'une seule carte (rien à comparer, donc pas de lecture calculée) et modèle qui recopie ses faits."""
+    svc, ollama = service(CARDS, CARDS)
+    res = asyncio.run(summarize(svc, req()))
+    assert len(ollama.calls) == 2  # la relance a bien demandé mieux
+    assert res.local is False and [p.text for p in res.points] == [
+        "Somme de ca : 4,4\u00a0M",
+        "Maximum : mars 2026 — 640\u00a0k",
+    ]
+    assert res.warnings == [
+        "Rien à comparer sur cette page : ses chiffres sont repris tels quels, sans phrase qui les relie."
+    ]
+
+
+def test_copied_points_never_rescue_an_invented_number() -> None:
+    mixed = {"headline": "Vue", "points": [{"text": "Somme de ca : 4,4 M"}, {"text": "Marge : 31 %"}]}
+    svc, _ = service(mixed, mixed)
+    res = asyncio.run(summarize(svc, req()))
+    assert [p.text for p in res.points] == ["Somme de ca : 4,4\u00a0M"]
+    assert any("31\u00a0%" in w and "non vérifiable" in w for w in res.warnings)
+    # Avec une vraie phrase à côté, la recopie reste écartée.
+    both = {"headline": "Vue", "points": [GOOD["points"][1], {"text": "Somme de ca : 4,4 M"}]}
+    svc, _ = service(both, both)
+    res = asyncio.run(summarize(svc, req()))
+    assert len(res.points) == 1 and res.points[0].text.startswith("Mars 2026")
+    assert any("simple recopie" in w for w in res.warnings)
+
+
+def test_route_summarizes_a_single_table_page_whose_facts_are_copied(client: TestClient, override_ai) -> None:
+    """Page « Opérations » (un tableau) : le modèle recopie les faits, la lecture calculée du tableau prend la place."""
+    body = {
+        "report": "Exemple — Studio Garance",
+        "page": "Opérations",
+        "visuals": [
+            {
+                "id": "t",
+                "title": "Opérations",
+                "type": "table",
+                "facts": ["41 lignes", "Total Débit : 9,1 k €", "Total Crédit : 13 k €"],
+            }
+        ],
+    }
+    copied = {
+        "headline": "Opérations",
+        "points": [{"text": "Total Débit : 9,1 k €", "visuels": [1]}, {"text": "41 lignes"}],
+    }
+    # Sans lecture calculée (ancien frontend) : plus de 422, les chiffres exacts sont repris.
+    svc, _ = service(copied, copied)
+    override_ai(svc)
+    res = client.post("/api/ai/summary", json=body)
+    assert res.status_code == 200, res.text
+    assert [p["text"] for p in res.json()["points"]] == ["Total Débit : 9,1\u00a0k €", "41 lignes"]
+    assert res.json()["local"] is False and "repris tels quels" in res.json()["warnings"][0]
+    # Avec la lecture calculée du tableau : c'est elle qui s'affiche.
+    reading = {
+        "headline": "Opérations.",
+        "points": [
+            {
+                "text": "« Opérations » compte 41 lignes ; « Débit » (9,1 k €) y représente 70 % "
+                "de « Crédit » (13 k €).",
+                "visuals": ["t"],
+            }
+        ],
+    }
+    svc, _ = service(copied, copied)
+    override_ai(svc)
+    res = client.post("/api/ai/summary", json={**body, "reading": reading})
+    assert res.status_code == 200, res.text
+    assert res.json()["local"] is True and res.json()["points"][0]["text"].startswith("« Opérations » compte 41 lignes")

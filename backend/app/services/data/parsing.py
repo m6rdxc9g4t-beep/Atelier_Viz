@@ -12,6 +12,7 @@ import logging
 import re
 from collections import Counter
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import PurePath
 from typing import Any
 
@@ -83,6 +84,75 @@ def read_table(filename: str, content: bytes, sheet: str | None = None) -> tuple
     if df.empty or len(df.columns) == 0:
         raise DatasetError("Aucune donnée exploitable dans le fichier.")
     return infer_types(df), fmt
+
+
+@dataclass(frozen=True)
+class SheetRead:
+    """Lecture d'une feuille d'un classeur : ses données typées, ou la raison pour laquelle elle est laissée."""
+
+    name: str
+    df: pd.DataFrame | None = None
+    error: str | None = None
+
+
+def is_workbook(filename: str) -> bool:
+    """Vrai pour un classeur Excel (seul format à plusieurs feuilles ; un CSV n'en a qu'une)."""
+    return PurePath(filename).suffix.lower() == ".xlsx"
+
+
+def sheet_dataset_name(filename: str, sheet: str) -> str:
+    """Nom du jeu tiré d'une feuille : « Classeur — Feuille » (comme les connexions vers un fichier)."""
+    return f"{PurePath(filename).stem} — {sheet.strip() or sheet}"
+
+
+def sheet_dataset_names(filename: str, sheets: Sequence[str]) -> list[str]:
+    """Noms des jeux tirés des feuilles d'un classeur, tous distincts, dans l'ordre des feuilles.
+
+    Deux feuilles qui donneraient le même nom (« Données » et « Données » suivie d'une espace) : la seconde est
+    numérotée, « Classeur — Données (2) ».
+    """
+    names: list[str] = []
+    for sheet in sheets:
+        base = sheet_dataset_name(filename, sheet)
+        name, n = base, 2
+        while name in names:
+            name, n = f"{base} ({n})", n + 1
+        names.append(name)
+    return names
+
+
+def read_sheets(content: bytes, only: Sequence[str] | None = None) -> list[SheetRead]:
+    """Lit les feuilles d'un classeur Excel, dans l'ordre du classeur (`only` : seulement celles-là).
+
+    Le classeur n'est ouvert qu'une fois. Une feuille vide ou illisible (feuille de graphique, cellules
+    fusionnées en vrac…) est rendue avec son `error` : elle ne bloque jamais les autres. Une feuille demandée
+    mais absente du classeur est signalée de même, à la fin. Classeur lui-même illisible : `DatasetError`.
+    """
+    if not content.strip():
+        raise DatasetError("Le fichier est vide.")
+    try:
+        book = pd.ExcelFile(io.BytesIO(content), engine="openpyxl")
+    except Exception as exc:  # noqa: BLE001 — openpyxl / zipfile
+        raise DatasetError(f"Classeur Excel illisible : {exc}") from exc
+    with book:
+        names = [str(n) for n in book.sheet_names]
+        wanted = names if only is None else [n for n in names if n in set(only)]
+        out: list[SheetRead] = []
+        for name in wanted:
+            try:
+                raw = pd.read_excel(book, sheet_name=name, dtype=object, header=None)
+                df = _clean_columns(_sheet_frame(raw))
+                if df.empty or len(df.columns) == 0:
+                    out.append(SheetRead(name, error="Feuille vide : aucune donnée à importer."))
+                else:
+                    out.append(SheetRead(name, df=infer_types(df)))
+            except Exception as exc:  # noqa: BLE001 — pandas / openpyxl lèvent des exceptions très variées
+                logger.warning("Feuille « %s » illisible : %s", name, exc)
+                out.append(SheetRead(name, error=f"Feuille illisible : {exc}"))
+        for name in dict.fromkeys(only or []):
+            if name not in names:
+                out.append(SheetRead(name, error="Feuille absente du classeur."))
+    return out
 
 
 def excel_sheets(content: bytes) -> list[str]:
@@ -193,6 +263,11 @@ def _read_excel(content: bytes, sheet: str | None) -> pd.DataFrame:
     raw = pd.read_excel(
         io.BytesIO(content), sheet_name=sheet if sheet else 0, engine="openpyxl", dtype=object, header=None
     )
+    return _sheet_frame(raw)
+
+
+def _sheet_frame(raw: pd.DataFrame) -> pd.DataFrame:
+    """Cellules brutes d'une feuille → tableau : en-tête repéré, lignes de titre au-dessus ignorées."""
     if raw.empty:
         return raw
     top = header_row(raw.head(SHAPE_ROWS).values.tolist())

@@ -144,6 +144,32 @@ python scripts/standalone/build.py --self-test   # dans un venv Python 3.11+, su
 5. Là où l'on utilise l'IA : **Moteur Auto · Ollama · Claude** et le modèle (Claude : Sonnet, Opus ou Haiku ;
    Ollama : un modèle installé), mémorisés. « Auto » prend Claude en ligne quand il est disponible, sinon Ollama.
 
+#### Sur un serveur : le jeton du forfait (`CLAUDE_OAUTH_TOKEN`)
+
+Sur un serveur (VPS, conteneur), personne n'a fait `claude auth login` : il n'y a pas de session à lire. Claude
+passe alors par la même CLI isolée, authentifiée par le **jeton de votre forfait** — usage personnel : c'est votre
+abonnement Pro ou Max qui sert, pas une clé API.
+
+1. Sur votre ordinateur, Claude Code connecté à votre compte : `claude setup-token`. Il affiche un jeton
+   `sk-ant-oat01-…` valable un an.
+2. Sur le serveur, donnez-le au processus d'Atelier Viz par la **variable d'environnement** `CLAUDE_OAUTH_TOKEN`
+   (`environment:` du service, jamais `backend/.env` : il n'y est pas lu), puis redémarrez. La CLI Claude Code doit
+   être installée sur le serveur (dans l'image) ; si elle n'est pas dans le `PATH`, `CLAUDE_CLI=/chemin/absolu/claude`.
+3. Passez **En ligne** : le voyant « Claude » s'allume, les Réglages disent « Forfait Claude, par jeton ».
+
+| Règle | Détail |
+|---|---|
+| Priorité | Jeton renseigné → Claude = la CLI par jeton, **quel que soit `CLAUDE_MODE`**, même si `ANTHROPIC_API_KEY` est renseignée (la clé n'est alors pas utilisée, et jamais transmise à la CLI). Sans jeton, rien ne change. |
+| Isolation | Exactement les mêmes options que sur un ordinateur (aucun outil, dossier de travail vide, données sur l'entrée standard). Seules différences : `CLAUDE_CODE_OAUTH_TOKEN` dans l'environnement de la CLI, et `HOME` / `CLAUDE_CONFIG_DIR` vers un dossier privé, `<DATA_DIR>/claude-forfait/` (créé au besoin, droits 700). |
+| Le jeton | Lu une fois au démarrage puis retiré de l'environnement du processus : aucun autre sous-processus n'en hérite. Jamais dans une réponse, une erreur, un journal, un argument de ligne de commande ni un fichier. |
+| Disponibilité | CLI trouvée + jeton présent (pas de `claude auth status`). Hors ligne, Claude est refusé (403) et la CLI n'est pas lancée. |
+| Jeton refusé ou expiré | « refaites `claude setup-token` et mettez à jour le jeton du serveur » ; Claude s'éteint (« Auto » passe par Ollama) jusqu'à « Revérifier » ou au redémarrage avec le nouveau jeton. |
+| Limites | Celles de votre forfait, **partagées entre toutes les applications de la suite** qui utilisent ce jeton (et avec votre propre usage de Claude). Limite atteinte : le message de Claude Code est repris, réessayez plus tard ou choisissez Ollama. |
+
+Le serveur garde ce que tout processus garde de son lancement : la variable reste visible de l'administrateur de la
+machine (`docker inspect`, `/proc/<pid>/environ`). Ne partagez pas l'accès au serveur ; au moindre doute, remplacez
+le jeton.
+
 Les données vivent dans `backend/data/` (base DuckDB, rapports JSON, réglages, connexions, planifications
 `schedules.json`, alertes `alerts.json`, dépôt GitHub `github.json`) : sauvegardez ce dossier.
 
@@ -212,6 +238,13 @@ pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (
                                                # snowflake-connector-python, google-cloud-bigquery
 ```
 
+**Sur un serveur** (image Docker, VPS) : installer `requirements-connectors.txt` en entier dans l'image, après
+`requirements.txt`. Des roues binaires existent pour Linux x86_64 et arm64 (Python 3.12 et 3.13) : aucun paquet
+système à ajouter (FreeTDS et libpq sont dans les roues). Tant qu'un pilote manque, la fenêtre le dit (« Pilote absent
+sur le serveur d'Atelier Viz ») sans demander de lancer `pip` sur son ordinateur. Sur un serveur toujours,
+« Fichier synchronisé », SQLite et Atelier Tab lisent un dossier **du serveur** (la fenêtre l'explique) : un fichier de
+son poste se dépose dans Données, un fichier OneDrive ou SharePoint se lit par « SharePoint Online » ou « Fichier web (URL) ».
+
 | Source | À savoir |
 |---|---|
 | SQL Server / Azure SQL | Serveur `sql01.entreprise.local` ou instance `serveur\INSTANCE` ; compte SQL ou Windows `DOMAINE\utilisateur` ; cocher « chiffrement » pour Azure SQL. Sur Mac, pymssql s'installe sur macOS 14 ou plus récent. |
@@ -219,7 +252,7 @@ pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (
 | SQLite | Chemin du fichier `.db`, ouvert en lecture seule. |
 | Snowflake | Mode « En ligne » requis. Compte (`organisation-compte`), base, entrepôt, rôle en lecture seule conseillé, utilisateur et mot de passe. |
 | Google BigQuery | Mode « En ligne » requis. Projet et clé JSON d'un compte de service (BigQuery Data Viewer + Job User). Plafond de Go lus par requête (10 Go par défaut) : une requête trop coûteuse échoue sans être facturée. |
-| Fichier synchronisé | CSV, Excel (choix de la feuille) ou JSON d'un dossier **OneDrive / SharePoint / Teams synchronisé** (sur Mac : `~/Library/CloudStorage/OneDrive-<Entreprise>/…`) ou d'un partage réseau. Fonctionne hors ligne. |
+| Fichier synchronisé | CSV, Excel (choix de la feuille, ou « Importer plusieurs feuilles… » : un jeu par feuille) ou JSON d'un dossier **OneDrive / SharePoint / Teams synchronisé** (sur Mac : `~/Library/CloudStorage/OneDrive-<Entreprise>/…`) ou d'un partage réseau. Fonctionne hors ligne. |
 | Fichier web (URL) | CSV, Excel ou JSON à une adresse http(s) : données ouvertes, export publié, serveur interne ; jeton facultatif rangé au trousseau. Hors ligne : serveurs de la machine ou du réseau de l'entreprise seulement. |
 | SharePoint Online | Fichier d'une bibliothèque (lien « Copier le lien ») ou **liste** SharePoint, avec votre compte Microsoft 365. Mode « En ligne » requis. |
 
@@ -229,13 +262,20 @@ pip install -r requirements-connectors.txt     # pymssql (SQL Server), psycopg (
 
 ### Activer SharePoint Online (une fois, par l'administrateur Microsoft 365)
 
-1. [portal.azure.com](https://portal.azure.com) → **Microsoft Entra ID → Inscriptions d'applications → Nouvelle inscription** : « Atelier Viz », comptes de cet annuaire uniquement.
-2. **Authentification → Paramètres avancés → Autoriser les flux de clients publics : Oui.**
-3. **Autorisations d'API → Microsoft Graph → Autorisations déléguées** : `Sites.Read.All`, `Files.Read.All` (+ `User.Read`, `offline_access`) ; accorder le consentement administrateur si l'entreprise l'exige.
-4. Copier l'**ID d'application (client)** dans `backend/.env` : `SHAREPOINT_CLIENT_ID=…` et `SHAREPOINT_TENANT=entreprise.fr`, puis relancer `uvicorn`.
-5. Passer en **En ligne**, créer une connexion SharePoint, **Se connecter à Microsoft 365** : saisir le code affiché sur microsoft.com/devicelogin.
+Tout se fait dans la fenêtre : **Se connecter à une source → SharePoint Online → Application Entra ID** affiche ces
+étapes et enregistre les deux identifiants (aucun secret : une application « client public » n'en a pas).
 
-Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichier synchronisé** (bouton « Synchroniser » ou « Ajouter un raccourci à Mes fichiers » dans SharePoint).
+1. [entra.microsoft.com](https://entra.microsoft.com) → **Applications → Inscriptions d'applications → Nouvelle inscription** : « Atelier Viz », « Comptes dans cet annuaire d'organisation uniquement » (locataire unique), URI de redirection vide.
+2. **Authentification → Paramètres avancés → Autoriser les flux de clients publics : Oui** (connexion par code d'appareil, sans secret client).
+3. **API autorisées → Ajouter une autorisation → Microsoft Graph → Autorisations déléguées** : `Sites.Read.All`, `Files.Read.All`, `User.Read`, `offline_access` ; accorder le consentement d'administrateur si l'entreprise l'exige.
+4. Page **Vue d'ensemble** : recopier l'**ID d'application (client)** et l'**ID de l'annuaire (locataire)** dans la fenêtre, puis « Enregistrer l'application » (rangés dans `data/sharepoint.json` ; ils servent à toutes les connexions SharePoint).
+5. Passer en **En ligne**, enregistrer la connexion SharePoint, **Se connecter à Microsoft 365** : saisir le code affiché sur microsoft.com/devicelogin.
+
+`SHAREPOINT_CLIENT_ID` et `SHAREPOINT_TENANT` (dans `backend/.env` ou l'environnement du serveur) restent possibles :
+l'application saisie dans la fenêtre les remplace, et une connexion peut avoir la sienne (« Autre application pour
+cette connexion seulement »). Changer d'application déconnecte les connexions qui s'en servaient.
+
+Sans application Entra ID, un fichier SharePoint se lit quand même via **Fichier synchronisé** (bouton « Synchroniser » ou « Ajouter un raccourci à Mes fichiers » dans SharePoint) sur son ordinateur, ou via **Fichier web (URL)** avec un lien de partage.
 
 ## Dans le Studio
 

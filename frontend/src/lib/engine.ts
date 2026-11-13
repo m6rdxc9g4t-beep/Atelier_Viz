@@ -32,6 +32,28 @@ export function respondingEngine(provider: ProviderChoice, online: boolean, clau
   return "ollama";
 }
 
+const ENGINE_CHOICE = "Le moteur (Auto · Ollama · Claude) se choisit là où l'on utilise l'IA ; « Auto » prend Claude en ligne quand il est disponible, sinon Ollama.";
+
+/**
+ * Par où Claude répond, dit sous la liste des moteurs (Réglages). Avec le jeton du forfait (serveur, `access = "token"`),
+ * la note dit d'où il vient et ce qu'il engage ; le jeton lui-même n'arrive jamais jusqu'à l'interface.
+ */
+export function claudeAccessNote(claude: ProviderStatus | undefined): string {
+  if (claude?.access === "token") {
+    return `Claude passe par la CLI Claude Code avec le jeton de votre forfait (variable CLAUDE_OAUTH_TOKEN du serveur, créé par « claude setup-token », valable un an) : ni clé API, ni facturation à l'usage. Le jeton n'est jamais affiché ni enregistré par Atelier Viz. Les limites sont celles de votre forfait, partagées avec les autres applications de la suite. ${ENGINE_CHOICE}`;
+  }
+  return `Claude passe par la CLI Claude Code connectée à votre abonnement (CLAUDE_MODE=cli dans backend/.env ; exécutable cherché dans CLAUDE_CLI, le PATH, ~/.local/bin, /opt/homebrew/bin et /usr/local/bin), ou par l'API avec une clé (CLAUDE_MODE=api). ${ENGINE_CHOICE}`;
+}
+
+/**
+ * Ce que dit le sélecteur quand le moteur qui répondrait est indisponible. Avec le jeton du forfait, la raison est
+ * une consigne (jeton refusé ou expiré, CLI absente du serveur) : elle est dite sur place plutôt que renvoyée aux Réglages.
+ */
+export function engineDownMessage(label: string, status: ProviderStatus | undefined): string {
+  if (status?.access === "token" && status.detail) return status.detail;
+  return `${label} n'est pas disponible (voir Réglages).`;
+}
+
 /** Modèles Ollama proposés : installés, plus le modèle choisi s'il manque (affiché « non installé »). */
 export function ollamaChoices(ollama: ProviderStatus | undefined, chosen: string | null): { value: string; label: string; missing: boolean }[] {
   const installed = ollama?.models ?? [];
