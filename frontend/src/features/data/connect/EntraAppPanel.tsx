@@ -96,7 +96,8 @@ export function useEntraApp(enabled: boolean, onChanged?: () => void): EntraAppS
     await put("", "", "Réglage effacé.");
   };
 
-  const dirty = !!app && (clientId.trim().toLowerCase() !== (app.client_id ?? "") || tenant.trim() !== (app.tenant ?? ""));
+  // Un GUID s'écrit en majuscules ou en minuscules (l'environnement du serveur le donne tel quel) : même identifiant.
+  const dirty = !!app && (clientId.trim().toLowerCase() !== (app.client_id ?? "").toLowerCase() || tenant.trim() !== (app.tenant ?? ""));
   return { app, clientId, tenant, setClientId: edit(setClientIdRaw), setTenant: edit(setTenantRaw), dirty, saving, error, notice, save, clear };
 }
 

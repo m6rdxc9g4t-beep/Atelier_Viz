@@ -104,11 +104,14 @@ describe("connexion SharePoint : l'application Entra ID se renseigne dans la fen
   });
 
   it("application fournie par le serveur : dite, étapes repliées, remplaçable ; « Effacer » seulement pour celle saisie ici", async () => {
-    stored = { client_id: APP, tenant: "contoso.fr", source: "environment" };
+    const fromEnv = "ABCDEF12-2222-3333-4444-555555555555"; // l'environnement donne l'identifiant tel quel, majuscules comprises
+    stored = { client_id: fromEnv, tenant: "contoso.fr", source: "environment" };
     render(<Form kind="sharepoint" />);
     const panel = await screen.findByRole("region", { name: "Application Entra ID" });
     expect(await within(panel).findByText("Fournie par le serveur (SHAREPOINT_CLIENT_ID)")).toBeInTheDocument();
-    expect(within(panel).getByLabelText("ID d'application (client)")).toHaveValue(APP);
+    expect(within(panel).getByLabelText("ID d'application (client)")).toHaveValue(fromEnv);
+    // Rien n'a été saisi : rien à enregistrer, et la connexion ne recopiera pas l'application du serveur.
+    expect(within(panel).getByRole("button", { name: "Enregistrer l'application" })).toBeDisabled();
     expect(panel.querySelector("details")).not.toHaveAttribute("open");
     expect(within(panel).queryByRole("button", { name: "Effacer" })).toBeNull();
 
